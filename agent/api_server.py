@@ -327,7 +327,13 @@ async def require_auth(
 ) -> None:
     """JWT login. Token from Authorization header or ?jwt= query param.
     Returns the decoded JWT payload dict: {user_id, username, role, token_version}.
+    Local loopback clients are exempt when no API_AUTH_KEY is configured (dev mode).
     """
+    # Dev mode: allow local loopback / test clients without auth
+    api_key = os.getenv("API_AUTH_KEY", "")
+    if not api_key and _is_local_client(request):
+        return None
+
     token = (cred.credentials if cred and cred.credentials else "") or (jwt or "")
     if token:
         try:
