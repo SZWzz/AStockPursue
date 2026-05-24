@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { BarChart3, Sparkles, MessageSquare } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { CorrelationMatrix } from "@/components/charts/CorrelationMatrix";
+import { StockInput } from "@/components/indicator-lab/StockInput";
 import { api } from "@/lib/api";
 
 const STORAGE_KEY = "vr_correlation_result";
@@ -42,9 +43,7 @@ export function Correlation() {
     setError(null);
     setLoading(true);
     try {
-      const result = await request<{ labels: string[]; matrix: number[][] }>(
-        `/correlation?codes=${encodeURIComponent(codes)}&days=${days}&method=${method}`
-      );
+      const result = await api.getCorrelation({ codes, days, method });
       setLabels(result.labels);
       setMatrix(result.matrix);
       // Persist to localStorage
@@ -76,11 +75,11 @@ export function Correlation() {
       const session = await api.createSession(`相关性分析: ${codes}`);
       // We get back { session_id } — now send the message
       await api.sendMessage(session.session_id, content);
-      setSessionMsg("已保存到会话");
+      setSessionMsg(t.correlationSavedToSession);
       // Navigate to agent with this session
       navigate(`/?session=${session.session_id}`);
     } catch (e) {
-      setSessionMsg(`保存失败: ${e}`);
+      setSessionMsg(`${t.correlationSaveFailed}: ${e}`);
     } finally {
       setSavingSession(false);
     }
@@ -107,8 +106,8 @@ export function Correlation() {
       <div className="flex flex-col gap-4 border rounded-lg p-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium">{t.selectAssets || "Asset codes"}</label>
-          <input type="text" value={codes} onChange={(e) => setCodes(e.target.value)} placeholder="600519.SH, 000001.SZ, BTC-USDT, AAPL" className="w-full px-3 py-2 rounded-md border bg-background text-sm" />
-          <p className="text-xs text-muted-foreground">A股：600519.SH / 000001.SZ，美股：AAPL，港股：0700.HK，加密货币：BTC-USDT</p>
+          <StockInput value={codes} onChange={setCodes} placeholder="600519.SH, 000001.SZ, BTC-USDT, AAPL" multi />
+          <p className="text-xs text-muted-foreground">{t.correlationHint}</p>
         </div>
 
         <div className="flex flex-wrap gap-4">
@@ -116,7 +115,7 @@ export function Correlation() {
             <label className="text-sm font-medium">{t.windowLabel || "Window (days)"}</label>
             <div className="flex gap-1.5">
               {WINDOWS.map((w) => (
-                <button key={w} onClick={() => setDays(w)} className={`px-3 py-1.5 rounded text-sm border transition-colors ${days === w ? "bg-primary text-primary-foreground" : "border-muted-foreground/30 hover:border-primary"}`}>{w}d</button>
+                <button key={w} onClick={() => setDays(w)} aria-pressed={days === w} className={`px-3 py-1.5 rounded text-sm border transition-colors ${days === w ? "bg-primary text-primary-foreground" : "border-muted-foreground/30 hover:border-primary"}`}>{w}d</button>
               ))}
             </div>
           </div>
@@ -124,7 +123,7 @@ export function Correlation() {
             <label className="text-sm font-medium">{t.methodLabel || "Method"}</label>
             <div className="flex gap-1.5">
               {(["pearson", "spearman"] as const).map((m) => (
-                <button key={m} onClick={() => setMethod(m)} className={`px-3 py-1.5 rounded text-sm border transition-colors capitalize ${method === m ? "bg-primary text-primary-foreground" : "border-muted-foreground/30 hover:border-primary"}`}>{m}</button>
+                <button key={m} onClick={() => setMethod(m)} aria-pressed={method === m} className={`px-3 py-1.5 rounded text-sm border transition-colors capitalize ${method === m ? "bg-primary text-primary-foreground" : "border-muted-foreground/30 hover:border-primary"}`}>{m}</button>
               ))}
             </div>
           </div>
@@ -142,10 +141,10 @@ export function Correlation() {
           <CorrelationMatrix labels={labels} matrix={matrix} height={520} />
           <div className="flex items-center gap-3">
             <button onClick={aiAnalyze} className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition">
-              <Sparkles className="h-4 w-4" />AI 分析相关性
+              <Sparkles className="h-4 w-4" />{t.correlationAIAnalyze}
             </button>
             <button onClick={saveToChat} disabled={savingSession} className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition disabled:opacity-50">
-              <MessageSquare className="h-4 w-4" />{savingSession ? "保存中..." : "保存到会话"}
+              <MessageSquare className="h-4 w-4" />{savingSession ? (t.llmSaving || "Saving...") : t.correlationSaveToSession}
             </button>
             {sessionMsg && <span className="text-xs text-muted-foreground">{sessionMsg}</span>}
           </div>
@@ -153,16 +152,4 @@ export function Correlation() {
       )}
     </div>
   );
-}
-
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const BASE = "";
-  const res = await fetch(`${BASE}${path}`, { headers: { "Content-Type": "application/json", ...options?.headers }, ...options });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try { const body = await res.json(); detail = body.detail || body.message || detail; } catch { /* ignore */ }
-    throw new Error(detail);
-  }
-  const text = await res.text();
-  return text ? JSON.parse(text) : ({} as T);
 }

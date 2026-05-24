@@ -125,6 +125,16 @@ export const api = {
     }),
   alphaBenchStreamUrl: (jobId: string) =>
     withAuthQuery(`${BASE}/alpha/bench/${encodeURIComponent(jobId)}/stream`),
+
+  // Admin / User management
+  listUsers: () => request<{ users: Array<{ id: number; username: string; email: string; role: string; created_at: string; llm_provider: string; llm_model: string; tushare_configured: boolean }> }>("/admin/users"),
+  deleteUser: (id: number) => request<{ status: string }>(`/admin/users/${id}`, { method: "DELETE" }),
+
+  // Correlation
+  getCorrelation: (params: { codes: string; days: number; method: string }) => {
+    const q = `codes=${encodeURIComponent(params.codes)}&days=${params.days}&method=${params.method}`;
+    return request<{ labels: string[]; matrix: number[][] }>(`/correlation?${q}`);
+  },
 };
 
 // --- Swarm types ---

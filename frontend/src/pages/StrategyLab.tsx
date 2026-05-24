@@ -1,16 +1,28 @@
-import { useCallback, useEffect, useState } from "react";
-import { Code, Save, Trash2, Plus, BarChart3, Target } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  Code, Save, Trash2, Plus, BarChart3, Target, Sparkles, Play, CheckSquare,
+  Square, Layers, Clock, Activity, X, Bell,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { authHeaders } from "@/lib/apiAuth";
 import { CodeEditor } from "@/components/indicator-lab/CodeEditor";
 import { StrategyBacktestPanel } from "@/components/indicator-lab/StrategyBacktestPanel";
+import { TemplateBrowser, type TemplateItem } from "@/components/indicator-lab/TemplateBrowser";
+import { StrategyVerifyPanel } from "@/components/indicator-lab/StrategyVerifyPanel";
+import type { QualityHint } from "@/components/indicator-lab/types";
 
 const API_BASE = "/strategy-lab";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json", ...authHeaders() as Record<string, string> };
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers: { ...headers, ...(options?.headers as Record<string, string> || {}) } });
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(authHeaders() as Record<string, string>),
+  };
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...options,
+    headers: { ...headers, ...((options?.headers as Record<string, string>) || {}) },
+  });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.detail || `HTTP ${res.status}`);
@@ -60,9 +72,581 @@ interface StrategyInfo {
   id: string;
   name: string;
   description: string;
+  param_count: number;
   created_at: string;
   updated_at: string;
 }
+
+interface BacktestHistoryEntry {
+  id: string;
+  symbols: string;
+  startDate: string;
+  endDate: string;
+  runId: string;
+  timestamp: string;
+}
+
+interface RuntimeLog {
+  timestamp: string;
+  level: "info" | "warn" | "error";
+  message: string;
+}
+
+interface SignalNotification {
+  id: string;
+  symbol: string;
+  side: "buy" | "sell";
+  price: number;
+  timestamp: string;
+  read: boolean;
+  reason: string;
+}
+
+// ── Templates embedded ────────────────────────────────────────────────────────
+
+const STRATEGY_TEMPLATES: TemplateItem[] = [
+  {
+    key: "ma_crossover",
+    name: "Dual MA Crossover",
+    description: "Classic dual moving average crossover — go long on golden cross, short on death cross.",
+    category: "trend",
+    difficulty: "beginner",
+    tags: ["MA", "crossover", "trend"],
+  },
+  {
+    key: "macd_trend",
+    name: "MACD Trend Following",
+    description: "MACD line vs signal line crossover with histogram confirmation for trend entries.",
+    category: "trend",
+    difficulty: "beginner",
+    tags: ["MACD", "trend", "momentum"],
+  },
+  {
+    key: "supertrend",
+    name: "SuperTrend ATR",
+    description: "ATR-based trailing stop strategy — flip long/short when price crosses the SuperTrend band.",
+    category: "trend",
+    difficulty: "intermediate",
+    tags: ["ATR", "trailing", "trend"],
+  },
+  {
+    key: "rsi_reversal",
+    name: "RSI Mean Reversion",
+    description: "Buy when RSI drops below oversold threshold, sell when above overbought. Classic mean reversion.",
+    category: "reversal",
+    difficulty: "beginner",
+    tags: ["RSI", "mean-reversion", "oscillator"],
+  },
+  {
+    key: "bollinger_reversal",
+    name: "Bollinger Band Reversal",
+    description: "Fade extremes — go long at lower band, short at upper band with volatility-adjusted sizing.",
+    category: "reversal",
+    difficulty: "beginner",
+    tags: ["Bollinger", "mean-reversion", "volatility"],
+  },
+  {
+    key: "kdj_extreme",
+    name: "KDJ Extreme Zones",
+    description: "KDJ indicator overbought/oversold strategy with golden/death cross confirmation.",
+    category: "reversal",
+    difficulty: "intermediate",
+    tags: ["KDJ", "oscillator", "extreme"],
+  },
+  {
+    key: "grid_trading",
+    name: "Grid Trading",
+    description: "Place buy/sell orders at predetermined price intervals — profit from sideways chop.",
+    category: "grid",
+    difficulty: "intermediate",
+    tags: ["grid", "range", "automation"],
+  },
+  {
+    key: "pair_arbitrage",
+    name: "Pairs Trading",
+    description: "Statistical arbitrage — trade the spread between two correlated assets when it deviates.",
+    category: "arbitrage",
+    difficulty: "advanced",
+    tags: ["pairs", "spread", "cointegration"],
+  },
+  {
+    key: "multi_factor_momentum",
+    name: "Multi-Factor Momentum",
+    description: "Combine momentum, volatility, and volume factors with IC-weighted signal blending.",
+    category: "multiFactor",
+    difficulty: "advanced",
+    tags: ["multi-factor", "momentum", "IC"],
+  },
+  {
+    key: "risk_parity",
+    name: "Risk Parity Portfolio",
+    description: "Allocate capital inversely proportional to asset volatility — equal risk contribution.",
+    category: "multiFactor",
+    difficulty: "advanced",
+    tags: ["risk-parity", "portfolio", "allocation"],
+  },
+];
+
+const TEMPLATE_CODE_MAP: Record<string, string> = {
+  ma_crossover: `"""
+Dual MA Crossover Signal Engine.
+"""
+import pandas as pd
+import numpy as np
+from typing import Dict
+
+
+class SignalEngine:
+    """Dual moving average crossover strategy."""
+
+    def __init__(self):
+        self.fast = 10
+        self.slow = 30
+
+    def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
+        signal_map: Dict[str, pd.Series] = {}
+
+        for code, df in data_map.items():
+            if len(df) < self.slow:
+                continue
+            fast_ma = df["close"].rolling(self.fast).mean()
+            slow_ma = df["close"].rolling(self.slow).mean()
+            signal = pd.Series(0.0, index=df.index)
+            # Golden cross → long
+            golden = (fast_ma > slow_ma) & (fast_ma.shift(1) <= slow_ma.shift(1))
+            death = (fast_ma < slow_ma) & (fast_ma.shift(1) >= slow_ma.shift(1))
+            signal[golden.fillna(False)] = 1.0
+            signal[death.fillna(False)] = -1.0
+            signal_map[code] = signal
+
+        return signal_map
+`,
+  macd_trend: `"""
+MACD Trend Following Signal Engine.
+"""
+import pandas as pd
+import numpy as np
+from typing import Dict
+
+
+class SignalEngine:
+    """MACD crossover with histogram confirmation."""
+
+    def __init__(self):
+        self.fast = 12
+        self.slow = 26
+        self.signal_period = 9
+
+    def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
+        signal_map: Dict[str, pd.Series] = {}
+
+        for code, df in data_map.items():
+            if len(df) < self.slow + self.signal_period:
+                continue
+            ema_fast = df["close"].ewm(span=self.fast, adjust=False).mean()
+            ema_slow = df["close"].ewm(span=self.slow, adjust=False).mean()
+            macd = ema_fast - ema_slow
+            signal_line = macd.ewm(span=self.signal_period, adjust=False).mean()
+            histogram = macd - signal_line
+
+            sig = pd.Series(0.0, index=df.index)
+            cross_up = (macd > signal_line) & (macd.shift(1) <= signal_line.shift(1))
+            cross_down = (macd < signal_line) & (macd.shift(1) >= signal_line.shift(1))
+            sig[cross_up.fillna(False) & (histogram > 0)] = 1.0
+            sig[cross_down.fillna(False) & (histogram < 0)] = -1.0
+            signal_map[code] = sig
+
+        return signal_map
+`,
+  rsi_reversal: `"""
+RSI Mean Reversion Signal Engine.
+"""
+import pandas as pd
+import numpy as np
+from typing import Dict
+
+
+class SignalEngine:
+    """RSI oversold/overbought mean reversion."""
+
+    def __init__(self):
+        self.period = 14
+        self.oversold = 30
+        self.overbought = 70
+
+    def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
+        signal_map: Dict[str, pd.Series] = {}
+
+        for code, df in data_map.items():
+            if len(df) < self.period:
+                continue
+            delta = df["close"].diff()
+            gain = delta.where(delta > 0, 0.0)
+            loss = (-delta).where(delta < 0, 0.0)
+            avg_gain = gain.rolling(self.period).mean()
+            avg_loss = loss.rolling(self.period).mean()
+            rs = avg_gain / avg_loss.replace(0, np.nan)
+            rsi = 100.0 - (100.0 / (1.0 + rs))
+
+            sig = pd.Series(0.0, index=df.index)
+            sig[rsi < self.oversold] = 0.8
+            sig[rsi > self.overbought] = -0.8
+            signal_map[code] = sig
+
+        return signal_map
+`,
+  bollinger_reversal: `"""
+Bollinger Band Mean Reversion Signal Engine.
+"""
+import pandas as pd
+import numpy as np
+from typing import Dict
+
+
+class SignalEngine:
+    """Fade Bollinger Band extremes."""
+
+    def __init__(self):
+        self.period = 20
+        self.std_dev = 2.0
+
+    def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
+        signal_map: Dict[str, pd.Series] = {}
+
+        for code, df in data_map.items():
+            if len(df) < self.period:
+                continue
+            mid = df["close"].rolling(self.period).mean()
+            std = df["close"].rolling(self.period).std()
+            upper = mid + self.std_dev * std
+            lower = mid - self.std_dev * std
+
+            sig = pd.Series(0.0, index=df.index)
+            below = df["close"] < lower
+            above = df["close"] > upper
+            sig[below.fillna(False)] = 0.6
+            sig[above.fillna(False)] = -0.6
+            signal_map[code] = sig
+
+        return signal_map
+`,
+  grid_trading: `"""
+Grid Trading Signal Engine — places orders at fixed price intervals.
+"""
+import pandas as pd
+import numpy as np
+from typing import Dict
+
+
+class SignalEngine:
+    """Grid trading strategy for sideways markets."""
+
+    def __init__(self):
+        self.grid_levels = 5
+        self.grid_spacing_pct = 0.02  # 2% between grid lines
+
+    def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
+        signal_map: Dict[str, pd.Series] = {}
+
+        for code, df in data_map.items():
+            if len(df) < 50:
+                continue
+            mid_price = df["close"].iloc[-1]
+            sig = pd.Series(0.0, index=df.index)
+            current = df["close"].iloc[-1]
+
+            for i in range(1, self.grid_levels + 1):
+                buy_price = mid_price * (1 - self.grid_spacing_pct * i)
+                sell_price = mid_price * (1 + self.grid_spacing_pct * i)
+                if current <= buy_price:
+                    sig.iloc[-1] = min(1.0, sig.iloc[-1] + 0.2)
+                if current >= sell_price:
+                    sig.iloc[-1] = max(-1.0, sig.iloc[-1] - 0.2)
+
+            signal_map[code] = sig
+
+        return signal_map
+`,
+  pair_arbitrage: `"""
+Pairs Trading Signal Engine — trade cointegrated spread.
+"""
+import pandas as pd
+import numpy as np
+from typing import Dict
+
+
+class SignalEngine:
+    """Statistical arbitrage via z-score on pair spread."""
+
+    def __init__(self):
+        self.lookback = 60
+        self.entry_z = 2.0
+        self.exit_z = 0.5
+
+    def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
+        signal_map: Dict[str, pd.Series] = {}
+        codes = list(data_map.keys())
+        if len(codes) < 2:
+            return signal_map
+
+        a, b = codes[0], codes[1]
+        df_a = data_map[a]
+        df_b = data_map[b]
+        common_len = min(len(df_a), len(df_b))
+        if common_len < self.lookback:
+            return signal_map
+
+        spread = df_a["close"].iloc[-common_len:] - df_b["close"].iloc[-common_len:]
+        z_score = (spread - spread.rolling(self.lookback).mean()) / spread.rolling(self.lookback).std()
+
+        sig_a = pd.Series(0.0, index=df_a.index)
+        sig_b = pd.Series(0.0, index=df_b.index)
+
+        if abs(z_score.iloc[-1]) > self.entry_z:
+            if z_score.iloc[-1] > 0:
+                sig_a.iloc[-1] = -0.5
+                sig_b.iloc[-1] = 0.5
+            else:
+                sig_a.iloc[-1] = 0.5
+                sig_b.iloc[-1] = -0.5
+
+        signal_map[a] = sig_a
+        signal_map[b] = sig_b
+        return signal_map
+`,
+  multi_factor_momentum: `"""
+Multi-Factor Momentum Signal Engine — IC-weighted factor blend.
+"""
+import pandas as pd
+import numpy as np
+from typing import Dict
+
+
+class SignalEngine:
+    """Combine momentum, volatility, and volume factors."""
+
+    def __init__(self):
+        self.mom_period = 20
+        self.vol_period = 20
+        self.vol_period_short = 60
+
+    def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
+        signal_map: Dict[str, pd.Series] = {}
+
+        for code, df in data_map.items():
+            if len(df) < self.vol_period_short:
+                continue
+
+            mom = df["close"].pct_change(self.mom_period).iloc[-1]
+            mom_signal = np.clip(mom * 5, -1, 1)
+
+            returns = df["close"].pct_change().dropna()
+            recent_vol = returns.iloc[-self.vol_period:].std()
+            hist_vol = returns.iloc[-self.vol_period_short:].std()
+            vol_signal = np.clip((hist_vol - recent_vol) / hist_vol, -1, 1) if hist_vol > 0 else 0
+
+            avg_vol = df["volume"].iloc[-self.vol_period_short:].mean()
+            recent_vol_amt = df["volume"].iloc[-5:].mean()
+            vol_ratio = recent_vol_amt / avg_vol if avg_vol > 0 else 1
+            vol_signal_amt = np.clip((vol_ratio - 1) * np.sign(mom), -1, 1)
+
+            composite = (0.4 * mom_signal + 0.3 * vol_signal + 0.3 * vol_signal_amt)
+            sig = pd.Series(0.0, index=df.index)
+            sig.iloc[-1] = composite
+            signal_map[code] = sig
+
+        return signal_map
+`,
+  risk_parity: `"""
+Risk Parity Signal Engine — inverse-volatility allocation.
+"""
+import pandas as pd
+import numpy as np
+from typing import Dict
+
+
+class SignalEngine:
+    """Allocate capital inversely proportional to each asset's volatility."""
+
+    def __init__(self):
+        self.vol_lookback = 60
+        self.target_vol = 0.15  # 15% annualized
+
+    def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
+        signal_map: Dict[str, pd.Series] = {}
+        vols: Dict[str, float] = {}
+
+        for code, df in data_map.items():
+            if len(df) < self.vol_lookback:
+                continue
+            returns = df["close"].pct_change().dropna().iloc[-self.vol_lookback:]
+            vols[code] = returns.std() * np.sqrt(252)
+
+        if not vols:
+            return signal_map
+
+        inv_vol_sum = sum(1.0 / max(v, 0.01) for v in vols.values())
+        for code, vol in vols.items():
+            df = data_map[code]
+            weight = (1.0 / max(vol, 0.01)) / inv_vol_sum if inv_vol_sum > 0 else 0
+            weight = weight * (self.target_vol / vol) if vol > 0 else weight
+            weight = np.clip(weight, -1.0, 1.0)
+            sig = pd.Series(weight, index=df.index)
+            signal_map[code] = sig
+
+        return signal_map
+`,
+};
+
+const KDJ_TEMPLATE_CODE = `"""
+KDJ Extreme Zones Signal Engine.
+"""
+import pandas as pd
+import numpy as np
+from typing import Dict
+
+
+class SignalEngine:
+    """KDJ overbought/oversold with golden/death cross confirmation."""
+
+    def __init__(self):
+        self.period = 9
+        self.signal_period = 3
+
+    def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
+        signal_map: Dict[str, pd.Series] = {}
+
+        for code, df in data_map.items():
+            if len(df) < self.period + self.signal_period:
+                continue
+            low_min = df["low"].rolling(self.period).min()
+            high_max = df["high"].rolling(self.period).max()
+            rsv = ((df["close"] - low_min) / (high_max - low_min).replace(0, np.nan)) * 100
+            k = rsv.ewm(span=self.signal_period, adjust=False).mean()
+            d = k.ewm(span=self.signal_period, adjust=False).mean()
+
+            sig = pd.Series(0.0, index=df.index)
+            gold_cross = (k > d) & (k.shift(1) <= d.shift(1))
+            death_cross = (k < d) & (k.shift(1) >= d.shift(1))
+            sig[(k < 20) & gold_cross.fillna(False)] = 0.7
+            sig[(k > 80) & death_cross.fillna(False)] = -0.7
+            signal_map[code] = sig
+
+        return signal_map
+`;
+
+const SUPERTREND_TEMPLATE_CODE = `"""
+SuperTrend ATR Signal Engine.
+"""
+import pandas as pd
+import numpy as np
+from typing import Dict
+
+
+class SignalEngine:
+    """ATR-based SuperTrend — flip direction on band cross."""
+
+    def __init__(self):
+        self.atr_period = 10
+        self.multiplier = 3.0
+
+    def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
+        signal_map: Dict[str, pd.Series] = {}
+
+        for code, df in data_map.items():
+            if len(df) < self.atr_period + 1:
+                continue
+            cl = df["close"]
+            hi = df["high"]
+            lo = df["low"]
+            prev_cl = cl.shift(1)
+            tr = pd.concat([hi - lo, (hi - prev_cl).abs(), (lo - prev_cl).abs()], axis=1).max(axis=1)
+            atr = tr.ewm(alpha=1.0 / self.atr_period, adjust=False).mean()
+            hl2 = (hi + lo) / 2
+            upper = hl2 + self.multiplier * atr
+            lower = hl2 - self.multiplier * atr
+
+            trend = pd.Series(1.0, index=df.index)
+            for i in range(1, len(df)):
+                if cl.iloc[i] > upper.iloc[i - 1]:
+                    trend.iloc[i] = 1.0
+                elif cl.iloc[i] < lower.iloc[i - 1]:
+                    trend.iloc[i] = -1.0
+                else:
+                    trend.iloc[i] = trend.iloc[i - 1]
+
+            sig = pd.Series(0.0, index=df.index)
+            sig[(trend == 1.0) & (trend.shift(1) == -1.0)] = 1.0
+            sig[(trend == -1.0) & (trend.shift(1) == 1.0)] = -1.0
+            signal_map[code] = sig
+
+        return signal_map
+`;
+
+const ALL_TEMPLATE_CODES: Record<string, string> = {
+  ...TEMPLATE_CODE_MAP,
+  kdj_extreme: KDJ_TEMPLATE_CODE,
+  supertrend: SUPERTREND_TEMPLATE_CODE,
+};
+
+// ── Backtest history (localStorage) ───────────────────────────────────────────
+
+const HISTORY_KEY = "strategy-lab-backtest-history";
+
+function loadBacktestHistory(): BacktestHistoryEntry[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+// ── Mock signal notifications ─────────────────────────────────────────────────
+
+const MOCK_NOTIFICATIONS: SignalNotification[] = [
+  {
+    id: "1",
+    symbol: "600519.SH",
+    side: "buy",
+    price: 1685.50,
+    timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+    read: false,
+    reason: "RSI oversold at 28.5",
+  },
+  {
+    id: "2",
+    symbol: "000001.SZ",
+    side: "sell",
+    price: 12.38,
+    timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    read: false,
+    reason: "MA death cross confirmed",
+  },
+  {
+    id: "3",
+    symbol: "AAPL",
+    side: "buy",
+    price: 198.20,
+    timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
+    read: true,
+    reason: "SuperTrend flipped bullish",
+  },
+];
+
+// ── Mock runtime logs ─────────────────────────────────────────────────────────
+
+const MOCK_LOGS: RuntimeLog[] = [
+  { timestamp: new Date().toISOString(), level: "info", message: "SignalEngine initialized with 10 assets" },
+  { timestamp: new Date(Date.now() - 60000).toISOString(), level: "info", message: "Data fetch complete: 600519.SH (500 bars)" },
+  { timestamp: new Date(Date.now() - 120000).toISOString(), level: "warn", message: "000001.SZ: insufficient data (only 15 bars), skipping" },
+  { timestamp: new Date(Date.now() - 180000).toISOString(), level: "info", message: "Signal generated: 600519.SH → 0.5 (long)" },
+  { timestamp: new Date(Date.now() - 300000).toISOString(), level: "error", message: "AAPL: data fetch timeout after 30s, using cached data" },
+];
+
+// ── Page Component ────────────────────────────────────────────────────────────
+
+type SidePanelTab = "list" | "templates" | "history" | "monitor";
 
 export function StrategyLab() {
   const { t } = useI18n();
@@ -70,24 +654,58 @@ export function StrategyLab() {
   const [strategies, setStrategies] = useState<StrategyInfo[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [generatedCode, setGeneratedCode] = useState("");
+  const [verifyResult, setVerifyResult] = useState<{
+    success: boolean;
+    error: string | null;
+    quality_hints: QualityHint[];
+    params: { name: string; type: string; default: unknown; description: string }[];
+    has_generate_method: boolean;
+    has_signal_map_return: boolean;
+    symbol_count: number;
+  } | null>(null);
   const [showBacktest, setShowBacktest] = useState(false);
+  const [sidePanel, setSidePanel] = useState<SidePanelTab>("list");
+
+  // Batch selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Backtest history (loaded from localStorage)
+  const [backtestHistory] = useState<BacktestHistoryEntry[]>(loadBacktestHistory);
+
+  // Monitor state
+  const [notifications, setNotifications] = useState<SignalNotification[]>(MOCK_NOTIFICATIONS);
+  const unreadCount = notifications.filter((n) => !n.read).length;
+
+  // ── Data loading ──────────────────────────────────────────────────────────
 
   const loadList = useCallback(async () => {
     try {
       const data = await apiFetch<{ strategies: StrategyInfo[] }>("/list");
       setStrategies(data.strategies);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, []);
 
-  useEffect(() => { loadList(); }, [loadList]);
+  useEffect(() => {
+    loadList();
+  }, [loadList]);
 
   useEffect(() => {
     if (!selectedId) return;
     apiFetch<{ code: string }>(`/${selectedId}`)
-      .then((data) => { setCode(data.code); setMessage(null); })
+      .then((data) => {
+        setCode(data.code);
+        setMessage(null);
+      })
       .catch(() => setMessage("Failed to load strategy"));
   }, [selectedId]);
+
+  // ── Save ──────────────────────────────────────────────────────────────────
 
   const handleSave = async () => {
     setSaving(true);
@@ -107,41 +725,226 @@ export function StrategyLab() {
     }
   };
 
+  // ── Verify ────────────────────────────────────────────────────────────────
+
+  const handleVerify = async () => {
+    setVerifying(true);
+    setMessage(null);
+    try {
+      const result = await apiFetch<StrategyVerifyResult>("/verify", {
+        method: "POST",
+        body: JSON.stringify({ code }),
+      });
+      setVerifyResult(result);
+      if (result.success) {
+        setMessage("Verification passed");
+        setSidePanel("list");
+      } else {
+        setMessage(`Verification failed: ${result.error}`);
+        setSidePanel("list");
+      }
+    } catch (e) {
+      setMessage(String(e));
+      setVerifyResult({
+        success: false,
+        error: String(e),
+        quality_hints: [],
+        params: [],
+        has_generate_method: false,
+        has_signal_map_return: false,
+        symbol_count: 0,
+      });
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // ── AI Generate ───────────────────────────────────────────────────────────
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    setGeneratedCode("");
+    setMessage(null);
+    try {
+      const res = await fetch(`${API_BASE}/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() as Record<string, string> },
+        body: JSON.stringify({
+          prompt: "Create a multi-asset momentum strategy with risk management",
+          style: "momentum",
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          try {
+            const evt = JSON.parse(line.slice(6));
+            if (evt.type === "code") {
+              setGeneratedCode((prev) => prev + evt.content);
+            } else if (evt.type === "done") {
+              setMessage("Generation complete");
+            } else if (evt.type === "error") {
+              setMessage(`Generation error: ${evt.message}`);
+            }
+          } catch {
+            /* ignore parse errors */
+          }
+        }
+      }
+    } catch (e) {
+      setMessage(String(e));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const acceptGenerated = () => {
+    setCode(generatedCode);
+    setGeneratedCode("");
+    setMessage("Generated code loaded into editor");
+  };
+
+  // ── Delete / Batch ────────────────────────────────────────────────────────
+
   const handleDelete = async (id: string) => {
     try {
       await apiFetch(`/delete/${id}`, { method: "POST" });
       if (selectedId === id) setSelectedId(null);
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       loadList();
       setMessage("Strategy deleted");
-    } catch (e) { setMessage(String(e)); }
+    } catch (e) {
+      setMessage(String(e));
+    }
   };
+
+  const handleBatchDelete = async () => {
+    for (const id of selectedIds) {
+      try {
+        await apiFetch(`/delete/${id}`, { method: "POST" });
+        if (selectedId === id) setSelectedId(null);
+      } catch {
+        /* continue */
+      }
+    }
+    setSelectedIds(new Set());
+    loadList();
+    setMessage(`${selectedIds.size} strategies deleted`);
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => setSelectedIds(new Set(strategies.map((s) => s.id)));
+  const deselectAll = () => setSelectedIds(new Set());
+
+  // ── Template select ───────────────────────────────────────────────────────
+
+  const handleTemplateSelect = (template: TemplateItem) => {
+    const templateCode = ALL_TEMPLATE_CODES[template.key];
+    if (templateCode) {
+      setCode(templateCode);
+      setMessage(`Loaded template: ${template.name}`);
+      setSidePanel("list");
+    }
+  };
+
+  // ── New ───────────────────────────────────────────────────────────────────
 
   const handleNew = () => {
     setCode(DEFAULT_CODE);
     setSelectedId(null);
+    setVerifyResult(null);
     setMessage(null);
+    setGeneratedCode("");
   };
+
+  // ── Notification actions ──────────────────────────────────────────────────
+
+  const markRead = (id: string) => {
+    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+  };
+
+  const markAllRead = () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  };
+
+  const clearNotifications = () => {
+    setNotifications([]);
+  };
+
+  // ── Derived ───────────────────────────────────────────────────────────────
+
+  const backtestPanel = useMemo(() => {
+    if (!showBacktest) return null;
+    return (
+      <StrategyBacktestPanel
+        code={code}
+        onClose={() => setShowBacktest(false)}
+      />
+    );
+  }, [showBacktest, code]);
+
+  const isError = message && (message.includes("failed") || message.includes("error"));
+
+  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex h-[calc(100vh-3rem)]">
+      {/* Main editor area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 border-b bg-card shrink-0">
-          <div className="flex items-center gap-2">
-            <Target className="h-4 w-4 text-primary" />
-            <h1 className="text-sm font-semibold">{t.strategyLab || "Strategy Lab"}</h1>
+        <div className="page-header">
+          <div className="page-header-title">
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Target className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h1>{t.strategyLab || "Strategy Lab"}</h1>
+              <p className="page-header-desc">Design, backtest and deploy quantitative trading strategies</p>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <button onClick={handleNew} className="flex items-center gap-1 px-2 py-1 text-xs rounded hover:bg-muted transition-colors" title={t.indicatorLabNewIndicator}>
-              <Plus className="h-3 w-3" />
+          <div className="page-header-actions">
+            <button onClick={handleNew} className="btn-sm btn-ghost">
+              <Plus className="h-3.5 w-3.5" />
               {t.indicatorLabNew}
             </button>
-            <button onClick={() => setShowBacktest(true)} className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-success/10 text-success hover:bg-success/20 transition-colors">
-              <BarChart3 className="h-3 w-3" />
+            <button onClick={handleGenerate} disabled={generating} className="btn-sm btn-outline">
+              <Sparkles className="h-3.5 w-3.5" />
+              {generating ? t.strategyLabGenerating : t.strategyLabAIGenerate}
+            </button>
+            <button onClick={() => setShowBacktest(true)} className="btn-sm btn-success">
+              <BarChart3 className="h-3.5 w-3.5" />
               {t.indicatorLabBacktest}
             </button>
-            <button onClick={handleSave} disabled={saving} className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50">
-              <Save className="h-3 w-3" />
+            <button onClick={handleVerify} disabled={verifying} className="btn-sm btn-warning">
+              <Play className="h-3.5 w-3.5" />
+              {verifying ? t.strategyLabVerifying : t.strategyLabVerify}
+            </button>
+            <button onClick={handleSave} disabled={saving} className="btn-sm btn-primary">
+              <Save className="h-3.5 w-3.5" />
               {saving ? t.indicatorLabSaving : t.indicatorLabSave}
             </button>
           </div>
@@ -149,60 +952,332 @@ export function StrategyLab() {
 
         {/* Message bar */}
         {message && (
-          <div className={cn(
-            "px-4 py-1.5 text-xs border-b shrink-0",
-            message.includes("failed") || message.includes("error")
-              ? "bg-danger/10 text-danger border-danger/20"
-              : "bg-success/10 text-success border-success/20"
-          )}>
+          <div className={cn("message-bar", isError ? "error" : "success")}>
             {message}
           </div>
         )}
 
-        {/* Template hint */}
-        <div className="px-4 py-2 text-xs text-muted-foreground bg-muted/30 border-b shrink-0">
-          <strong>SignalEngine</strong> 合约：实现 <code className="bg-muted px-1 rounded text-[10px]">generate(self, data_map) -&gt; dict[str, pd.Series]</code>，返回值为持仓权重（正=做多，负=做空，范围 [-1, 1]）。支持多标的组合回测。
+        {/* Generated code preview */}
+        {generatedCode && (
+          <div className="mx-5 mt-4 border border-primary/30 rounded-lg overflow-hidden bg-[#1e1e2e] shrink-0 max-h-52 animate-scale-in">
+            <div className="flex items-center justify-between px-4 py-2 bg-primary/10">
+              <span className="text-sm text-primary font-medium">AI Generated Code</span>
+              <div className="flex items-center gap-2">
+                <button onClick={acceptGenerated} className="btn-sm btn-primary">Accept</button>
+                <button onClick={() => setGeneratedCode("")} className="btn-sm btn-ghost">Dismiss</button>
+              </div>
+            </div>
+            <pre className="p-4 text-sm text-[#cdd6f4] overflow-auto font-mono">{generatedCode}</pre>
+          </div>
+        )}
+
+        {/* Contract hint */}
+        <div className="px-5 py-2.5 text-sm text-muted-foreground bg-muted/30 border-b shrink-0">
+          <strong className="font-semibold text-foreground">SignalEngine</strong>
+          <span className="mx-1.5 text-muted-foreground/40">—</span>
+          <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
+            generate(self, data_map) → dict[str, pd.Series]
+          </code>
+          <span className="ml-1.5">return signal_map values in [-1, 1]</span>
         </div>
 
+        {/* Verify result inline display */}
+        {verifyResult && (
+          <div className="mx-5 mt-4 border border-border rounded-lg bg-card shadow-sm shrink-0 max-h-60 overflow-auto animate-scale-in">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b bg-muted/30 rounded-t-lg">
+              <span className="text-sm font-medium">Verification Results</span>
+              <button
+                onClick={() => setVerifyResult(null)}
+                className="btn-ghost p-1 rounded-md"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <StrategyVerifyPanel result={verifyResult} />
+            </div>
+          </div>
+        )}
+
         {/* Editor */}
-        <div className="flex-1 p-4 min-h-0">
-          <CodeEditor value={code} onChange={setCode} onSave={handleSave} />
+        <div className="flex-1 p-5 min-h-0">
+          <CodeEditor value={code} onChange={setCode} onSave={handleSave} filename="strategy.py" mode="strategy" />
         </div>
       </div>
 
-      {/* Right sidebar — Strategy list */}
-      <aside className="w-64 border-l bg-card flex flex-col shrink-0">
-        <div className="flex items-center gap-1 px-3 py-2 border-b text-xs font-medium text-muted-foreground">
-          <Code className="h-3 w-3" />
-          {t.indicatorLabList}
-        </div>
-        <div className="flex-1 overflow-auto p-2 space-y-1">
-          {strategies.length === 0 && (
-            <p className="text-xs text-muted-foreground text-center py-8">
-              {t.indicatorLabNoIndicators}
-            </p>
-          )}
-          {strategies.map((s) => (
-            <div key={s.id} className={cn(
-              "flex items-center justify-between px-2 py-1.5 rounded text-xs cursor-pointer transition-colors group",
-              selectedId === s.id ? "bg-primary/10 text-primary" : "hover:bg-muted text-muted-foreground hover:text-foreground"
-            )} onClick={() => setSelectedId(s.id)}>
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{s.name}</div>
-                <div className="text-[10px] opacity-60">{s.created_at?.slice(0, 10)}</div>
-              </div>
-              <button onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }} className="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-danger rounded transition-all" title="Delete">
-                <Trash2 className="h-3 w-3" />
-              </button>
-            </div>
+      {/* Right sidebar */}
+      <aside className="w-80 border-l bg-card flex flex-col shrink-0">
+        {/* Panel tabs */}
+        <div className="tab-bar">
+          {([
+            ["list", t.indicatorLabList, Code],
+            ["templates", t.strategyLabTemplates, Layers],
+            ["history", t.strategyLabHistory, Clock],
+            ["monitor", t.strategyLabMonitor, Activity],
+          ] as const).map(([key, label, Icon]) => (
+            <button
+              key={key}
+              onClick={() => setSidePanel(key)}
+              className={cn("tab-item relative", sidePanel === key && "active")}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+              {key === "monitor" && unreadCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-danger text-[9px] flex items-center justify-center text-white font-bold">
+                  {unreadCount > 9 ? "9+" : unreadCount}
+                </span>
+              )}
+            </button>
           ))}
+        </div>
+
+        <div className="flex-1 overflow-auto p-4">
+          {/* ── List tab ────────────────────────────────────────────────── */}
+          {sidePanel === "list" && (
+            <div className="space-y-1">
+              {/* Batch toolbar */}
+              {strategies.length > 0 && (
+                <div className="flex items-center justify-between pb-3 mb-2 border-b border-border">
+                  <div className="flex items-center gap-2">
+                    <button onClick={selectAll} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      {t.strategyLabSelectAll}
+                    </button>
+                    <button onClick={deselectAll} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      {t.strategyLabDeselectAll}
+                    </button>
+                  </div>
+                  {selectedIds.size > 0 && (
+                    <button onClick={handleBatchDelete} className="btn-sm btn-danger">
+                      <Trash2 className="h-3.5 w-3.5" />
+                      {t.strategyLabBatchDelete} ({selectedIds.size})
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {strategies.length === 0 && (
+                <div className="empty-state">
+                  <Code className="empty-state-icon" />
+                  <p className="empty-state-text">{t.strategyLabNoStrategies}</p>
+                  <p className="empty-state-hint">Save your first strategy to see it here</p>
+                </div>
+              )}
+
+              {strategies.map((s) => (
+                <div
+                  key={s.id}
+                  className={cn(
+                    "flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm cursor-pointer transition-all duration-150 group",
+                    selectedId === s.id
+                      ? "bg-primary/10 text-primary font-medium shadow-sm"
+                      : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {/* Checkbox */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleSelect(s.id); }}
+                    className="shrink-0 text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    {selectedIds.has(s.id) ? (
+                      <CheckSquare className="h-4 w-4 text-primary" />
+                    ) : (
+                      <Square className="h-4 w-4" />
+                    )}
+                  </button>
+
+                  {/* Content */}
+                  <div className="min-w-0 flex-1" onClick={() => setSelectedId(s.id)}>
+                    <div className="truncate font-medium">{s.name}</div>
+                    <div className="flex items-center gap-2 text-xs opacity-60 mt-0.5">
+                      <span>{s.param_count} params</span>
+                      <span>{s.created_at?.slice(0, 10)}</span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
+                    className="p-1.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-danger rounded-md transition-all shrink-0"
+                    title="Delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ── Templates tab ───────────────────────────────────────────── */}
+          {sidePanel === "templates" && (
+            <TemplateBrowser
+              templates={STRATEGY_TEMPLATES}
+              onSelect={handleTemplateSelect}
+            />
+          )}
+
+          {/* ── History tab ─────────────────────────────────────────────── */}
+          {sidePanel === "history" && (
+            <div className="space-y-2">
+              {backtestHistory.length === 0 ? (
+                <div className="empty-state">
+                  <Clock className="empty-state-icon" />
+                  <p className="empty-state-text">{t.strategyLabNoBacktests}</p>
+                </div>
+              ) : (
+                backtestHistory.map((entry) => (
+                  <div
+                    key={entry.id}
+                    className="card p-3.5 hover:border-primary/20 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-sm font-medium font-mono truncate">
+                        {entry.symbols}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {entry.timestamp?.slice(0, 16).replace("T", " ")}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{entry.startDate} → {entry.endDate}</span>
+                    </div>
+                    <div className="text-xs font-mono text-muted-foreground mt-1.5">
+                      Run: {entry.runId?.slice(0, 8)}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          {/* ── Monitor tab ─────────────────────────────────────────────── */}
+          {sidePanel === "monitor" && (
+            <div className="space-y-5">
+              {/* Notifications */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Bell className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">
+                      {t.strategyLabSignalNotifications}
+                    </span>
+                    {unreadCount > 0 && (
+                      <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary font-medium">
+                        {unreadCount} {t.strategyLabUnread}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={markAllRead} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+                      {t.strategyLabMarkAllRead}
+                    </button>
+                    <button onClick={clearNotifications} className="text-xs text-muted-foreground hover:text-danger transition-colors">
+                      {t.strategyLabClearAll}
+                    </button>
+                  </div>
+                </div>
+
+                {notifications.length === 0 ? (
+                  <div className="empty-state py-8">
+                    <Bell className="empty-state-icon h-8 w-8" />
+                    <p className="empty-state-text">{t.strategyLabNoSignals}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    {notifications.map((n) => (
+                      <div
+                        key={n.id}
+                        className={cn(
+                          "flex items-start gap-2.5 px-3 py-2.5 rounded-lg text-sm border transition-all duration-150 cursor-pointer",
+                          n.read
+                            ? "border-border bg-card opacity-60"
+                            : "border-primary/20 bg-primary/5 shadow-sm"
+                        )}
+                        onClick={() => markRead(n.id)}
+                      >
+                        <div
+                          className={cn(
+                            "w-2 h-2 rounded-full mt-1.5 shrink-0",
+                            n.side === "buy" ? "bg-emerald-400" : "bg-rose-400"
+                          )}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-semibold font-mono">{n.symbol}</span>
+                            <span className={cn(
+                              "text-xs font-semibold",
+                              n.side === "buy" ? "text-emerald-400" : "text-rose-400"
+                            )}>
+                              {n.side.toUpperCase()}
+                            </span>
+                            <span className="text-xs text-muted-foreground">@ {n.price}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5 truncate">{n.reason}</div>
+                        </div>
+                        {!n.read && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); markRead(n.id); }}
+                            className="text-xs text-primary hover:underline shrink-0 mt-0.5"
+                          >
+                            {t.strategyLabMarkRead}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Runtime logs */}
+              <div>
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-sm font-medium">{t.strategyLabRuntimeLogs}</span>
+                  <span className="text-xs text-muted-foreground">{MOCK_LOGS.length} entries</span>
+                </div>
+
+                <div className="space-y-px max-h-64 overflow-auto bg-muted/30 rounded-lg p-2">
+                  {MOCK_LOGS.map((log, i) => (
+                    <div key={i} className="flex items-start gap-2 px-2 py-1.5 text-xs font-mono rounded hover:bg-muted/50 transition-colors">
+                      <span className="text-muted-foreground/60 shrink-0 w-14">{log.timestamp.slice(11, 19)}</span>
+                      <span className={cn(
+                        "shrink-0 w-10 text-right font-semibold uppercase",
+                        log.level === "error" ? "text-danger" : log.level === "warn" ? "text-warning" : "text-info"
+                      )}>
+                        {log.level}
+                      </span>
+                      <span className="text-muted-foreground truncate">{log.message}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Running strategies placeholder */}
+              <div>
+                <div className="flex items-center gap-2 mb-2.5">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-sm font-medium">{t.strategyLabLiveMonitor}</span>
+                </div>
+                <div className="empty-state py-8 border border-dashed border-border rounded-lg">
+                  <Activity className="empty-state-icon h-8 w-8" />
+                  <p className="empty-state-text">{t.strategyLabNoRunning}</p>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </aside>
 
-      {/* Backtest modal — reuse from Indicator Lab */}
-      {showBacktest && (
-        <StrategyBacktestPanel code={code} onClose={() => setShowBacktest(false)} />
-      )}
+      {/* Backtest modal */}
+      {backtestPanel}
     </div>
   );
+}
+
+interface StrategyVerifyResult {
+  success: boolean;
+  error: string | null;
+  quality_hints: QualityHint[];
+  params: { name: string; type: string; default: unknown; description: string }[];
+  has_generate_method: boolean;
+  has_signal_map_return: boolean;
+  symbol_count: number;
 }

@@ -58,6 +58,7 @@ def save_backtest_result(
                      run_id, len(trades or []), len(equity_curve or []))
     except Exception as e:
         logger.error("Failed to save backtest result: %s", e)
+        raise
 
     return run_id
 
@@ -118,7 +119,7 @@ def list_backtest_runs(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]
                 ]
     except Exception as e:
         logger.error("Failed to list backtest runs: %s", e)
-        return []
+        raise
 
 
 def get_backtest_run(run_id: str) -> dict[str, Any] | None:
@@ -169,7 +170,7 @@ def get_backtest_run(run_id: str) -> dict[str, Any] | None:
                 return result
     except Exception as e:
         logger.error("Failed to get backtest run %s: %s", run_id, e)
-        return None
+        raise
 
 
 def delete_backtest_run(run_id: str) -> bool:
@@ -182,4 +183,4 @@ def delete_backtest_run(run_id: str) -> bool:
         return deleted
     except Exception as e:
         logger.error("Failed to delete backtest run %s: %s", run_id, e)
-        return False
+        raise

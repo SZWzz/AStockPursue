@@ -1841,6 +1841,9 @@ app.include_router(indicator_lab_router, dependencies=[Depends(require_auth)])
 from src.api.strategy_lab_routes import router as strategy_lab_router  # noqa: E402
 app.include_router(strategy_lab_router, dependencies=[Depends(require_auth)])
 
+from src.api.stock_routes import router as stock_router  # noqa: E402
+app.include_router(stock_router, dependencies=[Depends(require_auth)])
+
 
 # ============================================================================
 # Auth API (user login / register)

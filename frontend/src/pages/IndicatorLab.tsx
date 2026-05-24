@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Code, FlaskConical, Play, Save, Sparkles, ChevronDown, Trash2, Plus, BarChart3, Clock } from "lucide-react";
+import { Code, FlaskConical, Play, Save, Sparkles, ChevronDown, Trash2, Plus, BarChart3, Clock, Library, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { authHeaders } from "@/lib/apiAuth";
@@ -8,6 +8,9 @@ import { QualityHints } from "@/components/indicator-lab/QualityHints";
 import { ParamPanel } from "@/components/indicator-lab/ParamPanel";
 import { BacktestPanel } from "@/components/indicator-lab/BacktestPanel";
 import { HistoryPanel } from "@/components/indicator-lab/HistoryPanel";
+import { BuiltinIndicators, type BuiltinIndicator } from "@/components/indicator-lab/BuiltinIndicators";
+import { TemplateBrowser, type TemplateItem } from "@/components/indicator-lab/TemplateBrowser";
+import { AlphaZooBrowser } from "@/components/indicator-lab/AlphaZooBrowser";
 import type {
   IndicatorInfo,
   IndicatorDetail,
@@ -25,6 +28,350 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   }
   return res.json();
 }
+
+// ── Built-in indicators ───────────────────────────────────────────────────
+
+const BUILTIN_INDICATORS: BuiltinIndicator[] = [
+  {
+    key: "sma",
+    name: "Simple Moving Average",
+    description: "Classic SMA with configurable period. Use as trend filter or overlay.",
+    category: "trend",
+    code: `my_indicator_name = "Simple Moving Average"
+my_indicator_description = "Classic SMA trend indicator"
+
+# @param period int 20 SMA period range=5:200:5
+# @strategy stopLossPct 0.02
+# @strategy takeProfitPct 0.05
+
+df = df.copy()
+period = params.get("period", 20)
+sma = df["close"].rolling(window=period, min_periods=period).mean()
+df["buy"] = (df["close"] > sma) & (df["close"].shift(1) <= sma.shift(1))
+df["sell"] = (df["close"] < sma) & (df["close"].shift(1) >= sma.shift(1))
+
+output = {
+    "name": my_indicator_name,
+    "plots": [{"name": f"SMA{period}", "data": sma.tolist(), "color": "#2196F3", "overlay": True}],
+    "signals": [
+        {"type": "buy", "text": "Buy", "data": df["buy"].where(df["buy"]).reindex(df.index).tolist(), "color": "#4CAF50"},
+        {"type": "sell", "text": "Sell", "data": df["sell"].where(df["sell"]).reindex(df.index).tolist(), "color": "#F44336"},
+    ],
+}`,
+  },
+  {
+    key: "ema",
+    name: "Exponential Moving Average",
+    description: "EMA crossover — faster response than SMA for trend changes.",
+    category: "trend",
+    code: `my_indicator_name = "EMA Crossover"
+my_indicator_description = "Fast EMA crossing slow EMA"
+
+# @param fast int 12 Fast EMA period range=5:50:1
+# @param slow int 26 Slow EMA period range=10:100:1
+# @strategy stopLossPct 0.02
+# @strategy takeProfitPct 0.05
+
+df = df.copy()
+fast = params.get("fast", 12)
+slow = params.get("slow", 26)
+ema_fast = df["close"].ewm(span=fast, adjust=False, min_periods=fast).mean()
+ema_slow = df["close"].ewm(span=slow, adjust=False, min_periods=slow).mean()
+df["buy"] = (ema_fast > ema_slow) & (ema_fast.shift(1) <= ema_slow.shift(1))
+df["sell"] = (ema_fast < ema_slow) & (ema_fast.shift(1) >= ema_slow.shift(1))
+
+output = {
+    "name": my_indicator_name,
+    "plots": [
+        {"name": f"EMA{fast}", "data": ema_fast.tolist(), "color": "#2196F3", "overlay": True},
+        {"name": f"EMA{slow}", "data": ema_slow.tolist(), "color": "#FF9800", "overlay": True},
+    ],
+    "signals": [
+        {"type": "buy", "text": "Buy", "data": df["buy"].where(df["buy"]).reindex(df.index).tolist(), "color": "#4CAF50"},
+        {"type": "sell", "text": "Sell", "data": df["sell"].where(df["sell"]).reindex(df.index).tolist(), "color": "#F44336"},
+    ],
+}`,
+  },
+  {
+    key: "rsi",
+    name: "Relative Strength Index",
+    description: "Momentum oscillator measuring speed and change of price movements.",
+    category: "momentum",
+    code: `my_indicator_name = "RSI"
+my_indicator_description = "RSI oversold/overbought signals"
+
+# @param period int 14 RSI period range=5:50:1
+# @param oversold int 30 Oversold threshold range=10:40:5
+# @param overbought int 70 Overbought threshold range=60:90:5
+# @strategy stopLossPct 0.02
+# @strategy takeProfitPct 0.05
+
+df = df.copy()
+period = params.get("period", 14)
+oversold = params.get("oversold", 30)
+overbought = params.get("overbought", 70)
+delta = df["close"].diff()
+gain = delta.where(delta > 0, 0.0)
+loss = (-delta).where(delta < 0, 0.0)
+avg_gain = gain.rolling(window=period, min_periods=period).mean()
+avg_loss = loss.rolling(window=period, min_periods=period).mean()
+rs = avg_gain / avg_loss.replace(0, np.nan)
+rsi = 100.0 - (100.0 / (1.0 + rs))
+df["buy"] = rsi < oversold
+df["sell"] = rsi > overbought
+
+output = {
+    "name": my_indicator_name,
+    "plots": [{"name": "RSI", "data": rsi.tolist(), "color": "#9C27B0", "overlay": False}],
+    "signals": [
+        {"type": "buy", "text": "Buy", "data": df["buy"].where(df["buy"]).reindex(df.index).tolist(), "color": "#4CAF50"},
+        {"type": "sell", "text": "Sell", "data": df["sell"].where(df["sell"]).reindex(df.index).tolist(), "color": "#F44336"},
+    ],
+}`,
+  },
+  {
+    key: "macd",
+    name: "MACD",
+    description: "Moving Average Convergence Divergence — trend + momentum in one.",
+    category: "momentum",
+    code: `my_indicator_name = "MACD"
+my_indicator_description = "MACD crossover signals"
+
+# @param fast int 12 Fast EMA range=5:50:1
+# @param slow int 26 Slow EMA range=10:100:1
+# @param signal int 9 Signal line period range=3:20:1
+# @strategy stopLossPct 0.02
+# @strategy takeProfitPct 0.05
+
+df = df.copy()
+fast = params.get("fast", 12)
+slow_p = params.get("slow", 26)
+sig_period = params.get("signal", 9)
+ema_fast = df["close"].ewm(span=fast, adjust=False, min_periods=fast).mean()
+ema_slow = df["close"].ewm(span=slow_p, adjust=False, min_periods=slow_p).mean()
+macd = ema_fast - ema_slow
+signal_line = macd.ewm(span=sig_period, adjust=False, min_periods=sig_period).mean()
+histogram = macd - signal_line
+df["buy"] = (macd > signal_line) & (macd.shift(1) <= signal_line.shift(1))
+df["sell"] = (macd < signal_line) & (macd.shift(1) >= signal_line.shift(1))
+
+output = {
+    "name": my_indicator_name,
+    "plots": [
+        {"name": "MACD", "data": macd.tolist(), "color": "#2196F3", "overlay": False},
+        {"name": "Signal", "data": signal_line.tolist(), "color": "#FF9800", "overlay": False},
+        {"name": "Hist", "data": histogram.tolist(), "color": "#9C27B0", "overlay": False},
+    ],
+    "signals": [
+        {"type": "buy", "text": "Buy", "data": df["buy"].where(df["buy"]).reindex(df.index).tolist(), "color": "#4CAF50"},
+        {"type": "sell", "text": "Sell", "data": df["sell"].where(df["sell"]).reindex(df.index).tolist(), "color": "#F44336"},
+    ],
+}`,
+  },
+  {
+    key: "bollinger",
+    name: "Bollinger Bands",
+    description: "Volatility bands around a moving average — fade the extremes.",
+    category: "volatility",
+    code: `my_indicator_name = "Bollinger Bands"
+my_indicator_description = "Bollinger Band mean reversion"
+
+# @param period int 20 MA period range=10:50:5
+# @param std_dev float 2.0 Standard deviations range=1.0:4.0:0.5
+# @strategy stopLossPct 0.02
+# @strategy takeProfitPct 0.05
+
+df = df.copy()
+period = params.get("period", 20)
+std_dev = params.get("std_dev", 2.0)
+mid = df["close"].rolling(window=period, min_periods=period).mean()
+std = df["close"].rolling(window=period, min_periods=period).std()
+upper = mid + std_dev * std
+lower = mid - std_dev * std
+df["buy"] = df["close"] < lower
+df["sell"] = df["close"] > upper
+
+output = {
+    "name": my_indicator_name,
+    "plots": [
+        {"name": "Mid", "data": mid.tolist(), "color": "#2196F3", "overlay": True},
+        {"name": "Upper", "data": upper.tolist(), "color": "#FF9800", "overlay": True},
+        {"name": "Lower", "data": lower.tolist(), "color": "#FF9800", "overlay": True},
+    ],
+    "signals": [
+        {"type": "buy", "text": "Buy", "data": df["buy"].where(df["buy"]).reindex(df.index).tolist(), "color": "#4CAF50"},
+        {"type": "sell", "text": "Sell", "data": df["sell"].where(df["sell"]).reindex(df.index).tolist(), "color": "#F44336"},
+    ],
+}`,
+  },
+  {
+    key: "atr",
+    name: "Average True Range",
+    description: "Volatility measure — use for dynamic stop-loss and position sizing.",
+    category: "volatility",
+    code: `my_indicator_name = "ATR Trailing Stop"
+my_indicator_description = "ATR-based dynamic trailing stop"
+
+# @param period int 14 ATR period range=5:50:1
+# @param multiplier float 2.0 ATR multiplier range=1.0:5.0:0.5
+# @strategy stopLossPct 0.04
+# @strategy takeProfitPct 0.10
+
+df = df.copy()
+period = params.get("period", 14)
+mult = params.get("multiplier", 2.0)
+prev_close = df["close"].shift(1)
+tr = pd.concat([df["high"] - df["low"], (df["high"] - prev_close).abs(), (df["low"] - prev_close).abs()], axis=1).max(axis=1)
+atr = tr.ewm(alpha=1.0/period, adjust=False, min_periods=period).mean()
+stop_long = df["close"] - mult * atr
+stop_short = df["close"] + mult * atr
+df["buy"] = df["close"] > stop_long.shift(1)
+df["sell"] = df["close"] < stop_short.shift(1)
+
+output = {
+    "name": my_indicator_name,
+    "plots": [
+        {"name": "ATR", "data": atr.tolist(), "color": "#9C27B0", "overlay": False},
+        {"name": "Stop Long", "data": stop_long.tolist(), "color": "#4CAF50", "overlay": True},
+        {"name": "Stop Short", "data": stop_short.tolist(), "color": "#F44336", "overlay": True},
+    ],
+    "signals": [
+        {"type": "buy", "text": "Buy", "data": df["buy"].where(df["buy"]).reindex(df.index).tolist(), "color": "#4CAF50"},
+        {"type": "sell", "text": "Sell", "data": df["sell"].where(df["sell"]).reindex(df.index).tolist(), "color": "#F44336"},
+    ],
+}`,
+  },
+  {
+    key: "obv",
+    name: "On-Balance Volume",
+    description: "Cumulative volume indicator — confirm price trends with volume flow.",
+    category: "volume",
+    code: `my_indicator_name = "OBV Divergence"
+my_indicator_description = "OBV trend confirmation and divergence signals"
+
+# @param smooth int 5 OBV smoothing period range=3:20:1
+# @strategy stopLossPct 0.02
+# @strategy takeProfitPct 0.05
+
+df = df.copy()
+smooth = params.get("smooth", 5)
+price_change = df["close"].diff()
+obv = pd.Series(0.0, index=df.index)
+for i in range(1, len(df)):
+    if price_change.iloc[i] > 0:
+        obv.iloc[i] = obv.iloc[i - 1] + df["volume"].iloc[i]
+    elif price_change.iloc[i] < 0:
+        obv.iloc[i] = obv.iloc[i - 1] - df["volume"].iloc[i]
+    else:
+        obv.iloc[i] = obv.iloc[i - 1]
+obv_sma = obv.rolling(window=smooth, min_periods=smooth).mean()
+df["buy"] = (obv > obv_sma) & (obv.shift(1) <= obv_sma.shift(1))
+df["sell"] = (obv < obv_sma) & (obv.shift(1) >= obv_sma.shift(1))
+
+output = {
+    "name": my_indicator_name,
+    "plots": [
+        {"name": "OBV", "data": obv.tolist(), "color": "#2196F3", "overlay": False},
+        {"name": "OBV MA", "data": obv_sma.tolist(), "color": "#FF9800", "overlay": False},
+    ],
+    "signals": [
+        {"type": "buy", "text": "Buy", "data": df["buy"].where(df["buy"]).reindex(df.index).tolist(), "color": "#4CAF50"},
+        {"type": "sell", "text": "Sell", "data": df["sell"].where(df["sell"]).reindex(df.index).tolist(), "color": "#F44336"},
+    ],
+}`,
+  },
+  {
+    key: "kdj",
+    name: "KDJ Indicator",
+    description: "Stochastic oscillator variant popular in China A-share markets.",
+    category: "momentum",
+    code: `my_indicator_name = "KDJ"
+my_indicator_description = "KDJ oversold/overbought signals"
+
+# @param period int 9 KDJ period range=5:30:1
+# @param signal int 3 Signal smoothing range=2:10:1
+# @strategy stopLossPct 0.02
+# @strategy takeProfitPct 0.05
+
+df = df.copy()
+period = params.get("period", 9)
+sig_period = params.get("signal", 3)
+low_min = df["low"].rolling(window=period, min_periods=period).min()
+high_max = df["high"].rolling(window=period, min_periods=period).max()
+rsv = ((df["close"] - low_min) / (high_max - low_min).replace(0, np.nan)) * 100
+k = rsv.ewm(span=sig_period, adjust=False, min_periods=sig_period).mean()
+d = k.ewm(span=sig_period, adjust=False, min_periods=sig_period).mean()
+j = 3 * k - 2 * d
+df["buy"] = (k < 20) & (k > d) & (k.shift(1) <= d.shift(1))
+df["sell"] = (k > 80) & (k < d) & (k.shift(1) >= d.shift(1))
+
+output = {
+    "name": my_indicator_name,
+    "plots": [
+        {"name": "K", "data": k.tolist(), "color": "#2196F3", "overlay": False},
+        {"name": "D", "data": d.tolist(), "color": "#FF9800", "overlay": False},
+        {"name": "J", "data": j.tolist(), "color": "#9C27B0", "overlay": False},
+    ],
+    "signals": [
+        {"type": "buy", "text": "Buy", "data": df["buy"].where(df["buy"]).reindex(df.index).tolist(), "color": "#4CAF50"},
+        {"type": "sell", "text": "Sell", "data": df["sell"].where(df["sell"]).reindex(df.index).tolist(), "color": "#F44336"},
+    ],
+}`,
+  },
+  {
+    key: "ichimoku",
+    name: "Ichimoku Cloud",
+    description: "All-in-one indicator: trend direction, support/resistance, momentum.",
+    category: "trend",
+    code: `my_indicator_name = "Ichimoku Cloud"
+my_indicator_description = "Ichimoku Kinko Hyo — cloud-based trend system"
+
+# @param tenkan int 9 Conversion line range=5:30:1
+# @param kijun int 26 Base line range=10:50:1
+# @param senkou_b int 52 Span B range=26:100:1
+# @strategy stopLossPct 0.03
+# @strategy takeProfitPct 0.08
+
+df = df.copy()
+tenkan_p = params.get("tenkan", 9)
+kijun_p = params.get("kijun", 26)
+senkou_b_p = params.get("senkou_b", 52)
+high_tenkan = df["high"].rolling(window=tenkan_p, min_periods=tenkan_p).max()
+low_tenkan = df["low"].rolling(window=tenkan_p, min_periods=tenkan_p).min()
+tenkan = (high_tenkan + low_tenkan) / 2
+high_kijun = df["high"].rolling(window=kijun_p, min_periods=kijun_p).max()
+low_kijun = df["low"].rolling(window=kijun_p, min_periods=kijun_p).min()
+kijun = (high_kijun + low_kijun) / 2
+senkou_a = ((tenkan + kijun) / 2).shift(kijun_p)
+senkou_b = ((df["high"].rolling(window=senkou_b_p, min_periods=senkou_b_p).max() + df["low"].rolling(window=senkou_b_p, min_periods=senkou_b_p).min()) / 2).shift(kijun_p)
+chikou = df["close"].shift(-kijun_p)
+df["buy"] = (tenkan > kijun) & (tenkan.shift(1) <= kijun.shift(1)) & (df["close"] > senkou_a) & (df["close"] > senkou_b)
+df["sell"] = (tenkan < kijun) & (tenkan.shift(1) >= kijun.shift(1)) & (df["close"] < senkou_a) & (df["close"] < senkou_b)
+
+output = {
+    "name": my_indicator_name,
+    "plots": [
+        {"name": "Tenkan", "data": tenkan.tolist(), "color": "#2196F3", "overlay": True},
+        {"name": "Kijun", "data": kijun.tolist(), "color": "#FF9800", "overlay": True},
+        {"name": "Senkou A", "data": senkou_a.tolist(), "color": "#4CAF50", "overlay": True},
+        {"name": "Senkou B", "data": senkou_b.tolist(), "color": "#F44336", "overlay": True},
+    ],
+    "signals": [
+        {"type": "buy", "text": "Buy", "data": df["buy"].where(df["buy"]).reindex(df.index).tolist(), "color": "#4CAF50"},
+        {"type": "sell", "text": "Sell", "data": df["sell"].where(df["sell"]).reindex(df.index).tolist(), "color": "#F44336"},
+    ],
+}`,
+  },
+];
+
+const INDICATOR_TEMPLATES: TemplateItem[] = [
+  { key: "ma_crossover", name: "MA Crossover", description: "Dual moving average crossover — buy on golden cross, sell on death cross.", category: "trend", difficulty: "beginner", tags: ["MA", "crossover"] },
+  { key: "rsi_reversal", name: "RSI Mean Reversion", description: "Buy when RSI drops below oversold, sell when above overbought.", category: "reversal", difficulty: "beginner", tags: ["RSI", "oscillator"] },
+  { key: "macd_divergence", name: "MACD Crossover", description: "MACD line crossing signal line with histogram confirmation.", category: "trend", difficulty: "beginner", tags: ["MACD"] },
+  { key: "bollinger_squeeze", name: "Bollinger Band", description: "Fade extremes — buy at lower band, sell at upper band.", category: "reversal", difficulty: "beginner", tags: ["Bollinger", "volatility"] },
+  { key: "kdj", name: "KDJ Extreme", description: "KDJ overbought/oversold with golden cross confirmation.", category: "reversal", difficulty: "intermediate", tags: ["KDJ"] },
+  { key: "supertrend", name: "SuperTrend", description: "ATR-based trailing stop trend following system.", category: "trend", difficulty: "intermediate", tags: ["ATR", "trailing"] },
+];
 
 const DEFAULT_CODE = `my_indicator_name = "My First Indicator"
 my_indicator_description = "A simple RSI-based strategy"
@@ -77,7 +424,7 @@ export function IndicatorLab() {
   const [message, setMessage] = useState<string | null>(null);
   const [generatedCode, setGeneratedCode] = useState("");
   const [paramValues, setParamValues] = useState<Record<string, string | number | boolean>>({});
-  const [sidePanel, setSidePanel] = useState<"params" | "quality" | "indicators" | "history">("indicators");
+  const [sidePanel, setSidePanel] = useState<"params" | "quality" | "indicators" | "history" | "builtins" | "templates" | "alphazoo">("indicators");
   const [showBacktest, setShowBacktest] = useState(false);
 
   // Load indicator list
@@ -230,54 +577,70 @@ export function IndicatorLab() {
     setGeneratedCode("");
   };
 
+  // Built-in indicator selection
+  const handleBuiltinSelect = (indicator: BuiltinIndicator) => {
+    setCode(indicator.code);
+    setMessage(`Loaded: ${indicator.name}`);
+    setSidePanel("indicators");
+  };
+
+  // Template selection — fetch template code from backend
+  const handleTemplateSelect = async (template: TemplateItem) => {
+    try {
+      const data = await apiFetch<{ code: string }>(`/templates/${template.key}/generate`, {
+        method: "POST",
+      });
+      setCode(data.code);
+      setMessage(`Loaded template: ${template.name}`);
+      setSidePanel("indicators");
+    } catch (e) {
+      setMessage(`Failed to load template: ${String(e)}`);
+    }
+  };
+
+  // Alpha Zoo factor selection — convert and load into editor
+  const handleAlphaZooSelect = (code: string, name: string) => {
+    setCode(code);
+    setMessage(`Loaded alpha: ${name}`);
+    setSidePanel("indicators");
+  };
+
+  const isError = message && (message.includes("failed") || message.includes("error") || message.includes("Error"));
+
   return (
     <div className="flex h-[calc(100vh-3rem)]">
       {/* Main editor area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-2 border-b bg-card shrink-0">
-          <div className="flex items-center gap-2">
-            <FlaskConical className="h-4 w-4 text-primary" />
-            <h1 className="text-sm font-semibold">{t.indicatorLab}</h1>
+        <div className="page-header">
+          <div className="page-header-title">
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <FlaskConical className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <h1>{t.indicatorLab}</h1>
+              <p className="page-header-desc">Create, backtest and optimize custom technical indicators</p>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleNew}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded hover:bg-muted transition-colors"
-              title={t.indicatorLabNewIndicator}
-            >
-              <Plus className="h-3 w-3" />
+          <div className="page-header-actions">
+            <button onClick={handleNew} className="btn-sm btn-ghost">
+              <Plus className="h-3.5 w-3.5" />
               {t.indicatorLabNew}
             </button>
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors disabled:opacity-50"
-            >
-              <Sparkles className="h-3 w-3" />
+            <button onClick={handleGenerate} disabled={generating} className="btn-sm btn-outline">
+              <Sparkles className="h-3.5 w-3.5" />
               {generating ? t.indicatorLabGenerating : t.indicatorLabAIGenerate}
             </button>
-            <button
-              onClick={() => setShowBacktest(true)}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-success/10 text-success hover:bg-success/20 transition-colors"
-            >
-              <BarChart3 className="h-3 w-3" />
+            <button onClick={() => setShowBacktest(true)} className="btn-sm btn-success">
+              <BarChart3 className="h-3.5 w-3.5" />
               {t.indicatorLabBacktest}
             </button>
-            <button
-              onClick={handleVerify}
-              disabled={verifying}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-warning/10 text-warning hover:bg-warning/20 transition-colors disabled:opacity-50"
-            >
-              <Play className="h-3 w-3" />
+            <button onClick={handleVerify} disabled={verifying} className="btn-sm btn-warning">
+              <Play className="h-3.5 w-3.5" />
               {verifying ? t.indicatorLabVerifying : t.indicatorLabVerify}
             </button>
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center gap-1 px-2 py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Save className="h-3 w-3" />
+            <button onClick={handleSave} disabled={saving} className="btn-sm btn-primary">
+              <Save className="h-3.5 w-3.5" />
               {saving ? t.indicatorLabSaving : t.indicatorLabSave}
             </button>
           </div>
@@ -285,42 +648,31 @@ export function IndicatorLab() {
 
         {/* Message bar */}
         {message && (
-          <div className={cn(
-            "px-4 py-1.5 text-xs border-b shrink-0",
-            message.includes("failed") || message.includes("error") || message.includes("Error")
-              ? "bg-danger/10 text-danger border-danger/20"
-              : "bg-success/10 text-success border-success/20"
-          )}>
+          <div className={cn("message-bar", isError ? "error" : "success")}>
             {message}
           </div>
         )}
 
         {/* Generated code preview */}
         {generatedCode && (
-          <div className="mx-4 mt-3 border border-primary/30 rounded-lg overflow-hidden bg-[#1e1e2e] shrink-0 max-h-48">
-            <div className="flex items-center justify-between px-3 py-1 bg-primary/10">
-              <span className="text-xs text-primary font-medium">AI Generated Code</span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  onClick={acceptGenerated}
-                  className="px-2 py-0.5 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90"
-                >
+          <div className="mx-5 mt-4 border border-primary/30 rounded-lg overflow-hidden bg-[#1e1e2e] shrink-0 max-h-52 animate-scale-in">
+            <div className="flex items-center justify-between px-4 py-2 bg-primary/10">
+              <span className="text-sm text-primary font-medium">AI Generated Code</span>
+              <div className="flex items-center gap-2">
+                <button onClick={acceptGenerated} className="btn-sm btn-primary">
                   Accept
                 </button>
-                <button
-                  onClick={() => setGeneratedCode("")}
-                  className="px-2 py-0.5 text-xs rounded bg-muted text-muted-foreground hover:bg-muted/80"
-                >
+                <button onClick={() => setGeneratedCode("")} className="btn-sm btn-ghost">
                   Dismiss
                 </button>
               </div>
             </div>
-            <pre className="p-3 text-xs text-[#cdd6f4] overflow-auto font-mono">{generatedCode}</pre>
+            <pre className="p-4 text-sm text-[#cdd6f4] overflow-auto font-mono">{generatedCode}</pre>
           </div>
         )}
 
         {/* Editor */}
-        <div className="flex-1 p-4 min-h-0">
+        <div className="flex-1 p-5 min-h-0">
           <CodeEditor
             value={code}
             onChange={setCode}
@@ -333,62 +685,76 @@ export function IndicatorLab() {
       {/* Right sidebar */}
       <aside className="w-80 border-l bg-card flex flex-col shrink-0">
         {/* Panel tabs */}
-        <div className="flex border-b shrink-0">
+        <div className="tab-bar">
           {([
             ["indicators", t.indicatorLabList, Code],
+            ["builtins", t.indicatorLabBuiltins, Library],
+            ["templates", t.indicatorLabTemplates, Layers],
             ["params", t.indicatorLabParams, FlaskConical],
             ["quality", t.indicatorLabQuality, ChevronDown],
+            ["alphazoo", "Alpha Zoo", Layers],
             ["history", t.indicatorLabHistory, Clock],
           ] as const).map(([key, label, Icon]) => (
             <button
               key={key}
               onClick={() => setSidePanel(key)}
-              className={cn(
-                "flex-1 flex items-center justify-center gap-1 py-2 text-xs transition-colors",
-                sidePanel === key
-                  ? "text-primary border-b-2 border-primary bg-primary/5 font-medium"
-                  : "text-muted-foreground hover:text-foreground"
-              )}
+              className={cn("tab-item", sidePanel === key && "active")}
             >
-              <Icon className="h-3 w-3" />
+              <Icon className="h-3.5 w-3.5" />
               {label}
             </button>
           ))}
         </div>
 
-        <div className="flex-1 overflow-auto p-3">
+        <div className="flex-1 overflow-auto p-4">
           {sidePanel === "indicators" && (
             <div className="space-y-1">
               {indicators.length === 0 && (
-                <p className="text-xs text-muted-foreground text-center py-8">
-                  {t.indicatorLabNoIndicators}
-                </p>
+                <div className="empty-state">
+                  <Code className="empty-state-icon" />
+                  <p className="empty-state-text">{t.indicatorLabNoIndicators}</p>
+                  <p className="empty-state-hint">Save your first indicator to see it here</p>
+                </div>
               )}
               {indicators.map((ind) => (
                 <div
                   key={ind.id}
                   className={cn(
-                    "flex items-center justify-between px-2 py-1.5 rounded text-xs cursor-pointer transition-colors group",
+                    "flex items-center justify-between px-3 py-2.5 rounded-lg text-sm cursor-pointer transition-all duration-150 group",
                     selectedId === ind.id
-                      ? "bg-primary/10 text-primary"
+                      ? "bg-primary/10 text-primary font-medium shadow-sm"
                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
                   )}
                   onClick={() => setSelectedId(ind.id)}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{ind.name}</div>
-                    <div className="text-[10px] opacity-60">{ind.param_count} params</div>
+                    <div className="text-xs opacity-60 mt-0.5">{ind.param_count} params</div>
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDelete(ind.id); }}
-                    className="p-1 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-danger rounded transition-all"
+                    className="p-1.5 opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-danger rounded-md transition-all"
                     title="Delete"
                   >
-                    <Trash2 className="h-3 w-3" />
+                    <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               ))}
             </div>
+          )}
+
+          {sidePanel === "builtins" && (
+            <BuiltinIndicators
+              indicators={BUILTIN_INDICATORS}
+              onSelect={handleBuiltinSelect}
+            />
+          )}
+
+          {sidePanel === "templates" && (
+            <TemplateBrowser
+              templates={INDICATOR_TEMPLATES}
+              onSelect={handleTemplateSelect}
+            />
           )}
 
           {sidePanel === "params" && (
@@ -403,6 +769,10 @@ export function IndicatorLab() {
             <QualityHints hints={verifyResult?.quality_hints || []} />
           )}
 
+          {sidePanel === "alphazoo" && (
+            <AlphaZooBrowser onSelect={handleAlphaZooSelect} />
+          )}
+
           {sidePanel === "history" && (
             <HistoryPanel indicatorId={selectedId || ""} />
           )}
@@ -410,13 +780,13 @@ export function IndicatorLab() {
 
         {/* Strategy config footer */}
         {verifyResult?.strategy_config && Object.keys(verifyResult.strategy_config).length > 0 && (
-          <div className="border-t p-3 shrink-0">
-            <div className="text-xs font-medium text-muted-foreground mb-2">{t.indicatorLabStrategyConfig}</div>
-            <div className="grid grid-cols-2 gap-1">
+          <div className="border-t p-4 shrink-0 bg-muted/20">
+            <div className="text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider">{t.indicatorLabStrategyConfig}</div>
+            <div className="grid grid-cols-2 gap-2">
               {Object.entries(verifyResult.strategy_config).map(([key, val]) => (
-                <div key={key} className="text-[10px]">
+                <div key={key} className="text-xs">
                   <span className="text-muted-foreground">{key}</span>
-                  <span className="ml-1 font-mono text-foreground">{String(val)}</span>
+                  <span className="ml-1.5 font-mono text-foreground font-medium">{String(val)}</span>
                 </div>
               ))}
             </div>

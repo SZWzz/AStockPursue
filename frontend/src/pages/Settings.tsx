@@ -15,7 +15,7 @@ interface LLMFormState {
 }
 
 const fieldClass =
-  "w-full rounded-md border bg-background px-3 py-2 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border bg-background px-3.5 py-2.5 text-sm outline-none transition-all duration-150 placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60";
 const labelClass = "text-sm font-medium";
 const hintClass = "text-xs text-muted-foreground";
 
@@ -202,31 +202,33 @@ export function Settings() {
   // LLM & data source settings are stored per-user in DB — no manual sync needed
 
   const accountSection = loggedIn ? (
-    <div className="rounded-lg border bg-card p-5 shadow-sm mb-4 space-y-4">
-      <div className="flex items-center gap-2">
-        <User className="h-4 w-4 text-primary" />
+    <div className="card p-5 space-y-4">
+      <div className="flex items-center gap-2.5">
+        <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+          <User className="h-4 w-4 text-primary" />
+        </div>
         <h2 className="text-base font-semibold">账户设置</h2>
       </div>
-      <form onSubmit={changeUsername} className="flex gap-2 items-end">
-        <label className="grid gap-1 flex-1">
-          <span className="text-xs font-medium">用户名</span>
-          <input name="new_username" required minLength={2} placeholder={JSON.parse(localStorage.getItem("vt_user") || "{}").username || ""} className="rounded border bg-background px-2 py-1.5 text-sm" />
+      <form onSubmit={changeUsername} className="flex gap-3 items-end">
+        <label className="grid gap-1.5 flex-1">
+          <span className="text-sm font-medium">用户名</span>
+          <input name="new_username" required minLength={2} placeholder={JSON.parse(localStorage.getItem("vt_user") || "{}").username || ""} className="input" />
         </label>
-        <button type="submit" disabled={changingUser} className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground disabled:opacity-50">
+        <button type="submit" disabled={changingUser} className="btn-sm btn-primary">
           {changingUser ? "..." : "修改"}
         </button>
         {userMsg && <span className={`text-xs ${userMsg.includes("失败") ? "text-danger" : "text-success"}`}>{userMsg}</span>}
       </form>
-      <form onSubmit={changePassword} className="flex gap-2 items-end">
-        <label className="grid gap-1 flex-1">
-          <span className="text-xs font-medium">当前密码</span>
-          <input name="old_password" type="password" required className="rounded border bg-background px-2 py-1.5 text-sm" />
+      <form onSubmit={changePassword} className="flex gap-3 items-end">
+        <label className="grid gap-1.5 flex-1">
+          <span className="text-sm font-medium">当前密码</span>
+          <input name="old_password" type="password" required className="input" />
         </label>
-        <label className="grid gap-1 flex-1">
-          <span className="text-xs font-medium">新密码</span>
-          <input name="new_password" type="password" required minLength={4} className="rounded border bg-background px-2 py-1.5 text-sm" />
+        <label className="grid gap-1.5 flex-1">
+          <span className="text-sm font-medium">新密码</span>
+          <input name="new_password" type="password" required minLength={4} className="input" />
         </label>
-        <button type="submit" disabled={changingPw} className="px-3 py-1.5 text-xs rounded bg-primary text-primary-foreground disabled:opacity-50">
+        <button type="submit" disabled={changingPw} className="btn-sm btn-primary">
           {changingPw ? "..." : "修改"}
         </button>
         {pwMsg && <span className={`text-xs ${pwMsg.includes("失败") || pwMsg.includes("错误") ? "text-danger" : "text-success"}`}>{pwMsg}</span>}
@@ -236,25 +238,25 @@ export function Settings() {
 
   if (loading || !form || !settings || !dataSettings) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6 p-6">
+      <div className="mx-auto max-w-5xl space-y-6 p-8">
         <div className="space-y-2">
-          <h1 className="text-2xl font-semibold tracking-tight">{t.settings}</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t.settings}</h1>
           <p className="max-w-3xl text-sm text-muted-foreground">{t.settingsDesc}</p>
         </div>
         {accountSection}
 
-        <div className="flex min-h-32 items-center justify-center rounded-lg border bg-card p-5 text-sm text-muted-foreground">
+        <div className="flex min-h-32 items-center justify-center rounded-xl border bg-card p-8 text-sm text-muted-foreground shadow-sm">
           {settingsLoadError ? (
             <div className="max-w-md text-center space-y-3">
-              <div className="font-medium text-foreground">{t.settingsUnavailable}</div>
+              <div className="font-semibold text-foreground">{t.settingsUnavailable}</div>
               <div className="mt-1">{settingsLoadError}</div>
               <div className="text-xs text-muted-foreground/80">{t.authRequiredHint}</div>
             </div>
           ) : (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {t.loading}
-            </>
+            <div className="flex items-center gap-2.5">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+              <span>{t.loading}</span>
+            </div>
           )}
         </div>
       </div>
@@ -274,23 +276,25 @@ export function Settings() {
     : t.tushareTokenPlaceholder;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
+    <div className="mx-auto max-w-5xl space-y-8 p-8">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold tracking-tight">{t.settings}</h1>
+        <h1 className="text-2xl font-bold tracking-tight">{t.settings}</h1>
         <p className="max-w-3xl text-sm text-muted-foreground">{t.settingsDesc}</p>
       </div>
 
       {accountSection}
 
       <div className="space-y-2">
-        <h2 className="text-lg font-semibold tracking-tight">{t.llmSettings}</h2>
+        <h2 className="text-lg font-bold tracking-tight">{t.llmSettings}</h2>
         <p className="max-w-3xl text-sm text-muted-foreground">{t.llmSettingsDesc}</p>
       </div>
 
       <form onSubmit={submit} className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
-        <section className="rounded-lg border bg-card p-5 shadow-sm">
-          <div className="mb-5 flex items-center gap-2">
-            <Server className="h-4 w-4 text-primary" />
+        <section className="card p-6">
+          <div className="mb-5 flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Server className="h-4 w-4 text-primary" />
+            </div>
             <h2 className="text-base font-semibold">{t.llmConnection}</h2>
           </div>
 
@@ -321,7 +325,7 @@ export function Settings() {
                 <button
                   type="button"
                   onClick={() => applyProviderDefaults()}
-                  className="inline-flex shrink-0 items-center gap-2 rounded-md border px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                  className="btn-sm btn-outline shrink-0"
                   title={t.llmUseProviderDefaults}
                 >
                   <RotateCcw className="h-4 w-4" />
@@ -379,9 +383,11 @@ export function Settings() {
           </div>
         </section>
 
-        <section className="rounded-lg border bg-card p-5 shadow-sm">
-          <div className="mb-5 flex items-center gap-2">
-            <SlidersHorizontal className="h-4 w-4 text-primary" />
+        <section className="card p-6">
+          <div className="mb-5 flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <SlidersHorizontal className="h-4 w-4 text-primary" />
+            </div>
             <h2 className="text-base font-semibold">{t.llmGeneration}</h2>
           </div>
 
@@ -440,15 +446,15 @@ export function Settings() {
               </select>
             </label>
 
-            <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <div className="rounded-lg border bg-muted/30 px-4 py-2.5 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{t.llmEnvPath}: </span>
-              <span className="break-all font-mono">{settings.env_path}</span>
+              <span className="break-all font-mono text-xs">{settings.env_path}</span>
             </div>
 
             <button
               type="submit"
               disabled={saving}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+              className="btn-md btn-primary"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {saving ? t.llmSaving : t.llmSaveSettings}
@@ -457,13 +463,15 @@ export function Settings() {
         </section>
       </form>
 
-      <form onSubmit={submitDataSources} className="rounded-lg border bg-card p-5 shadow-sm">
+      <form onSubmit={submitDataSources} className="card p-6">
         <div className="mb-5 space-y-1">
-          <div className="flex items-center gap-2">
-            <Database className="h-4 w-4 text-primary" />
+          <div className="flex items-center gap-2.5">
+            <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Database className="h-4 w-4 text-primary" />
+            </div>
             <h2 className="text-base font-semibold">{t.dataSourceSettings}</h2>
           </div>
-          <p className="text-sm text-muted-foreground">{t.dataSourceSettingsDesc}</p>
+          <p className="text-sm text-muted-foreground ml-[calc(1.75rem+0.625rem)]">{t.dataSourceSettingsDesc}</p>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
@@ -500,7 +508,7 @@ export function Settings() {
             </label>
 
             {/* OKX credentials */}
-            <div className="grid gap-3 rounded-md border p-4">
+            <div className="grid gap-3 rounded-lg border bg-muted/20 p-4">
               <span className="text-sm font-medium">{t.okxApiKey}</span>
 
               <label className="grid gap-2">
@@ -569,22 +577,22 @@ export function Settings() {
               </label>
             </div>
 
-            <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            <div className="rounded-lg border bg-muted/30 px-4 py-2.5 text-sm text-muted-foreground">
               <span className="font-medium text-foreground">{t.llmEnvPath}: </span>
-              <span className="break-all font-mono">{dataSettings.env_path}</span>
+              <span className="break-all font-mono text-xs">{dataSettings.env_path}</span>
             </div>
 
             <button
               type="submit"
               disabled={dataSaving}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-70"
+              className="btn-md btn-primary"
             >
               {dataSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {dataSaving ? t.llmSaving : t.saveDataSourceSettings}
             </button>
           </div>
 
-          <div className="rounded-md border bg-muted/20 p-4">
+          <div className="rounded-lg border bg-muted/20 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <span className="text-sm font-medium">{t.akshareStatus}</span>
@@ -592,7 +600,7 @@ export function Settings() {
                   <span className="ml-1.5 text-xs text-muted-foreground">v{dataSettings.akshare_version}</span>
                 )}
               </div>
-              <span className={`rounded-full px-2 py-0.5 text-xs ${dataSettings.akshare_available ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
+              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${dataSettings.akshare_available ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
                 {dataSettings.akshare_available ? t.akshareAvailable : t.akshareNotAvailable}
               </span>
             </div>

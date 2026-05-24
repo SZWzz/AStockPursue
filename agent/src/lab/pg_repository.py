@@ -12,18 +12,9 @@ from typing import Any
 
 from src.db.pool import get_connection
 from src.lab.params import IndicatorParamsParser, StrategyConfigParser
-from src.lab.repository import IndicatorInfo
+from src.lab.repository import IndicatorInfo, _extract_meta_from_code
 
 logger = logging.getLogger(__name__)
-
-
-def _extract_meta_from_code(code: str) -> tuple[str, str]:
-    import re
-    m = re.search(r'^\s*my_indicator_name\s*=\s*[\'"](.+?)[\'"]\s*$', code, re.MULTILINE)
-    name = m.group(1).strip()[:100] if m else ""
-    m = re.search(r'^\s*my_indicator_description\s*=\s*[\'"](.+?)[\'"]\s*$', code, re.MULTILINE)
-    desc = m.group(1).strip()[:500] if m else ""
-    return name, desc
 
 
 class PgIndicatorRepository:

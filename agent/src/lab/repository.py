@@ -74,6 +74,17 @@ def _extract_meta_from_code(code: str) -> tuple[str, str]:
     return name, desc
 
 
+def extract_code_from_response(response: str) -> str:
+    """Extract Python code from an agent response (may contain markdown fences)."""
+    import re as _re
+
+    pattern = _re.compile(r"```(?:python)?\s*\n(.*?)```", _re.DOTALL)
+    m = pattern.search(response)
+    if m:
+        return m.group(1).strip()
+    return response.strip()
+
+
 class IndicatorRepository:
     """CRUD operations for user-authored indicator scripts."""
 

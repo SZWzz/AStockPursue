@@ -112,6 +112,7 @@ export function RunDetail() {
             onClick={() => navigate(-1)}
             className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
             title="Go back"
+            aria-label="Go back"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -122,11 +123,13 @@ export function RunDetail() {
         {run.prompt && <p className="text-sm text-muted-foreground">{run.prompt}</p>}
         {run.metrics && <MetricsCard metrics={run.metrics as Record<string, number>} />}
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" role="tablist">
           {TABS.filter(t => !t.hidden).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
+              role="tab"
+              aria-selected={tab === id}
               className={cn(
                 "flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm transition-colors",
                 tab === id ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"

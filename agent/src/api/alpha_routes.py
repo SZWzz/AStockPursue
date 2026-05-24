@@ -83,7 +83,7 @@ _ALPHA_ID_RE = re.compile(r"^[a-z][a-z0-9]+_[a-z0-9_]{1,64}$")
 _JOB_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 # Filter enums — keep in sync with src.factors.registry.Theme / Universe.
-_VALID_ZOOS = {"alpha101", "gtja191", "qlib158", "academic"}
+_VALID_ZOOS = {"alpha101", "gtja191", "qlib158", "academic", "user"}
 _VALID_THEMES = {
     "momentum", "reversal", "volume", "volatility", "quality", "value",
     "liquidity", "microstructure", "sentiment", "growth", "leverage",
@@ -288,42 +288,61 @@ def register_alpha_routes(
                 detail=f"unknown universe {universe!r}; expected one of {sorted(_VALID_UNIVERSES)}",
             )
 
-        from src.factors.registry import get_default_registry
+        from src.factors.registry import Registry, get_default_registry
 
-        registry = get_default_registry()
+        # Collect alphas from both bundled and runtime zoo directories
+        registries = [get_default_registry()]
+
         try:
-            ids = registry.list(zoo=zoo, theme=theme, universe=universe)
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("registry.list failed")
-            raise HTTPException(status_code=500, detail=_safe_error(exc))
+            from src.config.paths import get_runtime_root
+            runtime_zoo = get_runtime_root() / "zoo"
+            if runtime_zoo.is_dir():
+                registries.append(Registry(zoo_root=runtime_zoo))
+        except Exception:
+            pass
 
-        total = len(ids)
-        sliced = ids[:limit]
         alphas: list[dict[str, Any]] = []
-        for aid in sliced:
+        seen: set[str] = set()
+
+        for registry in registries:
             try:
-                a = registry.get(aid)
-            except KeyError:
+                ids = registry.list(zoo=zoo, theme=theme, universe=universe)
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("registry.list failed")
                 continue
-            meta = a.meta or {}
-            alphas.append(
-                {
-                    "id": a.id,
-                    "zoo": a.zoo,
-                    "theme": meta.get("theme", []),
-                    "universe": meta.get("universe", []),
-                    "nickname": meta.get("nickname"),
-                    "decay_horizon": meta.get("decay_horizon"),
-                    "min_warmup_bars": meta.get("min_warmup_bars"),
-                    "requires_sector": bool(meta.get("requires_sector", False)),
-                }
-            )
+
+            for aid in ids:
+                if aid in seen:
+                    continue
+                if len(alphas) >= limit:
+                    break
+                try:
+                    a = registry.get(aid)
+                except KeyError:
+                    continue
+                seen.add(aid)
+                meta = a.meta or {}
+                alphas.append(
+                    {
+                        "id": a.id,
+                        "zoo": a.zoo,
+                        "theme": meta.get("theme", []),
+                        "universe": meta.get("universe", []),
+                        "nickname": meta.get("nickname"),
+                        "decay_horizon": meta.get("decay_horizon"),
+                        "min_warmup_bars": meta.get("min_warmup_bars"),
+                        "requires_sector": bool(meta.get("requires_sector", False)),
+                    }
+                )
+            if len(alphas) >= limit:
+                break
+
         return {
             "status": "ok",
             "alphas": alphas,
-            "total": total,
+            "total": len(alphas),
             "returned": len(alphas),
-            "truncated": total > len(alphas),
+            "truncated": False,
         }
 
     # -----------------------------------------------------------------------
@@ -336,12 +355,30 @@ def register_alpha_routes(
         if not _ALPHA_ID_RE.fullmatch(alpha_id or ""):
             raise HTTPException(status_code=400, detail="invalid alpha_id")
 
-        from src.factors.registry import RegistryError, get_default_registry
+        from src.factors.registry import Registry, RegistryError, get_default_registry
 
-        registry = get_default_registry()
+        alpha = None
+        registry = None
+
+        # Try bundled registry first, then runtime zoo
+        registries = [get_default_registry()]
         try:
-            alpha = registry.get(alpha_id)
-        except KeyError:
+            from src.config.paths import get_runtime_root
+            runtime_zoo = get_runtime_root() / "zoo"
+            if runtime_zoo.is_dir():
+                registries.append(Registry(zoo_root=runtime_zoo))
+        except Exception:
+            pass
+
+        for reg in registries:
+            try:
+                alpha = reg.get(alpha_id)
+                registry = reg
+                break
+            except KeyError:
+                continue
+
+        if alpha is None:
             raise HTTPException(
                 status_code=404,
                 detail={"status": "error", "error": "alpha_id not found"},
@@ -350,9 +387,6 @@ def register_alpha_routes(
         try:
             source_code = registry.get_source(alpha_id)
         except RegistryError as exc:
-            # Source-read failure is a degraded but recoverable case — log and
-            # surface a short placeholder. The reason here is a typed registry
-            # error (size cap or OS error from a known path), safe to expose.
             logger.warning("failed to read source for %s: %s", alpha_id, exc)
             source_code = f"# <source unavailable: {exc}>"
 
@@ -361,7 +395,6 @@ def register_alpha_routes(
             "alpha": {
                 "id": alpha.id,
                 "zoo": alpha.zoo,
-                "module_path": alpha.module_path,
                 "meta": alpha.meta,
             },
             "source_code": source_code,

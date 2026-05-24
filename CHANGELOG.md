@@ -4,6 +4,43 @@
 
 ### Added
 
+- **股票自动联想** — A股/港股/指数 智能搜索，支持代码/名称/拼音，指标实验室、策略实验室、相关性矩阵全接入
+- **Alpha Zoo → 指标实验室转换** — 内置因子一键转换为指标格式，支持直接回测
+- **策略实验室 PG 优先** — 自动检测 PostgreSQL 可用性，优先使用 PG 存储，fallback 到文件系统
+- **Alpha Zoo 合并扫描** — 同时扫描内置 zoo 和 `~/.AStockPursue/zoo/`，指标实验室提升的因子可在大盘中显示
+- **国际化补齐** — Login、PostLoginSetup、UserManagement、Correlation、WelcomeScreen 全部接入 i18n（46 个新 key）
+
+### Changed
+
+- **全局 UI 重构** — 字号体系（text-xs→text-sm）、间距系统、按钮层级（btn-primary/secondary/ghost/outline）、卡片阴影、Tab 选中态
+- **侧边栏重设计** — 品牌 Logo 橙色圆角底色、导航项 rounded-lg 激活态、会话列表呼吸感、Footer 排版优化
+- **页面头部统一** — page-header 组件类、图标底色块、描述副文字
+- **Tailwind 配置增强** — boxShadow CSS 变量（亮/暗自适应）、fade-in/slide-in-right/scale-in 动画
+- **IndicatorLab 页面** — 按钮体系替换、Tab 样式统一、空态引导、Alpha Zoo 标签页
+- **StrategyLab 页面** — 同上 + 通知卡片/运行日志/历史记录样式升级
+- **Agent 聊天页** — 空态居中 Logo、输入框圆角阴影、发送按钮 active:scale 反馈
+- **Settings 页面** — 卡片 shadow-sm、表单输入框 padding 增大、保存按钮 btn-md
+- **BacktestPanel / StrategyBacktestPanel** — StockInput 替换、模态框 backdrop-blur、按钮 btn 体系
+- **Correlation 页面** — StockInput 多选替换、raw fetch 切换为 api 模块
+- **UserManagement** — 原生 confirm()→内联确认按钮、raw fetch→api 模块、i18n 全接入
+
+### Fixed
+
+- **密码哈希升级** — SHA256→PBKDF2-HMAC-SHA256（600,000 迭代），向后兼容旧格式
+- **JWT_SECRET 持久化** — 从 $JWT_SECRET 或 `runtime_root/.jwt_secret` 读取，解决多 worker/重启 密钥不一致
+- **Pickle 缓存安全** — SHA256 完整性校验→HMAC-SHA256 签名（防篡改）
+- **代码保存安全校验** — Indicator/Strategy Lab 的 `/save` 接口增加 `validate_code_safety()`
+- **静默错误吞没** — backtest_store 4 方法、PgSessionStore 3 方法从 silence→raise
+- **死代码移除** — strategy_lab_routes 永真 `has_return` 变量
+- **子进程崩溃诊断** — sandbox.py 非零 exit code 时提供更详细错误
+- **函数去重** — `_extract_meta_from_code`、`_extract_code_from_response` 统一从 repository.py 导入
+- **user_id 硬编码** — Session 模型增加 user_id 字段，PgSessionStore 动态读取
+- **module_path 泄露** — alpha 详情 API 移除内部路径
+- **ARIA 无障碍** — ConnectionBanner/PostLoginSetup/Login/RunDetail/Correlation 全补全 role/aria-*/htmlFor
+- **WelcomeScreen 颜色提取** — 字符串 split 解析→显式 textColor 字段
+
+## 2026.5.24 (earlier)
+
 - **PostgreSQL 自动部署** — `setup.sh` 可选择自动部署 PG 16 Alpine 容器（`docker-compose.pg.yml`），无需手动安装
 - **相关性矩阵增强** — 结果 localStorage 持久化、保存到会话、AI 分析按钮
 - **回测跳转修复** — Lab 回测后使用 `useNavigate` 客户端路由，解决 401 鉴权问题
@@ -31,4 +68,4 @@
 
 ## 2026.5.23 — Initial Release
 
-AStockPursue 基于 [AStockPursue](https://github.com/HKUDS/AStockPursue) (HKUDS, MIT License) 二次开发。
+AStockPursue 基于 [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT License) 二次开发。

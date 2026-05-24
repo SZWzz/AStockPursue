@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { BarChart3, Loader2 } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 const PROVIDERS = [
   { value: "openai", label: "OpenAI" },
@@ -21,6 +22,7 @@ export function PostLoginSetup() {
   const [loading, setLoading] = useState(false);
   const [saved, setSaved] = useState(false);
   const navigate = useNavigate();
+  const { t } = useI18n();
 
   useEffect(() => {
     const token = localStorage.getItem("vt_token");
@@ -60,33 +62,40 @@ export function PostLoginSetup() {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50">
-      <div className="bg-card border rounded-xl shadow-2xl w-[500px] max-h-[85vh] overflow-auto p-6 space-y-5">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="postlogin-setup-title"
+        className="bg-card border rounded-xl shadow-2xl w-[500px] max-h-[85vh] overflow-auto p-6 space-y-5"
+      >
         <div className="text-center space-y-1.5">
           <BarChart3 className="mx-auto h-8 w-8 text-primary" />
-          <h2 className="text-lg font-bold">{saved ? "已保存！" : "配置大语言模型"}</h2>
+          <h2 id="postlogin-setup-title" className="text-lg font-bold">{saved ? t.llmSetupSaved : t.llmSetupTitle}</h2>
           <p className="text-sm text-muted-foreground">
-            {saved ? "即将跳转到设置..." : "配置 LLM 提供商以开始 AI 量化研究"}
+            {saved ? t.llmSetupRedirecting : t.llmSetupDesc}
           </p>
         </div>
 
         {!saved && (
           <div className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">模型供应商</label>
+              <label htmlFor="pls-provider" className="text-xs font-medium">{t.llmSetupProvider}</label>
               <select
+                id="pls-provider"
                 value={config.provider}
                 onChange={(e) => setConfig({ ...config, provider: e.target.value })}
                 className="w-full rounded border bg-background px-2 py-1.5 text-xs"
               >
-                <option value="">请选择...</option>
+                <option value="">{t.llmSetupSelectProvider}</option>
                 {PROVIDERS.map((p) => (
                   <option key={p.value} value={p.value}>{p.label}</option>
                 ))}
               </select>
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">模型名称</label>
+              <label htmlFor="pls-model" className="text-xs font-medium">{t.llmSetupModelName}</label>
               <input
+                id="pls-model"
                 value={config.model}
                 onChange={(e) => setConfig({ ...config, model: e.target.value })}
                 className="w-full rounded border bg-background px-2 py-1.5 text-xs"
@@ -94,8 +103,9 @@ export function PostLoginSetup() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">Base URL（可选）</label>
+              <label htmlFor="pls-baseurl" className="text-xs font-medium">{t.llmSetupBaseUrl}</label>
               <input
+                id="pls-baseurl"
                 value={config.baseUrl}
                 onChange={(e) => setConfig({ ...config, baseUrl: e.target.value })}
                 className="w-full rounded border bg-background px-2 py-1.5 text-xs"
@@ -103,8 +113,9 @@ export function PostLoginSetup() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-xs font-medium">API Key</label>
+              <label htmlFor="pls-apikey" className="text-xs font-medium">{t.llmSetupApiKey}</label>
               <input
+                id="pls-apikey"
                 type="password"
                 value={config.apiKey}
                 onChange={(e) => setConfig({ ...config, apiKey: e.target.value })}
@@ -114,12 +125,12 @@ export function PostLoginSetup() {
             </div>
             <div className="flex gap-2 pt-1">
               <button onClick={handleSkip} className="flex-1 rounded border px-4 py-2 text-xs text-muted-foreground hover:bg-muted transition">
-                跳过，去设置
+                {t.llmSetupSkip}
               </button>
               <button onClick={handleSave} disabled={!config.provider || !config.model || loading}
                 className="flex-1 rounded bg-primary px-4 py-2 text-xs text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center justify-center gap-2">
                 {loading && <Loader2 className="h-3 w-3 animate-spin" />}
-                保存并继续
+                {t.llmSetupSave}
               </button>
             </div>
           </div>

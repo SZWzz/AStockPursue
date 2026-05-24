@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 from src.lab.params import IndicatorParamsParser, StrategyConfigParser
 from src.lab.quality import analyze_indicator_code_quality
 from src.lab.repository import IndicatorRepository
-from src.lab.sandbox import build_safe_builtins, safe_exec_with_validation
+from src.lab.sandbox import build_safe_builtins, safe_exec_with_validation, validate_code_safety
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +234,11 @@ async def list_indicators():
 @router.post("/save")
 async def save_indicator(req: SaveRequest):
     """Save or update an indicator."""
+    # Safety validation before saving
+    is_safe, err = validate_code_safety(req.code)
+    if not is_safe:
+        raise HTTPException(status_code=400, detail=f"Code safety check failed: {err}")
+
     repo = _get_repo()
     try:
         info = repo.save(code=req.code, indicator_id=req.indicator_id, filename=req.filename)
@@ -346,6 +351,72 @@ async def generate_from_template(template_key: str):
     if code is None:
         raise HTTPException(status_code=404, detail=f"Template not found: {template_key}")
     return {"code": code}
+
+
+# ── Built-in indicators ────────────────────────────────────────────────────
+
+
+@router.get("/builtins")
+async def list_builtins():
+    """List all built-in indicator templates."""
+    return {
+        "builtins": [
+            {
+                "key": "sma",
+                "name": "Simple Moving Average",
+                "description": "Classic SMA with configurable period. Use as trend filter or overlay.",
+                "category": "trend",
+            },
+            {
+                "key": "ema",
+                "name": "Exponential Moving Average",
+                "description": "EMA crossover — faster response than SMA for trend changes.",
+                "category": "trend",
+            },
+            {
+                "key": "rsi",
+                "name": "Relative Strength Index",
+                "description": "Momentum oscillator measuring speed and change of price movements.",
+                "category": "momentum",
+            },
+            {
+                "key": "macd",
+                "name": "MACD",
+                "description": "Moving Average Convergence Divergence — trend + momentum in one.",
+                "category": "momentum",
+            },
+            {
+                "key": "bollinger",
+                "name": "Bollinger Bands",
+                "description": "Volatility bands around a moving average — fade the extremes.",
+                "category": "volatility",
+            },
+            {
+                "key": "atr",
+                "name": "Average True Range",
+                "description": "Volatility measure — use for dynamic stop-loss and position sizing.",
+                "category": "volatility",
+            },
+            {
+                "key": "obv",
+                "name": "On-Balance Volume",
+                "description": "Cumulative volume indicator — confirm price trends with volume flow.",
+                "category": "volume",
+            },
+            {
+                "key": "kdj",
+                "name": "KDJ Indicator",
+                "description": "Stochastic oscillator variant popular in China A-share markets.",
+                "category": "momentum",
+            },
+            {
+                "key": "ichimoku",
+                "name": "Ichimoku Cloud",
+                "description": "All-in-one indicator: trend direction, support/resistance, momentum.",
+                "category": "trend",
+            },
+        ]
+    }
 
 
 @router.get("/{indicator_id}")
@@ -507,6 +578,240 @@ async def promote_to_alpha(
     return {"ok": True, "path": str(result_path), "zoo_id": zoo_id}
 
 
+# ── Alpha Zoo → Indicator conversion ────────────────────────────────────────
+
+
+@router.get("/alpha/list")
+async def list_alpha_zoo_factors(
+    zoo: str | None = None,
+    limit: int = 50,
+):
+    """List available Alpha Zoo factors for conversion to indicators."""
+    from src.factors.registry import Registry, get_default_registry
+
+    alphas: list[dict] = []
+    seen: set[str] = set()
+
+    registries = [get_default_registry()]
+    try:
+        from src.config.paths import get_runtime_root
+        runtime_zoo = get_runtime_root() / "zoo"
+        if runtime_zoo.is_dir():
+            registries.append(Registry(zoo_root=runtime_zoo))
+    except Exception:
+        pass
+
+    for registry in registries:
+        try:
+            ids = registry.list(zoo=zoo)
+        except Exception:
+            continue
+        for aid in ids:
+            if aid in seen:
+                continue
+            if len(alphas) >= limit:
+                break
+            try:
+                a = registry.get(aid)
+            except KeyError:
+                continue
+            seen.add(aid)
+            meta = a.meta or {}
+            alphas.append({
+                "id": a.id,
+                "zoo": a.zoo,
+                "nickname": meta.get("nickname", a.id),
+                "theme": meta.get("theme", []),
+                "universe": meta.get("universe", []),
+                "formula_latex": meta.get("formula_latex", ""),
+            })
+        if len(alphas) >= limit:
+            break
+
+    return {"alphas": alphas}
+
+
+@router.get("/alpha/{alpha_id}/convert")
+async def convert_alpha_to_indicator(alpha_id: str):
+    """Convert an Alpha Zoo factor to Indicator Lab format code."""
+    from src.factors.registry import Registry, RegistryError, get_default_registry
+
+    # Find alpha in bundled or runtime zoo
+    alpha = None
+    source_code = None
+    registries = [get_default_registry()]
+    try:
+        from src.config.paths import get_runtime_root
+        runtime_zoo = get_runtime_root() / "zoo"
+        if runtime_zoo.is_dir():
+            registries.append(Registry(zoo_root=runtime_zoo))
+    except Exception:
+        pass
+
+    for registry in registries:
+        try:
+            alpha = registry.get(alpha_id)
+            source_code = registry.get_source(alpha_id)
+            break
+        except (KeyError, RegistryError):
+            continue
+
+    if alpha is None:
+        raise HTTPException(status_code=404, detail=f"Alpha not found: {alpha_id}")
+
+    meta = alpha.meta or {}
+    nickname = meta.get("nickname", alpha_id)
+    formula = meta.get("formula_latex", "")
+    description = f"Converted from Alpha Zoo factor: {nickname}"
+    if formula:
+        description += f" | Formula: {formula}"
+
+    indicator_code = _build_indicator_from_alpha(
+        alpha_id=alpha_id,
+        nickname=nickname,
+        description=description,
+        source_code=source_code,
+        theme=meta.get("theme", []),
+    )
+
+    return {
+        "alpha_id": alpha_id,
+        "nickname": nickname,
+        "code": indicator_code,
+    }
+
+
+def _build_indicator_from_alpha(
+    alpha_id: str,
+    nickname: str,
+    description: str,
+    source_code: str,
+    theme: list[str],
+) -> str:
+    """Convert alpha source code into Indicator Lab format."""
+    import re
+
+    # Determine strategy config based on theme
+    stop_loss = "0.05" if "trend" in theme else "0.03"
+    take_profit = "0.10" if "trend" in theme else "0.06"
+
+    lines = []
+    lines.append(f'my_indicator_name = "{nickname}"')
+    lines.append(f'my_indicator_description = "{description}"')
+    lines.append("")
+    lines.append("# @param lookback int 20 Lookback period range=5:60:5")
+    lines.append(f"# @strategy stopLossPct {stop_loss}")
+    lines.append(f"# @strategy takeProfitPct {take_profit}")
+    lines.append("# @strategy entryPct 0.5")
+    lines.append("")
+    lines.append("df = df.copy()")
+    lines.append("")
+    lines.append("# Import alpha helpers")
+    lines.append("import numpy as np")
+    lines.append("import pandas as pd")
+    lines.append("")
+
+    # Strip the alpha source of its own imports, __alpha_meta__, ALPHA_ID
+    stripped_lines: list[str] = []
+    in_meta = False
+    for line in source_code.split("\n"):
+        if line.strip().startswith("__alpha_meta__"):
+            in_meta = True
+            continue
+        if in_meta:
+            if line.strip() == "}" or line.strip().startswith("}"):
+                in_meta = False
+            continue
+        if line.strip().startswith("from __future__"):
+            continue
+        if line.strip().startswith("import ") or line.strip().startswith("from "):
+            stripped_lines.append(line)
+            continue
+        if line.strip().startswith("ALPHA_ID"):
+            continue
+        if line.strip().startswith('"""') or line.strip().startswith('#'):
+            continue
+        stripped_lines.append(line)
+
+    # Extract compute function body
+    func_source = "\n".join(stripped_lines)
+
+    # The compute function takes panel (dict of DataFrames for multi-asset) and
+    # returns a wide alpha DataFrame. For single-asset Indicator Lab,
+    # we adapt it: panel is a single DataFrame (OHLCV), and we build
+    # a single-key dict for the compute function.
+    lines.append("# Adapted from Alpha Zoo factor (single-asset mode)")
+    lines.append("# The original compute() works on multi-asset panels;")
+    lines.append("# here we wrap it with a single-asset dict and extract the result.")
+    lines.append("")
+    lines.append(f"# {func_source.split(chr(10))[0] if func_source else ''}")
+    lines.append("")
+
+    # Build the adapted code
+    lines.append("# Build single-asset panel dict for the alpha compute function")
+    lines.append('panel = {"close": df["close"], "open": df["open"],')
+    lines.append('         "high": df["high"], "low": df["low"],')
+    lines.append('         "volume": df["volume"]}')
+    lines.append("")
+    lines.append("lookback = params.get(\"lookback\", 20)")
+    lines.append("")
+
+    # Include the alpha's own helper functions and compute logic
+    # We strip the compute function's `def compute` line and re-add it with local adaptation
+    # Find compute function and inline its body
+    compute_match = re.search(r'def compute\(.*?\n(.*?)(?=\n\S|\Z)', func_source, re.DOTALL)
+    if compute_match:
+        compute_body = compute_match.group(1)
+        # Add helper functions (everything before compute)
+        pre_compute = func_source[:compute_match.start()].strip()
+        if pre_compute:
+            for line in pre_compute.split("\n"):
+                lines.append(line)
+            lines.append("")
+        # Add the adapted compute logic
+        lines.append("# Call the alpha's compute logic (adapted for single asset)")
+        lines.append(f"def _compute_local(panel):")
+        for line in compute_body.split("\n"):
+            if line.strip():
+                lines.append(f"    {line}")
+            else:
+                lines.append("")
+        lines.append("")
+        lines.append("alpha_values = _compute_local(panel)")
+    else:
+        # Fallback: inline the entire source
+        lines.append("# Inlined alpha source (could not extract compute function)")
+        lines.append("_exec_env = {}")
+        lines.append('exec("""' + func_source + '""", _exec_env)')
+        lines.append('alpha_values = _exec_env["compute"](panel)')
+
+    lines.append("")
+    lines.append("# Alpha values are typically a Series or DataFrame — extract the first column if needed")
+    lines.append("if isinstance(alpha_values, pd.DataFrame):")
+    lines.append("    alpha_values = alpha_values.iloc[:, 0]")
+    lines.append("")
+    lines.append("# Generate buy/sell signals from alpha")
+    lines.append("# Positive alpha → buy, negative alpha → sell")
+    lines.append("df[\"buy\"] = alpha_values > 0")
+    lines.append("df[\"sell\"] = alpha_values < 0")
+    lines.append("")
+    lines.append("output = {")
+    lines.append('    "name": my_indicator_name,')
+    lines.append('    "plots": [')
+    lines.append('        {"name": "Alpha Value", "data": alpha_values.tolist(),')
+    lines.append('         "color": "#2196F3", "overlay": False},')
+    lines.append("    ],")
+    lines.append('    "signals": [')
+    lines.append('        {"type": "buy", "text": "Buy", "data": df["buy"].where(df["buy"]).reindex(df.index).tolist(),')
+    lines.append('         "color": "#4CAF50"},')
+    lines.append('        {"type": "sell", "text": "Sell", "data": df["sell"].where(df["sell"]).reindex(df.index).tolist(),')
+    lines.append('         "color": "#F44336"},')
+    lines.append("    ],")
+    lines.append("}")
+
+    return "\n".join(lines)
+
+
 # ── Generation helpers ──────────────────────────────────────────────────────
 
 
@@ -530,17 +835,7 @@ def _build_generation_prompt(user_prompt: str, style: str) -> str:
     )
 
 
-def _extract_code_from_response(response: str) -> str:
-    """Extract Python code from an agent response (may contain markdown fences)."""
-    import re as _re
-
-    pattern = _re.compile(r"```(?:python)?\s*\n(.*?)```", _re.DOTALL)
-    m = pattern.search(response)
-    if m:
-        return m.group(1).strip()
-
-    # No fence found — assume the whole response is code
-    return response.strip()
+from src.lab.repository import extract_code_from_response as _extract_code_from_response  # noqa: F811 — shared utility
 
 
 def _build_template_code(prompt: str, style: str) -> str:

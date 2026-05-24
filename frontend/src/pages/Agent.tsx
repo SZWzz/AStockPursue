@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo, useCallback, type FormEvent } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Send, Loader2, ArrowDown, Square, Download, Plus, Paperclip, X, Users } from "lucide-react";
+import { Send, Loader2, ArrowDown, Square, Download, Plus, Paperclip, X, Users, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { useAgentStore } from "@/stores/agent";
 import { useSSE } from "@/hooks/useSSE";
@@ -502,26 +502,32 @@ export function Agent() {
       {/* Left: Chat area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       <div ref={listRef} className="flex-1 overflow-auto scroll-smooth relative">
-        <div className="max-w-3xl mx-auto space-y-4 px-6 pt-6">
+        <div className="max-w-3xl mx-auto space-y-5 px-6 pt-8">
           {sessionLoading && (
-            <div className="space-y-4 py-4">
+            <div className="space-y-5 py-4">
               {[1, 2, 3].map(i => (
                 <div key={i} className="flex gap-3 animate-pulse">
-                  <div className="h-8 w-8 rounded-full bg-muted shrink-0" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-muted rounded w-3/4" />
-                    <div className="h-3 bg-muted/60 rounded w-1/2" />
+                  <div className="h-9 w-9 rounded-xl bg-muted shrink-0" />
+                  <div className="flex-1 space-y-2.5">
+                    <div className="h-4 bg-muted rounded-lg w-3/4" />
+                    <div className="h-3 bg-muted/50 rounded-lg w-1/2" />
                   </div>
                 </div>
               ))}
             </div>
           )}
           {!sessionLoading && messages.length === 0 && (
-            <div className="flex items-center justify-center min-h-[40vh]">
-              <div className="text-center space-y-3">
-                <div className="text-xl font-bold">AStockPursue</div>
-                <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  选择右侧自选股开始分析，或从下方示例中选择一个话题
+            <div className="flex items-center justify-center min-h-[50vh]">
+              <div className="text-center space-y-4 animate-fade-in">
+                <div className="h-16 w-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
+                  <BarChart3 className="h-8 w-8 text-primary" />
+                </div>
+                <div>
+                  <div className="text-xl font-bold tracking-tight">AStockPursue</div>
+                  <p className="text-sm text-muted-foreground mt-1.5">Intelligent Quantitative Trading Assistant</p>
+                </div>
+                <p className="text-sm text-muted-foreground/70 max-w-md mx-auto">
+                  Select stocks from the watchlist panel, or type your question below to get started.
                 </p>
               </div>
             </div>
@@ -547,10 +553,10 @@ export function Agent() {
 
           {/* Pre-stream placeholder: visible after Send, before first SSE event */}
           {status === "streaming" && !streamingText && toolCalls.length === 0 && (
-            <div className="flex gap-3">
+            <div className="flex gap-3 animate-fade-in">
               <AgentAvatar />
-              <div className="flex-1 min-w-0 flex items-center gap-2 text-xs text-muted-foreground pt-1">
-                <Loader2 className="h-3 w-3 animate-spin text-primary shrink-0" />
+              <div className="flex-1 min-w-0 flex items-center gap-2 text-sm text-muted-foreground pt-0.5">
+                <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
                 <span>{t.thinking}</span>
               </div>
             </div>
@@ -560,9 +566,9 @@ export function Agent() {
           {(streamingText || (status === "streaming" && toolCalls.length > 0)) && (
             <div className="flex gap-3">
               <AgentAvatar />
-              <div className="flex-1 min-w-0 space-y-1.5">
+              <div className="flex-1 min-w-0 space-y-2">
                 {streamingText && (
-                  <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed">
+                  <div className="prose prose-sm dark:prose-invert max-w-none leading-relaxed text-sm">
                     {streamingText}
                     <span className="inline-block w-0.5 h-4 bg-primary ml-0.5 animate-pulse align-middle" />
                   </div>
@@ -580,44 +586,44 @@ export function Agent() {
         {showScrollBtn && (
           <button
             onClick={forceScrollToBottom}
-            className="sticky bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary text-primary-foreground text-xs font-medium shadow-lg hover:opacity-90 transition-opacity z-10"
+            className="sticky bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-medium shadow-lg hover:brightness-110 transition-all duration-150 z-10 animate-fade-in"
           >
-            <ArrowDown className="h-3 w-3" /> {t.newMessages}
+            <ArrowDown className="h-4 w-4" /> {t.newMessages}
           </button>
         )}
         <ConversationTimeline messages={messages} containerRef={listRef} />
       </div>
 
-      <form onSubmit={handleSubmit} className="border-t px-4 pt-4 pb-8 bg-background/80 backdrop-blur-sm">
-        <div className="max-w-3xl mx-auto space-y-2">
+      <form onSubmit={handleSubmit} className="border-t px-4 pt-4 pb-6 bg-background/80 backdrop-blur-sm">
+        <div className="max-w-3xl mx-auto space-y-2.5">
           {/* Swarm preset badge */}
           {swarmPreset && (
-            <div className="flex items-center gap-1">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400 text-xs font-medium">
-                <Users className="h-3 w-3" />
+            <div className="flex items-center gap-1 animate-fade-in">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400 text-sm font-medium">
+                <Users className="h-3.5 w-3.5" />
                 {swarmPreset.title}
-                <button type="button" onClick={() => setSwarmPreset(null)} className="hover:text-destructive transition-colors">
-                  <X className="h-3 w-3" />
+                <button type="button" onClick={() => setSwarmPreset(null)} className="hover:text-destructive transition-colors ml-0.5">
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </span>
             </div>
           )}
           {/* Attachment badge */}
           {attachment && (
-            <div className="flex items-center gap-1">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary text-xs font-medium">
-                <Paperclip className="h-3 w-3" />
+            <div className="flex items-center gap-1 animate-fade-in">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary/10 text-primary text-sm font-medium">
+                <Paperclip className="h-3.5 w-3.5" />
                 {attachment.filename}
-                <button type="button" onClick={() => setAttachment(null)} className="hover:text-destructive transition-colors">
-                  <X className="h-3 w-3" />
+                <button type="button" onClick={() => setAttachment(null)} className="hover:text-destructive transition-colors ml-0.5">
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </span>
             </div>
           )}
           {/* Uploading indicator */}
           {uploading && (
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" />
+            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
               {t.uploading}
             </div>
           )}
@@ -628,19 +634,19 @@ export function Agent() {
                 type="button"
                 onClick={() => setShowUploadMenu(prev => !prev)}
                 disabled={status === "streaming" || uploading}
-                className="w-9 h-9 rounded-full border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40 shrink-0"
+                className="w-10 h-10 rounded-xl border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/30 hover:bg-muted/50 transition-all duration-150 disabled:opacity-40 shrink-0 shadow-sm"
                 title={t.moreOptions}
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4.5 w-4.5" />
               </button>
               {showUploadMenu && (
-                <div className="absolute bottom-full left-0 mb-2 w-52 rounded-xl border bg-background/95 backdrop-blur-sm shadow-lg py-1 z-50">
+                <div className="absolute bottom-full left-0 mb-2 w-56 rounded-xl border bg-card/95 backdrop-blur-sm shadow-lg py-1.5 z-50 animate-scale-in">
                   <button
                     type="button"
                     onClick={() => { fileInputRef.current?.click(); setShowUploadMenu(false); }}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2"
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2.5"
                   >
-                    <Paperclip className="h-4 w-4" />
+                    <Paperclip className="h-4 w-4 text-muted-foreground" />
                     {t.uploadPDF}
                   </button>
                   <div className="border-t my-1" />
@@ -651,9 +657,9 @@ export function Agent() {
                       setSwarmPreset({ name: "auto", title: t.agentSwarm });
                       inputRef.current?.focus();
                     }}
-                    className="w-full px-3 py-2 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2"
+                    className="w-full px-4 py-2.5 text-left text-sm hover:bg-muted transition-colors flex items-center gap-2.5"
                   >
-                    <Users className="h-4 w-4" />
+                    <Users className="h-4 w-4 text-muted-foreground" />
                     {t.agentSwarm}
                   </button>
                 </div>
@@ -683,24 +689,24 @@ export function Agent() {
                 }
               }}
               placeholder={t.prompt}
-              className="flex-1 px-4 py-2.5 rounded-xl border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-shadow resize-none max-h-32 overflow-y-auto"
+              className="flex-1 px-4 py-3 rounded-xl border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50 transition-all duration-150 resize-none max-h-32 overflow-y-auto shadow-sm placeholder:text-muted-foreground/50"
               disabled={status === "streaming"}
             />
             {messages.length > 0 && (
               <button
                 type="button"
                 onClick={handleExport}
-                className="px-3 py-2.5 rounded-xl border text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                className="w-10 h-10 rounded-xl border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted/50 hover:border-primary/30 transition-all duration-150 shrink-0 shadow-sm"
                 title={t.exportChat}
               >
-                <Download className="h-4 w-4" />
+                <Download className="h-4.5 w-4.5" />
               </button>
             )}
             {status === "streaming" ? (
               <button
                 type="button"
                 onClick={handleCancel}
-                className="px-4 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+                className="h-10 px-4 rounded-xl bg-destructive text-destructive-foreground text-sm font-medium hover:brightness-110 transition-all duration-150 shrink-0 shadow-sm active:scale-[0.97]"
                 title={t.stopGeneration}
               >
                 <Square className="h-4 w-4" />
@@ -709,7 +715,7 @@ export function Agent() {
               <button
                 type="submit"
                 disabled={!input.trim() && !attachment}
-                className="px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium disabled:opacity-40 hover:opacity-90 transition-opacity"
+                className="h-10 px-5 rounded-xl bg-primary text-primary-foreground text-sm font-medium disabled:opacity-40 hover:brightness-110 transition-all duration-150 shrink-0 shadow-sm active:scale-[0.97]"
               >
                 <Send className="h-4 w-4" />
               </button>

@@ -11,6 +11,7 @@ interface CategoryKey {
   labelKey: string;
   icon: React.ReactNode;
   color: string;
+  textColor: string;
   exampleKeys: ExampleKey[];
 }
 
@@ -19,6 +20,7 @@ const CATEGORY_KEYS: CategoryKey[] = [
     labelKey: "welcomeCat_multiMarket",
     icon: <TrendingUp className="h-4 w-4" />,
     color: "text-red-400 border-red-500/30 hover:border-red-500/60 hover:bg-red-500/5",
+    textColor: "text-red-400",
     exampleKeys: [
       {
         titleKey: "welcomeEx_crossMarketTitle",
@@ -41,6 +43,7 @@ const CATEGORY_KEYS: CategoryKey[] = [
     labelKey: "welcomeCat_research",
     icon: <Sparkles className="h-4 w-4" />,
     color: "text-amber-400 border-amber-500/30 hover:border-amber-500/60 hover:bg-amber-500/5",
+    textColor: "text-amber-400",
     exampleKeys: [
       {
         titleKey: "welcomeEx_multiFactorTitle",
@@ -58,6 +61,7 @@ const CATEGORY_KEYS: CategoryKey[] = [
     labelKey: "welcomeCat_swarm",
     icon: <Users className="h-4 w-4" />,
     color: "text-violet-400 border-violet-500/30 hover:border-violet-500/60 hover:bg-violet-500/5",
+    textColor: "text-violet-400",
     exampleKeys: [
       {
         titleKey: "welcomeEx_committeeTitle",
@@ -75,6 +79,7 @@ const CATEGORY_KEYS: CategoryKey[] = [
     labelKey: "welcomeCat_docResearch",
     icon: <Globe className="h-4 w-4" />,
     color: "text-blue-400 border-blue-500/30 hover:border-blue-500/60 hover:bg-blue-500/5",
+    textColor: "text-blue-400",
     exampleKeys: [
       {
         titleKey: "welcomeEx_earningsTitle",
@@ -92,6 +97,7 @@ const CATEGORY_KEYS: CategoryKey[] = [
     labelKey: "welcomeCat_journal",
     icon: <NotebookPen className="h-4 w-4" />,
     color: "text-orange-400 border-orange-500/30 hover:border-orange-500/60 hover:bg-orange-500/5",
+    textColor: "text-orange-400",
     exampleKeys: [
       {
         titleKey: "welcomeEx_journalTitle",
@@ -109,6 +115,7 @@ const CATEGORY_KEYS: CategoryKey[] = [
     labelKey: "welcomeCat_shadow",
     icon: <UserCircle2 className="h-4 w-4" />,
     color: "text-emerald-400 border-emerald-500/30 hover:border-emerald-500/60 hover:bg-emerald-500/5",
+    textColor: "text-emerald-400",
     exampleKeys: [
       {
         titleKey: "welcomeEx_trainShadowTitle",
@@ -127,6 +134,23 @@ const CATEGORY_KEYS: CategoryKey[] = [
       },
     ],
   },
+];
+
+const CHIP_KEYS = [
+  "welcomeChip1",
+  "welcomeChip2",
+  "welcomeChip3",
+  "welcomeChip4",
+  "welcomeChip5",
+  "welcomeChip6",
+  "welcomeChip7",
+  "welcomeChip8",
+  "welcomeChip9",
+  "welcomeChip10",
+  "welcomeChip11",
+  "welcomeChip12",
+  "welcomeChip13",
+  "welcomeChip14",
 ];
 
 interface Props {
@@ -156,27 +180,12 @@ export function WelcomeScreen({ onExample }: Props) {
 
       {/* Capability chips */}
       <div className="flex flex-wrap justify-center gap-2 max-w-lg">
-        {[
-          "70 Finance Skills",
-          "29 Swarm Presets",
-          "32 Agent Tools",
-          "3 Markets: A-Share · Crypto · HK/US",
-          "Minute to Daily Timeframes",
-          "4 Portfolio Optimizers",
-          "15+ Risk Metrics",
-          "Options & Derivatives",
-          "PDF & Web Research",
-          "Factor Analysis & ML",
-          "Trade Journal Analyzer",
-          "Shadow Account Backtest",
-          "Persistent Memory",
-          "Session Search",
-        ].map((chip) => (
+        {CHIP_KEYS.map((key) => (
           <span
-            key={chip}
+            key={key}
             className="px-2.5 py-1 text-xs rounded-full border border-border/60 text-muted-foreground bg-muted/30"
           >
-            {chip}
+            {(t as Record<string, string>)[key] || key}
           </span>
         ))}
       </div>
@@ -187,7 +196,7 @@ export function WelcomeScreen({ onExample }: Props) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {CATEGORY_KEYS.map((cat) => (
             <div key={cat.labelKey} className="space-y-2">
-              <div className={`flex items-center gap-1.5 text-xs font-medium px-1 ${cat.color.split(" ").filter(c => c.startsWith("text-")).join(" ")}`}>
+              <div className={`flex items-center gap-1.5 text-xs font-medium px-1 ${cat.textColor}`}>
                 {cat.icon}
                 <span>{(t as Record<string, string>)[cat.labelKey] || cat.labelKey}</span>
               </div>

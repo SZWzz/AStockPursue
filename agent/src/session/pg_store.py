@@ -30,7 +30,7 @@ class PgSessionStore:
                            VALUES (%s, %s, %s, %s, %s, %s, %s)""",
                         (
                             session.session_id,
-                            1,  # default user
+                            session.user_id,
                             session.title,
                             session.status.value if hasattr(session.status, "value") else str(session.status),
                             json.dumps(session.config, ensure_ascii=False),
@@ -85,7 +85,7 @@ class PgSessionStore:
                     )
         except Exception as e:
             logger.exception("Failed to update session %s", session.session_id)
-
+            raise
     def delete_session(self, session_id: str) -> bool:
         try:
             with get_connection() as conn:
@@ -140,7 +140,7 @@ class PgSessionStore:
                     )
         except Exception as e:
             logger.exception("Failed to append message %s", message.message_id)
-
+            raise
     def get_messages(self, session_id: str, limit: int = 100) -> list[Message]:
         try:
             with get_connection() as conn:
@@ -238,7 +238,7 @@ class PgSessionStore:
                     )
         except Exception as e:
             logger.exception("Failed to update attempt %s", attempt.attempt_id)
-
+            raise
     # ── Search ─────────────────────────────────────────────────────────────
 
     def search_messages(self, query: str, limit: int = 20) -> list[Message]:

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Trash2, Users, Shield } from "lucide-react";
-import { authHeaders } from "@/lib/apiAuth";
+import { Trash2, Users, Shield, AlertTriangle } from "lucide-react";
+import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 
 interface User {
   id: number;
@@ -17,15 +18,16 @@ export function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const { t } = useI18n();
 
   const loadUsers = async () => {
     try {
-      const res = await fetch("/api/admin/users", { headers: authHeaders() });
-      const data = await res.json();
-      if (res.ok) setUsers(data.users || []);
-      else setError(data.detail || "Failed to load users");
+      const data = await api.listUsers();
+      setUsers(data.users || []);
     } catch (e) {
-      setError(String(e));
+      setError(e instanceof Error ? e.message : t.failedToLoadUsers);
     } finally {
       setLoading(false);
     }
@@ -33,35 +35,43 @@ export function UserManagement() {
 
   useEffect(() => { loadUsers(); }, []);
 
-  const deleteUser = async (id: number) => {
-    if (!confirm("确定删除该用户？此操作不可撤销。")) return;
-    await fetch(`/api/admin/users/${id}`, { method: "DELETE", headers: authHeaders() });
-    loadUsers();
+  const handleDeleteConfirm = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    try {
+      await api.deleteUser(deleteTarget.id);
+      setDeleteTarget(null);
+      loadUsers();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t.failedToLoadUsers);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
     <div className="max-w-4xl mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Users className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">用户管理</h1>
+        <h1 className="text-2xl font-bold">{t.userManagement}</h1>
       </div>
 
       {error && <div className="rounded-md bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>}
 
       {loading ? (
-        <div className="text-sm text-muted-foreground">加载中...</div>
+        <div className="text-sm text-muted-foreground">{t.loading}</div>
       ) : (
         <div className="border rounded-lg overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
               <tr>
-                <th className="text-left px-4 py-2.5 font-medium">用户名</th>
-                <th className="text-left px-4 py-2.5 font-medium">邮箱</th>
-                <th className="text-left px-4 py-2.5 font-medium">角色</th>
-                <th className="text-left px-4 py-2.5 font-medium">LLM</th>
-                <th className="text-left px-4 py-2.5 font-medium">Tushare</th>
-                <th className="text-left px-4 py-2.5 font-medium">注册时间</th>
-                <th className="text-right px-4 py-2.5 font-medium">操作</th>
+                <th className="text-left px-4 py-2.5 font-medium">{t.username_col}</th>
+                <th className="text-left px-4 py-2.5 font-medium">{t.email_col}</th>
+                <th className="text-left px-4 py-2.5 font-medium">{t.role_col}</th>
+                <th className="text-left px-4 py-2.5 font-medium">{t.llm_col}</th>
+                <th className="text-left px-4 py-2.5 font-medium">{t.tushare_col}</th>
+                <th className="text-left px-4 py-2.5 font-medium">{t.registered_col}</th>
+                <th className="text-right px-4 py-2.5 font-medium">{t.actions_col}</th>
               </tr>
             </thead>
             <tbody>
@@ -76,19 +86,31 @@ export function UserManagement() {
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground text-xs">
-                    {u.llm_provider ? `${u.llm_provider}/${u.llm_model}` : "未配置"}
+                    {u.llm_provider ? `${u.llm_provider}/${u.llm_model}` : t.notConfigured}
                   </td>
                   <td className="px-4 py-2.5">
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs ${u.tushare_configured ? "bg-success/10 text-success" : "bg-muted text-muted-foreground"}`}>
-                      {u.tushare_configured ? "已配置" : "未配置"}
+                      {u.tushare_configured ? t.configured : t.notConfigured}
                     </span>
                   </td>
                   <td className="px-4 py-2.5 text-muted-foreground text-xs">{u.created_at?.slice(0, 10)}</td>
                   <td className="px-4 py-2.5 text-right">
                     {u.role !== "admin" && (
-                      <button onClick={() => deleteUser(u.id)} className="p-1.5 text-muted-foreground hover:text-danger rounded transition">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                      deleteTarget?.id === u.id ? (
+                        <span className="inline-flex items-center gap-1.5 text-xs">
+                          <span className="text-danger flex items-center gap-1"><AlertTriangle className="h-3 w-3" />{t.confirmDeleteUser}</span>
+                          <button onClick={handleDeleteConfirm} disabled={deleting} className="px-2 py-0.5 rounded bg-danger text-danger-foreground hover:opacity-90 disabled:opacity-50 transition">
+                            {deleting ? t.deletingUser : t.confirmDelete}
+                          </button>
+                          <button onClick={() => setDeleteTarget(null)} disabled={deleting} className="px-2 py-0.5 rounded border text-muted-foreground hover:bg-muted transition">
+                            {t.cancelDelete}
+                          </button>
+                        </span>
+                      ) : (
+                        <button onClick={() => setDeleteTarget(u)} className="p-1.5 text-muted-foreground hover:text-danger rounded transition">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )
                     )}
                   </td>
                 </tr>

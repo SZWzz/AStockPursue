@@ -14,12 +14,12 @@ Output contract — JSON envelope:
      "top": [{"id": ..., "ic_mean": ..., "ir": ..., ...}, ...]}
 
 Cache integrity note: the universe panel cache lives in ``~/.AStockPursue/cache/``
-as pickle blobs. Each pickle is paired with a ``<name>.sha256`` sidecar; on
-load we recompute the digest and refuse the cache on mismatch. This guards
+as pickle blobs. Each pickle is paired with a ``<name>.hmac`` sidecar; on
+load we recompute the HMAC and refuse the cache on mismatch. This guards
 against accidental corruption (truncated writes, partial syncs) — it is NOT a
 defence against an attacker with local write access (they can rewrite both
 files). Cache files are user-local; if shared across machines they can be
-tampered with and the sha256 sidecar is only an integrity check, not authenticity.
+tampered with and the HMAC sidecar is only an integrity check, not authenticity.
 """
 
 from __future__ import annotations
@@ -147,15 +147,15 @@ def _load_universe_panel(
     return panel
 
 
-def _sha256_path(cache_path: Path) -> Path:
-    return cache_path.with_suffix(cache_path.suffix + ".sha256")
+def _hmac_path(cache_path: Path) -> Path:
+    return cache_path.with_suffix(cache_path.suffix + ".hmac")
 
 
 def _read_pickle_cache(cache_path: Path) -> dict[str, pd.DataFrame] | None:
-    """Load a pickle cache, validating its sha256 sidecar. None on any failure."""
+    """Load a pickle cache, validating its HMAC sidecar. None on any failure."""
     import pickle
 
-    sidecar = _sha256_path(cache_path)
+    sidecar = _hmac_path(cache_path)
     try:
         blob = cache_path.read_bytes()
     except OSError as exc:
@@ -173,7 +173,9 @@ def _read_pickle_cache(cache_path: Path) -> dict[str, pd.DataFrame] | None:
     except OSError as exc:
         logger.warning("cache sidecar read failed (%s); refetching", exc)
         return None
-    actual = hashlib.sha256(blob).hexdigest()
+
+    _hmac_key = os.getenv("CACHE_HMAC_KEY", "AStockPursue-cache-v1").encode("utf-8")
+    actual = hmac.new(_hmac_key, blob, "sha256").hexdigest()
     if not _hashes_equal(expected, actual):
         logger.warning(
             "cache integrity mismatch for %s (expected %s..., got %s...); refetching",
@@ -195,15 +197,16 @@ def _read_pickle_cache(cache_path: Path) -> dict[str, pd.DataFrame] | None:
 def _write_pickle_cache(
     cache_dir: Path, cache_path: Path, panel: dict[str, Any]
 ) -> None:
-    """Pickle ``panel`` + write its sha256 sidecar. Failures are non-fatal."""
+    """Pickle ``panel`` + write its HMAC sidecar. Failures are non-fatal."""
     import pickle
 
     try:
         cache_dir.mkdir(parents=True, exist_ok=True)
         blob = pickle.dumps(panel, protocol=pickle.HIGHEST_PROTOCOL)
         cache_path.write_bytes(blob)
-        _sha256_path(cache_path).write_text(
-            hashlib.sha256(blob).hexdigest(), encoding="utf-8"
+        _hmac_key = os.getenv("CACHE_HMAC_KEY", "AStockPursue-cache-v1").encode("utf-8")
+        _hmac_path(cache_path).write_text(
+            hmac.new(_hmac_key, blob, "sha256").hexdigest(), encoding="utf-8"
         )
     except Exception as exc:  # noqa: BLE001 — cache miss is non-fatal
         logger.warning("cache write failed: %s", exc)

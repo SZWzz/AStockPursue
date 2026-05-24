@@ -297,7 +297,12 @@ def safe_exec_isolated(
     if proc.exitcode != 0 and not parent_conn.poll():
         return {
             "success": False,
-            "error": f"Subprocess exited abnormally (exit code: {proc.exitcode})",
+            "error": (
+                f"Subprocess exited abnormally (exit code: {proc.exitcode}). "
+                f"Worker did not return a result — this likely indicates a hard "
+                f"crash (segfault, OOM kill, or C-level abort). "
+                f"Check server logs for multiprocessing worker tracebacks."
+            ),
             "result": None,
         }
 

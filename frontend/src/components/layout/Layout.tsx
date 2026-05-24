@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
 import { BarChart3, Bot, Moon, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, LogIn, LogOut, User, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -10,10 +10,8 @@ import { useAuthStore } from "@/stores/auth";
 import { ConnectionBanner } from "@/components/layout/ConnectionBanner";
 import { PostLoginSetup } from "@/components/layout/PostLoginSetup";
 
-// Bump on each release; one place keeps the footer in sync with package.json.
 const APP_VERSION = "v2026.5.24";
 
-// NAV entries: `key` looks up label in i18n; `label` overrides (used for "Alpha Zoo").
 const NAV = [
   { to: "/", icon: Bot, key: "home" as const, label: null },
   { to: "/alpha-zoo", icon: Layers, key: "alphaZoo" as const, label: null },
@@ -49,7 +47,6 @@ export function Layout() {
       .finally(() => setSessionsLoading(false));
   };
 
-  // Load sessions when on the agent page (now at "/").
   const isAgentPage = pathname === "/";
   useEffect(() => { loadSessions(); }, [isAgentPage, activeSessionId]);
 
@@ -78,36 +75,40 @@ export function Layout() {
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
       <aside className={cn(
-        "border-r bg-card flex flex-col shrink-0 transition-all duration-200",
-        collapsed ? "w-12" : "w-64"
+        "border-r bg-card/90 backdrop-blur-sm flex flex-col shrink-0 transition-all duration-200",
+        collapsed ? "w-14" : "w-64"
       )}>
         {/* Brand */}
-        <div className={cn("border-b", collapsed ? "p-2 flex justify-center" : "p-4")}>
-          <Link to="/" className={cn("flex items-center font-bold text-base tracking-tight", collapsed ? "justify-center" : "gap-2")}>
-            <BarChart3 className="h-5 w-5 text-primary shrink-0" />
-            {!collapsed && "AStockPursue"}
-          </Link>
-        </div>
+        <Link to="/" className={cn(
+          "flex items-center font-bold tracking-tight border-b",
+          collapsed ? "h-12 justify-center" : "h-12 gap-2.5 px-4"
+        )}>
+          <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
+            <BarChart3 className="h-4 w-4 text-primary-foreground" />
+          </div>
+          {!collapsed && <span className="text-base">AStockPursue</span>}
+        </Link>
 
         {/* Nav */}
-        <nav className={cn("space-y-0.5", collapsed ? "p-1" : "p-2")}>
+        <nav className={cn("py-2", collapsed ? "px-2" : "px-3")}>
           {NAV.map(({ to, icon: Icon, key, label }) => {
+            const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
             const text = label ?? t[key];
             return (
               <Link
                 key={to}
                 to={to}
                 className={cn(
-                  "flex items-center rounded-md text-sm transition-colors",
-                  collapsed ? "justify-center p-2" : "gap-3 px-3 py-2",
-                  (to === "/" ? pathname === "/" : pathname.startsWith(to))
-                    ? "bg-primary/10 text-primary font-medium"
+                  "flex items-center rounded-lg transition-all duration-150 mb-0.5",
+                  collapsed ? "justify-center h-9 w-9 mx-auto" : "gap-3 px-3 py-2",
+                  active
+                    ? "bg-primary/10 text-primary font-medium shadow-sm"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
                 title={collapsed ? text : undefined}
               >
-                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {!collapsed && text}
+                <Icon className={cn("shrink-0", active ? "h-4.5 w-4.5" : "h-4 w-4")} aria-hidden="true" />
+                {!collapsed && <span className="text-sm">{text}</span>}
               </Link>
             );
           })}
@@ -115,44 +116,49 @@ export function Layout() {
             <Link
               to="/admin/users"
               className={cn(
-                "flex items-center rounded-md text-sm transition-colors",
-                collapsed ? "justify-center p-2" : "gap-3 px-3 py-2",
-                pathname.startsWith("/admin") ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                "flex items-center rounded-lg transition-all duration-150",
+                collapsed ? "justify-center h-9 w-9 mx-auto" : "gap-3 px-3 py-2",
+                pathname.startsWith("/admin")
+                  ? "bg-primary/10 text-primary font-medium shadow-sm"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
               title={collapsed ? "Users" : undefined}
             >
               <Users className="h-4 w-4 shrink-0" />
-              {!collapsed && "Users"}
+              {!collapsed && <span className="text-sm">Users</span>}
             </Link>
           )}
         </nav>
 
         {/* Sessions — hidden when collapsed */}
         {!collapsed && (
-          <div className="flex-1 overflow-auto border-t mt-2 flex flex-col">
-            <div className="flex items-center justify-between px-4 py-2">
-              <span className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <div className="flex-1 overflow-hidden border-t flex flex-col">
+            <div className="flex items-center justify-between px-4 py-2.5">
+              <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 <MessageSquare className="h-3.5 w-3.5" />
                 {t.sessions}
               </span>
               <Link
                 to="/"
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                className="btn-ghost p-1 rounded-md"
                 title={t.newChat}
               >
                 <Plus className="h-3.5 w-3.5" />
               </Link>
             </div>
 
-            <div className="px-2 pb-2 space-y-0.5 overflow-auto flex-1">
+            <div className="px-3 pb-3 space-y-0.5 overflow-auto flex-1">
               {sessionsLoading ? (
-                <div className="space-y-1.5 px-2 py-1">
+                <div className="space-y-1.5 px-1 py-1">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-7 rounded-md bg-muted/50 animate-pulse" />
+                    <div key={i} className="h-8 rounded-lg bg-muted/50 animate-pulse" />
                   ))}
                 </div>
               ) : sessions.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-muted-foreground/60">{t.noSessions}</p>
+                <div className="empty-state py-8">
+                  <MessageSquare className="empty-state-icon h-8 w-8" />
+                  <p className="empty-state-text">{t.noSessions}</p>
+                </div>
               ) : null}
               {sessions.map((s) => {
                 const isActive = s.session_id === activeSessionId;
@@ -167,45 +173,45 @@ export function Layout() {
                         onChange={(e) => setRenameValue(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") renameSession(s.session_id); if (e.key === "Escape") setRenameTarget(null); }}
                         onBlur={() => renameSession(s.session_id)}
-                        className="flex-1 min-w-0 pl-3 pr-2 py-1 rounded-md text-xs border border-primary bg-background outline-none"
+                        className="flex-1 min-w-0 px-3 py-1.5 rounded-lg text-sm border border-primary bg-background outline-none"
                       />
                     ) : (
                       <Link
                         to={`/?session=${s.session_id}`}
                         className={cn(
-                          "flex-1 min-w-0 pl-3 pr-14 py-1.5 rounded-md text-xs transition-colors truncate block border-l-2",
+                          "flex-1 min-w-0 pl-3 pr-16 py-2 rounded-lg text-sm transition-all duration-150 truncate block",
                           isActive
-                            ? "border-l-primary bg-primary/10 text-primary font-medium"
-                            : "border-l-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+                            ? "bg-primary/10 text-primary font-medium shadow-sm"
+                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                         title={s.title || s.session_id}
                       >
-                        <span className="flex items-center gap-1.5">
+                        <span className="flex items-center gap-2">
                           <span className={cn(
-                            "h-1.5 w-1.5 rounded-full shrink-0",
+                            "h-2 w-2 rounded-full shrink-0",
                             s.status === "failed" ? "bg-danger" : isActive ? "bg-warning" : "bg-success/60"
                           )} />
-                          {s.title || s.session_id.slice(0, 16)}
+                          {s.title || s.session_id.slice(0, 20)}
                         </span>
                       </Link>
                     )}
                     {!isRenaming && isDeleting ? (
-                      <div className="absolute right-0.5 flex items-center gap-0.5">
-                        <button onClick={() => deleteSession(s.session_id)} className="p-1 text-danger hover:bg-danger/10 rounded text-[10px] font-medium">{t.confirmDelete}</button>
-                        <button onClick={() => setDeleteTarget(null)} className="p-1 text-muted-foreground hover:bg-muted rounded text-[10px]">{t.cancelDelete}</button>
+                      <div className="absolute right-1 flex items-center gap-0.5 animate-fade-in">
+                        <button onClick={() => deleteSession(s.session_id)} className="btn-sm btn-danger py-0.5 text-[10px]">{t.confirmDelete}</button>
+                        <button onClick={() => setDeleteTarget(null)} className="btn-sm btn-ghost py-0.5 text-[10px]">{t.cancelDelete}</button>
                       </div>
                     ) : !isRenaming ? (
-                      <div className="absolute right-1 opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-opacity">
+                      <div className="absolute right-1.5 opacity-0 group-hover:opacity-100 flex items-center gap-0.5 transition-all duration-150">
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setRenameTarget(s.session_id); setRenameValue(s.title || ""); }}
-                          className="p-1 text-muted-foreground hover:text-foreground rounded"
+                          className="p-1 text-muted-foreground hover:text-foreground rounded-md transition-colors"
                           title={t.rename}
                         >
                           <Pencil className="h-3 w-3" />
                         </button>
                         <button
                           onClick={(e) => { e.preventDefault(); e.stopPropagation(); setDeleteTarget(s.session_id); }}
-                          className="p-1 text-muted-foreground hover:text-danger rounded"
+                          className="p-1 text-muted-foreground hover:text-danger rounded-md transition-colors"
                           title={t.deleteConfirm}
                         >
                           <Trash2 className="h-3 w-3" />
@@ -223,76 +229,68 @@ export function Layout() {
         {collapsed && <div className="flex-1" />}
 
         {/* Footer */}
-        <div className={cn("border-t", collapsed ? "p-1 flex flex-col items-center gap-1" : "p-3 space-y-2")}>
-
+        <div className={cn("border-t", collapsed ? "p-1.5 flex flex-col items-center gap-1.5" : "p-3 space-y-2.5")}>
           {/* User section */}
           {collapsed ? (
-            <Link to={user ? "#" : "/login"} className="p-1.5 text-muted-foreground hover:text-foreground rounded transition-colors" title={user ? user.username : "Login"}>
-              <User className="h-3.5 w-3.5" />
+            <Link to={user ? "#" : "/login"} className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors" title={user ? user.username : "Login"}>
+              <User className="h-4 w-4" />
             </Link>
           ) : user ? (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 min-w-0">
-                <User className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span className="text-xs font-medium truncate">{user.username}</span>
+                <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <User className="h-3.5 w-3.5 text-primary" />
+                </div>
+                <span className="text-sm font-medium truncate">{user.username}</span>
               </div>
-              <button onClick={logout} className="p-1 text-muted-foreground hover:text-danger rounded transition-colors" title="Logout">
-                <LogOut className="h-3.5 w-3.5" />
+              <button onClick={logout} className="btn-ghost p-1.5 rounded-lg" title="Logout">
+                <LogOut className="h-4 w-4" />
               </button>
             </div>
           ) : (
-            <Link to="/login" className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-              <LogIn className="h-3.5 w-3.5" />
+            <Link to="/login" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors px-1">
+              <LogIn className="h-4 w-4" />
               Sign in
             </Link>
           )}
 
           {collapsed ? (
             <>
-              <button onClick={toggle} className="p-1.5 text-muted-foreground hover:text-foreground rounded transition-colors" title={dark ? t.lightMode : t.darkMode}>
-                {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              <button onClick={toggle} className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors" title={dark ? t.lightMode : t.darkMode}>
+                {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
               </button>
               <button
                 onClick={() => setLang(lang === "zh" ? "en" : "zh")}
-                className="p-1.5 text-muted-foreground hover:text-foreground rounded transition-colors text-[10px] font-medium"
+                className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors text-[11px] font-semibold"
                 title={t.language}
               >
                 {lang === "zh" ? "EN" : "中"}
               </button>
-              <button onClick={() => setCollapsed(false)} className="p-1.5 text-muted-foreground hover:text-foreground rounded transition-colors" title={t.expand}>
-                <ChevronsRight className="h-3.5 w-3.5" />
+              <button onClick={() => setCollapsed(false)} className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors" title={t.expand}>
+                <ChevronsRight className="h-4 w-4" />
               </button>
             </>
           ) : (
             <>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1">
-                  <button
-                    onClick={toggle}
-                    className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-                  >
+                  <button onClick={toggle} className="btn-ghost px-2 py-1 rounded-lg text-xs">
                     {dark ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-                    {dark ? t.lightMode : t.darkMode}
+                    <span>{dark ? t.lightMode : t.darkMode}</span>
                   </button>
                   <button
                     onClick={() => setLang(lang === "zh" ? "en" : "zh")}
-                    className="px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground rounded transition-colors font-medium"
+                    className="px-2 py-1 text-xs text-muted-foreground hover:text-foreground rounded-md transition-colors font-semibold"
                     title={t.language}
                   >
                     {lang === "zh" ? "EN" : "中文"}
                   </button>
                 </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    onClick={() => setCollapsed(true)}
-                    className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
-                    title={t.collapse}
-                  >
-                    <ChevronsLeft className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                <button onClick={() => setCollapsed(true)} className="btn-ghost p-1.5 rounded-lg" title={t.collapse}>
+                  <ChevronsLeft className="h-4 w-4" />
+                </button>
               </div>
-              <p className="text-xs text-muted-foreground/60">{APP_VERSION}</p>
+              <p className="text-[11px] text-muted-foreground/50 font-medium">{APP_VERSION}</p>
             </>
           )}
         </div>
