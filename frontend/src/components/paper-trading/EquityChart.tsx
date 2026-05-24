@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import * as echarts from "echarts";
-import { chartTheme } from "@/lib/chart-theme";
+import { getChartTheme } from "@/lib/chart-theme";
 import { useI18n } from "@/lib/i18n";
 import type { EquityPoint } from "@/services/paperTrading";
 
@@ -18,7 +18,7 @@ export default function EquityChart({ data, height = 300 }: Props) {
     if (!chartRef.current) return;
 
     if (!instanceRef.current) {
-      instanceRef.current = echarts.init(chartRef.current, chartTheme);
+      instanceRef.current = echarts.init(chartRef.current, getChartTheme());
     }
 
     const times = data.map((d) => d.point_time);
