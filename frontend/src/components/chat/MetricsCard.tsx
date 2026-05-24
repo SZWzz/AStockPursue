@@ -4,9 +4,9 @@ import { useI18n } from "@/lib/i18n";
 import { getMetricLabel, DISPLAY_ORDER, formatMetricVal, metricSentiment } from "@/lib/formatters";
 
 const SENTIMENT = {
-  positive: "text-success",
+  positive: "text-up",
   neutral: "text-foreground",
-  negative: "text-danger",
+  negative: "text-down",
 } as const;
 
 interface Props {

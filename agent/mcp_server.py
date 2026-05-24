@@ -46,6 +46,26 @@ mcp = FastMCP("AStockPursue")
 
 logger = logging.getLogger(__name__)
 
+_data_tokens_loaded = False
+
+
+def _ensure_data_tokens() -> None:
+    """Load data-source tokens from .env + DB so loaders can find them."""
+    global _data_tokens_loaded
+    if _data_tokens_loaded:
+        return
+    _data_tokens_loaded = True
+    try:
+        from src.providers.llm import _ensure_dotenv
+        _ensure_dotenv()
+    except Exception:
+        pass
+    try:
+        from src.auth.user_config import load_user_config
+        load_user_config(1)
+    except Exception:
+        pass
+
 
 # ---------------------------------------------------------------------------
 # Lazy-loaded singletons
@@ -140,6 +160,7 @@ def backtest(run_dir: str) -> str:
     Args:
         run_dir: Path to the run directory containing config.json and code/.
     """
+    _ensure_data_tokens()
     from src.tools.backtest_tool import run_backtest
 
     return run_backtest(run_dir)
@@ -505,6 +526,8 @@ def get_market_data(
             plus truncation metadata. Set max_rows=0 for all rows
             (unbounded, legacy behavior).
     """
+    _ensure_data_tokens()
+
     results = {}
 
     if source == "auto":

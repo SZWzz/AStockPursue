@@ -23,7 +23,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error(detail);
   }
   const text = await res.text();
-  return text ? JSON.parse(text) : ({} as T);
+  if (!text) return {} as T;
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Unexpected response from server (${res.status} ${res.statusText})`);
+  }
 }
 
 // ── Types ────────────────────────────────────────────────────────────

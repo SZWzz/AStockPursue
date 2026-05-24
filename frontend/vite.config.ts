@@ -15,6 +15,7 @@ const PROXY_PATHS = [
   "/alpha",
   "/indicator-lab",
   "/strategy-lab",
+  "/stock",
   "/api",
 ];
 

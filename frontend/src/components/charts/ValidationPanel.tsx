@@ -137,7 +137,7 @@ function WalkForwardSection({ wf }: { wf: NonNullable<ValidationData["walk_forwa
             <tr key={w.window} className="border-b last:border-0">
               <td className="py-1.5 pr-3 font-mono">{w.window}</td>
               <td className="py-1.5 pr-3 font-mono text-muted-foreground">{w.start} ~ {w.end}</td>
-              <td className={cn("py-1.5 pr-3 text-right font-mono tabular-nums", w.return > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400")}>{pctFmt(w.return)}</td>
+              <td className={cn("py-1.5 pr-3 text-right font-mono tabular-nums", w.return > 0 ? "text-up" : "text-down")}>{pctFmt(w.return)}</td>
               <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{w.sharpe.toFixed(2)}</td>
               <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{pctFmt(w.max_dd)}</td>
               <td className="py-1.5 pr-3 text-right font-mono tabular-nums">{w.trades}</td>

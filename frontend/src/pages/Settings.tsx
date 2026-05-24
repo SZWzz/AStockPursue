@@ -207,7 +207,9 @@ export function Settings() {
       if (res.ok) {
         setUserMsg("用户名已更新");
         // Update stored user info
-        const u = JSON.parse(localStorage.getItem("vt_user") || "{}");
+        const raw = localStorage.getItem("vt_user") || "{}";
+        let u: Record<string, unknown> = {};
+        try { u = JSON.parse(raw); } catch { /* ignore */ }
         u.username = newName;
         localStorage.setItem("vt_user", JSON.stringify(u));
       }
@@ -230,7 +232,7 @@ export function Settings() {
       <form onSubmit={changeUsername} className="flex gap-3 items-end">
         <label className="grid gap-1.5 flex-1">
           <span className="text-sm font-medium">用户名</span>
-          <input name="new_username" required minLength={2} placeholder={JSON.parse(localStorage.getItem("vt_user") || "{}").username || ""} className="input" />
+          <input name="new_username" required minLength={2} placeholder={((): string => { try { return JSON.parse(localStorage.getItem("vt_user") || "{}").username || ""; } catch { return ""; } })()} className="input" />
         </label>
         <button type="submit" disabled={changingUser} className="btn-sm btn-primary">
           {changingUser ? "..." : "修改"}

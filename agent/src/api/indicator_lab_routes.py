@@ -28,6 +28,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from src.auth.dependencies import require_auth
+
 from src.lab.params import IndicatorParamsParser, StrategyConfigParser
 from src.lab.quality import analyze_indicator_code_quality
 from src.lab.repository import IndicatorRepository
@@ -515,9 +517,16 @@ async def generate_indicator(req: GenerateRequest, request: Request):
 
 
 @router.post("/backtest", response_model=BacktestResponse)
-async def backtest_indicator(req: BacktestRequest):
+async def backtest_indicator(req: BacktestRequest, user: dict = Depends(require_auth)):
     """Run indicator code against real market data and return backtest results."""
     from src.lab.backtest_bridge import run_indicator_backtest
+
+    user_id = user.get("user_id", 1)
+    try:
+        from src.auth.user_config import load_user_config
+        load_user_config(user_id)
+    except Exception:
+        pass
 
     try:
         result = run_indicator_backtest(
@@ -874,8 +883,8 @@ output = {{
         {{"name": "RSI", "data": rsi.tolist(), "color": "#9C27B0", "overlay": False}},
     ],
     "signals": [
-        {{"type": "buy", "text": "Buy", "data": df["buy"].where(df["buy"]).reindex(df.index).tolist(), "color": "#4CAF50"}},
-        {{"type": "sell", "text": "Sell", "data": df["sell"].where(df["sell"]).reindex(df.index).tolist(), "color": "#F44336"}},
+        {{"type": "buy", "text": "Buy", "data": df["buy"].where(df["buy"]).reindex(df.index).tolist(), "color": "#F44336"}},
+        {{"type": "sell", "text": "Sell", "data": df["sell"].where(df["sell"]).reindex(df.index).tolist(), "color": "#4CAF50"}},
     ],
 }}
 '''

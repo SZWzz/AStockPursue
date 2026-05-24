@@ -40,13 +40,13 @@ def normalize_cn_code(symbol: str) -> str:
         return s
     if s.endswith(".SH") or s.endswith(".SS"):
         digits = s[:-3]
-        return ("SH" if digits.startswith("6") else "SZ") + digits
+        return ("sh" if digits.startswith("6") else "sz") + digits
     if s.endswith(".SZ"):
-        return "SZ" + s[:-3]
+        return "sz" + s[:-3]
     if s.endswith(".BJ"):
-        return "BJ" + s[:-3]
+        return "bj" + s[:-3]
     if s.isdigit() and len(s) == 6:
-        return ("SH" + s) if s.startswith(("6", "5", "9")) else ("SZ" + s)
+        return ("sh" + s) if s.startswith(("6", "5", "9")) else ("sz" + s)
     return s.lower()
 
 
@@ -58,9 +58,9 @@ def normalize_hk_code(symbol: str) -> str:
     if s.endswith(".HK"):
         s = s[:-3]
     if s.isdigit():
-        return "HK" + s.zfill(5)
+        return "hk" + s.zfill(5)
     if s.startswith("HK") and s[2:].isdigit():
-        return "HK" + s[2:].zfill(5)
+        return "hk" + s[2:].zfill(5)
     return s.lower()
 
 

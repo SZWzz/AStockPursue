@@ -28,7 +28,7 @@ function diffClass(a: unknown, b: unknown, higherIsBetter: boolean): string {
   if (!Number.isFinite(na) || !Number.isFinite(nb)) return "";
   const better = higherIsBetter ? nb > na : nb < na;
   const worse = higherIsBetter ? nb < na : nb > na;
-  return better ? "text-green-600 dark:text-green-400" : worse ? "text-red-600 dark:text-red-400" : "";
+  return better ? "text-up" : worse ? "text-down" : "";
 }
 
 function diffStr(a: unknown, b: unknown, type: "pct" | "num" | "int" | "days"): string {
@@ -50,23 +50,25 @@ function runLabel(r: RunListItem): string {
   return r.run_id;
 }
 
-const METRICS: MetricDef[] = [
-  { key: "total_return",           label: "Total Return",         type: "pct", higherIsBetter: true },
-  { key: "annualized_return",      label: "Annualized Return",    type: "pct", higherIsBetter: true },
-  { key: "sharpe",                 label: "Sharpe Ratio",         type: "num", higherIsBetter: true },
-  { key: "calmar_ratio",           label: "Calmar Ratio",         type: "num", higherIsBetter: true },
-  { key: "sortino_ratio",          label: "Sortino Ratio",        type: "num", higherIsBetter: true },
-  { key: "max_drawdown",           label: "Max Drawdown",         type: "pct", higherIsBetter: false },
-  { key: "volatility",             label: "Volatility",           type: "pct", higherIsBetter: false },
-  { key: "win_rate",               label: "Win Rate",             type: "pct", higherIsBetter: true },
-  { key: "profit_factor",          label: "Profit Factor",        type: "num", higherIsBetter: true },
-  { key: "avg_win",                label: "Avg Win",              type: "pct", higherIsBetter: true },
-  { key: "avg_loss",               label: "Avg Loss",             type: "pct", higherIsBetter: false },
-  { key: "trade_count",            label: "Trades",               type: "int", higherIsBetter: true },
-  { key: "max_consecutive_losses", label: "Max Consec. Losses",   type: "int", higherIsBetter: false },
-  { key: "exposure_time",          label: "Exposure Time",        type: "pct", higherIsBetter: true },
-  { key: "avg_holding_period",     label: "Avg Holding Period",   type: "days", higherIsBetter: false },
-];
+function buildMetrics(t: Record<string, string>): MetricDef[] {
+  return [
+    { key: "total_return",           label: t.metricTotalReturn,         type: "pct", higherIsBetter: true },
+    { key: "annualized_return",      label: t.metricAnnualReturn,        type: "pct", higherIsBetter: true },
+    { key: "sharpe",                 label: t.metricSharpe,              type: "num", higherIsBetter: true },
+    { key: "calmar_ratio",           label: t.metricCalmar,              type: "num", higherIsBetter: true },
+    { key: "sortino_ratio",          label: t.metricSortino,             type: "num", higherIsBetter: true },
+    { key: "max_drawdown",           label: t.metricMaxDrawdown,         type: "pct", higherIsBetter: false },
+    { key: "volatility",             label: t.metricVolatility,          type: "pct", higherIsBetter: false },
+    { key: "win_rate",               label: t.metricWinRate,             type: "pct", higherIsBetter: true },
+    { key: "profit_factor",          label: t.metricProfitLossRatio,     type: "num", higherIsBetter: true },
+    { key: "avg_win",                label: t.metricAvgWin,              type: "pct", higherIsBetter: true },
+    { key: "avg_loss",               label: t.metricAvgLoss,             type: "pct", higherIsBetter: false },
+    { key: "trade_count",            label: t.metricTradeCount,          type: "int", higherIsBetter: true },
+    { key: "max_consecutive_losses", label: t.metricMaxConsecutiveLoss,  type: "int", higherIsBetter: false },
+    { key: "exposure_time",          label: t.metricExposureTime,        type: "pct", higherIsBetter: true },
+    { key: "avg_holding_period",     label: t.metricAvgHoldingDays,      type: "days", higherIsBetter: false },
+  ];
+}
 
 // Also accept backend aliases
 const METRIC_ALIASES: Record<string, string> = {
@@ -292,7 +294,7 @@ export function Compare() {
               </tr>
             </thead>
             <tbody>
-              {METRICS.map(({ key, label, type, higherIsBetter }) => {
+              {buildMetrics(t).map(({ key, label, type, higherIsBetter }) => {
                 const lv = resolveMetric(leftData, key);
                 const rv = resolveMetric(rightData, key);
                 return (

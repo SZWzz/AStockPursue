@@ -330,6 +330,16 @@ async def _run_startup_preflight() -> None:
     except Exception as e:
         console.print(f"[yellow]PG init skipped:[/yellow] {e}")
 
+    # Load default user's data-source tokens into os.environ so all
+    # endpoints (including those that don't call load_user_config) can
+    # find tokens like TUSHARE_TOKEN.
+    try:
+        from src.auth.user_config import load_user_config
+        load_user_config(1)
+        console.print("[green]Default user data-source tokens loaded[/green]")
+    except Exception as e:
+        console.print(f"[yellow]Default user tokens not loaded:[/yellow] {e}")
+
     # Initialise paper trading scheduler
     try:
         from papertrade.scheduler import PaperTradingScheduler
@@ -348,18 +358,29 @@ _SHELL_TOOLS_ENV = "ASTOCKPURSUE_ENABLE_SHELL_TOOLS"
 _DOCKER_LOOPBACK_ENV = "ASTOCKPURSUE_TRUST_DOCKER_LOOPBACK"
 
 
+def _load_ds_tokens(user_id: int) -> None:
+    try:
+        from src.auth.user_config import load_user_config
+        load_user_config(user_id)
+    except Exception:
+        pass
+
+
 async def require_auth(
     request: Request,
     cred: Optional[HTTPAuthorizationCredentials] = Security(_security),
     jwt: Optional[str] = Query(None),
-) -> None:
+) -> dict:
     """JWT login. Token from Authorization header or ?jwt= query param.
     Returns the decoded JWT payload dict: {user_id, username, role, token_version}.
     Local loopback clients are exempt when no API_AUTH_KEY is configured (dev mode).
+
+    Also loads per-user data-source tokens (TUSHARE_TOKEN, etc.) into os.environ.
     """
     # Dev mode: allow local loopback / test clients without auth
     api_key = os.getenv("API_AUTH_KEY", "")
     if not api_key and _is_local_client(request):
+        _load_ds_tokens(1)
         return {"user_id": 1, "username": "dev", "role": "admin", "token_version": 0}
 
     token = (cred.credentials if cred and cred.credentials else "") or (jwt or "")
@@ -368,6 +389,7 @@ async def require_auth(
             from src.auth.jwt import verify_token
             payload = verify_token(token)
             if payload:
+                _load_ds_tokens(payload.get("user_id", 1))
                 return payload
         except ImportError:
             pass
@@ -1310,7 +1332,7 @@ async def update_data_source_settings(payload: UpdateDataSourceSettingsRequest, 
     fh_key = ds_config.get("finnhub_api_key", "")
     ti_key = ds_config.get("tiingo_api_key", "")
 
-    if token and not _is_configured_secret(token, TUSHARE_TOKEN_PLACEHOLDERS):
+    if token and _is_configured_secret(token, TUSHARE_TOKEN_PLACEHOLDERS):
         os.environ["TUSHARE_TOKEN"] = token
     else:
         os.environ.pop("TUSHARE_TOKEN", None)
@@ -2100,6 +2122,11 @@ async def remove_watchlist(symbol: str, auth: dict = Security(require_auth)):
 async def get_watchlist_prices(auth: dict = Security(require_auth)):
     """Get latest prices for watchlist symbols. Tushare for A-shares, yfinance fallback."""
     user_id = auth.get("user_id", 1)
+    try:
+        from src.auth.user_config import load_user_config
+        load_user_config(user_id)
+    except Exception:
+        pass
     try:
         from src.db.pool import get_connection
         with get_connection() as conn:

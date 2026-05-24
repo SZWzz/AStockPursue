@@ -38,8 +38,8 @@ output = {{
         {plots}
     ],
     "signals": [
-        {{"type": "buy", "text": "Buy", "data": get_marks(df["buy"]), "color": "#4CAF50"}},
-        {{"type": "sell", "text": "Sell", "data": get_marks(df["sell"]), "color": "#F44336"}},
+        {{"type": "buy", "text": "Buy", "data": get_marks(df["buy"]), "color": "#F44336"}},
+        {{"type": "sell", "text": "Sell", "data": get_marks(df["sell"]), "color": "#4CAF50"}},
     ],
 }}
 

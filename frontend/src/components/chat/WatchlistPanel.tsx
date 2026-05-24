@@ -133,16 +133,16 @@ export function WatchlistPanel({ collapsed, onAnalyze }: WatchlistPanelProps) {
                 <div className="text-right shrink-0">
                   <div className={cn(
                     "text-xs font-mono font-medium",
-                    isUp && "text-success",
-                    isDown && "text-danger",
+                    isUp && "text-up",
+                    isDown && "text-down",
                   )}>
                     {p ? fmtPrice(p.price) : "..."}
                   </div>
                   {p && p.change_pct !== 0 ? (
                     <div className={cn(
                       "flex items-center gap-0.5 text-[10px]",
-                      isUp && "text-success",
-                      isDown && "text-danger",
+                      isUp && "text-up",
+                      isDown && "text-down",
                     )}>
                       {isUp ? <TrendingUp className="h-2.5 w-2.5" /> : isDown ? <TrendingDown className="h-2.5 w-2.5" /> : <Minus className="h-2.5 w-2.5" />}
                       {p.change_pct > 0 ? "+" : ""}{p.change_pct.toFixed(2)}%

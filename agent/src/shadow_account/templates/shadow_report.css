@@ -7,8 +7,8 @@
   --text-dim: #9099a8;
   --text-mute:#5f6878;
   --accent:   #6aa8ff;
-  --pos:      #3dd68c;
-  --neg:      #ff7b6b;
+  --pos:      #ff7b6b;
+  --neg:      #3dd68c;
   --warn:     #f4b454;
   --mono:     'JetBrains Mono', 'SF Mono', 'Consolas', 'Menlo', monospace;
   --sans:     'Inter', 'SF Pro Text', -apple-system, 'Segoe UI', 'Roboto', sans-serif;

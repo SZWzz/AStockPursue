@@ -35,7 +35,7 @@ export default function PositionTable({ positions, onClosePosition }: Props) {
               <td className="py-2 pr-3">
                 <span
                   className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${
-                    p.direction === 1 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                    p.direction === 1 ? "bg-up/10 text-up" : "bg-down/10 text-down"
                   }`}
                 >
                   {p.direction === 1 ? t.ptLong : t.ptShort}
@@ -48,7 +48,7 @@ export default function PositionTable({ positions, onClosePosition }: Props) {
               </td>
               <td
                 className={`py-2 pr-3 text-right font-mono ${
-                  p.unrealized_pnl != null ? (p.unrealized_pnl >= 0 ? "text-green-600" : "text-red-600") : ""
+                  p.unrealized_pnl != null ? (p.unrealized_pnl >= 0 ? "text-up" : "text-down") : ""
                 }`}
               >
                 {p.unrealized_pnl != null
@@ -57,7 +57,7 @@ export default function PositionTable({ positions, onClosePosition }: Props) {
               </td>
               <td
                 className={`py-2 pr-3 text-right font-mono ${
-                  p.pnl_pct != null ? (p.pnl_pct >= 0 ? "text-green-600" : "text-red-600") : ""
+                  p.pnl_pct != null ? (p.pnl_pct >= 0 ? "text-up" : "text-down") : ""
                 }`}
               >
                 {p.pnl_pct != null ? `${p.pnl_pct >= 0 ? "+" : ""}${p.pnl_pct.toFixed(2)}%` : t.ptNA}

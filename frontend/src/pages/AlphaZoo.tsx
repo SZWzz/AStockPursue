@@ -895,9 +895,9 @@ function ResultPanel({ result }: { result: AlphaBenchResult }) {
   }, [result, dark, t]);
 
   const totals = [
-    { label: t.azBenchAlive, value: result.alive, icon: CheckCircle2, tone: "text-green-600 dark:text-green-400" },
+    { label: t.azBenchAlive, value: result.alive, icon: CheckCircle2, tone: "text-up" },
     { label: t.azBenchReversed, value: result.reversed, icon: AlertTriangle, tone: "text-amber-600 dark:text-amber-400" },
-    { label: t.azBenchDead, value: result.dead, icon: XCircle, tone: "text-red-600 dark:text-red-400" },
+    { label: t.azBenchDead, value: result.dead, icon: XCircle, tone: "text-down" },
     { label: t.azBenchSkipped, value: result.skipped ?? 0, icon: Loader2, tone: "text-muted-foreground" },
   ];
 
@@ -987,10 +987,10 @@ function CategoryBadge({ category }: { category: AlphaBenchTopRow["category"] })
   const { t } = useI18n();
   const tone =
     category === "alive"
-      ? "bg-green-500/10 text-green-700 dark:text-green-300"
+      ? "bg-up/10 text-up"
       : category === "reversed"
         ? "bg-amber-500/10 text-amber-700 dark:text-amber-300"
-        : "bg-red-500/10 text-red-700 dark:text-red-300";
+        : "bg-down/10 text-down";
   const labelKey = category === "alive" ? "azCategory_alive" : category === "reversed" ? "azCategory_reversed" : "azCategory_dead";
   return (
     <span className={cn("inline-block px-2 py-0.5 rounded-full text-[10px] font-medium", tone)}>

@@ -47,7 +47,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw await errorFromResponse(res);
   }
   const text = await res.text();
-  return text ? JSON.parse(text) : ({} as T);
+  if (!text) return {} as T;
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new ApiError(`Unexpected response from server (${res.status} ${res.statusText})`, res.status);
+  }
 }
 
 export interface UploadResult {
@@ -63,7 +68,11 @@ async function uploadFile(file: File): Promise<UploadResult> {
   if (!res.ok) {
     throw await errorFromResponse(res);
   }
-  return res.json();
+  try {
+    return await res.json();
+  } catch {
+    throw new ApiError(`Unexpected response from server (${res.status} ${res.statusText})`, res.status);
+  }
 }
 
 export const api = {
@@ -134,6 +143,12 @@ export const api = {
   getCorrelation: (params: { codes: string; days: number; method: string }) => {
     const q = `codes=${encodeURIComponent(params.codes)}&days=${params.days}&method=${params.method}`;
     return request<{ labels: string[]; matrix: number[][] }>(`/correlation?${q}`);
+  },
+
+  // OHLCV
+  getOHLCV: (params: { symbol: string; start_date: string; end_date: string; source: string; interval: string }) => {
+    const q = new URLSearchParams(params).toString();
+    return request<{ symbol: string; bars: PriceBar[]; source: string }>(`/stock/ohlcv?${q}`);
   },
 };
 

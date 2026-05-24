@@ -255,8 +255,8 @@ def _render_attribution_waterfall(result: ShadowBacktestResult, path: Path) -> N
     bases.append(0.0)
 
     accent = "#4a5fb0"
-    pos = "#1f7a3a"
-    neg = "#c1392b"
+    pos = "#c1392b"
+    neg = "#1f7a3a"
     grid = "#8a8f99"
     bg = "#ffffff"
 

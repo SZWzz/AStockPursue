@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Code, FlaskConical, Play, Save, Sparkles, ChevronDown, Trash2, Plus, BarChart3, Clock, Library, Layers } from "lucide-react";
+import { Code, FlaskConical, Play, Save, Sparkles, ChevronDown, Trash2, Plus, Clock, Library, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { authHeaders } from "@/lib/apiAuth";
 import { CodeEditor } from "@/components/indicator-lab/CodeEditor";
 import { QualityHints } from "@/components/indicator-lab/QualityHints";
 import { ParamPanel } from "@/components/indicator-lab/ParamPanel";
-import { BacktestPanel } from "@/components/indicator-lab/BacktestPanel";
+import { ChartPanel } from "@/components/indicator-lab/ChartPanel";
 import { HistoryPanel } from "@/components/indicator-lab/HistoryPanel";
 import { BuiltinIndicators, type BuiltinIndicator } from "@/components/indicator-lab/BuiltinIndicators";
 import { TemplateBrowser, type TemplateItem } from "@/components/indicator-lab/TemplateBrowser";
@@ -16,6 +16,8 @@ import type {
   IndicatorDetail,
   VerifyResult,
 } from "@/components/indicator-lab/types";
+import type { PriceBar, TradeMarker, EquityPoint, IndicatorPoint } from "@/lib/api";
+import { api } from "@/lib/api";
 
 const API_BASE = "/indicator-lab";
 
@@ -425,7 +427,20 @@ export function IndicatorLab() {
   const [generatedCode, setGeneratedCode] = useState("");
   const [paramValues, setParamValues] = useState<Record<string, string | number | boolean>>({});
   const [sidePanel, setSidePanel] = useState<"params" | "quality" | "indicators" | "history" | "builtins" | "templates" | "alphazoo">("indicators");
-  const [showBacktest, setShowBacktest] = useState(false);
+  // ── Chart state ────────────────────────────────────────────────────────────
+
+  const [chartSymbol, setChartSymbol] = useState("600519.SH");
+  const [chartStartDate, setChartStartDate] = useState("2024-01-01");
+  const [chartEndDate, setChartEndDate] = useState("2025-12-31");
+  const [chartSource, setChartSource] = useState("auto");
+  const [chartInterval, setChartInterval] = useState("1D");
+  const [priceData, setPriceData] = useState<PriceBar[]>([]);
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartError, setChartError] = useState<string | null>(null);
+  const [backtestRunning, setBacktestRunning] = useState(false);
+  const [btTradeMarkers, setBtTradeMarkers] = useState<TradeMarker[]>([]);
+  const [btEquityCurve, setBtEquityCurve] = useState<EquityPoint[]>([]);
+  const [btIndicatorSeries, setBtIndicatorSeries] = useState<Record<string, IndicatorPoint[]>>({});
 
   // Load indicator list
   const loadList = useCallback(async () => {
@@ -512,7 +527,7 @@ export function IndicatorLab() {
     try {
       const res = await fetch(`${API_BASE}/generate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ prompt: "Create a momentum-based trading indicator with RSI and MACD confirmation", style: "momentum" }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -555,6 +570,81 @@ export function IndicatorLab() {
     setGeneratedCode("");
     setMessage("Generated code loaded into editor");
   };
+
+  // ── Chart data fetch ───────────────────────────────────────────────────────
+
+  const fetchOHLCV = useCallback(async () => {
+    setChartLoading(true);
+    setChartError(null);
+    try {
+      const data = await api.getOHLCV({
+        symbol: chartSymbol,
+        start_date: chartStartDate,
+        end_date: chartEndDate,
+        source: chartSource,
+        interval: chartInterval,
+      });
+      setPriceData(data.bars || []);
+      setBtTradeMarkers([]);
+      setBtEquityCurve([]);
+      setBtIndicatorSeries({});
+    } catch (e) {
+      setChartError(String(e));
+    } finally {
+      setChartLoading(false);
+    }
+  }, [chartSymbol, chartStartDate, chartEndDate, chartSource, chartInterval]);
+
+  // ── Run backtest + poll ────────────────────────────────────────────────────
+
+  const handleRunBacktest = useCallback(async () => {
+    setBacktestRunning(true);
+    setChartError(null);
+    try {
+      const res = await fetch("/indicator-lab/backtest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({
+          code,
+          symbol: chartSymbol,
+          start_date: chartStartDate,
+          end_date: chartEndDate,
+          source: chartSource,
+          interval: chartInterval,
+          leverage: 1,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success || !data.run_id) {
+        setChartError(data.error || "Backtest failed");
+        setBacktestRunning(false);
+        return;
+      }
+      const runId: string = data.run_id;
+
+      const poll = setInterval(async () => {
+        try {
+          const run = await api.getRun(runId);
+          if (run.status === "success" || run.status === "failed") {
+            clearInterval(poll);
+            setBacktestRunning(false);
+          }
+          if (run.price_series) {
+            const firstSymbol = Object.keys(run.price_series)[0];
+            if (firstSymbol) setPriceData(run.price_series[firstSymbol]);
+          }
+          if (run.trade_markers) setBtTradeMarkers(run.trade_markers);
+          if (run.equity_curve) setBtEquityCurve(run.equity_curve as EquityPoint[]);
+          if (run.indicator_series) setBtIndicatorSeries(run.indicator_series as unknown as Record<string, IndicatorPoint[]>);
+        } catch {
+          /* ignore */
+        }
+      }, 1000);
+    } catch (e) {
+      setChartError(String(e));
+      setBacktestRunning(false);
+    }
+  }, [code, chartSymbol, chartStartDate, chartEndDate, chartSource, chartInterval]);
 
   // Delete
   const handleDelete = async (id: string) => {
@@ -610,7 +700,7 @@ export function IndicatorLab() {
   return (
     <div className="flex h-[calc(100vh-3rem)]">
       {/* Main editor area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-w-[320px]">
         {/* Header */}
         <div className="page-header">
           <div className="page-header-title">
@@ -630,10 +720,6 @@ export function IndicatorLab() {
             <button onClick={handleGenerate} disabled={generating} className="btn-sm btn-outline">
               <Sparkles className="h-3.5 w-3.5" />
               {generating ? t.indicatorLabGenerating : t.indicatorLabAIGenerate}
-            </button>
-            <button onClick={() => setShowBacktest(true)} className="btn-sm btn-success">
-              <BarChart3 className="h-3.5 w-3.5" />
-              {t.indicatorLabBacktest}
             </button>
             <button onClick={handleVerify} disabled={verifying} className="btn-sm btn-warning">
               <Play className="h-3.5 w-3.5" />
@@ -680,6 +766,32 @@ export function IndicatorLab() {
             onVerify={handleVerify}
           />
         </div>
+      </div>
+
+      {/* Chart panel */}
+      <div className="flex-1 flex flex-col min-w-0 min-w-[380px] border-l">
+        <ChartPanel
+          symbol={chartSymbol}
+          onSymbolChange={setChartSymbol}
+          startDate={chartStartDate}
+          endDate={chartEndDate}
+          onStartDateChange={setChartStartDate}
+          onEndDateChange={setChartEndDate}
+          source={chartSource}
+          onSourceChange={setChartSource}
+          interval={chartInterval}
+          onIntervalChange={setChartInterval}
+          onFetch={fetchOHLCV}
+          onRunBacktest={handleRunBacktest}
+          priceData={priceData}
+          loading={chartLoading}
+          error={chartError}
+          tradeMarkers={btTradeMarkers}
+          equityCurve={btEquityCurve}
+          indicatorSeries={btIndicatorSeries}
+          backtestRunning={backtestRunning}
+          backtestLabel="Run Backtest"
+        />
       </div>
 
       {/* Right sidebar */}
@@ -794,10 +906,6 @@ export function IndicatorLab() {
         )}
       </aside>
 
-      {/* Backtest modal */}
-      {showBacktest && (
-        <BacktestPanel code={code} onClose={() => setShowBacktest(false)} />
-      )}
     </div>
   );
 }

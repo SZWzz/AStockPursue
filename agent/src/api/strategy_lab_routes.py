@@ -18,10 +18,11 @@ import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
+from src.auth.dependencies import require_auth
 from src.lab.repository import IndicatorRepository
 from src.lab.sandbox import validate_code_safety
 
@@ -203,8 +204,15 @@ async def delete_strategy(strategy_id: str):
 
 
 @router.post("/backtest", response_model=BacktestResponse)
-async def backtest_strategy(req: StrategyBacktestRequest):
+async def backtest_strategy(req: StrategyBacktestRequest, user: dict = Depends(require_auth)):
     from src.lab.strategy_backtest_bridge import run_strategy_backtest
+
+    user_id = user.get("user_id", 1)
+    try:
+        from src.auth.user_config import load_user_config
+        load_user_config(user_id)
+    except Exception:
+        pass
 
     try:
         result = run_strategy_backtest(

@@ -135,7 +135,7 @@ def fetch_ohlcv(
                         end_date=end_date,
                         interval=interval,
                     )
-                    if data and symbol in data and len(data[symbol]) >= 30:
+                    if data and symbol in data and len(data[symbol]) >= 5:
                         return data
                     tried.append(f"{name} (fetched {len(data.get(symbol, [])) if data else 0} rows)")
                     break  # empty data, don't retry

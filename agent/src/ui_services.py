@@ -420,6 +420,11 @@ def reconstruct_price_series(run_dir: Path) -> List[Dict[str, Any]]:
         _ensure_dotenv()
     except Exception:
         pass
+    try:
+        from src.auth.user_config import load_user_config
+        load_user_config(1)
+    except Exception:
+        pass
     fetch_start_date = _compute_fetch_start_date(run_dir, start_date)
 
     try:

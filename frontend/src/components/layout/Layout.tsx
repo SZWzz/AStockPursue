@@ -123,10 +123,10 @@ export function Layout() {
                   ? "bg-primary/10 text-primary font-medium shadow-sm"
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
-              title={collapsed ? "Users" : undefined}
+              title={collapsed ? t.usersLabel : undefined}
             >
               <Users className="h-4 w-4 shrink-0" />
-              {!collapsed && <span className="text-sm">Users</span>}
+              {!collapsed && <span className="text-sm">{t.usersLabel}</span>}
             </Link>
           )}
         </nav>
@@ -233,7 +233,7 @@ export function Layout() {
         <div className={cn("border-t", collapsed ? "p-1.5 flex flex-col items-center gap-1.5" : "p-3 space-y-2.5")}>
           {/* User section */}
           {collapsed ? (
-            <Link to={user ? "#" : "/login"} className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors" title={user ? user.username : "Login"}>
+            <Link to={user ? "#" : "/login"} className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors" title={user ? user.username : t.login}>
               <User className="h-4 w-4" />
             </Link>
           ) : user ? (
@@ -244,7 +244,7 @@ export function Layout() {
                 </div>
                 <span className="text-sm font-medium truncate">{user.username}</span>
               </div>
-              <button onClick={logout} className="btn-ghost p-1.5 rounded-lg" title="Logout">
+              <button onClick={logout} className="btn-ghost p-1.5 rounded-lg" title={t.logout}>
                 <LogOut className="h-4 w-4" />
               </button>
             </div>

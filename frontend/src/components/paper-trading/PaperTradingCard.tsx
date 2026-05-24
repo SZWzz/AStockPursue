@@ -53,7 +53,7 @@ export default function PaperTradingCard({
         </div>
         <div>
           <span className="text-gray-500">{t.ptReturn}</span>
-          <p className={`font-mono font-medium ${run.total_return_pct >= 0 ? "text-green-600" : "text-red-600"}`}>
+          <p className={`font-mono font-medium ${run.total_return_pct >= 0 ? "text-up" : "text-down"}`}>
             {run.total_return_pct >= 0 ? "+" : ""}{run.total_return_pct.toFixed(2)}%
           </p>
         </div>

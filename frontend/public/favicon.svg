@@ -1,12 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
   <!-- Background -->
-  <rect width="32" height="32" rx="7" fill="#f97316"/>
-  <!-- Candlestick / bar chart motif -->
-  <rect x="5" y="18" width="3" height="6" rx="0.5" fill="white"/>
-  <rect x="10" y="10" width="3" height="10" rx="0.5" fill="white"/>
-  <rect x="15" y="7" width="3" height="13" rx="0.5" fill="white" opacity="0.9"/>
-  <rect x="20" y="12" width="3" height="8" rx="0.5" fill="white" opacity="0.8"/>
-  <rect x="25" y="15" width="3" height="5" rx="0.5" fill="white" opacity="0.7"/>
-  <!-- Upward trend line -->
-  <path d="M6 20 L16 12 L26 17" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.6"/>
+  <rect width="32" height="32" rx="7" fill="#2563eb"/>
+  <!-- Rising trend bars -->
+  <rect x="6" y="18" width="2.5" height="6" rx="0.5" fill="white" opacity="0.5"/>
+  <rect x="10" y="14" width="2.5" height="10" rx="0.5" fill="white" opacity="0.65"/>
+  <rect x="14" y="10" width="2.5" height="14" rx="0.5" fill="white" opacity="0.8"/>
+  <rect x="18" y="7" width="2.5" height="17" rx="0.5" fill="white"/>
+  <!-- Rising arrow -->
+  <path d="M6 20 L14 12 L22 17 L26 12" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
 </svg>

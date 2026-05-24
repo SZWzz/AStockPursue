@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
-  Code, Save, Trash2, Plus, BarChart3, Target, Sparkles, Play, CheckSquare,
+  Code, Save, Trash2, Plus, Target, Sparkles, Play, CheckSquare,
   Square, Layers, Clock, Activity, X, Bell,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { authHeaders } from "@/lib/apiAuth";
 import { CodeEditor } from "@/components/indicator-lab/CodeEditor";
-import { StrategyBacktestPanel } from "@/components/indicator-lab/StrategyBacktestPanel";
+import { ChartPanel } from "@/components/indicator-lab/ChartPanel";
 import { TemplateBrowser, type TemplateItem } from "@/components/indicator-lab/TemplateBrowser";
 import { StrategyVerifyPanel } from "@/components/indicator-lab/StrategyVerifyPanel";
 import type { QualityHint } from "@/components/indicator-lab/types";
+import type { PriceBar, TradeMarker, EquityPoint, IndicatorPoint } from "@/lib/api";
+import { api } from "@/lib/api";
 
 const API_BASE = "/strategy-lab";
 
@@ -667,7 +669,6 @@ export function StrategyLab() {
     has_signal_map_return: boolean;
     symbol_count: number;
   } | null>(null);
-  const [showBacktest, setShowBacktest] = useState(false);
   const [sidePanel, setSidePanel] = useState<SidePanelTab>("list");
 
   // Batch selection
@@ -675,6 +676,21 @@ export function StrategyLab() {
 
   // Backtest history (loaded from localStorage)
   const [backtestHistory] = useState<BacktestHistoryEntry[]>(loadBacktestHistory);
+
+  // ── Chart state ─────────────────────────────────────────────────────────────
+
+  const [chartSymbols, setChartSymbols] = useState("600519.SH");
+  const [chartStartDate, setChartStartDate] = useState("2024-01-01");
+  const [chartEndDate, setChartEndDate] = useState("2025-12-31");
+  const [chartSource, setChartSource] = useState("auto");
+  const [chartInterval, setChartInterval] = useState("1D");
+  const [priceData, setPriceData] = useState<PriceBar[]>([]);
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartError, setChartError] = useState<string | null>(null);
+  const [backtestRunning, setBacktestRunning] = useState(false);
+  const [btTradeMarkers, setBtTradeMarkers] = useState<TradeMarker[]>([]);
+  const [btEquityCurve, setBtEquityCurve] = useState<EquityPoint[]>([]);
+  const [btIndicatorSeries, setBtIndicatorSeries] = useState<Record<string, IndicatorPoint[]>>({});
 
   // Monitor state
   const [notifications, setNotifications] = useState<SignalNotification[]>(MOCK_NOTIFICATIONS);
@@ -816,6 +832,82 @@ export function StrategyLab() {
     setMessage("Generated code loaded into editor");
   };
 
+  // ── Chart data fetch ───────────────────────────────────────────────────────
+
+  const fetchOHLCV = useCallback(async () => {
+    setChartLoading(true);
+    setChartError(null);
+    try {
+      const data = await api.getOHLCV({
+        symbol: chartSymbols,
+        start_date: chartStartDate,
+        end_date: chartEndDate,
+        source: chartSource,
+        interval: chartInterval,
+      });
+      setPriceData(data.bars || []);
+      setBtTradeMarkers([]);
+      setBtEquityCurve([]);
+      setBtIndicatorSeries({});
+    } catch (e) {
+      setChartError(String(e));
+    } finally {
+      setChartLoading(false);
+    }
+  }, [chartSymbols, chartStartDate, chartEndDate, chartSource, chartInterval]);
+
+  // ── Run backtest + poll ────────────────────────────────────────────────────
+
+  const handleRunBacktest = useCallback(async () => {
+    setBacktestRunning(true);
+    setChartError(null);
+    try {
+      const codes = chartSymbols.split(",").map((s) => s.trim()).filter(Boolean);
+      const res = await fetch(`/strategy-lab/backtest`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...authHeaders() },
+        body: JSON.stringify({
+          code,
+          codes,
+          start_date: chartStartDate,
+          end_date: chartEndDate,
+          source: chartSource,
+          interval: chartInterval,
+        }),
+      });
+      const data = await res.json();
+      if (!data.success || !data.run_id) {
+        setChartError(data.error || "Backtest failed");
+        setBacktestRunning(false);
+        return;
+      }
+      const runId: string = data.run_id;
+
+      // Poll for results
+      const poll = setInterval(async () => {
+        try {
+          const run = await api.getRun(runId);
+          if (run.status === "success" || run.status === "failed") {
+            clearInterval(poll);
+            setBacktestRunning(false);
+          }
+          if (run.price_series) {
+            const firstSymbol = Object.keys(run.price_series)[0];
+            if (firstSymbol) setPriceData(run.price_series[firstSymbol]);
+          }
+          if (run.trade_markers) setBtTradeMarkers(run.trade_markers);
+          if (run.equity_curve) setBtEquityCurve(run.equity_curve as EquityPoint[]);
+          if (run.indicator_series) setBtIndicatorSeries(run.indicator_series as unknown as Record<string, IndicatorPoint[]>);
+        } catch {
+          /* ignore poll errors */
+        }
+      }, 1000);
+    } catch (e) {
+      setChartError(String(e));
+      setBacktestRunning(false);
+    }
+  }, [code, chartSymbols, chartStartDate, chartEndDate, chartSource, chartInterval]);
+
   // ── Delete / Batch ────────────────────────────────────────────────────────
 
   const handleDelete = async (id: string) => {
@@ -897,16 +989,6 @@ export function StrategyLab() {
 
   // ── Derived ───────────────────────────────────────────────────────────────
 
-  const backtestPanel = useMemo(() => {
-    if (!showBacktest) return null;
-    return (
-      <StrategyBacktestPanel
-        code={code}
-        onClose={() => setShowBacktest(false)}
-      />
-    );
-  }, [showBacktest, code]);
-
   const isError = message && (message.includes("failed") || message.includes("error"));
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -914,7 +996,7 @@ export function StrategyLab() {
   return (
     <div className="flex h-[calc(100vh-3rem)]">
       {/* Main editor area */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 min-w-[320px]">
         {/* Header */}
         <div className="page-header">
           <div className="page-header-title">
@@ -934,10 +1016,6 @@ export function StrategyLab() {
             <button onClick={handleGenerate} disabled={generating} className="btn-sm btn-outline">
               <Sparkles className="h-3.5 w-3.5" />
               {generating ? t.strategyLabGenerating : t.strategyLabAIGenerate}
-            </button>
-            <button onClick={() => setShowBacktest(true)} className="btn-sm btn-success">
-              <BarChart3 className="h-3.5 w-3.5" />
-              {t.indicatorLabBacktest}
             </button>
             <button onClick={handleVerify} disabled={verifying} className="btn-sm btn-warning">
               <Play className="h-3.5 w-3.5" />
@@ -1003,6 +1081,33 @@ export function StrategyLab() {
         <div className="flex-1 p-5 min-h-0">
           <CodeEditor value={code} onChange={setCode} onSave={handleSave} filename="strategy.py" mode="strategy" />
         </div>
+      </div>
+
+      {/* Chart panel */}
+      <div className="flex-1 flex flex-col min-w-0 min-w-[380px] border-l">
+        <ChartPanel
+          symbol={chartSymbols}
+          onSymbolChange={setChartSymbols}
+          multiSymbol
+          startDate={chartStartDate}
+          endDate={chartEndDate}
+          onStartDateChange={setChartStartDate}
+          onEndDateChange={setChartEndDate}
+          source={chartSource}
+          onSourceChange={setChartSource}
+          interval={chartInterval}
+          onIntervalChange={setChartInterval}
+          onFetch={fetchOHLCV}
+          onRunBacktest={handleRunBacktest}
+          priceData={priceData}
+          loading={chartLoading}
+          error={chartError}
+          tradeMarkers={btTradeMarkers}
+          equityCurve={btEquityCurve}
+          indicatorSeries={btIndicatorSeries}
+          backtestRunning={backtestRunning}
+          backtestLabel="Run Backtest"
+        />
       </div>
 
       {/* Right sidebar */}
@@ -1266,8 +1371,6 @@ export function StrategyLab() {
         </div>
       </aside>
 
-      {/* Backtest modal */}
-      {backtestPanel}
     </div>
   );
 }

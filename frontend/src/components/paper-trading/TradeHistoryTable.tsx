@@ -48,7 +48,7 @@ export default function TradeHistoryTable({ trades }: Props) {
                 <td className="py-2 pr-3">
                   <span
                     className={`inline-block px-1.5 py-0.5 rounded text-xs font-medium ${
-                      tr.direction === 1 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                      tr.direction === 1 ? "bg-up/10 text-up" : "bg-down/10 text-down"
                     }`}
                   >
                     {tr.direction === 1 ? t.ptLong : t.ptShort}
@@ -57,10 +57,10 @@ export default function TradeHistoryTable({ trades }: Props) {
                 <td className="py-2 pr-3 text-right font-mono">{tr.entry_price.toFixed(3)}</td>
                 <td className="py-2 pr-3 text-right font-mono">{tr.exit_price.toFixed(3)}</td>
                 <td className="py-2 pr-3 text-right font-mono">{tr.size.toFixed(0)}</td>
-                <td className={`py-2 pr-3 text-right font-mono ${tr.pnl >= 0 ? "text-green-600" : "text-red-600"}`}>
+                <td className={`py-2 pr-3 text-right font-mono ${tr.pnl >= 0 ? "text-up" : "text-down"}`}>
                   {tr.pnl >= 0 ? "+" : ""}{tr.pnl.toFixed(2)}
                 </td>
-                <td className={`py-2 pr-3 text-right font-mono ${tr.pnl_pct >= 0 ? "text-green-600" : "text-red-600"}`}>
+                <td className={`py-2 pr-3 text-right font-mono ${tr.pnl_pct >= 0 ? "text-up" : "text-down"}`}>
                   {tr.pnl_pct >= 0 ? "+" : ""}{tr.pnl_pct.toFixed(2)}%
                 </td>
                 <td className="py-2 pr-3">

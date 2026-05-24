@@ -97,6 +97,7 @@ class PaperTradingScheduler:
         initial_capital = float(config.get("initial_capital", 100_000.0))
         risk_dict = meta.get("risk_config", {})
         strategy_code = meta.get("strategy_code", "")
+        pt_user_id = int(meta.get("user_id", 1))
 
         if not strategy_code:
             raise ValueError("Strategy code is empty")
@@ -115,14 +116,14 @@ class PaperTradingScheduler:
         self._repo.set_start_time(run_id)
 
         # 3. Seed with historical data
-        self._seed_historical(engine, codes, market, interval)
+        self._seed_historical(engine, codes, market, interval, user_id=pt_user_id)
 
         # Persist initial state
         await self._persist(run_id, engine)
 
         # 4. Launch background loop
         task = asyncio.create_task(
-            self._run_loop(run_id, engine, codes, market, interval)
+            self._run_loop(run_id, engine, codes, market, interval, user_id=pt_user_id)
         )
         self._tasks[run_id] = task
 
@@ -192,10 +193,11 @@ class PaperTradingScheduler:
         codes = config.get("codes", [])
         market = meta.get("market", "a_share")
         interval = config.get("interval", "1D")
+        pt_user_id = int(meta.get("user_id", 1))
 
         self._repo.update_run(run_id, status="running")
         task = asyncio.create_task(
-            self._run_loop(run_id, engine, codes, market, interval)
+            self._run_loop(run_id, engine, codes, market, interval, user_id=pt_user_id)
         )
         self._tasks[run_id] = task
         await self._push_event(run_id, "status", {"status": "running", "message": "Run resumed"})
@@ -220,8 +222,15 @@ class PaperTradingScheduler:
         codes: list[str],
         market: str,
         interval: str,
+        user_id: int = 1,
     ) -> None:
         poll_seconds = _interval_to_seconds(interval)
+
+        try:
+            from src.auth.user_config import load_user_config
+            load_user_config(user_id)
+        except Exception:
+            pass
 
         # Resolve loader
         from backtest.loaders.registry import resolve_loader
@@ -394,9 +403,16 @@ class PaperTradingScheduler:
         codes: list[str],
         market: str,
         interval: str,
+        user_id: int = 1,
         lookback: int = 500,
     ) -> None:
         """Fetch historical data and seed the engine for strategy warmup."""
+        try:
+            from src.auth.user_config import load_user_config
+            load_user_config(user_id)
+        except Exception:
+            pass
+
         from backtest.loaders.registry import resolve_loader
 
         try:

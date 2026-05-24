@@ -425,7 +425,10 @@ def main(run_dir: Path) -> None:
             for fb_name in FALLBACK_CHAINS.get(market, []):
                 if fb_name == source or fb_name not in LOADER_REGISTRY:
                     continue
-                fb_loader = LOADER_REGISTRY[fb_name]()
+                try:
+                    fb_loader = LOADER_REGISTRY[fb_name]()
+                except Exception:
+                    continue
                 if not fb_loader.is_available():
                     continue
                 fb_codes = _normalize_codes(codes, fb_name)
@@ -572,8 +575,12 @@ def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
             # Fallback: try legacy source mapping
             legacy_src = _MARKET_TO_SOURCE.get(market, "tushare")
             logger.warning("Fallback chain failed for %s: %s — trying %s", market, exc, legacy_src)
-            LoaderCls = _get_loader(legacy_src)
-            loader = LoaderCls()
+            try:
+                LoaderCls = _get_loader(legacy_src)
+                loader = LoaderCls()
+            except Exception as e2:
+                logger.warning("Legacy fallback also failed for %s: %s — skipping", market, e2)
+                continue
 
         src_name = getattr(loader, "name", "unknown")
         normalized_codes = _normalize_codes(market_codes, src_name)
@@ -585,7 +592,10 @@ def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
             for fb_name in FALLBACK_CHAINS.get(market, []):
                 if fb_name == src_name or fb_name not in LOADER_REGISTRY:
                     continue
-                fb_loader = LOADER_REGISTRY[fb_name]()
+                try:
+                    fb_loader = LOADER_REGISTRY[fb_name]()
+                except Exception:
+                    continue
                 if not fb_loader.is_available():
                     continue
                 fb_codes = _normalize_codes(market_codes, fb_name)

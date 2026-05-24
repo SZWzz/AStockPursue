@@ -99,7 +99,7 @@ export function RunDetail() {
       </div>
     );
   }
-  if (!run) return <div className="p-8 text-red-500">Run not found</div>;
+  if (!run) return <div className="p-8 text-red-500">{t.runNotFound}</div>;
 
   const ok = run.status === "success";
 
@@ -111,8 +111,8 @@ export function RunDetail() {
           <button
             onClick={() => navigate(-1)}
             className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-            title="Go back"
-            aria-label="Go back"
+            title={t.goBack}
+            aria-label={t.goBack}
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -176,6 +176,7 @@ export function RunDetail() {
 }
 
 function RunCardTab({ card }: { card: RunCard }) {
+  const { t } = useI18n();
   const backtest = card.backtest || {};
   const reproducibility = card.reproducibility || {};
   const metrics = card.metrics || {};
@@ -186,10 +187,10 @@ function RunCardTab({ card }: { card: RunCard }) {
   return (
     <div className="p-4 space-y-4">
       <div className="grid gap-3 md:grid-cols-4">
-        <RunCardStat label="Schema" value={card.schema_version || "unknown"} />
-        <RunCardStat label="Generated" value={formatRunCardValue(card.generated_at)} />
-        <RunCardStat label="Data sources" value={dataSources.length ? dataSources.join(", ") : "None recorded"} />
-        <RunCardStat label="Warnings" value={String(warnings.length)} tone={warnings.length ? "warning" : "normal"} />
+        <RunCardStat label={t.schemaLabel} value={card.schema_version || "unknown"} />
+        <RunCardStat label={t.generatedLabel} value={formatRunCardValue(card.generated_at)} />
+        <RunCardStat label={t.dataSourcesLabel} value={dataSources.length ? dataSources.join(", ") : t.noneRecorded} />
+        <RunCardStat label={t.warningsLabel} value={String(warnings.length)} tone={warnings.length ? "warning" : "normal"} />
       </div>
 
       {warnings.length > 0 && (
@@ -205,38 +206,38 @@ function RunCardTab({ card }: { card: RunCard }) {
       )}
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <RunCardPanel title="Backtest Summary" icon={Database}>
-          <KeyValueTable data={backtest} empty="No backtest summary recorded." />
+        <RunCardPanel title={t.backtestSummary} icon={Database}>
+          <KeyValueTable data={backtest} empty={t.noBacktestSummary} />
         </RunCardPanel>
-        <RunCardPanel title="Reproducibility" icon={Fingerprint}>
-          <KeyValueTable data={reproducibility} empty="No reproducibility hashes recorded." monospaceValues />
+        <RunCardPanel title={t.reproducibility} icon={Fingerprint}>
+          <KeyValueTable data={reproducibility} empty={t.noReproducibility} monospaceValues />
         </RunCardPanel>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <RunCardPanel title="Metrics" icon={BarChart3}>
-          <KeyValueTable data={metrics} empty="No scalar metrics recorded." />
+        <RunCardPanel title={t.metricsPanel} icon={BarChart3}>
+          <KeyValueTable data={metrics} empty={t.noMetrics} />
         </RunCardPanel>
-        <RunCardPanel title="Validation" icon={ShieldCheck}>
+        <RunCardPanel title={t.validationPanel} icon={ShieldCheck}>
           {card.validation ? (
             <pre className="max-h-80 overflow-auto rounded-md bg-muted/40 p-3 text-xs leading-relaxed">
               {JSON.stringify(card.validation, null, 2)}
             </pre>
           ) : (
-            <p className="text-sm text-muted-foreground">No validation payload recorded.</p>
+            <p className="text-sm text-muted-foreground">{t.noValidation}</p>
           )}
         </RunCardPanel>
       </div>
 
-      <RunCardPanel title="Artifact Checksums" icon={FileCheck2}>
+      <RunCardPanel title={t.artifactChecksums} icon={FileCheck2}>
         {artifacts.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b text-left text-muted-foreground">
-                  <th className="py-2 pr-4">Path</th>
-                  <th className="py-2 pr-4">Size</th>
-                  <th className="py-2">SHA-256</th>
+                  <th className="py-2 pr-4">{t.pathCol}</th>
+                  <th className="py-2 pr-4">{t.sizeCol}</th>
+                  <th className="py-2">{t.sha256Col}</th>
                 </tr>
               </thead>
               <tbody>
@@ -368,7 +369,7 @@ function TradesTab({ run }: { run: RunData }) {
             <tr key={i} className="border-b last:border-0 hover:bg-muted/20">
               <td className="py-2 pr-4 font-mono text-xs">{tr.time || tr.timestamp}</td>
               <td className="py-2 pr-4">{tr.code}</td>
-              <td className={cn("py-2 pr-4 font-medium", tr.side === "BUY" ? "text-success" : "text-danger")}>{tr.side}</td>
+              <td className={cn("py-2 pr-4 font-medium", tr.side === "BUY" ? "text-up" : "text-down")}>{tr.side}</td>
               <td className="py-2 pr-4 tabular-nums">{tr.price}</td>
               <td className="py-2 pr-4 tabular-nums">{tr.qty}</td>
               <td className="py-2 text-muted-foreground">{tr.reason}</td>

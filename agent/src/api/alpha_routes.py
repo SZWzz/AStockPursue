@@ -175,9 +175,15 @@ def _make_progress_cb(job_id: str) -> Callable[[int, int, str], None]:
     return _cb
 
 
-def _run_bench_blocking(job_id: str, zoo: str, universe: str, period: str, top: int) -> None:
+def _run_bench_blocking(job_id: str, zoo: str, universe: str, period: str, top: int, user_id: int = 1) -> None:
     """Synchronous bench worker (called via ``asyncio.to_thread``)."""
     from src.factors.bench_runner import run_bench  # local import: heavy deps
+
+    try:
+        from src.auth.user_config import load_user_config
+        load_user_config(user_id)
+    except Exception:
+        pass
 
     with _JOBS_LOCK:
         job = ALPHA_BENCH_JOBS.get(job_id)
@@ -409,8 +415,9 @@ def register_alpha_routes(
         status_code=202,
         dependencies=[Depends(require_auth)],
     )
-    async def kick_off_bench(payload: BenchRequest) -> dict[str, Any]:
+    async def kick_off_bench(payload: BenchRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
         """Queue a background bench job and return a job_id."""
+        _user_id = user.get("user_id", 1) if user else 1
         # Cheap period parse pre-check so we 400 here instead of letting the
         # worker fail asynchronously.
         from src.tools.alpha_bench_tool import _parse_period
@@ -460,6 +467,7 @@ def register_alpha_routes(
                         payload.universe,
                         payload.period,
                         payload.top,
+                        _user_id,
                     )
                 except Exception:  # noqa: BLE001 — never escape the loop
                     logger.exception("bench runner outer task crashed (job=%s)", job_id)
