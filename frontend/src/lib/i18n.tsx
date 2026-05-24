@@ -558,7 +558,7 @@ const zh: Messages = {
   paperTrading: "模拟盘",
   ptTitle: "模拟盘", ptNewStrategy: "+ 新建策略", ptCancel: "取消",
   ptCreateSave: "创建并保存", ptCreating: "创建中...", ptLoading: "加载中...",
-  ptNoRuns: "暂无模拟盘策略", ptNoRunsHint: "点击"+ 新建策略"创建",
+  ptNoRuns: "暂无模拟盘策略", ptNoRunsHint: "点击「+ 新建策略」创建",
   ptSelectRunHint: "选择一个策略查看详情",
   ptSseConnected: "实时连接中",
   ptCreateFailed: "创建失败",
