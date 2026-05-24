@@ -443,6 +443,7 @@ export function IndicatorLab() {
   const [btIndicatorSeries, setBtIndicatorSeries] = useState<Record<string, IndicatorPoint[]>>({});
   const [btMetrics, setBtMetrics] = useState<Record<string, number> | null>(null);
   const [initialCash, setInitialCash] = useState(100000);
+  const [chartTitle, setChartTitle] = useState("");
 
   // Load indicator list
   const loadList = useCallback(async () => {
@@ -479,6 +480,7 @@ export function IndicatorLab() {
         body: JSON.stringify({ code, indicator_id: selectedId || undefined }),
       });
       setSelectedId(data.id);
+      setChartTitle(data.name);
       setMessage(`Saved as "${data.name}"`);
       loadList();
     } catch (e) {
@@ -570,6 +572,7 @@ export function IndicatorLab() {
   const acceptGenerated = () => {
     setCode(generatedCode);
     setGeneratedCode("");
+    setChartTitle("AI Generated");
     setMessage("Generated code loaded into editor");
   };
 
@@ -667,6 +670,7 @@ export function IndicatorLab() {
   const handleNew = () => {
     setCode(DEFAULT_CODE);
     setSelectedId(null);
+    setChartTitle("");
     setVerifyResult(null);
     setMessage(null);
     setGeneratedCode("");
@@ -798,6 +802,7 @@ export function IndicatorLab() {
           indicatorSeries={btIndicatorSeries}
           metrics={btMetrics}
           backtestRunning={backtestRunning}
+          title={chartTitle || undefined}
           backtestLabel="Run Backtest"
         />
       </div>
@@ -845,7 +850,7 @@ export function IndicatorLab() {
                       ? "bg-primary/10 text-primary font-medium shadow-sm"
                       : "hover:bg-muted text-muted-foreground hover:text-foreground"
                   )}
-                  onClick={() => setSelectedId(ind.id)}
+                  onClick={() => { setSelectedId(ind.id); setChartTitle(ind.name); }}
                 >
                   <div className="min-w-0 flex-1">
                     <div className="truncate font-medium">{ind.name}</div>

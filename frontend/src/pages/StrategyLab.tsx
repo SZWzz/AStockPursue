@@ -693,6 +693,7 @@ export function StrategyLab() {
   const [btIndicatorSeries, setBtIndicatorSeries] = useState<Record<string, IndicatorPoint[]>>({});
   const [btMetrics, setBtMetrics] = useState<Record<string, number> | null>(null);
   const [initialCash, setInitialCash] = useState(100000);
+  const [chartTitle, setChartTitle] = useState("");
 
   // Monitor state
   const [notifications, setNotifications] = useState<SignalNotification[]>(MOCK_NOTIFICATIONS);
@@ -734,6 +735,7 @@ export function StrategyLab() {
         body: JSON.stringify({ code, strategy_id: selectedId || undefined }),
       });
       setSelectedId(data.id);
+      setChartTitle(data.name);
       setMessage(`Saved as "${data.name}"`);
       loadList();
     } catch (e) {
@@ -831,6 +833,7 @@ export function StrategyLab() {
   const acceptGenerated = () => {
     setCode(generatedCode);
     setGeneratedCode("");
+    setChartTitle("AI Generated");
     setMessage("Generated code loaded into editor");
   };
 
@@ -894,6 +897,20 @@ export function StrategyLab() {
           if (run.status === "success" || run.status === "failed") {
             clearInterval(poll);
             setBacktestRunning(false);
+            // Save to backtest history
+            try {
+              const raw = localStorage.getItem(HISTORY_KEY);
+              const history: BacktestHistoryEntry[] = raw ? JSON.parse(raw) : [];
+              history.unshift({
+                id: runId,
+                runId,
+                symbols: codes.join(", "),
+                startDate: chartStartDate,
+                endDate: chartEndDate,
+                timestamp: new Date().toISOString(),
+              });
+              localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 50)));
+            } catch { /* ignore */ }
           }
           const firstSymbol = run.price_series ? Object.keys(run.price_series)[0] : null;
           if (run.price_series && firstSymbol) {
@@ -963,6 +980,7 @@ export function StrategyLab() {
     const templateCode = ALL_TEMPLATE_CODES[template.key];
     if (templateCode) {
       setCode(templateCode);
+      setChartTitle(template.name);
       setMessage(`Loaded template: ${template.name}`);
       setSidePanel("list");
     }
@@ -973,6 +991,7 @@ export function StrategyLab() {
   const handleNew = () => {
     setCode(DEFAULT_CODE);
     setSelectedId(null);
+    setChartTitle("");
     setVerifyResult(null);
     setMessage(null);
     setGeneratedCode("");
@@ -1114,6 +1133,7 @@ export function StrategyLab() {
           indicatorSeries={btIndicatorSeries}
           metrics={btMetrics}
           backtestRunning={backtestRunning}
+          title={chartTitle || undefined}
           backtestLabel="Run Backtest"
         />
       </div>
@@ -1199,7 +1219,7 @@ export function StrategyLab() {
                   </button>
 
                   {/* Content */}
-                  <div className="min-w-0 flex-1" onClick={() => setSelectedId(s.id)}>
+                  <div className="min-w-0 flex-1" onClick={() => { setSelectedId(s.id); setChartTitle(s.name); }}>
                     <div className="truncate font-medium">{s.name}</div>
                     <div className="flex items-center gap-2 text-xs opacity-60 mt-0.5">
                       <span>{s.param_count} params</span>

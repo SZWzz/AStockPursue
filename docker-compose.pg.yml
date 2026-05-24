@@ -1,6 +1,9 @@
 # Auto-deployed PostgreSQL for users without an existing PG instance.
 # Used by setup.sh when choosing "auto-deploy PostgreSQL".
 # Run: docker compose -f docker-compose.yml -f docker-compose.pg.yml up -d
+#
+# If you already have a PostgreSQL instance, configure DB_HOST/DB_PORT/
+# DB_NAME/DB_USER/DB_PASSWORD_ENC in agent/.env and omit this file.
 
 services:
   postgres:

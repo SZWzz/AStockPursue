@@ -96,16 +96,20 @@ export function StockInput({ value, onChange, placeholder = "600519.SH", multi =
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!open || results.length === 0) return;
-    if (e.key === "ArrowDown") {
+    if (e.key === "ArrowDown" && open && results.length > 0) {
       e.preventDefault();
       setSelectedIndex((prev) => (prev < results.length - 1 ? prev + 1 : 0));
-    } else if (e.key === "ArrowUp") {
+    } else if (e.key === "ArrowUp" && open && results.length > 0) {
       e.preventDefault();
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : results.length - 1));
-    } else if (e.key === "Enter" && selectedIndex >= 0) {
+    } else if (e.key === "Enter") {
       e.preventDefault();
-      addSymbol(results[selectedIndex]);
+      if (selectedIndex >= 0 && results.length > 0) {
+        addSymbol(results[selectedIndex]);
+      } else if (query.trim()) {
+        // Allow free-text entry for symbols not in the search list (e.g. AAPL.US, BTC-USDT)
+        addSymbol({ code: query.trim().toUpperCase(), name: query.trim(), market: "", type: "" });
+      }
     } else if (e.key === "Escape") {
       setOpen(false);
     }
@@ -145,7 +149,14 @@ export function StockInput({ value, onChange, placeholder = "600519.SH", multi =
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => { if (results.length > 0) setOpen(true); }}
           onKeyDown={handleKeyDown}
-          placeholder={multi ? "搜索并添加股票..." : placeholder}
+          onBlur={() => {
+            setTimeout(() => {
+              if (query.trim() && (!multi || !value.split(",").includes(query.trim().toUpperCase()))) {
+                addSymbol({ code: query.trim().toUpperCase(), name: query.trim(), market: "", type: "" });
+              }
+            }, 100);
+          }}
+          placeholder={multi ? "搜索或输入代码 (如 AAPL.US)..." : placeholder}
           className="w-full text-sm rounded-lg border border-border bg-background pl-8 pr-3 py-2 font-mono focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 transition-all duration-150"
         />
         {loading && (

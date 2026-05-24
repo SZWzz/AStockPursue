@@ -153,6 +153,18 @@ export const api = {
     const q = new URLSearchParams(params).toString();
     return request<{ symbol: string; bars: PriceBar[]; source: string }>(`/stock/ohlcv?${q}`);
   },
+
+  // Skill management
+  getSkillSettings: () => request<{ skills: Array<{ name: string; description: string; category: string; enabled: boolean }>; total: number; enabled_count: number }>("/settings/skills"),
+  updateSkillSettings: (disabled_skills: string[]) => request<{ ok: boolean }>("/settings/skills", { method: "PUT", body: JSON.stringify({ disabled_skills }) }),
+  importSkill: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return fetch("/settings/skills/import", { method: "POST", headers: authHeaders(), body: form }).then(r => r.json()) as Promise<{ ok: boolean; name: string }>;
+  },
+  deleteSkill: (name: string) => request<{ ok: boolean }>(`/settings/skills/${encodeURIComponent(name)}`, { method: "DELETE" }),
+  getMcpSettings: () => request<{ service_name: string; transport: string; sse_port: number; shell_tools_enabled: boolean; config_path: string; install_cmd: string }>("/settings/mcp"),
+  updateMcpSettings: (payload: Record<string, unknown>) => request<{ ok: boolean }>("/settings/mcp", { method: "PUT", body: JSON.stringify(payload) }),
 };
 
 // --- Swarm types ---

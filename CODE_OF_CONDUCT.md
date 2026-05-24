@@ -1,6 +1,8 @@
 # Contributor Covenant Code of Conduct
 
-## Our Pledge
+AStockPursue 社区遵守贡献者公约 2.1 版 · This community follows the Contributor Covenant 2.1.
+
+## Our Pledge · 我们的承诺
 
 We as members, contributors, and leaders pledge to make participation in our
 community a harassment-free experience for everyone, regardless of age, body
@@ -56,12 +58,14 @@ Examples of representing our community include using an official e-mail address,
 posting via an official social media account, or acting as an appointed
 representative at an online or offline event.
 
-## Enforcement
+## Enforcement · 执行
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement via
-[GitHub Issues](https://github.com/HKUDS/Vibe-Trading/issues).
+[GitHub Issues](https://github.com/SZWzz/AStockPursue/issues).
 All complaints will be reviewed and investigated promptly and fairly.
+
+For private reports, contact the maintainers directly.
 
 All community leaders are obligated to respect the privacy and security of the
 reporter of any incident.
@@ -112,7 +116,7 @@ individual, or aggression toward or disparagement of classes of individuals.
 **Consequence**: A permanent ban from any sort of public interaction within
 the community.
 
-## Attribution
+## Attribution · 来源
 
 This Code of Conduct is adapted from the [Contributor Covenant][homepage],
 version 2.1, available at
@@ -123,6 +127,7 @@ enforcement ladder](https://github.com/mozilla/diversity).
 
 [homepage]: https://www.contributor-covenant.org
 
-For answers to common questions about this code of conduct, see the FAQ at
-https://www.contributor-covenant.org/faq. Translations are available at
-https://www.contributor-covenant.org/translations.
+For answers to common questions, see the FAQ at
+https://www.contributor-covenant.org/faq.
+
+本行为准则改编自贡献者公约 2.1 版。

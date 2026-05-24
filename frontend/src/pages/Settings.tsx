@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Database, KeyRound, Loader2, RotateCcw, Save, Server, SlidersHorizontal, User } from "lucide-react";
+import { Database, KeyRound, Layers, Loader2, RotateCcw, Save, Server, SlidersHorizontal, User } from "lucide-react";
 import { toast } from "sonner";
 import { api, type DataSourceSettings, type LLMProviderOption, type LLMSettings } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
+import { useAuthStore } from "@/stores/auth";
 
 interface LLMFormState {
   provider: string;
@@ -31,8 +32,121 @@ function toForm(settings: LLMSettings): LLMFormState {
   };
 }
 
+function SkillSection() {
+  const { t } = useI18n();
+  const [skills, setSkills] = useState<Array<{ name: string; description: string; category: string; enabled: boolean }>>([]);
+  const [skillsLoading, setSkillsLoading] = useState(true);
+  const [savingSkills, setSavingSkills] = useState(false);
+
+  useEffect(() => {
+    api.getSkillSettings().then(d => { setSkills(d.skills); setSkillsLoading(false); }).catch(() => setSkillsLoading(false));
+  }, []);
+
+  const toggleSkill = (name: string) => {
+    setSkills(prev => prev.map(s => s.name === name ? { ...s, enabled: !s.enabled } : s));
+  };
+
+  const saveSkills = async () => {
+    setSavingSkills(true);
+    const disabled = skills.filter(s => !s.enabled).map(s => s.name);
+    try { await api.updateSkillSettings(disabled); alert("已保存，下次 AI 对话生效"); }
+    catch { alert("保存失败"); }
+    finally { setSavingSkills(false); }
+  };
+
+  const categories = [...new Set(skills.map(s => s.category))].sort();
+  const enabledCount = skills.filter(s => s.enabled).length;
+
+  return (
+    <div className="card p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+            <Layers className="h-4 w-4 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold">{t.skillManagement}</h2>
+            <p className="text-xs text-muted-foreground">{t.skillManagementDesc}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground">{t.skillTotal.replace("{total}", String(skills.length)).replace("{enabled}", String(enabledCount))}</span>
+          <button onClick={saveSkills} disabled={savingSkills} className="btn-sm btn-primary">{savingSkills ? "保存中..." : "保存"}</button>
+        </div>
+      </div>
+      {skillsLoading ? <div className="text-sm text-muted-foreground">加载中...</div> : (
+        categories.map(cat => (
+          <div key={cat}>
+            <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5">{cat}</h4>
+            <div className="space-y-1">
+              {skills.filter(s => s.category === cat).map(s => (
+                <label key={s.name} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/30 cursor-pointer">
+                  <div className="min-w-0">
+                    <span className="text-sm">{s.name}</span>
+                    <span className="ml-2 text-xs text-muted-foreground truncate">{s.description.slice(0, 60)}</span>
+                  </div>
+                  <input type="checkbox" checked={s.enabled} onChange={() => toggleSkill(s.name)} className="ml-2 shrink-0 rounded" />
+                </label>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function McpSection() {
+  const { t } = useI18n();
+  const [mcp, setMcp] = useState<Record<string, unknown> | null>(null);
+  const [shellTools, setShellTools] = useState(false);
+  useEffect(() => { api.getMcpSettings().then(d => { setMcp(d); setShellTools(d.shell_tools_enabled as boolean); }).catch(() => {}); }, []);
+
+  const saveMcp = async () => {
+    try { await api.updateMcpSettings({ shell_tools_enabled: shellTools }); alert("MCP 设置已保存"); }
+    catch { alert("保存失败"); }
+  };
+
+  if (!mcp) return null;
+  return (
+    <div className="card p-5 space-y-4">
+      <div className="flex items-center gap-2.5">
+        <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
+          <Server className="h-4 w-4 text-primary" />
+        </div>
+        <div>
+          <h2 className="text-base font-semibold">{t.mcpSettings}</h2>
+          <p className="text-xs text-muted-foreground">{t.mcpSettingsDesc}</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div><span className="text-muted-foreground">{t.mcpServiceName}:</span> {mcp.service_name as string}</div>
+        <div><span className="text-muted-foreground">{t.mcpTransport}:</span> {mcp.transport as string}</div>
+        <div><span className="text-muted-foreground">{t.mcpSsePort}:</span> {mcp.sse_port as number}</div>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={shellTools} onChange={e => setShellTools(e.target.checked)} className="rounded" />
+          <span className="text-muted-foreground">{t.mcpShellTools}</span>
+        </label>
+      </div>
+      <button onClick={saveMcp} className="btn-sm btn-primary">保存 MCP 设置</button>
+      <details className="text-xs">
+        <summary className="cursor-pointer text-muted-foreground hover:text-foreground">Claude Desktop / Cursor 配置</summary>
+        <pre className="mt-2 p-3 rounded bg-muted text-[11px] overflow-auto">{`{
+  "mcpServers": {
+    "AStockPursue": {
+      "command": "python",
+      "args": ["${mcp.install_cmd || 'agent/mcp_server.py'}"]
+    }
+  }
+}`}</pre>
+      </details>
+    </div>
+  );
+}
+
 export function Settings() {
   const { t } = useI18n();
+  const user = useAuthStore(s => s.user);
   const [settings, setSettings] = useState<LLMSettings | null>(null);
   const [dataSettings, setDataSettings] = useState<DataSourceSettings | null>(null);
   const [form, setForm] = useState<LLMFormState | null>(null);
@@ -726,6 +840,12 @@ export function Settings() {
           </div>
         </div>
       </form>
+
+      {/* Skill Management */}
+      <SkillSection />
+
+      {/* MCP Settings (admin only) */}
+      {user?.role === "admin" && <McpSection />}
     </div>
   );
 }

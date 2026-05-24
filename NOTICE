@@ -1,13 +1,17 @@
 AStockPursue
-Copyright 2026 AStockPursue Contributors.
+Copyright 2025-2026 AStockPursue Contributors.
 
 This product is based on Vibe-Trading (https://github.com/HKUDS/Vibe-Trading),
-originally developed by HKUDS under the MIT License.
+originally developed by HKUDS under the MIT License. See LICENSE for details.
 
+## Third-Party Components
+
+### Strategy Templates
 The strategy template definitions in agent/src/lab/templates.json are adapted
 from QuantDinger (https://github.com/QuantDinger/QuantDinger), licensed under
-the Apache License, Version 2.0. See LICENSE for attribution details.
+the Apache License, Version 2.0.
 
+### Alpha Factor Definitions
 This product includes Microsoft Qlib feature definitions under the Apache 2.0
 license. See agent/src/factors/zoo/qlib158/NOTICE for upstream attribution.
 
@@ -17,6 +21,41 @@ repository as factual mathematical content (formulas are not copyrightable):
   - Kakushadze, Z. (2015) "101 Formulaic Alphas" (arXiv:1601.00991)
   - Guotai Junan Securities (2014) "191 Short-period Trading Alpha Factors"
   - Fama-French five-factor model, Carhart momentum, Hou-Xue-Zhang q-factor
+  - GTJA Research (2018) "191 Alphas" Part 2
 
-Prose, tables, and figures from the source papers are NOT reproduced in this
-repository — only the mathematical formulas are reimplemented.
+Prose, tables, and figures from the source papers are NOT reproduced — only
+the mathematical formulas are reimplemented.
+
+### Skill Packs
+The 87 skill packs in agent/src/skills/ contain knowledge documentation
+covering quantitative trading strategies, technical analysis, risk management,
+and market microstructure. Content is original or derived from publicly
+available academic and practitioner literature.
+
+### Frontend Dependencies
+This product includes the following open-source libraries:
+
+  - React 19 (MIT)            — https://github.com/facebook/react
+  - ECharts 6 (Apache 2.0)    — https://github.com/apache/echarts
+  - Monaco Editor (MIT)       — https://github.com/microsoft/monaco-editor
+  - Tailwind CSS (MIT)        — https://github.com/tailwindlabs/tailwindcss
+  - Zustand (MIT)             — https://github.com/pmndrs/zustand
+  - Lucide Icons (ISC)        — https://github.com/lucide-icons/lucide
+  - FastAPI (MIT)             — https://github.com/fastapi/fastapi
+  - LangChain (MIT)           — https://github.com/langchain-ai/langchain
+  - FastMCP (MIT)             — https://github.com/jlowin/fastmcp
+
+### Data Provider APIs
+This product integrates with the following third-party data services.
+API keys and credentials are stored encrypted per-user and never shared:
+
+  - Tushare Pro (https://tushare.pro)
+  - AKShare (MIT) — https://github.com/akfamily/akshare
+  - yfinance (Apache 2.0) — https://github.com/ranaroussi/yfinance
+  - OKX API (https://www.okx.com)
+  - CCXT (MIT) — https://github.com/ccxt/ccxt
+  - Tencent Finance (public web API)
+  - Twelve Data (https://twelvedata.com)
+  - Finnhub (https://finnhub.io)
+  - CoinGecko (https://www.coingecko.com)
+  - Futu OpenD (https://www.futunn.com)

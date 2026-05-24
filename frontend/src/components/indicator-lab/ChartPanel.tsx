@@ -28,6 +28,7 @@ export interface ChartPanelProps {
   equityCurve?: EquityPoint[];
   indicatorSeries?: Record<string, IndicatorPoint[]>;
   metrics?: Record<string, number> | null;
+  title?: string;
   backtestRunning: boolean;
   backtestLabel?: string;
 }
@@ -59,6 +60,7 @@ export function ChartPanel({
   equityCurve,
   indicatorSeries,
   metrics,
+  title,
   backtestRunning,
   backtestLabel = "Run Backtest",
 }: ChartPanelProps) {
@@ -82,6 +84,9 @@ export function ChartPanel({
     <div className="flex flex-col h-full min-h-0">
       {/* Control bar */}
       <div className="shrink-0 px-3 py-2 border-b space-y-2">
+        {title && (
+          <div className="text-xs font-semibold truncate" title={title}>{title}</div>
+        )}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex-1 min-w-[120px]">
             <label className={labelClass}>Symbol</label>
@@ -123,7 +128,7 @@ export function ChartPanel({
           <div>
             <label className={labelClass}>Interval</label>
             <select value={interval} onChange={(e) => onIntervalChange(e.target.value)} className={inputClass} disabled={busy}>
-              {["1D", "1H", "4H"].map((v) => (<option key={v} value={v}>{v}</option>))}
+              {["1D", "1H", "4H", "1W"].map((v) => (<option key={v} value={v}>{v}</option>))}
             </select>
           </div>
           <div>

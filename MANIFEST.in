@@ -2,14 +2,14 @@ include LICENSE
 include NOTICE
 include CONTRIBUTING.md
 include CHANGELOG.md
+include SECURITY.md
+include CODE_OF_CONDUCT.md
 include README.md
-include README_zh.md
-include README_ja.md
-include README_ko.md
-include README_ar.md
+include README_EN.md
 include pyproject.toml
 include Dockerfile
 include docker-compose.yml
+include docker-compose.pg.yml
 
 # Setup script
 include setup.sh
@@ -17,22 +17,47 @@ include setup.sh
 # Developer entry-point template
 include agent/.env.example
 
+# Main API + MCP server
+include agent/api_server.py
+include agent/mcp_server.py
+
 # Database migrations
 recursive-include agent/migrations *.sql
 
-# Alpha Zoo factor metadata and per-zoo LICENSE / NOTICE files
-recursive-include agent/src/factors *.yaml *.md
+# Backtest engine + data loaders
+recursive-include agent/backtest *.py
 
-# Auth, DB, Lab modules
+# Paper trading engine + scheduler + risk
+recursive-include agent/papertrade *.py
+
+# Source modules
+recursive-include agent/src/agent *.py
+recursive-include agent/src/api *.py
 recursive-include agent/src/auth *.py
+recursive-include agent/src/core *.py
+recursive-include agent/src/data *.json
 recursive-include agent/src/db *.py
 recursive-include agent/src/lab *.py *.json
-
-# Session PG store
 recursive-include agent/src/session *.py
+recursive-include agent/src/swarm *.py
 
 # LLM provider config
 recursive-include agent/src/providers *.json
+
+# Alpha Zoo factor metadata
+recursive-include agent/src/factors *.yaml *.md
+
+# Skill packs
+recursive-include agent/src/skills *.md *.py
+recursive-include agent/src/skills **/*.md
+recursive-include agent/src/skills **/*.py
+
+# MCP tools
+recursive-include agent/src/tools *.py
+
+# Shadow account module
+recursive-include agent/src/shadow_account *.py
+recursive-include agent/src/shadow_account/templates *.css *.html
 
 # Tests
 recursive-include agent/tests *.py

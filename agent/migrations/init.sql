@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS vt_users (
     token_version   INTEGER DEFAULT 1,
     llm_config      JSONB DEFAULT '{}',
     data_source_config JSONB DEFAULT '{}',
+    skill_config    JSONB DEFAULT '{}',
     created_at      TIMESTAMPTZ DEFAULT now(),
     updated_at      TIMESTAMPTZ DEFAULT now()
 );

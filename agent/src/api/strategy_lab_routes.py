@@ -79,7 +79,7 @@ class StrategyBacktestRequest(BaseModel):
     source: str = Field(default="auto", max_length=20)
     start_date: str = Field(default="2024-01-01")
     end_date: str = Field(default="2025-12-31")
-    interval: str = Field(default="1D", pattern=r"^(1m|5m|15m|30m|1H|4H|1D)$")
+    interval: str = Field(default="1D", pattern=r"^(1m|5m|15m|30m|1H|4H|1D|1W|4W)$")
     initial_cash: float = Field(default=100_000.0, ge=1000.0)
     leverage: float = Field(default=1.0, ge=1.0, le=20.0)
     extra_fields: list[str] | None = None
@@ -337,12 +337,25 @@ def _execute_strategy_code(code: str) -> dict[str, Any]:
 
     from src.lab.sandbox import build_safe_builtins
 
+    # Provide safe sys constants so AI-generated code doesn't need `import sys`
+    import sys as _sys
+    _safe_sys = type("_SafeSys", (), {
+        "maxsize": _sys.maxsize,
+        "float_info": _sys.float_info,
+        "version_info": _sys.version_info,
+        "version": _sys.version,
+        "platform": _sys.platform,
+        "byteorder": _sys.byteorder,
+        "__repr__": lambda s: "<module 'sys' (sandboxed)>",
+    })()
+
     # Sandboxed execution
     exec_env: dict[str, Any] = {
         "__builtins__": build_safe_builtins(),
         "__name__": "__strategy_lab__",
         "pd": pd,
         "np": np,
+        "sys": _safe_sys,
     }
 
     try:

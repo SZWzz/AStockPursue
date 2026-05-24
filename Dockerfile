@@ -15,14 +15,16 @@ RUN npm run build
 FROM python:3.11-slim AS runtime
 
 LABEL org.opencontainers.image.title="AStockPursue" \
-    org.opencontainers.image.description="AI-powered quantitative trading research platform" \
-    org.opencontainers.image.version="2026.5.24"
+      org.opencontainers.image.description="AI-powered quantitative trading research platform" \
+      org.opencontainers.image.version="2026.5.24" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.url="https://github.com/SZWzz/AStockPursue"
 
 WORKDIR /app
 
-# System deps
+# System deps (curl for healthcheck)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+    build-essential curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Python deps (install before copying code for layer caching)
@@ -30,24 +32,25 @@ COPY agent/requirements.txt agent/requirements.txt
 RUN pip install --no-cache-dir -r agent/requirements.txt
 
 # Copy project
-COPY pyproject.toml LICENSE README.md ./
+COPY pyproject.toml LICENSE NOTICE SECURITY.md README.md README_EN.md ./
 COPY agent/ agent/
 
 # Copy built frontend
 COPY --from=frontend-build /app/frontend/dist frontend/dist
 
+# Create service user + writable directories before pip install
+# so .egg-info / __pycache__ are owned by the research user
+RUN useradd --create-home --shell /usr/sbin/nologin research \
+    && mkdir -p agent/runs agent/sessions agent/uploads agent/.swarm/runs \
+              /home/research/.AStockPursue/skills \
+    && chown -R research:research /app /home/research/.AStockPursue
+USER research
+
 # Install CLI entrypoint
 RUN pip install --no-cache-dir -e .
 
-# Runtime should not run as root. Keep writable app data directories owned by
-# the service user so named Docker volumes inherit usable permissions.
-RUN useradd --create-home --shell /usr/sbin/nologin research \
-    && mkdir -p agent/runs agent/sessions agent/uploads agent/.swarm/runs \
-    && chown -R research:research /app
-USER research
-
-# Default port
-EXPOSE 8899
+# Default ports: API (8899) + MCP Server SSE (8900)
+EXPOSE 8899 8900
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \

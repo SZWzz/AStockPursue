@@ -1407,6 +1407,143 @@ async def update_data_source_settings(payload: UpdateDataSourceSettingsRequest, 
     )
 
 
+# ============================================================================
+# Skill management (per-user) + MCP config (admin-only)
+# ============================================================================
+
+def _read_skill_config(user_id: int) -> dict:
+    try:
+        from src.db.pool import get_connection
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT skill_config FROM vt_users WHERE id = %s", (user_id,))
+                row = cur.fetchone()
+                return (row[0] or {}) if row else {}
+    except Exception:
+        return {}
+
+
+def _write_skill_config(user_id: int, updates: dict) -> None:
+    try:
+        from src.db.pool import get_connection
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE vt_users SET skill_config = skill_config || %s::jsonb WHERE id = %s",
+                    (json.dumps(updates), user_id),
+                )
+    except Exception:
+        pass
+
+
+@app.get("/settings/skills")
+async def get_skill_settings(auth: dict = Security(require_auth)):
+    user_id = int(auth.get("user_id", 1))
+    from src.agent.skills import SkillsLoader
+    disabled = set(_read_skill_config(user_id).get("disabled_skills", []))
+    loader = SkillsLoader(user_id=user_id, disabled_skills=disabled)
+    skills_data = []
+    for s in loader.skills:
+        skills_data.append({
+            "name": s.name,
+            "description": s.description,
+            "category": s.category,
+            "enabled": s.name not in disabled,
+        })
+    return {"skills": skills_data, "total": len(skills_data),
+            "enabled_count": sum(1 for s in skills_data if s["enabled"])}
+
+
+@app.put("/settings/skills")
+async def update_skill_settings(payload: dict, auth: dict = Security(require_auth)):
+    user_id = int(auth.get("user_id", 1))
+    _write_skill_config(user_id, {"disabled_skills": payload.get("disabled_skills", [])})
+    return {"ok": True}
+
+
+@app.post("/settings/skills/import")
+async def import_skill(file: UploadFile, auth: dict = Security(require_auth)):
+    user_id = int(auth.get("user_id", 1))
+    import zipfile, tempfile
+    if not file.filename or not file.filename.endswith(".zip"):
+        raise HTTPException(status_code=400, detail="Only .zip files are supported")
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            zip_path = Path(tmp) / "upload.zip"
+            zip_path.write_bytes(await file.read())
+            with zipfile.ZipFile(zip_path) as zf:
+                members = [n for n in zf.namelist() if not n.startswith("__MACOSX") and not n.endswith("/")]
+                if not any("SKILL.md" in m for m in members):
+                    raise HTTPException(status_code=400, detail="ZIP must contain SKILL.md")
+                usd = _user_skills_dir(user_id) if hasattr(_user_skills_dir, "__call__") else Path.home() / ".AStockPursue" / "skills" / str(user_id)
+                # Find skill name from SKILL.md
+                skill_name = None
+                for m in members:
+                    if m.endswith("SKILL.md"):
+                        zf.extract(m, tmp)
+                        from src.agent.frontmatter import parse_frontmatter
+                        meta, _ = parse_frontmatter((Path(tmp) / m).read_text(encoding="utf-8"))
+                        skill_name = meta.get("name") or Path(m).parent.name
+                        break
+                if not skill_name:
+                    raise HTTPException(status_code=400, detail="SKILL.md must have a 'name' in frontmatter")
+                dest = usd / skill_name
+                dest.mkdir(parents=True, exist_ok=True)
+                for m in members:
+                    zf.extract(m, str(dest))
+                return {"ok": True, "name": skill_name}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Import failed: {e}")
+
+
+@app.delete("/settings/skills/{name}")
+async def delete_user_skill(name: str, auth: dict = Security(require_auth)):
+    user_id = int(auth.get("user_id", 1))
+    usd = Path.home() / ".AStockPursue" / "skills" / str(user_id)
+    target = usd / name
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="Skill not found")
+    import shutil
+    shutil.rmtree(target)
+    return {"ok": True}
+
+
+@app.get("/settings/mcp")
+async def get_mcp_settings(auth: dict = Security(require_auth)):
+    if auth.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    import os as _os
+    config_path = Path.home() / ".AStockPursue" / "mcp_config.json"
+    config = {}
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text())
+        except Exception:
+            pass
+    return {
+        "service_name": "AStockPursue",
+        "transport": config.get("transport", "stdio"),
+        "sse_port": config.get("sse_port", 8900),
+        "shell_tools_enabled": _os.getenv("ASTOCKPURSUE_ENABLE_SHELL_TOOLS", "") in ("1", "true"),
+        "config_path": str(config_path),
+        "install_cmd": f"python {Path(__file__).resolve().parent / 'mcp_server.py'}",
+    }
+
+
+@app.put("/settings/mcp")
+async def update_mcp_settings(payload: dict, auth: dict = Security(require_auth)):
+    if auth.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    config_path = Path.home() / ".AStockPursue" / "mcp_config.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(json.dumps(payload, indent=2))
+    if "shell_tools_enabled" in payload:
+        os.environ["ASTOCKPURSUE_ENABLE_SHELL_TOOLS"] = "1" if payload["shell_tools_enabled"] else "0"
+    return {"ok": True}
+
+
 @app.get("/health", response_model=HealthResponse)
 async def health_check():
     """Liveness probe."""

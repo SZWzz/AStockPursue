@@ -220,6 +220,13 @@ def init_database() -> None:
             with conn.cursor() as cur:
                 sql_text = _MIGRATIONS_PATH.read_text(encoding="utf-8")
                 cur.execute(sql_text)
+                # Apply incremental migrations
+                mig_dir = _MIGRATIONS_PATH.parent
+                for mig in sorted(mig_dir.glob("*.sql")):
+                    if mig.name == "init.sql":
+                        continue
+                    cur.execute(mig.read_text(encoding="utf-8"))
+                    logger.info("Applied migration: %s", mig.name)
             logger.info("Database migration completed")
             _migrations_applied = True
 

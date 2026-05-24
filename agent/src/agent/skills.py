@@ -87,26 +87,37 @@ def _load_skill_dir(dir_path: Path) -> Optional[Skill]:
     )
 
 
-USER_SKILLS_DIR = Path.home() / ".AStockPursue" / "skills" / "user"
+USER_SKILLS_BASE = Path.home() / ".AStockPursue" / "skills"
+USER_SKILLS_DIR = USER_SKILLS_BASE / "1"  # backward-compat: default user
+
+
+def _user_skills_dir(user_id: int) -> Path:
+    return USER_SKILLS_BASE / str(user_id)
 
 
 class SkillsLoader:
-    """Load skills from bundled skills/ directory and user skills directory.
+    """Load skills from bundled skills/ directory and per-user skills directory.
 
     Attributes:
         skills: Loaded skill list (bundled + user-created).
     """
 
     def __init__(self, skills_dir: Optional[Path] = None,
-                 user_skills_dir: Optional[Path] = None) -> None:
+                 user_skills_dir: Optional[Path] = None,
+                 user_id: int = 1,
+                 disabled_skills: Optional[set[str]] = None) -> None:
         """Initialize SkillsLoader.
 
         Args:
             skills_dir: Bundled skills directory path; defaults to agent/skills/.
-            user_skills_dir: User-created skills directory; defaults to ~/.AStockPursue/skills/user/.
+            user_skills_dir: Override user skills directory (for testing).
+            user_id: User ID for per-user skill isolation.
+            disabled_skills: Set of skill names to exclude from loading.
         """
         self.skills_dir = skills_dir or Path(__file__).resolve().parents[1] / "skills"
-        self._user_skills_dir = user_skills_dir or USER_SKILLS_DIR
+        self._user_skills_dir = user_skills_dir or _user_skills_dir(user_id)
+        self._user_id = user_id
+        self._disabled = disabled_skills or set()
         self.skills: List[Skill] = []
         self._load()
 
@@ -115,6 +126,7 @@ class SkillsLoader:
 
         User skills are loaded first so they override bundled skills with the same name
         (e.g. after patch_skill copies and modifies a bundled skill).
+        Skills in the disabled set are skipped.
         """
         seen_names: set[str] = set()
         for directory in (self._user_skills_dir, self.skills_dir):
@@ -123,7 +135,7 @@ class SkillsLoader:
             for path in sorted(directory.iterdir()):
                 if path.is_dir() and (path / "SKILL.md").exists():
                     skill = _load_skill_dir(path)
-                    if skill and skill.name not in seen_names:
+                    if skill and skill.name not in seen_names and skill.name not in self._disabled:
                         self.skills.append(skill)
                         seen_names.add(skill.name)
 
@@ -172,8 +184,9 @@ class SkillsLoader:
                 return f'<skill name="{name}">\n{skill.body}\n</skill>'
 
         # Fallback: check user skills directory on disk (mid-session created skills)
-        if self._user_skills_dir:
-            skill = _load_skill_dir(self._user_skills_dir / name)
+        usd = self._user_skills_dir
+        if usd:
+            skill = _load_skill_dir(usd / name)
             if skill:
                 self.skills.append(skill)
                 return f'<skill name="{name}">\n{skill.body}\n</skill>'

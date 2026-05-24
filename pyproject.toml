@@ -4,7 +4,7 @@ version = "2026.5.24"
 description = "AStockPursue: AI-powered quantitative trading research platform"
 requires-python = ">=3.11"
 license = "MIT"
-readme = "README.md"
+readme = {file = "README.md", content-type = "text/markdown"}
 authors = [
     {name = "AStockPursue Contributors"},
 ]
@@ -75,7 +75,7 @@ py-modules = ["cli", "api_server", "mcp_server"]
 
 [tool.setuptools.packages.find]
 where = ["agent"]
-include = ["src*", "backtest*", "migrations*"]
+include = ["src*", "backtest*", "papertrade*", "migrations*"]
 
 [tool.setuptools.package-data]
 "src" = [
@@ -87,6 +87,7 @@ include = ["src*", "backtest*", "migrations*"]
     "swarm/presets/*.yaml",
     "shadow_account/templates/*.j2",
     "shadow_account/templates/*.html",
+    "shadow_account/templates/*.css",
     "shadow_account/templates/*.css",
 ]
 "backtest" = ["*.py"]

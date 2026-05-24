@@ -32,13 +32,16 @@ def _load_symbols() -> list[dict]:
 
 @router.get("/search")
 async def search_stocks(q: str = Query("", max_length=64)):
-    """Search stock symbols by code, name, or pinyin. Returns up to 20 matches."""
+    """Search stock symbols by code, name, or pinyin. Returns up to 20 matches.
+    Static JSON covers CN indices + major A-shares. Falls back to yfinance
+    for US/HK stocks not in the static list."""
     symbols = _load_symbols()
     query = q.strip().lower()
     if not query:
         return {"results": symbols[:20]}
 
     results: list[dict] = []
+    seen = set()
     for s in symbols:
         if (
             query in s["code"].lower()
@@ -46,10 +49,60 @@ async def search_stocks(q: str = Query("", max_length=64)):
             or query in s.get("pinyin", "")
         ):
             results.append(s)
+            seen.add(s["code"].lower())
             if len(results) >= 20:
                 break
 
-    return {"results": results}
+    # For queries not found in static JSON, try Tencent quote API (CN/HK stocks)
+    if len(results) < 10 and len(query) >= 1:
+        q = query.strip().upper()
+        candidates = []
+        if "." in q or "-" in q:
+            candidates = [q]
+        elif q.isalpha() and len(q) <= 5:
+            candidates = [q, f"{q}.HK"]
+        elif q.isdigit():
+            candidates = [f"{q}.SZ", f"{q}.SH", f"{q}.HK"]
+        for code in candidates[:5]:
+            try:
+                from backtest.loaders.tencent import normalize_cn_code, normalize_hk_code, _is_cn, _is_hk
+                tc = ""
+                if _is_cn(code):
+                    tc = normalize_cn_code(code)
+                elif _is_hk(code):
+                    tc = normalize_hk_code(code)
+                else:
+                    continue
+                resp = __import__("requests").get(f"https://qt.gtimg.cn/q={tc}", timeout=5, headers={"Referer": "https://qt.gtimg.cn/"})
+                resp.encoding = "gbk"
+                text = (resp.text or "").strip()
+                if "~" in text and "v_" in text:
+                    try:
+                        s = text.index('="') + 2
+                        e = text.rindex('"')
+                        parts = text[s:e].split("~")
+                        name = parts[1].strip() if len(parts) > 1 else code
+                        if name and code.lower() not in seen:
+                            market = "HK" if _is_hk(code) else "CN"
+                            results.append({"code": code, "name": name, "market": market, "type": "", "pinyin": query.lower()})
+                            seen.add(code.lower())
+                    except (ValueError, IndexError):
+                        pass
+            except Exception:
+                continue
+
+    # Final fallback: anything not yet matched
+    if len(results) == 0 and len(query) >= 1:
+        q = query.strip().upper()
+        clean = q.replace(".US", "").replace(".HK", "").replace(".SZ", "").replace(".SH", "")
+        if "-" in q:
+            results.append({"code": q, "name": q, "market": "CRYPTO", "type": "", "pinyin": query.lower()})
+        elif q.endswith(".US") or (clean.isalpha() and len(clean) <= 5):
+            results.append({"code": q if q.endswith(".US") else q, "name": q, "market": "US", "type": "", "pinyin": query.lower()})
+        elif q.endswith(".HK") or (clean.isdigit() and len(clean) <= 5):
+            results.append({"code": q, "name": q, "market": "HK", "type": "", "pinyin": query.lower()})
+
+    return {"results": results[:20]}
 
 
 @router.get("/ohlcv")

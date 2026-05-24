@@ -3,6 +3,7 @@ services:
     build: .
     ports:
       - "8899:8899"
+      - "8900:8900"      # MCP Server (SSE transport)
     env_file:
       - agent/.env
     environment:
@@ -12,7 +13,14 @@ services:
     volumes:
       - astockpursue-runs:/app/agent/runs
       - astockpursue-sessions:/app/agent/sessions
+      - astockpursue-skills:/root/.AStockPursue/skills
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8899/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
     networks:
       - vt-net
 
@@ -34,10 +42,11 @@ services:
     networks:
       - vt-net
 
-networks:
-  vt-net:
-    driver: bridge
-
 volumes:
   astockpursue-runs:
   astockpursue-sessions:
+  astockpursue-skills:
+
+networks:
+  vt-net:
+    driver: bridge
