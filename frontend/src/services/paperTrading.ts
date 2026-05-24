@@ -22,12 +22,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     } catch { /* ignore */ }
     throw new Error(detail);
   }
+  const ct = res.headers.get("content-type") || "";
   const text = await res.text();
   if (!text) return {} as T;
   try {
     return JSON.parse(text);
   } catch {
-    throw new Error(`Unexpected response from server (${res.status} ${res.statusText})`);
+    const preview = text.slice(0, 150).replace(/\s+/g, " ").trim();
+    const hint = ct.includes("text/html") ? " (got HTML — check API path)" : "";
+    throw new Error(`Unexpected response from ${path}: ${preview || "(empty)"}${hint}`);
   }
 }
 

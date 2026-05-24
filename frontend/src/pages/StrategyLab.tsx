@@ -891,13 +891,13 @@ export function StrategyLab() {
             clearInterval(poll);
             setBacktestRunning(false);
           }
-          if (run.price_series) {
-            const firstSymbol = Object.keys(run.price_series)[0];
-            if (firstSymbol) setPriceData(run.price_series[firstSymbol]);
+          const firstSymbol = run.price_series ? Object.keys(run.price_series)[0] : null;
+          if (run.price_series && firstSymbol) {
+            setPriceData(run.price_series[firstSymbol]);
           }
           if (run.trade_markers) setBtTradeMarkers(run.trade_markers);
           if (run.equity_curve) setBtEquityCurve(run.equity_curve as EquityPoint[]);
-          if (run.indicator_series) setBtIndicatorSeries(run.indicator_series as unknown as Record<string, IndicatorPoint[]>);
+          if (run.indicator_series && firstSymbol) setBtIndicatorSeries(run.indicator_series[firstSymbol] as unknown as Record<string, IndicatorPoint[]>);
         } catch {
           /* ignore poll errors */
         }

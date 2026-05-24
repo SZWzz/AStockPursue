@@ -46,12 +46,15 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   if (!res.ok) {
     throw await errorFromResponse(res);
   }
+  const ct = res.headers.get("content-type") || "";
   const text = await res.text();
   if (!text) return {} as T;
   try {
     return JSON.parse(text);
   } catch {
-    throw new ApiError(`Unexpected response from server (${res.status} ${res.statusText})`, res.status);
+    const preview = text.slice(0, 150).replace(/\s+/g, " ").trim();
+    const hint = ct.includes("text/html") ? " (got HTML — check that the API path exists)" : "";
+    throw new ApiError(`Unexpected response from ${path}: ${preview || "(empty)"}${hint}`, res.status);
   }
 }
 
@@ -222,6 +225,13 @@ export interface DataSourceSettings {
   tiingo_api_key_configured: boolean;
   akshare_available: boolean;
   akshare_version: string;
+  yfinance_available: boolean;
+  tencent_available: boolean;
+  ccxt_available: boolean;
+  coingecko_available: boolean;
+  futu_available: boolean;
+  global_indices_available: boolean;
+  commodities_available: boolean;
   env_path: string;
 }
 

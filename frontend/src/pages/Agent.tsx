@@ -153,7 +153,7 @@ export function Agent() {
           agentMsgs.push({ id: m.message_id, type: "user", content: m.content, timestamp: ts });
         } else if (runId) {
           // Show text answer first (if non-empty), then chart card
-          if (m.content && m.content !== "Strategy execution completed.") {
+          if (m.content && m.content !== t.agentStrategyCompleted) {
             agentMsgs.push({ id: m.message_id + "_ans", type: "answer", content: m.content, timestamp: ts });
           }
           agentMsgs.push({ id: m.message_id, type: "run_complete", content: "", runId, metrics, timestamp: ts + 1 });
@@ -274,21 +274,21 @@ export function Agent() {
         const shadowMatch = shadowCall?.preview?.match(/"shadow_id"\s*:\s*"(shadow_[A-Za-z0-9_]+)"/);
         const shadowId = shadowMatch?.[1];
 
-        // Show RunCompleteCard when the turn produced backtest metrics or a shadow report
+        // Show RunCompleteCard whenever a run completed (with or without metrics)
         if (runId) {
           try {
             const runData = await api.getRun(runId);
-            const hasMetrics = runData.metrics && Object.keys(runData.metrics).length > 0;
-            if (hasMetrics || shadowId) {
-              s.addMessage({
-                id: "", type: "run_complete", content: "", runId,
-                metrics: hasMetrics ? runData.metrics : undefined,
-                equityCurve: runData.equity_curve?.map(e => ({ time: e.time, equity: e.equity })),
-                shadowId,
-                timestamp: Date.now(),
-              });
-            }
-          } catch { /* ignore */ }
+            s.addMessage({
+              id: "", type: "run_complete", content: "", runId,
+              metrics: runData.metrics && Object.keys(runData.metrics).length > 0 ? runData.metrics : undefined,
+              equityCurve: runData.equity_curve?.map(e => ({ time: e.time, equity: e.equity })),
+              shadowId,
+              timestamp: Date.now(),
+            });
+          } catch {
+            // Show card even if getRun fails — user can still click through
+            s.addMessage({ id: "", type: "run_complete", content: "", runId, shadowId, timestamp: Date.now() });
+          }
         } else if (shadowId) {
           s.addMessage({ id: "", type: "run_complete", content: "", shadowId, timestamp: Date.now() });
         }
@@ -302,7 +302,7 @@ export function Agent() {
       "attempt.failed": (d) => {
         touch();
         act().clearStreaming();
-        act().addMessage({ id: "", type: "error", content: String(d.error || "Execution failed"), timestamp: Date.now() });
+        act().addMessage({ id: "", type: "error", content: String(d.error || t.agentExecutionFailed), timestamp: Date.now() });
         act().setStatus("idle");
         // Clear stale toolCalls so the next turn's running indicator doesn't
         // briefly show the previous turn's progress before fresh events land.
@@ -477,7 +477,7 @@ export function Agent() {
       setAttachment({ filename: result.filename, filePath: result.file_path });
       toast.success(t.uploadedFile.replace("{name}", result.filename));
     } catch (err) {
-      toast.error(t.uploadFailed.replace("{reason}", err instanceof Error ? err.message : "Unknown error"));
+      toast.error(t.uploadFailed.replace("{reason}", err instanceof Error ? err.message : t.agentUnknownError));
     } finally {
       setUploading(false);
     }
@@ -524,10 +524,10 @@ export function Agent() {
                 </div>
                 <div>
                   <div className="text-xl font-bold tracking-tight">AStockPursue</div>
-                  <p className="text-sm text-muted-foreground mt-1.5">Intelligent Quantitative Trading Assistant</p>
+                  <p className="text-sm text-muted-foreground mt-1.5">{t.agentSubtitle}</p>
                 </div>
                 <p className="text-sm text-muted-foreground/70 max-w-md mx-auto">
-                  Select stocks from the watchlist panel, or type your question below to get started.
+                  {t.agentWelcomeHint}
                 </p>
               </div>
             </div>

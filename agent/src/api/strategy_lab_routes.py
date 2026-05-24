@@ -335,39 +335,14 @@ def _execute_strategy_code(code: str) -> dict[str, Any]:
         )
         data_map[sym] = df
 
+    from src.lab.sandbox import build_safe_builtins
+
     # Sandboxed execution
     exec_env: dict[str, Any] = {
-        "__builtins__": {
-            "print": print,
-            "len": len,
-            "range": range,
-            "abs": abs,
-            "min": min,
-            "max": max,
-            "sum": sum,
-            "enumerate": enumerate,
-            "zip": zip,
-            "isinstance": isinstance,
-            "hasattr": hasattr,
-            "getattr": getattr,
-            "setattr": setattr,
-            "int": int,
-            "float": float,
-            "str": str,
-            "bool": bool,
-            "list": list,
-            "dict": dict,
-            "tuple": tuple,
-            "set": set,
-            "pd": pd,
-            "np": np,
-            "ImportError": ImportError,
-            "ValueError": ValueError,
-            "TypeError": TypeError,
-            "KeyError": KeyError,
-            "IndexError": IndexError,
-            "Exception": Exception,
-        },
+        "__builtins__": build_safe_builtins(),
+        "__name__": "__strategy_lab__",
+        "pd": pd,
+        "np": np,
     }
 
     try:

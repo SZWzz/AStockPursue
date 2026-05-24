@@ -197,6 +197,13 @@ class DataSourceSettingsResponse(BaseModel):
     tiingo_api_key_configured: bool = False
     akshare_available: bool = False
     akshare_version: str = ""
+    yfinance_available: bool = False
+    tencent_available: bool = False
+    ccxt_available: bool = False
+    coingecko_available: bool = False
+    futu_available: bool = False
+    global_indices_available: bool = False
+    commodities_available: bool = False
     env_path: str
 
 
@@ -683,6 +690,27 @@ def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None
     except ImportError:
         pass
 
+    # Free / no-auth loader availability
+    yf_ok = tencent_ok = ccxt_ok = cg_ok = futu_ok = gi_ok = comm_ok = False
+    try:
+        from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
+        _ensure_registered()
+        for name, cls in LOADER_REGISTRY.items():
+            try:
+                inst = cls()
+                avail = inst.is_available() if hasattr(inst, "is_available") else True
+            except Exception:
+                avail = False
+            if name == "yfinance": yf_ok = avail
+            elif name == "tencent": tencent_ok = avail
+            elif name == "ccxt": ccxt_ok = avail
+            elif name == "coingecko": cg_ok = avail
+            elif name == "futu": futu_ok = avail
+            elif name == "global_indices": gi_ok = avail
+            elif name == "commodities": comm_ok = avail
+    except Exception:
+        pass
+
     return DataSourceSettingsResponse(
         tushare_token_configured=token_configured,
         tushare_token_hint=None,
@@ -694,6 +722,13 @@ def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None
         tiingo_api_key_configured=ti_configured,
         akshare_available=akshare_available,
         akshare_version=akshare_version,
+        yfinance_available=yf_ok,
+        tencent_available=tencent_ok,
+        ccxt_available=ccxt_ok,
+        coingecko_available=cg_ok,
+        futu_available=futu_ok,
+        global_indices_available=gi_ok,
+        commodities_available=comm_ok,
         env_path=_project_relative_path(ENV_PATH),
     )
 

@@ -728,6 +728,30 @@ export function Settings() {
                 : "Indicator Lab & Strategy Lab A 股回测需要 akshare，请 pip install akshare。"}
             </p>
           </div>
+
+          {/* Free data sources */}
+          <div className="space-y-2">
+            <h3 className="text-sm font-semibold">免费数据源</h3>
+            {([
+              ["YFinance", "美股 / 港股", dataSettings.yfinance_available],
+              ["Tencent", "A股 / 港股", dataSettings.tencent_available],
+              ["CCXT", "加密货币 (100+交易所)", dataSettings.ccxt_available],
+              ["CoinGecko", "加密货币", dataSettings.coingecko_available],
+              ["Futu", "A股 / 港股 (需 FutuOpenD)", dataSettings.futu_available],
+              ["Global Indices", "全球指数", dataSettings.global_indices_available],
+              ["Commodities", "大宗商品", dataSettings.commodities_available],
+            ] as [string, string, boolean][]).map(([name, desc, available]) => (
+              <div key={name} className="flex items-center justify-between py-1.5 px-3 rounded-md bg-muted/10">
+                <div>
+                  <span className="text-sm">{name}</span>
+                  <span className="ml-2 text-xs text-muted-foreground">{desc}</span>
+                </div>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${available ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
+                  {available ? "可用" : "不可用"}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </form>
     </div>

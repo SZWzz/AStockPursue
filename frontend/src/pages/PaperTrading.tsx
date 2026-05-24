@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { Loader2, TrendingUp, Library, List, Plus } from "lucide-react";
 import { usePaperTradingStore } from "@/stores/paperTradingStore";
 import { useI18n } from "@/lib/i18n";
+import { authHeaders } from "@/lib/apiAuth";
 import { api, type PriceBar } from "@/lib/api";
 import { CodeEditor } from "@/components/indicator-lab/CodeEditor";
 import { CandlestickChart } from "@/components/charts/CandlestickChart";
@@ -96,8 +97,9 @@ export default function PaperTrading() {
     setStrategies([]);
     try {
       if (source === "strategy-lab") {
-        const data = await fetch("/strategy-lab/list");
-        const json = await data.json();
+        const res = await fetch("/strategy-lab/list", { headers: authHeaders() });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
         const list = (json.strategies || []).map((s: { id: string; name: string }) => ({
           id: s.id, name: s.name, code: "", source: "strategy-lab" as LibrarySource,
         }));
@@ -138,8 +140,9 @@ export default function PaperTrading() {
   const loadStrategyCode = async (item: StrategyItem) => {
     if (item.code) { setCode(item.code); return; }
     try {
-      const data = await fetch(`/strategy-lab/${item.id}`);
-      const json = await data.json();
+      const res = await fetch(`/strategy-lab/${item.id}`, { headers: authHeaders() });
+      if (!res.ok) return;
+      const json = await res.json();
       setCode(json.code || "");
     } catch {
       /* ignore */
@@ -330,10 +333,38 @@ export default function PaperTrading() {
         {/* Right: K-line chart + status */}
         <div className="flex-1 flex flex-col min-w-0 min-w-[380px] border rounded-lg bg-card overflow-auto">
           {!selectedRun ? (
-            <div className="flex flex-col items-center justify-center h-full text-sm text-muted-foreground gap-3 p-4">
-              <TrendingUp className="h-8 w-8 opacity-30" />
-              <span>{t.ptSelectRunHint}</span>
-              <span className="text-xs">{t.ptSelectStrategySource}</span>
+            <div className="flex flex-col h-full p-3 space-y-3">
+              {/* Chart preview when no run is active */}
+              <div className="text-xs font-medium text-muted-foreground">K 线预览</div>
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <label className="text-[10px] text-muted-foreground">标的代码</label>
+                  <input
+                    className="w-full text-xs rounded-md border border-border bg-background px-2 py-1.5 font-mono"
+                    placeholder="600519.SH"
+                    value={codes}
+                    onChange={(e) => { setCodes(e.target.value); }}
+                    onKeyDown={(e) => { if (e.key === "Enter") fetchChartData(codes || "600519.SH"); }}
+                  />
+                </div>
+                <button
+                  className="px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:opacity-90"
+                  onClick={() => fetchChartData(codes || "600519.SH")}
+                >
+                  {chartLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "加载"}
+                </button>
+              </div>
+              {chartLoading ? (
+                <div className="flex items-center justify-center flex-1 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mr-1" />Loading...</div>
+              ) : priceData.length > 0 ? (
+                <CandlestickChart data={priceData} height={320} />
+              ) : (
+                <div className="flex flex-col items-center justify-center flex-1 text-sm text-muted-foreground gap-2">
+                  <TrendingUp className="h-8 w-8 opacity-30" />
+                  <span>输入标的代码后点击「加载」查看 K 线</span>
+                </div>
+              )}
+              {chartError && <div className="text-xs text-danger">{chartError}</div>}
             </div>
           ) : (
             <div className="space-y-3 p-3">

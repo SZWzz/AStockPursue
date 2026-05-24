@@ -52,6 +52,7 @@ SAFE_IMPORT_MODULES: set[str] = {
     "numpy", "pandas", "math", "json", "datetime", "time",
     "collections", "functools", "itertools", "statistics",
     "decimal", "fractions", "operator", "copy",
+    "typing", "re", "warnings", "dataclasses", "enum", "abc",
     "scipy", "sklearn",
 }
 
@@ -75,6 +76,7 @@ def build_safe_builtins(extra_allowed: set[str] | None = None) -> dict[str, Any]
         if val is not None:
             safe[name] = val
     safe["__import__"] = _make_safe_import()
+    safe["__build_class__"] = _builtins_mod.__build_class__
     return safe
 
 

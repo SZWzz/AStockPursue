@@ -1,5 +1,36 @@
 # Changelog
 
+## 2026.5.24 (evening)
+
+### Added
+
+- **模拟盘策略库** — 左侧面板新增「策略库」tab，可从策略实验室 / AI 聊天会话导入策略代码，一键部署到模拟盘
+- **模拟盘代码编辑器** — 用 Monaco Editor 替换纯文本 textarea，语法高亮 + 代码补全
+- **模拟盘 K 线预览** — 右侧面板输入标的代码即可预览 K 线图（即使未创建运行），复用 CandlestickChart
+- **设置页面免费数据源状态** — 展示 yfinance / tencent / ccxt / coingecko / futu / global indices / commodities 7 个免费数据源的可用/不可用状态
+- **红涨绿跌全项目覆盖** — 新增 `--up`/`--down` CSS 变量，`html[lang="zh"]` 自动切换红涨绿跌，14 个文件全面替换方向性颜色
+- **i18n 新增 50+ 键** — 覆盖 Agent 首页、RunDetail 面板标题/空状态、Compare 指标表、模拟盘策略库等
+
+### Changed
+
+- **Token 集中加载** — `load_user_config()` 移入 `require_auth` 鉴权中间件，所有鉴权端点自动注入用户数据源凭证，不再需要手动调用
+- **模拟盘三栏布局** — 从两栏改为三栏（策略库/运行列表 | 代码编辑器 | K 线图 + 运行状态），移动端 min-w 保护
+- **回测报告卡片始终显示** — SSE 实时路径去掉 `hasMetrics` 门槛，回测完成即显示「查看完整报告」链接
+- **JSON 解析错误信息改进** — 显示请求路径 + 响应内容前 150 字符 + 是否为 HTML 的提示
+- **数据源下拉列表补齐** — 前端从 4 项扩充到 13 项，与后端 LOADER_REGISTRY 完全对齐
+- **Favicon 重设计** — 蓝色圆角背景 + 上升柱形图 + 趋势箭头，替代旧橙色蜡烛图
+- **沙箱 import 白名单扩充** — 新增 `typing`/`re`/`warnings`/`dataclasses`/`enum`/`abc` 6 个安全标准库
+- **模拟盘 fetch 鉴权补齐** — 之前漏掉的策略加载请求加上 authHeaders
+
+### Fixed
+
+- **TUSHARE_TOKEN 配置被反转清除** — Settings 保存时条件取反，真实 token 反而被 `os.environ.pop` 删除
+- **Tencent loader 大小写** — `normalize_cn_code`/`normalize_hk_code` 返回大写代码，但 Tencent API 只接受小写（`SZ000001`→`sz000001`）
+- **fetch_ohlcv 最小行数阈值** — `>=30` 行要求导致 1 个月内约 21 个交易日的数据被丢弃，改为 `>=5`
+- **策略沙箱 `__import__` 缺失** — `_execute_strategy_code` 手工构建 `__builtins__` 漏掉 `__import__` 和 `__build_class__`，导致 class 定义和 import 语句失败
+- **`indicator_series` 嵌套结构** — 后端返回 `{symbol: {name: points}}` 嵌套格式，CandlestickChart 期望 `{name: points}`，未提取第一层导致 `.map()` 崩溃
+- **回退链 loader 初始化异常未捕获** — `_fetch_auto` legacy fallback 和 runtime fallback 中 `LoaderCls()` 无 try/catch，Tushare 未配置 token 时崩溃
+
 ## 2026.5.24
 
 ### Added
