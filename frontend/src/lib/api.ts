@@ -198,7 +198,6 @@ export interface LLMSettings {
   timeout_seconds: number;
   max_retries: number;
   reasoning_effort: string;
-  env_path: string;
   providers: LLMProviderOption[];
 }
 
@@ -232,7 +231,6 @@ export interface DataSourceSettings {
   futu_available: boolean;
   global_indices_available: boolean;
   commodities_available: boolean;
-  env_path: string;
 }
 
 export interface UpdateDataSourceSettingsRequest {

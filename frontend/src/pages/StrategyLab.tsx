@@ -691,6 +691,8 @@ export function StrategyLab() {
   const [btTradeMarkers, setBtTradeMarkers] = useState<TradeMarker[]>([]);
   const [btEquityCurve, setBtEquityCurve] = useState<EquityPoint[]>([]);
   const [btIndicatorSeries, setBtIndicatorSeries] = useState<Record<string, IndicatorPoint[]>>({});
+  const [btMetrics, setBtMetrics] = useState<Record<string, number> | null>(null);
+  const [initialCash, setInitialCash] = useState(100000);
 
   // Monitor state
   const [notifications, setNotifications] = useState<SignalNotification[]>(MOCK_NOTIFICATIONS);
@@ -848,6 +850,7 @@ export function StrategyLab() {
       setPriceData(data.bars || []);
       setBtTradeMarkers([]);
       setBtEquityCurve([]);
+      setBtMetrics(null);
       setBtIndicatorSeries({});
     } catch (e) {
       setChartError(String(e));
@@ -873,6 +876,7 @@ export function StrategyLab() {
           end_date: chartEndDate,
           source: chartSource,
           interval: chartInterval,
+          initial_cash: initialCash,
         }),
       });
       const data = await res.json();
@@ -898,6 +902,7 @@ export function StrategyLab() {
           if (run.trade_markers) setBtTradeMarkers(run.trade_markers);
           if (run.equity_curve) setBtEquityCurve(run.equity_curve as EquityPoint[]);
           if (run.indicator_series && firstSymbol) setBtIndicatorSeries(run.indicator_series[firstSymbol] as unknown as Record<string, IndicatorPoint[]>);
+          if (run.metrics) setBtMetrics(run.metrics as Record<string, number>);
         } catch {
           /* ignore poll errors */
         }
@@ -1097,6 +1102,8 @@ export function StrategyLab() {
           onSourceChange={setChartSource}
           interval={chartInterval}
           onIntervalChange={setChartInterval}
+          initialCash={initialCash}
+          onInitialCashChange={setInitialCash}
           onFetch={fetchOHLCV}
           onRunBacktest={handleRunBacktest}
           priceData={priceData}
@@ -1105,6 +1112,7 @@ export function StrategyLab() {
           tradeMarkers={btTradeMarkers}
           equityCurve={btEquityCurve}
           indicatorSeries={btIndicatorSeries}
+          metrics={btMetrics}
           backtestRunning={backtestRunning}
           backtestLabel="Run Backtest"
         />

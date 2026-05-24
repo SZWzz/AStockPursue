@@ -17,6 +17,8 @@ export interface ChartPanelProps {
   onSourceChange: (s: string) => void;
   interval: string;
   onIntervalChange: (i: string) => void;
+  initialCash: number;
+  onInitialCashChange: (v: number) => void;
   onFetch: () => Promise<void>;
   onRunBacktest: () => Promise<void>;
   priceData: PriceBar[];
@@ -25,6 +27,7 @@ export interface ChartPanelProps {
   tradeMarkers?: TradeMarker[];
   equityCurve?: EquityPoint[];
   indicatorSeries?: Record<string, IndicatorPoint[]>;
+  metrics?: Record<string, number> | null;
   backtestRunning: boolean;
   backtestLabel?: string;
 }
@@ -45,6 +48,8 @@ export function ChartPanel({
   onSourceChange,
   interval,
   onIntervalChange,
+  initialCash,
+  onInitialCashChange,
   onFetch,
   onRunBacktest,
   priceData,
@@ -53,6 +58,7 @@ export function ChartPanel({
   tradeMarkers,
   equityCurve,
   indicatorSeries,
+  metrics,
   backtestRunning,
   backtestLabel = "Run Backtest",
 }: ChartPanelProps) {
@@ -120,6 +126,10 @@ export function ChartPanel({
               {["1D", "1H", "4H"].map((v) => (<option key={v} value={v}>{v}</option>))}
             </select>
           </div>
+          <div>
+            <label className={labelClass}>初始资金</label>
+            <input type="number" min={1000} step={10000} value={initialCash} onChange={(e) => onInitialCashChange(Number(e.target.value) || 100000)} className={inputClass} disabled={busy} />
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={onFetch} disabled={busy} className="btn-sm btn-outline flex items-center gap-1.5">
@@ -166,6 +176,44 @@ export function ChartPanel({
           />
         )}
       </div>
+
+      {/* Metrics strip after backtest */}
+      {metrics && Object.keys(metrics).length > 0 && (
+        <div className="shrink-0 border-t px-3 py-2">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+            {metrics.total_return != null && (
+              <span>总收益 <span className={`font-mono font-medium ${metrics.total_return >= 0 ? "text-up" : "text-down"}`}>{metrics.total_return >= 0 ? "+" : ""}{(metrics.total_return * 100).toFixed(2)}%</span></span>
+            )}
+            {metrics.annual_return != null && (
+              <span>年化 <span className={`font-mono font-medium ${metrics.annual_return >= 0 ? "text-up" : "text-down"}`}>{(metrics.annual_return * 100).toFixed(2)}%</span></span>
+            )}
+            {metrics.sharpe != null && (
+              <span>夏普 <span className="font-mono font-medium">{metrics.sharpe.toFixed(2)}</span></span>
+            )}
+            {metrics.max_drawdown != null && (
+              <span>最大回撤 <span className="font-mono font-medium text-down">{(metrics.max_drawdown * 100).toFixed(2)}%</span></span>
+            )}
+            {metrics.win_rate != null && (
+              <span>胜率 <span className="font-mono font-medium">{(metrics.win_rate * 100).toFixed(2)}%</span></span>
+            )}
+            {metrics.trade_count != null && (
+              <span>交易 <span className="font-mono font-medium">{metrics.trade_count}</span></span>
+            )}
+            {metrics.final_value != null && (
+              <span>终值 <span className="font-mono font-medium">{metrics.final_value.toFixed(0)}</span></span>
+            )}
+            {metrics.benchmark_return != null && (
+              <span>基准 <span className={`font-mono font-medium ${metrics.benchmark_return >= 0 ? "text-up" : "text-down"}`}>{metrics.benchmark_return >= 0 ? "+" : ""}{(metrics.benchmark_return * 100).toFixed(2)}%</span></span>
+            )}
+            {metrics.excess_return != null && (
+              <span>超额 <span className={`font-mono font-medium ${metrics.excess_return >= 0 ? "text-up" : "text-down"}`}>{metrics.excess_return >= 0 ? "+" : ""}{(metrics.excess_return * 100).toFixed(2)}%</span></span>
+            )}
+            {metrics.profit_factor != null && (
+              <span>盈亏比 <span className="font-mono font-medium">{metrics.profit_factor.toFixed(2)}</span></span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Equity sub-chart after backtest */}
       {equityCurve && equityCurve.length > 0 && (

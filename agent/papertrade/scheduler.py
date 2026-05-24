@@ -282,6 +282,16 @@ class PaperTradingScheduler:
                     timestamp = pd.Timestamp(newest_ts)
                     result = engine.on_bar(new_bars, timestamp)
                     await self._persist(run_id, engine)
+                    # Serialize positions for real-time UI update
+                    pos_list = []
+                    for sym, pos in result.positions.items():
+                        pos_list.append({
+                            "symbol": sym,
+                            "direction": pos.direction,
+                            "entry_price": pos.entry_price,
+                            "size": pos.size,
+                            "leverage": pos.leverage,
+                        })
                     await self._push_event(run_id, "bar", {
                         "timestamp": timestamp.isoformat() if hasattr(timestamp, "isoformat") else str(timestamp),
                         "equity": result.equity,
@@ -291,6 +301,7 @@ class PaperTradingScheduler:
                         "signal_count": len(result.signals),
                         "trade_count": len(result.trades),
                         "position_count": len(result.positions),
+                        "positions": pos_list,
                     })
                     for trade in result.trades:
                         await self._push_event(run_id, "trade", {
@@ -298,9 +309,19 @@ class PaperTradingScheduler:
                             "direction": trade.direction,
                             "entry_price": trade.entry_price,
                             "exit_price": trade.exit_price,
+                            "entry_time": str(trade.entry_time) if trade.entry_time else None,
+                            "exit_time": str(trade.exit_time) if trade.exit_time else None,
                             "pnl": trade.pnl,
                             "pnl_pct": trade.pnl_pct,
                             "exit_reason": trade.exit_reason,
+                        })
+                    for sig in result.signals:
+                        await self._push_event(run_id, "signal", {
+                            "symbol": sig.symbol,
+                            "direction": sig.direction,
+                            "price": sig.price,
+                            "reason": sig.reason if hasattr(sig, "reason") else "",
+                            "timestamp": timestamp.isoformat() if hasattr(timestamp, "isoformat") else str(timestamp),
                         })
                     consecutive_errors = 0
                 else:

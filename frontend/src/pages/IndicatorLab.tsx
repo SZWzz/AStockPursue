@@ -441,6 +441,8 @@ export function IndicatorLab() {
   const [btTradeMarkers, setBtTradeMarkers] = useState<TradeMarker[]>([]);
   const [btEquityCurve, setBtEquityCurve] = useState<EquityPoint[]>([]);
   const [btIndicatorSeries, setBtIndicatorSeries] = useState<Record<string, IndicatorPoint[]>>({});
+  const [btMetrics, setBtMetrics] = useState<Record<string, number> | null>(null);
+  const [initialCash, setInitialCash] = useState(100000);
 
   // Load indicator list
   const loadList = useCallback(async () => {
@@ -588,6 +590,7 @@ export function IndicatorLab() {
       setBtTradeMarkers([]);
       setBtEquityCurve([]);
       setBtIndicatorSeries({});
+      setBtMetrics(null);
     } catch (e) {
       setChartError(String(e));
     } finally {
@@ -611,6 +614,7 @@ export function IndicatorLab() {
           end_date: chartEndDate,
           source: chartSource,
           interval: chartInterval,
+          initial_cash: initialCash,
           leverage: 1,
         }),
       });
@@ -636,6 +640,7 @@ export function IndicatorLab() {
           if (run.trade_markers) setBtTradeMarkers(run.trade_markers);
           if (run.equity_curve) setBtEquityCurve(run.equity_curve as EquityPoint[]);
           if (run.indicator_series && firstSymbol) setBtIndicatorSeries(run.indicator_series[firstSymbol] as unknown as Record<string, IndicatorPoint[]>);
+          if (run.metrics) setBtMetrics(run.metrics as Record<string, number>);
         } catch {
           /* ignore */
         }
@@ -781,6 +786,8 @@ export function IndicatorLab() {
           onSourceChange={setChartSource}
           interval={chartInterval}
           onIntervalChange={setChartInterval}
+          initialCash={initialCash}
+          onInitialCashChange={setInitialCash}
           onFetch={fetchOHLCV}
           onRunBacktest={handleRunBacktest}
           priceData={priceData}
@@ -789,6 +796,7 @@ export function IndicatorLab() {
           tradeMarkers={btTradeMarkers}
           equityCurve={btEquityCurve}
           indicatorSeries={btIndicatorSeries}
+          metrics={btMetrics}
           backtestRunning={backtestRunning}
           backtestLabel="Run Backtest"
         />

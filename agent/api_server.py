@@ -2050,7 +2050,7 @@ async def register(request: RegisterRequest):
 # Admin API
 # ============================================================================
 
-@app.get("/api/admin/users")
+@app.get("/admin/users")
 async def list_users(auth: dict = Security(require_auth)):
     """List all users (admin only)."""
     if auth.get("role") != "admin":
@@ -2075,7 +2075,7 @@ async def list_users(auth: dict = Security(require_auth)):
         return {"users": [], "error": str(e)}
 
 
-@app.delete("/api/admin/users/{user_id}")
+@app.delete("/admin/users/{user_id}")
 async def delete_user(user_id: int, auth: dict = Security(require_auth)):
     """Delete a user (admin only)."""
     if auth.get("role") != "admin":

@@ -317,13 +317,12 @@ export function Agent() {
 
   useEffect(() => {
     const gen = ++genRef.current;
-    const { sessionId: curSid, messages: curMsgs, cacheSession, reset, getCachedSession, switchSession } = act();
+    const { sessionId: curSid, messages: curMsgs, status, cacheSession, reset, getCachedSession, switchSession } = act();
 
     if (urlSessionId && urlSessionId !== curSid) {
       doDisconnect();
       if (curSid && curMsgs.length > 0) cacheSession(curSid, curMsgs);
 
-      // Atomic switch: cache hit = instant, cache miss = show loading skeleton
       const cached = getCachedSession(urlSessionId);
       switchSession(urlSessionId, cached);
       if (cached) {
@@ -332,6 +331,9 @@ export function Agent() {
         loadSessionMessages(urlSessionId, gen);
       }
       setupSSE(urlSessionId);
+    } else if (urlSessionId && urlSessionId === curSid && status === "streaming") {
+      // Navigated back — re-establish SSE if agent is still running
+      setupSSE(urlSessionId);
     } else if (!urlSessionId && curSid) {
       doDisconnect();
       if (curMsgs.length > 0) cacheSession(curSid, curMsgs);
@@ -339,7 +341,8 @@ export function Agent() {
     }
   }, [urlSessionId, doDisconnect, loadSessionMessages, setupSSE, forceScrollToBottom]);
 
-  useEffect(() => () => doDisconnect(), [doDisconnect]);
+  // Don't disconnect SSE on unmount — let the agent keep running in background
+  // The connection will be cleaned up when the session completes or user switches session
 
   /* Safety timeout: if streaming but no SSE event for 90s, reset to idle */
   useEffect(() => {

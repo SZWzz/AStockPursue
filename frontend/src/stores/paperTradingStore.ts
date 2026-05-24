@@ -22,6 +22,8 @@ interface PaperTradingState {
   equity: EquityPoint[];
   positions: Position[];
   recentTrades: Trade[];
+  tradeMarkers: Array<{ time: string; price: number; side: "BUY" | "SELL"; text?: string }>;
+  signalLog: Array<{ symbol: string; direction: number; price: number; reason: string; timestamp: string }>;
 
   // SSE status
   sseStatus: "disconnected" | "connected" | "reconnecting";
@@ -52,6 +54,8 @@ const initialState = {
   equity: [],
   positions: [],
   recentTrades: [],
+  tradeMarkers: [],
+  signalLog: [],
   sseStatus: "disconnected" as const,
   eventSource: null,
 };
@@ -115,7 +119,7 @@ export const usePaperTradingStore = create<PaperTradingState>((set, get) => ({
     get().disconnectSSE();
     await paperTradingApi.deleteRun(runId);
     if (get().activeRunId === runId) {
-      set({ activeRunId: null, activeRunDetail: null, equity: [], positions: [], recentTrades: [] });
+      set({ activeRunId: null, activeRunDetail: null, equity: [], positions: [], recentTrades: [], tradeMarkers: [], signalLog: [] });
     }
     await get().fetchRuns();
   },
@@ -131,7 +135,6 @@ export const usePaperTradingStore = create<PaperTradingState>((set, get) => ({
     es.addEventListener("bar", (e: MessageEvent) => {
       try {
         const data = JSON.parse(e.data);
-        // Append equity point
         set((s) => ({
           equity: [
             ...s.equity,
@@ -143,15 +146,61 @@ export const usePaperTradingStore = create<PaperTradingState>((set, get) => ({
               drawdown: data.drawdown,
             },
           ].slice(-500),
+          // Update positions from bar event
+          positions: data.positions
+            ? data.positions.map((p: Record<string, unknown>) => ({
+                symbol: p.symbol as string,
+                direction: p.direction as number,
+                entry_price: p.entry_price as number,
+                entry_time: data.timestamp as string,
+                size: p.size as number,
+                leverage: (p.leverage as number) || 1,
+                current_price: null,
+                unrealized_pnl: null,
+                pnl_pct: null,
+              }))
+            : s.positions,
         }));
       } catch { /* ignore */ }
     });
 
-    es.addEventListener("trade", () => {
-      // Refresh run detail to get latest trades/positions
-      if (get().activeRunId === runId) {
-        get().selectRun(runId);
-      }
+    es.addEventListener("trade", (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data);
+        // Build trade markers for K-line chart
+        const markers: Array<{ time: string; price: number; side: "BUY" | "SELL"; text?: string }> = [];
+        if (data.entry_time && data.entry_price != null) {
+          markers.push({ time: data.entry_time, price: data.entry_price, side: "BUY", text: `Enter ${data.symbol}` });
+        }
+        if (data.exit_time && data.exit_price != null) {
+          markers.push({ time: data.exit_time, price: data.exit_price, side: "SELL", text: `Exit ${data.symbol} (${data.exit_reason || "signal"})` });
+        }
+        if (markers.length > 0) {
+          set((s) => ({ tradeMarkers: [...s.tradeMarkers, ...markers].slice(-200) }));
+        }
+        // Also refresh detail
+        if (get().activeRunId === runId) {
+          get().selectRun(runId);
+        }
+      } catch { /* ignore */ }
+    });
+
+    es.addEventListener("signal", (e: MessageEvent) => {
+      try {
+        const data = JSON.parse(e.data);
+        set((s) => ({
+          signalLog: [
+            ...s.signalLog,
+            {
+              symbol: data.symbol as string,
+              direction: data.direction as number,
+              price: data.price as number,
+              reason: (data.reason as string) || "",
+              timestamp: data.timestamp as string,
+            },
+          ].slice(-100),
+        }));
+      } catch { /* ignore */ }
     });
 
     es.addEventListener("status", (e: MessageEvent) => {

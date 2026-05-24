@@ -10,6 +10,7 @@ interface Props {
   onPause: (id: string) => void;
   onResume: (id: string) => void;
   onDelete: (id: string) => void;
+  onClone?: (id: string) => void;
 }
 
 const statusColors: Record<string, string> = {
@@ -20,7 +21,7 @@ const statusColors: Record<string, string> = {
 };
 
 export default function PaperTradingCard({
-  run, isActive, onSelect, onStart, onStop, onPause, onResume, onDelete,
+  run, isActive, onSelect, onStart, onStop, onPause, onResume, onDelete, onClone,
 }: Props) {
   const { t } = useI18n();
 
@@ -117,6 +118,14 @@ export default function PaperTradingCard({
             </button>
           </>
         ) : null}
+        {onClone && (
+          <button
+            className="px-2 py-1 text-xs border rounded hover:bg-muted"
+            onClick={(e) => { e.stopPropagation(); onClone(run.id); }}
+          >
+            复制
+          </button>
+        )}
         {run.status !== "running" && (
           <button
             className="px-3 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"

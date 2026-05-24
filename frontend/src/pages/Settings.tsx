@@ -466,11 +466,6 @@ export function Settings() {
               </select>
             </label>
 
-            <div className="rounded-lg border bg-muted/30 px-4 py-2.5 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{t.llmEnvPath}: </span>
-              <span className="break-all font-mono text-xs">{settings.env_path}</span>
-            </div>
-
             <button
               type="submit"
               disabled={saving}
@@ -695,11 +690,6 @@ export function Settings() {
               </label>
             </div>
 
-            <div className="rounded-lg border bg-muted/30 px-4 py-2.5 text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">{t.llmEnvPath}: </span>
-              <span className="break-all font-mono text-xs">{dataSettings.env_path}</span>
-            </div>
-
             <button
               type="submit"
               disabled={dataSaving}
@@ -710,29 +700,11 @@ export function Settings() {
             </button>
           </div>
 
-          <div className="rounded-lg border bg-muted/20 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <span className="text-sm font-medium">{t.akshareStatus}</span>
-                {dataSettings.akshare_available && dataSettings.akshare_version && (
-                  <span className="ml-1.5 text-xs text-muted-foreground">v{dataSettings.akshare_version}</span>
-                )}
-              </div>
-              <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${dataSettings.akshare_available ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
-                {dataSettings.akshare_available ? t.akshareAvailable : t.akshareNotAvailable}
-              </span>
-            </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {dataSettings.akshare_available
-                ? "Indicator Lab & Strategy Lab 可直接用于 A 股回测，无需额外配置。"
-                : "Indicator Lab & Strategy Lab A 股回测需要 akshare，请 pip install akshare。"}
-            </p>
-          </div>
-
           {/* Free data sources */}
           <div className="space-y-2">
             <h3 className="text-sm font-semibold">免费数据源</h3>
             {([
+              ["AKShare", `A股/港股/美股/期货/外汇${dataSettings.akshare_available && dataSettings.akshare_version ? ` v${dataSettings.akshare_version}` : ""}`, dataSettings.akshare_available],
               ["YFinance", "美股 / 港股", dataSettings.yfinance_available],
               ["Tencent", "A股 / 港股", dataSettings.tencent_available],
               ["CCXT", "加密货币 (100+交易所)", dataSettings.ccxt_available],
