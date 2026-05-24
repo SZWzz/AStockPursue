@@ -332,7 +332,7 @@ async def require_auth(
     # Dev mode: allow local loopback / test clients without auth
     api_key = os.getenv("API_AUTH_KEY", "")
     if not api_key and _is_local_client(request):
-        return None
+        return {"user_id": 1, "username": "dev", "role": "admin", "token_version": 0}
 
     token = (cred.credentials if cred and cred.credentials else "") or (jwt or "")
     if token:

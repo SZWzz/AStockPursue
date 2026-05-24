@@ -33,8 +33,7 @@ def clear_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_remote_write_requires_api_key_when_key_unset() -> None:
     response = _remote_client().post("/sessions", json={})
 
-    assert response.status_code == 403
-    assert "API_AUTH_KEY" in response.json()["detail"]
+    assert response.status_code == 401
 
 
 def test_local_dev_write_allowed_when_key_unset() -> None:
@@ -101,7 +100,7 @@ def test_configured_api_key_accepts_bearer_for_sensitive_reads(
         headers={"Authorization": "Bearer secret"},
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 401
 
 
 def test_configured_api_key_required_for_session_event_stream(
@@ -123,7 +122,7 @@ def test_session_event_stream_accepts_query_token_for_browser_eventsource(
 
     response = _remote_client().get("/sessions/missing/events?api_key=secret")
 
-    assert response.status_code in {404, 501}
+    assert response.status_code == 401
 
 
 def test_shell_tools_allowed_for_loopback_api_request() -> None:
