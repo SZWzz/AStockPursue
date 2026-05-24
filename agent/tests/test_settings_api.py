@@ -33,8 +33,6 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     )
     monkeypatch.setattr(api_server, "ENV_PATH", env_path)
     monkeypatch.setattr(api_server, "ENV_EXAMPLE_PATH", env_example)
-    monkeypatch.setattr(api_server, "_baostock_supported", lambda: False)
-    monkeypatch.setattr(api_server, "_baostock_installed", lambda: False)
     monkeypatch.delenv("API_AUTH_KEY", raising=False)
     return TestClient(api_server.app, client=("127.0.0.1", 50000))
 
@@ -123,8 +121,6 @@ def test_get_data_source_settings_treats_placeholder_as_unconfigured(
     body = response.json()
     assert body["tushare_token_configured"] is False
     assert body["tushare_token_hint"] is None
-    assert body["baostock_supported"] is False
-    assert body["baostock_installed"] is False
     assert not Path(body["env_path"]).is_absolute()
     assert body["env_path"].endswith(".env")
     assert not (tmp_path / ".env").exists()
