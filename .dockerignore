@@ -45,6 +45,10 @@ dist/
 # Project docs
 CLAUDE.md
 CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+CHANGELOG.md
 *.md
 !README.md
+!README_EN.md
+!SECURITY.md
 !LICENSE
