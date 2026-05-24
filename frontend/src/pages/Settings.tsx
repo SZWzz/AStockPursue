@@ -40,63 +40,20 @@ export function Settings() {
   const [clearApiKey, setClearApiKey] = useState(false);
   const [tushareToken, setTushareToken] = useState("");
   const [clearTushareToken, setClearTushareToken] = useState(false);
+  const [okxApiKey, setOkxApiKey] = useState("");
+  const [okxSecretKey, setOkxSecretKey] = useState("");
+  const [okxPassphrase, setOkxPassphrase] = useState("");
+  const [clearOkx, setClearOkx] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dataSaving, setDataSaving] = useState(false);
   const [settingsLoadError, setSettingsLoadError] = useState<string | null>(null);
-  const [userLlmConfig, setUserLlmConfig] = useState<Record<string, string> | null>(null);
-  const [syncingUser, setSyncingUser] = useState(false);
-
-  // Load per-user LLM config when logged in
-  useEffect(() => {
-    const token = localStorage.getItem("vt_token");
-    if (!token) return;
-    fetch("/api/auth/llm-config", { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json()).then(d => setUserLlmConfig(d.llm_config || {}));
-  }, []);
-
-  // Sync LLM + data source to user account
-  const syncToUser = async () => {
-    const token = localStorage.getItem("vt_token");
-    if (!token || !userLlmConfig) return;
-    setSyncingUser(true);
-    try {
-      // Sync LLM
-      if (form) {
-        await fetch("/api/auth/llm-config", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ provider: form.provider, model: form.model_name, base_url: form.base_url }),
-        });
-      }
-      // Sync data source
-      await fetch("/api/auth/data-source-config", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ tushare_token: tushareToken || undefined }),
-      });
-      setUserLlmConfig({ ...userLlmConfig, provider: form?.provider || "", model: form?.model_name || "" });
-    } catch { /* ignore */ }
-    finally { setSyncingUser(false); }
-  };
 
   useEffect(() => {
     let alive = true;
     Promise.all([api.getLLMSettings(), api.getDataSourceSettings()])
       .then(async ([llmData, dataSourceData]) => {
         if (!alive) return;
-        // Overlay per-user LLM config from PG if logged in
-        const token = localStorage.getItem("vt_token");
-        if (token) {
-          try {
-            const res = await fetch("/api/auth/llm-config", { headers: { Authorization: `Bearer ${token}` } });
-            const userCfg = await res.json();
-            const cfg = userCfg.llm_config || {};
-            if (cfg.provider) llmData.provider = cfg.provider;
-            if (cfg.model) llmData.model_name = cfg.model;
-            if (cfg.base_url) llmData.base_url = cfg.base_url;
-          } catch { /* ignore */ }
-        }
         setSettings(llmData);
         setForm(toForm(llmData));
         setDataSettings(dataSourceData);
@@ -171,10 +128,18 @@ export function Settings() {
       const updated = await api.updateDataSourceSettings({
         tushare_token: tushareToken.trim() || undefined,
         clear_tushare_token: clearTushareToken,
+        okx_api_key: okxApiKey.trim() || undefined,
+        okx_secret_key: okxSecretKey.trim() || undefined,
+        okx_passphrase: okxPassphrase.trim() || undefined,
+        clear_okx: clearOkx,
       });
       setDataSettings(updated);
       setTushareToken("");
       setClearTushareToken(false);
+      setOkxApiKey("");
+      setOkxSecretKey("");
+      setOkxPassphrase("");
+      setClearOkx(false);
       toast.success(t.dataSourceSettingsSaved);
     } catch (error) {
       toast.error(`${t.dataSourceSettingsSaveFailed}: ${error instanceof Error ? error.message : t.unknownError}`);
@@ -234,30 +199,7 @@ export function Settings() {
   };
 
   const loggedIn = !!localStorage.getItem("vt_token");
-  const userLlmSection = loggedIn && userLlmConfig ? (
-    <div className="rounded-lg border bg-card p-4 shadow-sm mb-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <span className="text-sm font-medium">{t.strategyLab || "My Account"} LLM</span>
-          {userLlmConfig.provider ? (
-            <span className="ml-2 text-xs text-success">{userLlmConfig.provider} / {userLlmConfig.model}</span>
-          ) : (
-            <span className="ml-2 text-xs text-warning">Not configured</span>
-          )}
-        </div>
-        <button
-          onClick={syncToUser}
-          disabled={syncingUser}
-          className="px-3 py-1 text-xs rounded bg-primary/10 text-primary hover:bg-primary/20 disabled:opacity-50"
-        >
-          {syncingUser ? "Syncing..." : "Sync to my account"}
-        </button>
-      </div>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Save LLM and data source settings to your account. Other devices will use these automatically.
-      </p>
-    </div>
-  ) : null;
+  // LLM & data source settings are stored per-user in DB — no manual sync needed
 
   const accountSection = loggedIn ? (
     <div className="rounded-lg border bg-card p-5 shadow-sm mb-4 space-y-4">
@@ -300,7 +242,7 @@ export function Settings() {
           <p className="max-w-3xl text-sm text-muted-foreground">{t.settingsDesc}</p>
         </div>
         {accountSection}
-        {userLlmSection}
+
         <div className="flex min-h-32 items-center justify-center rounded-lg border bg-card p-5 text-sm text-muted-foreground">
           {settingsLoadError ? (
             <div className="max-w-md text-center space-y-3">
@@ -556,6 +498,76 @@ export function Settings() {
                 </label>
               </div>
             </label>
+
+            {/* OKX credentials */}
+            <div className="grid gap-3 rounded-md border p-4">
+              <span className="text-sm font-medium">{t.okxApiKey}</span>
+
+              <label className="grid gap-2">
+                <span className={labelClass}>{t.okxApiKey}</span>
+                <div className="relative">
+                  <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="password"
+                    value={okxApiKey}
+                    onChange={(event) => setOkxApiKey(event.target.value)}
+                    className={`${fieldClass} pl-9`}
+                    placeholder={dataSettings.okx_api_key_configured ? t.okxConfigured : t.okxNotConfigured}
+                    autoComplete="off"
+                    disabled={clearOkx}
+                  />
+                </div>
+              </label>
+
+              <label className="grid gap-2">
+                <span className={labelClass}>{t.okxSecretKey}</span>
+                <div className="relative">
+                  <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="password"
+                    value={okxSecretKey}
+                    onChange={(event) => setOkxSecretKey(event.target.value)}
+                    className={`${fieldClass} pl-9`}
+                    placeholder={dataSettings.okx_secret_key_configured ? t.okxConfigured : t.okxNotConfigured}
+                    autoComplete="off"
+                    disabled={clearOkx}
+                  />
+                </div>
+              </label>
+
+              <label className="grid gap-2">
+                <span className={labelClass}>{t.okxPassphrase}</span>
+                <div className="relative">
+                  <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="password"
+                    value={okxPassphrase}
+                    onChange={(event) => setOkxPassphrase(event.target.value)}
+                    className={`${fieldClass} pl-9`}
+                    placeholder={dataSettings.okx_passphrase_configured ? t.okxConfigured : t.okxNotConfigured}
+                    autoComplete="off"
+                    disabled={clearOkx}
+                  />
+                </div>
+              </label>
+
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={clearOkx}
+                  onChange={(event) => {
+                    setClearOkx(event.target.checked);
+                    if (event.target.checked) {
+                      setOkxApiKey("");
+                      setOkxSecretKey("");
+                      setOkxPassphrase("");
+                    }
+                  }}
+                  className="h-3.5 w-3.5 accent-primary"
+                />
+                {t.clearOkx}
+              </label>
+            </div>
 
             <div className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
               <span className="font-medium text-foreground">{t.llmEnvPath}: </span>

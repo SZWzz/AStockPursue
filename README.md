@@ -31,7 +31,7 @@
 ## 快速开始
 
 ```bash
-git clone https://github.com/SZWzz/AStockPursue
+git clone https://github.com/SZWzz/AStockPursue.git
 cd AStockPursue
 bash setup.sh                # 可选择自动部署 PostgreSQL
 docker compose up -d --build

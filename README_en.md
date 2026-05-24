@@ -31,7 +31,7 @@ Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT Licen
 ## Quick Start
 
 ```bash
-git clone https://github.com/SZWzz/AStockPursue
+git clone https://github.com/SZWzz/AStockPursue.git
 cd AStockPursue
 bash setup.sh                # Optionally auto-deploy PostgreSQL
 docker compose up -d --build

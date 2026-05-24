@@ -189,6 +189,9 @@ export interface UpdateLLMSettingsRequest {
 export interface DataSourceSettings {
   tushare_token_configured: boolean;
   tushare_token_hint?: string | null;
+  okx_api_key_configured: boolean;
+  okx_secret_key_configured: boolean;
+  okx_passphrase_configured: boolean;
   akshare_available: boolean;
   akshare_version: string;
   env_path: string;
@@ -197,6 +200,10 @@ export interface DataSourceSettings {
 export interface UpdateDataSourceSettingsRequest {
   tushare_token?: string;
   clear_tushare_token?: boolean;
+  okx_api_key?: string;
+  okx_secret_key?: string;
+  okx_passphrase?: string;
+  clear_okx?: boolean;
 }
 
 // --- Types matching backend API contracts ---

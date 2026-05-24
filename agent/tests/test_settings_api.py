@@ -81,8 +81,12 @@ def test_llm_settings_treat_documented_key_placeholders_as_unconfigured(
 
 
 def test_update_llm_settings_persists_project_env(
-    client: TestClient, tmp_path: Path,
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    written = {}
+    monkeypatch.setattr(api_server, "_read_user_llm_config", lambda uid: {})
+    monkeypatch.setattr(api_server, "_write_user_llm_config", lambda uid, updates: written.update(updates) or True)
+
     response = client.put(
         "/settings/llm",
         json={
@@ -104,12 +108,9 @@ def test_update_llm_settings_persists_project_env(
     assert body["api_key_hint"] is None
     assert "or-secret-value" not in response.text
     assert "or-s...alue" not in response.text
-
-    env_text = (tmp_path / ".env").read_text(encoding="utf-8")
-    assert "LANGCHAIN_PROVIDER=openrouter" in env_text
-    assert "OPENROUTER_API_KEY=or-secret-value" in env_text
-    assert "LANGCHAIN_REASONING_EFFORT=max" in env_text
-    assert "sk-or-v1-your-key-here" not in env_text
+    assert written["provider"] == "openrouter"
+    assert written["api_key"] == "or-secret-value"
+    assert written["reasoning_effort"] == "max"
 
 
 def test_get_data_source_settings_treats_placeholder_as_unconfigured(
@@ -127,19 +128,19 @@ def test_get_data_source_settings_treats_placeholder_as_unconfigured(
 
 
 def test_settings_response_never_exposes_configured_secret_hints(
-    client: TestClient, tmp_path: Path,
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     (tmp_path / ".env").write_text(
         "\n".join(
             [
                 "LANGCHAIN_PROVIDER=openrouter",
                 "OPENROUTER_API_KEY=or-secret-private-value",
-                "TUSHARE_TOKEN=ts-secret-private-token",
             ]
         )
         + "\n",
         encoding="utf-8",
     )
+    monkeypatch.setattr(api_server, "_read_user_ds_config", lambda uid: {"tushare_token": "ts-secret-private-token"})
 
     llm_response = client.get("/settings/llm")
     data_response = client.get("/settings/data-sources")
@@ -221,8 +222,12 @@ def test_settings_reads_require_bearer_when_api_auth_key_is_configured(
 
 
 def test_update_data_source_settings_persists_tushare_token(
-    client: TestClient, tmp_path: Path,
+    client: TestClient, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    written = {}
+    monkeypatch.setattr(api_server, "_read_user_ds_config", lambda uid: written.copy())
+    monkeypatch.setattr(api_server, "_write_user_ds_config", lambda uid, updates: written.update(updates) or True)
+
     response = client.put(
         "/settings/data-sources",
         json={"tushare_token": "ts-secret-token"},
@@ -234,9 +239,7 @@ def test_update_data_source_settings_persists_tushare_token(
     assert body["tushare_token_hint"] is None
     assert "ts-secret-token" not in response.text
     assert "ts-s...oken" not in response.text
-
-    env_text = (tmp_path / ".env").read_text(encoding="utf-8")
-    assert "TUSHARE_TOKEN=ts-secret-token" in env_text
+    assert written.get("tushare_token") == "ts-secret-token"
 
 
 def test_settings_writes_reject_remote_dev_mode_clients(
