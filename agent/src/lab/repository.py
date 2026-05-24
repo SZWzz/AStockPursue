@@ -13,6 +13,8 @@ function added automatically.
 from __future__ import annotations
 
 import logging
+import os
+import tempfile
 import re
 import shutil
 import subprocess
@@ -59,6 +61,24 @@ def _safe_filename(name: str) -> str:
     if not safe:
         safe = "indicator"
     return f"{safe}.py"
+
+
+def _atomic_write(path: Path, content: str) -> None:
+    """Write content to path atomically (temp file + rename, safe against concurrent writes)."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def _extract_meta_from_code(code: str) -> tuple[str, str]:
@@ -253,7 +273,7 @@ class IndicatorRepository:
     def save(
         self, code: str, indicator_id: str | None = None, filename: str | None = None
     ) -> IndicatorInfo:
-        """Save or update an indicator.
+        """Save or update an indicator (atomic write — safe against concurrent saves).
 
         Args:
             code: The full Python source code.
@@ -268,7 +288,7 @@ class IndicatorRepository:
         if indicator_id:
             existing = self._resolve_file(indicator_id)
             if existing:
-                existing.write_text(code, encoding="utf-8")
+                _atomic_write(existing, code)
                 info = self._file_to_info(existing)
                 self._git_commit(existing, f"Update indicator: {name}")
                 return info
@@ -285,7 +305,7 @@ class IndicatorRepository:
             stem = safe[:-3]
             file_path = self._base_dir / f"{stem}_{uuid.uuid4().hex[:8]}.py"
 
-        file_path.write_text(code, encoding="utf-8")
+        _atomic_write(file_path, code)
         info = self._file_to_info(file_path)
 
         # Auto-commit to git
@@ -362,7 +382,7 @@ class IndicatorRepository:
         )
 
         out_path = zoo_dir / f"{short_id}.py"
-        out_path.write_text(alpha_code, encoding="utf-8")
+        _atomic_write(out_path, alpha_code)
         logger.info(f"Promoted indicator {indicator_id} → alpha {alpha_id} at {out_path}")
         return out_path
 

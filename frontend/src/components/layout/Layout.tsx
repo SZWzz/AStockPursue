@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, Bot, Moon, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, LogIn, LogOut, User, Users } from "lucide-react";
+import { BarChart3, Bot, Moon, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useDarkMode } from "@/hooks/useDarkMode";
@@ -17,6 +17,7 @@ const NAV = [
   { to: "/alpha-zoo", icon: Layers, key: "alphaZoo" as const, label: null },
   { to: "/indicator-lab", icon: FlaskConical, key: "indicatorLab" as const, label: null },
   { to: "/strategy-lab", icon: Target, key: "strategyLab" as const, label: null },
+  { to: "/paper-trading", icon: TrendingUp, key: "paperTrading" as const, label: null },
   { to: "/correlation", icon: BarChart3, key: "correlation" as const, label: null },
   { to: "/settings", icon: Settings, key: "settings" as const, label: null },
 ];

@@ -31,32 +31,36 @@ router = APIRouter(prefix="/strategy-lab", tags=["strategy-lab"])
 
 _repo: Any = None
 _repo_kind: str = ""
+_repo_lock = __import__("threading").Lock()
 
 
 def _get_repo():
-    """Get the strategy repository, preferring PG when available."""
+    """Get the strategy repository (thread-safe), preferring PG when available."""
     global _repo, _repo_kind
     if _repo is not None:
         return _repo
 
-    # Try PG first
-    try:
-        from src.lab.pg_repository import PgIndicatorRepository
-        pg = PgIndicatorRepository()
-        pg.list_strategies()  # health check
-        _repo = pg
-        _repo_kind = "pg"
-        logger.info("Strategy Lab using PostgreSQL storage")
-        return _repo
-    except Exception:
-        logger.debug("PG unavailable for Strategy Lab, falling back to filesystem")
+    with _repo_lock:
+        if _repo is not None:
+            return _repo
 
-    # Fall back to file-based repo
-    from src.config.paths import get_runtime_root
-    _repo = IndicatorRepository(base_dir=get_runtime_root() / "strategies")
-    _repo_kind = "file"
-    logger.info("Strategy Lab using file-based storage")
-    return _repo
+        # Try PG first
+        try:
+            from src.lab.pg_repository import PgIndicatorRepository
+            pg = PgIndicatorRepository()
+            pg.list_strategies()  # health check
+            _repo = pg
+            _repo_kind = "pg"
+            logger.info("Strategy Lab using PostgreSQL storage")
+            return _repo
+        except Exception:
+            logger.debug("PG unavailable for Strategy Lab, falling back to filesystem")
+
+        from src.config.paths import get_runtime_root
+        _repo = IndicatorRepository(base_dir=get_runtime_root() / "strategies")
+        _repo_kind = "file"
+        logger.info("Strategy Lab using file-based storage")
+        return _repo
 
 
 # ── Models ──────────────────────────────────────────────────────────────────

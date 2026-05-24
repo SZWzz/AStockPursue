@@ -6,8 +6,11 @@
 
 - **AI 智能体对话** — 自然语言驱动策略生成、回测、分析，SSE 实时流式输出，策略自动保存至实验室
 - **策略实验室** — SignalEngine 合约编辑器，多标的组合回测，AI 生成策略自动入库，PG/文件双存储
+- **模拟盘交易** — 完整 Paper Trading 引擎，SignalEngine 策略驱动，SSE 实时行情，风控管理（止损/止盈/追迹止损），权益曲线可视化，持仓/成交记录
 - **指标实验室** — Python 指标 IDE（Monaco 编辑器），沙箱安全执行，代码质量分析，Alpha Zoo 因子一键转换
 - **Alpha 因子库** — 450+ 量化因子（Alpha101 / GTJA191 / Qlib158），支持用户自定义提升
+- **多数据源覆盖** — A股/港股/美股/加密货币/期货/外汇/指数/大宗商品，Tencent/Global Indices/Commodities/CoinGecko/Twelve Data/Finnhub 等 10+ 加载器，自动 fallback 链
+- **非 OHLCV 数据** — 市场情绪（VIX/DXY/Yield Curve）、基本面增强（PE/PB/ROE）、新闻聚合，支撑多维量化分析
 - **股票自动联想** — A 股 / 港股 / 指数智能搜索，代码、名称、拼音匹配，回测 + 相关性矩阵全接入
 - **自选股面板** — 实时价格 + 涨跌幅（Tushare 优先），点击触发 AI 分析
 - **相关性矩阵** — 多市场交叉相关性计算（Pearson/Spearman），智能股票输入，AI 分析 + 保存到会话
@@ -22,7 +25,7 @@
 
 - **后端**：Python 3.11+ / FastAPI / LangChain / LangGraph / Pandas / PostgreSQL
 - **前端**：React 19 / TypeScript / Tailwind CSS / ECharts / Monaco Editor / Zustand
-- **数据源**：Tushare / AKShare / yfinance / OKX / CCXT
+- **数据源**：Tushare / AKShare / yfinance / OKX / CCXT / Tencent / Twelve Data / Finnhub / CoinGecko / Global Indices / Commodities
 - **部署**：Docker / Docker Compose
 
 ## 前置要求

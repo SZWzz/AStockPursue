@@ -38,12 +38,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/indicator-lab", tags=["indicator-lab"])
 
 _repo: IndicatorRepository | None = None
+_repo_lock = __import__("threading").Lock()
 
 
 def _get_repo() -> IndicatorRepository:
     global _repo
     if _repo is None:
-        _repo = IndicatorRepository()
+        with _repo_lock:
+            if _repo is None:
+                _repo = IndicatorRepository()
     return _repo
 
 

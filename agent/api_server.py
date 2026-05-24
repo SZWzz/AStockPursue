@@ -192,6 +192,9 @@ class DataSourceSettingsResponse(BaseModel):
     okx_api_key_configured: bool = False
     okx_secret_key_configured: bool = False
     okx_passphrase_configured: bool = False
+    twelvedata_api_key_configured: bool = False
+    finnhub_api_key_configured: bool = False
+    tiingo_api_key_configured: bool = False
     akshare_available: bool = False
     akshare_version: str = ""
     env_path: str
@@ -206,6 +209,12 @@ class UpdateDataSourceSettingsRequest(BaseModel):
     okx_secret_key: Optional[str] = None
     okx_passphrase: Optional[str] = None
     clear_okx: bool = False
+    twelvedata_api_key: Optional[str] = None
+    clear_twelvedata: bool = False
+    finnhub_api_key: Optional[str] = None
+    clear_finnhub: bool = False
+    tiingo_api_key: Optional[str] = None
+    clear_tiingo: bool = False
 
 
 # ---- V4 Session Models ----
@@ -314,8 +323,20 @@ async def _run_startup_preflight() -> None:
         from src.db import init_pool, init_database
         init_pool()
         init_database()
+        from src.db.pool import run_paper_trading_migration
+        run_paper_trading_migration()
+        from papertrade.repository import PaperTradeRepository
+        PaperTradeRepository().mark_stopped_on_startup()
     except Exception as e:
         console.print(f"[yellow]PG init skipped:[/yellow] {e}")
+
+    # Initialise paper trading scheduler
+    try:
+        from papertrade.scheduler import PaperTradingScheduler
+        app.state.paper_trading_scheduler = PaperTradingScheduler()
+        console.print("[green]Paper trading scheduler initialised[/green]")
+    except Exception as e:
+        console.print(f"[yellow]Paper trading scheduler init skipped:[/yellow] {e}")
 
 
 # ============================================================================
@@ -616,7 +637,10 @@ def _build_llm_settings_response(values: Optional[Dict[str, str]] = None, *, db_
 
 def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None, *, token: Optional[str] = None,
                                           okx_api_key: Optional[str] = None, okx_secret_key: Optional[str] = None,
-                                          okx_passphrase: Optional[str] = None) -> DataSourceSettingsResponse:
+                                          okx_passphrase: Optional[str] = None,
+                                          twelvedata_api_key: Optional[str] = None,
+                                          finnhub_api_key: Optional[str] = None,
+                                          tiingo_api_key: Optional[str] = None) -> DataSourceSettingsResponse:
     """Build the public data source settings payload."""
     env_values = values if values is not None else _read_settings_env_values()
     if token is None:
@@ -625,6 +649,9 @@ def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None
     okx_key_configured = bool(okx_api_key) if okx_api_key is not None else False
     okx_secret_configured = bool(okx_secret_key) if okx_secret_key is not None else False
     okx_pass_configured = bool(okx_passphrase) if okx_passphrase is not None else False
+    td_configured = bool(twelvedata_api_key) if twelvedata_api_key is not None else False
+    fh_configured = bool(finnhub_api_key) if finnhub_api_key is not None else False
+    ti_configured = bool(tiingo_api_key) if tiingo_api_key is not None else False
     akshare_available = False
     akshare_version = ""
     try:
@@ -640,6 +667,9 @@ def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None
         okx_api_key_configured=okx_key_configured,
         okx_secret_key_configured=okx_secret_configured,
         okx_passphrase_configured=okx_pass_configured,
+        twelvedata_api_key_configured=td_configured,
+        finnhub_api_key_configured=fh_configured,
+        tiingo_api_key_configured=ti_configured,
         akshare_available=akshare_available,
         akshare_version=akshare_version,
         env_path=_project_relative_path(ENV_PATH),
@@ -1212,6 +1242,9 @@ async def get_data_source_settings(auth: dict = Depends(require_auth)):
         okx_api_key=ds_config.get("okx_api_key", ""),
         okx_secret_key=ds_config.get("okx_secret_key", ""),
         okx_passphrase=ds_config.get("okx_passphrase", ""),
+        twelvedata_api_key=ds_config.get("twelvedata_api_key", ""),
+        finnhub_api_key=ds_config.get("finnhub_api_key", ""),
+        tiingo_api_key=ds_config.get("tiingo_api_key", ""),
     )
 
 
@@ -1246,6 +1279,24 @@ async def update_data_source_settings(payload: UpdateDataSourceSettingsRequest, 
         if payload.okx_passphrase is not None:
             db_updates["okx_passphrase"] = payload.okx_passphrase.strip()
 
+    # --- Twelve Data ---
+    if payload.clear_twelvedata:
+        db_updates["twelvedata_api_key"] = ""
+    elif payload.twelvedata_api_key is not None and payload.twelvedata_api_key.strip():
+        db_updates["twelvedata_api_key"] = payload.twelvedata_api_key.strip()
+
+    # --- Finnhub ---
+    if payload.clear_finnhub:
+        db_updates["finnhub_api_key"] = ""
+    elif payload.finnhub_api_key is not None and payload.finnhub_api_key.strip():
+        db_updates["finnhub_api_key"] = payload.finnhub_api_key.strip()
+
+    # --- Tiingo ---
+    if payload.clear_tiingo:
+        db_updates["tiingo_api_key"] = ""
+    elif payload.tiingo_api_key is not None and payload.tiingo_api_key.strip():
+        db_updates["tiingo_api_key"] = payload.tiingo_api_key.strip()
+
     if db_updates and user_id > 0:
         _write_user_ds_config(user_id, db_updates)
 
@@ -1255,6 +1306,9 @@ async def update_data_source_settings(payload: UpdateDataSourceSettingsRequest, 
     okx_key = ds_config.get("okx_api_key", "")
     okx_secret = ds_config.get("okx_secret_key", "")
     okx_pass = ds_config.get("okx_passphrase", "")
+    td_key = ds_config.get("twelvedata_api_key", "")
+    fh_key = ds_config.get("finnhub_api_key", "")
+    ti_key = ds_config.get("tiingo_api_key", "")
 
     if token and not _is_configured_secret(token, TUSHARE_TOKEN_PLACEHOLDERS):
         os.environ["TUSHARE_TOKEN"] = token
@@ -1270,11 +1324,29 @@ async def update_data_source_settings(payload: UpdateDataSourceSettingsRequest, 
         os.environ.pop("OKX_SECRET_KEY", None)
         os.environ.pop("OKX_PASSPHRASE", None)
 
+    if td_key:
+        os.environ["TWELVE_DATA_API_KEY"] = td_key
+    else:
+        os.environ.pop("TWELVE_DATA_API_KEY", None)
+
+    if fh_key:
+        os.environ["FINNHUB_API_KEY"] = fh_key
+    else:
+        os.environ.pop("FINNHUB_API_KEY", None)
+
+    if ti_key:
+        os.environ["TIINGO_API_KEY"] = ti_key
+    else:
+        os.environ.pop("TIINGO_API_KEY", None)
+
     return _build_data_source_settings_response(
         token=token,
         okx_api_key=okx_key,
         okx_secret_key=okx_secret,
         okx_passphrase=okx_pass,
+        twelvedata_api_key=td_key,
+        finnhub_api_key=fh_key,
+        tiingo_api_key=ti_key,
     )
 
 
@@ -1843,6 +1915,9 @@ app.include_router(strategy_lab_router, dependencies=[Depends(require_auth)])
 
 from src.api.stock_routes import router as stock_router  # noqa: E402
 app.include_router(stock_router, dependencies=[Depends(require_auth)])
+
+from src.api.paper_trading_routes import router as paper_trading_router  # noqa: E402
+app.include_router(paper_trading_router, dependencies=[Depends(require_auth)])
 
 
 # ============================================================================

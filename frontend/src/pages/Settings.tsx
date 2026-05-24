@@ -44,6 +44,12 @@ export function Settings() {
   const [okxSecretKey, setOkxSecretKey] = useState("");
   const [okxPassphrase, setOkxPassphrase] = useState("");
   const [clearOkx, setClearOkx] = useState(false);
+  const [twelvedataApiKey, setTwelvedataApiKey] = useState("");
+  const [clearTwelvedata, setClearTwelvedata] = useState(false);
+  const [finnhubApiKey, setFinnhubApiKey] = useState("");
+  const [clearFinnhub, setClearFinnhub] = useState(false);
+  const [tiingoApiKey, setTiingoApiKey] = useState("");
+  const [clearTiingo, setClearTiingo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dataSaving, setDataSaving] = useState(false);
@@ -132,6 +138,12 @@ export function Settings() {
         okx_secret_key: okxSecretKey.trim() || undefined,
         okx_passphrase: okxPassphrase.trim() || undefined,
         clear_okx: clearOkx,
+        twelvedata_api_key: twelvedataApiKey.trim() || undefined,
+        clear_twelvedata: clearTwelvedata,
+        finnhub_api_key: finnhubApiKey.trim() || undefined,
+        clear_finnhub: clearFinnhub,
+        tiingo_api_key: tiingoApiKey.trim() || undefined,
+        clear_tiingo: clearTiingo,
       });
       setDataSettings(updated);
       setTushareToken("");
@@ -140,6 +152,12 @@ export function Settings() {
       setOkxSecretKey("");
       setOkxPassphrase("");
       setClearOkx(false);
+      setTwelvedataApiKey("");
+      setClearTwelvedata(false);
+      setFinnhubApiKey("");
+      setClearFinnhub(false);
+      setTiingoApiKey("");
+      setClearTiingo(false);
       toast.success(t.dataSourceSettingsSaved);
     } catch (error) {
       toast.error(`${t.dataSourceSettingsSaveFailed}: ${error instanceof Error ? error.message : t.unknownError}`);
@@ -574,6 +592,104 @@ export function Settings() {
                   className="h-3.5 w-3.5 accent-primary"
                 />
                 {t.clearOkx}
+              </label>
+            </div>
+
+            {/* Paid API Keys */}
+            <div className="grid gap-3 rounded-lg border bg-muted/20 p-4">
+              <span className="text-sm font-medium">{t.paidApiKeys}</span>
+
+              <label className="grid gap-2">
+                <span className={labelClass}>{t.twelvedataApiKey}</span>
+                <div className="relative">
+                  <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="password"
+                    value={twelvedataApiKey}
+                    onChange={(event) => setTwelvedataApiKey(event.target.value)}
+                    className={`${fieldClass} pl-9`}
+                    placeholder={dataSettings.twelvedata_api_key_configured ? t.okxConfigured : t.okxNotConfigured}
+                    autoComplete="off"
+                    disabled={clearTwelvedata}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className={hintClass}>{t.twelvedataApiKeyHint}</span>
+                  <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={clearTwelvedata}
+                      onChange={(event) => {
+                        setClearTwelvedata(event.target.checked);
+                        if (event.target.checked) setTwelvedataApiKey("");
+                      }}
+                      className="h-3.5 w-3.5 accent-primary"
+                    />
+                    {t.clearTwelvedata}
+                  </label>
+                </div>
+              </label>
+
+              <label className="grid gap-2">
+                <span className={labelClass}>{t.finnhubApiKey}</span>
+                <div className="relative">
+                  <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="password"
+                    value={finnhubApiKey}
+                    onChange={(event) => setFinnhubApiKey(event.target.value)}
+                    className={`${fieldClass} pl-9`}
+                    placeholder={dataSettings.finnhub_api_key_configured ? t.okxConfigured : t.okxNotConfigured}
+                    autoComplete="off"
+                    disabled={clearFinnhub}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className={hintClass}>{t.finnhubApiKeyHint}</span>
+                  <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={clearFinnhub}
+                      onChange={(event) => {
+                        setClearFinnhub(event.target.checked);
+                        if (event.target.checked) setFinnhubApiKey("");
+                      }}
+                      className="h-3.5 w-3.5 accent-primary"
+                    />
+                    {t.clearFinnhub}
+                  </label>
+                </div>
+              </label>
+
+              <label className="grid gap-2">
+                <span className={labelClass}>{t.tiingoApiKey}</span>
+                <div className="relative">
+                  <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <input
+                    type="password"
+                    value={tiingoApiKey}
+                    onChange={(event) => setTiingoApiKey(event.target.value)}
+                    className={`${fieldClass} pl-9`}
+                    placeholder={dataSettings.tiingo_api_key_configured ? t.okxConfigured : t.okxNotConfigured}
+                    autoComplete="off"
+                    disabled={clearTiingo}
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className={hintClass}>{t.tiingoApiKeyHint}</span>
+                  <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={clearTiingo}
+                      onChange={(event) => {
+                        setClearTiingo(event.target.checked);
+                        if (event.target.checked) setTiingoApiKey("");
+                      }}
+                      className="h-3.5 w-3.5 accent-primary"
+                    />
+                    {t.clearTiingo}
+                  </label>
+                </div>
               </label>
             </div>
 

@@ -28,6 +28,9 @@ const StrategyLab = lazy(() =>
 const Login = lazy(() =>
   import("@/pages/Login").then((m) => ({ default: m.Login })),
 );
+const PaperTrading = lazy(() =>
+  import("@/pages/PaperTrading").then((m) => ({ default: m.default })),
+);
 const UserManagement = lazy(() =>
   import("@/pages/admin/UserManagement").then((m) => ({ default: m.UserManagement })),
 );
@@ -63,6 +66,7 @@ export const router = createBrowserRouter([
       { path: "/alpha-zoo/:alphaId", element: wrap(AlphaZoo) },
       { path: "/indicator-lab", element: wrap(IndicatorLab) },
       { path: "/strategy-lab", element: wrap(StrategyLab) },
+      { path: "/paper-trading", element: wrap(PaperTrading) },
       { path: "/admin/users", element: wrap(UserManagement) },
     ],
   },

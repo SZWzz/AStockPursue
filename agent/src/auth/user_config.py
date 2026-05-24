@@ -19,7 +19,13 @@ _ACTIVE_USER_ID: int | None = None
 
 # Fields that should be encrypted before storing in vt_users.llm_config / data_source_config
 _SENSITIVE_LLM_FIELDS = {"api_key"}
-_SENSITIVE_DS_FIELDS = {"tushare_token", "okx_api_key", "okx_secret_key", "okx_passphrase"}
+_SENSITIVE_DS_FIELDS = {
+    "tushare_token",
+    "okx_api_key", "okx_secret_key", "okx_passphrase",
+    "twelvedata_api_key",
+    "finnhub_api_key",
+    "tiingo_api_key",
+}
 
 
 def _get_encryption_key() -> bytes:
@@ -109,15 +115,22 @@ def load_user_config(user_id: int) -> dict:
         os.environ["OKX_API_KEY"] = ds_cfg["okx_api_key"]
         os.environ["OKX_SECRET_KEY"] = ds_cfg.get("okx_secret_key", "")
         os.environ["OKX_PASSPHRASE"] = ds_cfg.get("okx_passphrase", "")
+    if ds_cfg.get("twelvedata_api_key"):
+        os.environ["TWELVE_DATA_API_KEY"] = ds_cfg["twelvedata_api_key"]
+    if ds_cfg.get("finnhub_api_key"):
+        os.environ["FINNHUB_API_KEY"] = ds_cfg["finnhub_api_key"]
+    if ds_cfg.get("tiingo_api_key"):
+        os.environ["TIINGO_API_KEY"] = ds_cfg["tiingo_api_key"]
 
     _ACTIVE_USER_CONFIG = {"llm": llm_cfg, "data_source": ds_cfg}
     _ACTIVE_USER_ID = user_id
 
-    logger.info("Loaded config for user %s: provider=%s model=%s tushare=%s",
+    logger.info("Loaded config for user %s: provider=%s model=%s tushare=%s twelvedata=%s",
                 user_id,
                 llm_cfg.get("provider", "default"),
                 llm_cfg.get("model", "default"),
-                "configured" if ds_cfg.get("tushare_token") else "not set")
+                "configured" if ds_cfg.get("tushare_token") else "not set",
+                "configured" if ds_cfg.get("twelvedata_api_key") else "not set")
     return _ACTIVE_USER_CONFIG
 
 

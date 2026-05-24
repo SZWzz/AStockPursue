@@ -202,6 +202,9 @@ export interface DataSourceSettings {
   okx_api_key_configured: boolean;
   okx_secret_key_configured: boolean;
   okx_passphrase_configured: boolean;
+  twelvedata_api_key_configured: boolean;
+  finnhub_api_key_configured: boolean;
+  tiingo_api_key_configured: boolean;
   akshare_available: boolean;
   akshare_version: string;
   env_path: string;
@@ -214,6 +217,12 @@ export interface UpdateDataSourceSettingsRequest {
   okx_secret_key?: string;
   okx_passphrase?: string;
   clear_okx?: boolean;
+  twelvedata_api_key?: string;
+  clear_twelvedata?: boolean;
+  finnhub_api_key?: string;
+  clear_finnhub?: boolean;
+  tiingo_api_key?: string;
+  clear_tiingo?: boolean;
 }
 
 // --- Types matching backend API contracts ---

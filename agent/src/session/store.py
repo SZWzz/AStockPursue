@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import fcntl
 import json
+import os
+import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -136,7 +139,7 @@ class SessionStore:
     # ---- Message Append-Only Log ----
 
     def append_message(self, message: Message) -> None:
-        """Append a message to the session JSONL log.
+        """Append a message to the session JSONL log (thread/process-safe via fcntl).
 
         Args:
             message: Message to append.
@@ -144,7 +147,13 @@ class SessionStore:
         path = self._messages_file(message.session_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as f:
-            f.write(json.dumps(message.to_dict(), ensure_ascii=False) + "\n")
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            try:
+                f.write(json.dumps(message.to_dict(), ensure_ascii=False) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
     def get_messages(self, session_id: str, limit: int = 100) -> List[Message]:
         """Read all messages for a session.
@@ -215,11 +224,21 @@ class SessionStore:
 
     @staticmethod
     def _write_json(path: Path, data: Dict[str, Any]) -> None:
+        """Atomic JSON write: write to temp file then rename (safe against crashes)."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(
-            json.dumps(data, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, path)  # atomic on Unix
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
     @staticmethod
     def _read_json(path: Path) -> Optional[Dict[str, Any]]:

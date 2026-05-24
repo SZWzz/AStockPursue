@@ -194,6 +194,10 @@ def _ensure_admin_user() -> None:
         logger.warning("Failed to create admin user: %s", e)
 
 
+_PAPER_TRADING_MIGRATION_PATH = _MIGRATIONS_PATH.parent / "002_paper_trading.sql"
+_paper_migration_applied = False
+
+
 def init_database() -> None:
     """Execute migrations/init.sql and seed admin user (idempotent)."""
     global _migrations_applied
@@ -222,4 +226,32 @@ def init_database() -> None:
         _ensure_admin_user()
     except Exception as e:
         logger.error("Database migration failed: %s", e)
+        raise
+
+
+def run_paper_trading_migration() -> None:
+    """Execute paper-trading migration (idempotent, safe to call repeatedly)."""
+    global _paper_migration_applied
+    if _paper_migration_applied:
+        return
+
+    skip = os.getenv("SKIP_AUTO_MIGRATE", "").lower() in ("1", "true", "yes")
+    if skip:
+        return
+
+    if not _PAPER_TRADING_MIGRATION_PATH.exists():
+        logger.warning("Paper trading migration not found: %s", _PAPER_TRADING_MIGRATION_PATH)
+        return
+
+    init_pool()
+
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                sql_text = _PAPER_TRADING_MIGRATION_PATH.read_text(encoding="utf-8")
+                cur.execute(sql_text)
+            logger.info("Paper trading migration completed")
+            _paper_migration_applied = True
+    except Exception as e:
+        logger.error("Paper trading migration failed: %s", e)
         raise

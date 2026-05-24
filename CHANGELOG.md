@@ -9,12 +9,20 @@
 - **策略实验室 PG 优先** — 自动检测 PostgreSQL 可用性，优先使用 PG 存储，fallback 到文件系统
 - **Alpha Zoo 合并扫描** — 同时扫描内置 zoo 和 `~/.AStockPursue/zoo/`，指标实验室提升的因子可在大盘中显示
 - **国际化补齐** — Login、PostLoginSetup、UserManagement、Correlation、WelcomeScreen 全部接入 i18n（46 个新 key）
+- **多用户并发安全加固** — 文件存储原子写入（`mkstemp` + `os.replace`）+ JSONL 追加文件锁（`fcntl.flock`）+ 仓库单例双重检查锁
+- **模拟盘交易** — 完整 Paper Trading 引擎，SignalEngine 策略驱动，SSE 实时行情推送，风控管理（止损/止盈/追迹止损/日内止损），权益曲线可视化，持仓/成交记录，PG 持久化
+- **多数据源扩展** — 新增 Tencent（A股/港股）、Global Indices（全球指数）、Commodities（大宗商品）、CoinGecko（加密货币）、Twelve Data（全球全市场）、Finnhub（美股）6 个数据加载器
+- **非 OHLCV 数据支持** — 市场情绪（VIX/DXY/Yield Curve）、基本面增强（PE/PB/ROE）、新闻聚合（搜索+财经日历）3 类新数据能力
+- **Twelve Data / Finnhub / Tiingo API 配置** — Settings 页面新增付费 API 密钥配置区，后端加密存储 + 环境变量注入
+- **数据路由策略重写** — SKILL.md 全面升级，OHLCV / 非OHLCV 数据源矩阵、分市场优先级决策树、index/commodity 新市场类型
+- **新工具 + 技能包** — 市场概览、新闻聚合、市场情绪 3 个新工具，对应 6 个新技能包（coingecko/commodities/fundamentals-enhanced/global-indices/news-aggregation/sentiment/tencent/twelvedata）
 
 ### Changed
 
 - **全局 UI 重构** — 字号体系（text-xs→text-sm）、间距系统、按钮层级（btn-primary/secondary/ghost/outline）、卡片阴影、Tab 选中态
 - **侧边栏重设计** — 品牌 Logo 橙色圆角底色、导航项 rounded-lg 激活态、会话列表呼吸感、Footer 排版优化
 - **页面头部统一** — page-header 组件类、图标底色块、描述副文字
+- **回退链全面增强** — A股增加 tencent/twelvedata，美股增加 twelvedata/finnhub，港股增加 tencent，加密货币增加 coingecko，新增 index/commodity 市场类型
 - **Tailwind 配置增强** — boxShadow CSS 变量（亮/暗自适应）、fade-in/slide-in-right/scale-in 动画
 - **IndicatorLab 页面** — 按钮体系替换、Tab 样式统一、空态引导、Alpha Zoo 标签页
 - **StrategyLab 页面** — 同上 + 通知卡片/运行日志/历史记录样式升级

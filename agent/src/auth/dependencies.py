@@ -6,7 +6,7 @@ import hmac
 import os
 from typing import Optional
 
-from fastapi import HTTPException, Request, Security
+from fastapi import HTTPException, Query, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from src.auth.jwt import verify_token
@@ -17,20 +17,23 @@ _security = HTTPBearer(auto_error=False)
 async def require_auth(
     request: Request,
     cred: Optional[HTTPAuthorizationCredentials] = Security(_security),
+    jwt: Optional[str] = Query(None),
 ) -> dict:
     """Authenticate request via JWT (preferred) or API_AUTH_KEY (fallback).
+
+    Accepts token from Authorization header or ``?jwt=`` query parameter
+    (needed by SSE EventSource which cannot set custom headers).
 
     Returns user payload dict: {user_id, username, role, token_version}.
     """
     api_key = os.getenv("API_AUTH_KEY", "")
 
-    if cred and cred.credentials:
-        token = cred.credentials
+    token = (cred.credentials if cred and cred.credentials else "") or (jwt or "")
 
+    if token:
         # Try JWT first
         payload = verify_token(token)
         if payload:
-            # Optional: verify token_version against vt_users
             return payload
 
         # Try API_AUTH_KEY
