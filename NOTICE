@@ -1,0 +1,22 @@
+AStockPursue
+Copyright 2026 AStockPursue Contributors.
+
+This product is based on Vibe-Trading (https://github.com/HKUDS/Vibe-Trading),
+originally developed by HKUDS under the MIT License.
+
+The strategy template definitions in agent/src/lab/templates.json are adapted
+from QuantDinger (https://github.com/QuantDinger/QuantDinger), licensed under
+the Apache License, Version 2.0. See LICENSE for attribution details.
+
+This product includes Microsoft Qlib feature definitions under the Apache 2.0
+license. See agent/src/factors/zoo/qlib158/NOTICE for upstream attribution.
+
+Mathematical formulas from the following sources are reimplemented in this
+repository as factual mathematical content (formulas are not copyrightable):
+
+  - Kakushadze, Z. (2015) "101 Formulaic Alphas" (arXiv:1601.00991)
+  - Guotai Junan Securities (2014) "191 Short-period Trading Alpha Factors"
+  - Fama-French five-factor model, Carhart momentum, Hou-Xue-Zhang q-factor
+
+Prose, tables, and figures from the source papers are NOT reproduced in this
+repository — only the mathematical formulas are reimplemented.

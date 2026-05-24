@@ -1,0 +1,52 @@
+"""FastAPI auth dependencies — JWT + API_AUTH_KEY fallback."""
+
+from __future__ import annotations
+
+import hmac
+import os
+from typing import Optional
+
+from fastapi import HTTPException, Request, Security
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+from src.auth.jwt import verify_token
+
+_security = HTTPBearer(auto_error=False)
+
+
+async def require_auth(
+    request: Request,
+    cred: Optional[HTTPAuthorizationCredentials] = Security(_security),
+) -> dict:
+    """Authenticate request via JWT (preferred) or API_AUTH_KEY (fallback).
+
+    Returns user payload dict: {user_id, username, role, token_version}.
+    """
+    api_key = os.getenv("API_AUTH_KEY", "")
+
+    if cred and cred.credentials:
+        token = cred.credentials
+
+        # Try JWT first
+        payload = verify_token(token)
+        if payload:
+            # Optional: verify token_version against vt_users
+            return payload
+
+        # Try API_AUTH_KEY
+        if api_key and hmac.compare_digest(token, api_key):
+            return {"user_id": 1, "username": "admin", "role": "admin", "token_version": 0}
+
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    # No credentials
+    if api_key:
+        raise HTTPException(status_code=401, detail="Authorization required")
+
+    # No API key configured — allow localhost only
+    host = request.client.host if request.client else ""
+    allowed = {"127.0.0.1", "localhost", "::1"}
+    if host not in allowed:
+        raise HTTPException(status_code=403, detail="Remote access requires authentication")
+
+    return {"user_id": 1, "username": "local", "role": "admin", "token_version": 0}

@@ -1,0 +1,43 @@
+services:
+  AStockPursue:
+    build: .
+    ports:
+      - "8899:8899"
+    env_file:
+      - agent/.env
+    environment:
+      ASTOCKPURSUE_TRUST_DOCKER_LOOPBACK: 1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - AStockPursue-runs:/app/agent/runs
+      - AStockPursue-sessions:/app/agent/sessions
+    restart: unless-stopped
+    networks:
+      - vt-net
+
+  frontend:
+    image: node:20
+    working_dir: /app
+    ports:
+      - "5899:5899"
+    volumes:
+      - ./frontend:/app
+    environment:
+      - VITE_API_URL=http://AStockPursue:8899
+    command: sh -c "npm install && chmod +x node_modules/.bin/* 2>/dev/null; node ./node_modules/vite/bin/vite.js --host --port 5899"
+    profiles:
+      - frontend
+    depends_on:
+      AStockPursue:
+        condition: service_started
+    networks:
+      - vt-net
+
+networks:
+  vt-net:
+    driver: bridge
+
+volumes:
+  AStockPursue-runs:
+  AStockPursue-sessions:

@@ -1,0 +1,21 @@
+# Auto-deployed PostgreSQL for users without an existing PG instance.
+# Used by setup.sh when choosing "auto-deploy PostgreSQL".
+# Run: docker compose -f docker-compose.yml -f docker-compose.pg.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: AStockPursue
+      POSTGRES_PASSWORD: vr_pg_2026
+      POSTGRES_DB: AStockPursue
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - vt-net
+
+volumes:
+  pg-data:
