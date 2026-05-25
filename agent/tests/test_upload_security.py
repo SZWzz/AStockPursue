@@ -34,7 +34,7 @@ def test_upload_blocks_executable_adjacent_files(
     filename: str,
 ) -> None:
     response = client.post(
-        "/upload",
+        "/v1/upload",
         files={"file": (filename, b"content", "application/octet-stream")},
     )
 

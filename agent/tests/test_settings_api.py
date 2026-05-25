@@ -40,7 +40,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
 def test_get_llm_settings_is_side_effect_free_and_hides_placeholders(
     client: TestClient, tmp_path: Path,
 ) -> None:
-    response = client.get("/settings/llm")
+    response = client.get("/v1/settings/llm")
 
     assert response.status_code == 200
     body = response.json()
@@ -71,7 +71,7 @@ def test_llm_settings_treat_documented_key_placeholders_as_unconfigured(
         encoding="utf-8",
     )
 
-    response = client.get("/settings/llm")
+    response = client.get("/v1/settings/llm")
 
     assert response.status_code == 200
     body = response.json()
@@ -88,7 +88,7 @@ def test_update_llm_settings_persists_project_env(
     monkeypatch.setattr(api_server, "_write_user_llm_config", lambda uid, updates: written.update(updates) or True)
 
     response = client.put(
-        "/settings/llm",
+        "/v1/settings/llm",
         json={
             "provider": "openrouter",
             "model_name": "deepseek/deepseek-v3.2",
@@ -116,7 +116,7 @@ def test_update_llm_settings_persists_project_env(
 def test_get_data_source_settings_treats_placeholder_as_unconfigured(
     client: TestClient, tmp_path: Path,
 ) -> None:
-    response = client.get("/settings/data-sources")
+    response = client.get("/v1/settings/data-sources")
 
     assert response.status_code == 200
     body = response.json()
@@ -142,8 +142,8 @@ def test_settings_response_never_exposes_configured_secret_hints(
     )
     monkeypatch.setattr(api_server, "_read_user_ds_config", lambda uid: {"tushare_token": "ts-secret-private-token"})
 
-    llm_response = client.get("/settings/llm")
-    data_response = client.get("/settings/data-sources")
+    llm_response = client.get("/v1/settings/llm")
+    data_response = client.get("/v1/settings/data-sources")
 
     assert llm_response.status_code == 200
     assert data_response.status_code == 200
@@ -181,8 +181,8 @@ def test_settings_reads_reject_remote_dev_mode_clients(
     monkeypatch.delenv("API_AUTH_KEY", raising=False)
     remote_client = TestClient(api_server.app, client=("203.0.113.10", 50000))
 
-    llm_response = remote_client.get("/settings/llm")
-    data_source_response = remote_client.get("/settings/data-sources")
+    llm_response = remote_client.get("/v1/settings/llm")
+    data_source_response = remote_client.get("/v1/settings/data-sources")
 
     assert llm_response.status_code == 401
     assert data_source_response.status_code == 401
@@ -211,9 +211,9 @@ def test_settings_reads_require_bearer_when_api_auth_key_is_configured(
     monkeypatch.setenv("API_AUTH_KEY", "settings-secret")
     local_client = TestClient(api_server.app, client=("127.0.0.1", 50000))
 
-    unauthenticated_response = local_client.get("/settings/llm")
+    unauthenticated_response = local_client.get("/v1/settings/llm")
     authenticated_response = local_client.get(
-        "/settings/llm",
+        "/v1/settings/llm",
         headers={"Authorization": "Bearer settings-secret"},
     )
 
@@ -229,7 +229,7 @@ def test_update_data_source_settings_persists_tushare_token(
     monkeypatch.setattr(api_server, "_write_user_ds_config", lambda uid, updates: written.update(updates) or True)
 
     response = client.put(
-        "/settings/data-sources",
+        "/v1/settings/data-sources",
         json={"tushare_token": "ts-secret-token"},
     )
 
@@ -254,7 +254,7 @@ def test_settings_writes_reject_remote_dev_mode_clients(
     remote_client = TestClient(api_server.app, client=("203.0.113.10", 50000))
 
     response = remote_client.put(
-        "/settings/data-sources",
+        "/v1/settings/data-sources",
         json={"tushare_token": "ts-secret-token"},
     )
 

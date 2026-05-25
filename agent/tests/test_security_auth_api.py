@@ -31,13 +31,13 @@ def clear_api_key(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_remote_write_requires_api_key_when_key_unset() -> None:
-    response = _remote_client().post("/sessions", json={})
+    response = _remote_client().post("/v1/sessions", json={})
 
     assert response.status_code == 401
 
 
 def test_local_dev_write_allowed_when_key_unset() -> None:
-    response = _local_client().post("/sessions", json={})
+    response = _local_client().post("/v1/sessions", json={})
 
     assert response.status_code in {201, 501}
 
@@ -81,9 +81,9 @@ def test_configured_api_key_required_for_sensitive_reads(
     client = _remote_client()
 
     for path in [
-        "/runs",
-        "/sessions",
-        "/swarm/runs",
+        "/v1/runs",
+        "/v1/sessions",
+        "/v1/swarm/runs",
     ]:
         response = client.get(path)
         assert response.status_code == 401, path
@@ -96,7 +96,7 @@ def test_configured_api_key_accepts_bearer_for_sensitive_reads(
 
 
     response = _remote_client().get(
-        "/runs",
+        "/v1/runs",
         headers={"Authorization": "Bearer secret"},
     )
 
@@ -109,7 +109,7 @@ def test_configured_api_key_required_for_session_event_stream(
     monkeypatch.setenv("API_AUTH_KEY", "secret")
 
 
-    response = _remote_client().get("/sessions/missing/events")
+    response = _remote_client().get("/v1/sessions/missing/events")
 
     assert response.status_code == 401
 
@@ -120,7 +120,7 @@ def test_session_event_stream_accepts_query_token_for_browser_eventsource(
     monkeypatch.setenv("API_AUTH_KEY", "secret")
 
 
-    response = _remote_client().get("/sessions/missing/events?api_key=secret")
+    response = _remote_client().get("/v1/sessions/missing/events?api_key=secret")
 
     assert response.status_code == 401
 
@@ -214,7 +214,7 @@ def test_validate_path_param_rejects_traversal_inputs(value: str) -> None:
 
 
 def test_get_run_code_rejects_dot_run_id() -> None:
-    response = _local_client().get("/runs/../code")
+    response = _local_client().get("/v1/runs/../code")
 
     # Either rejected at routing (404) or by the validator (400). Both are safe;
     # what we forbid is reading code from outside RUNS_DIR.
@@ -222,21 +222,21 @@ def test_get_run_code_rejects_dot_run_id() -> None:
 
 
 def test_get_run_pine_rejects_traversal_run_id() -> None:
-    response = _local_client().get("/runs/foo.bar/pine")
+    response = _local_client().get("/v1/runs/foo.bar/pine")
 
     assert response.status_code == 400
     assert response.json()["detail"] == "invalid run_id"
 
 
 def test_get_run_pine_rejects_url_encoded_newline_run_id() -> None:
-    response = _local_client().get("/runs/foo%0A/pine")
+    response = _local_client().get("/v1/runs/foo%0A/pine")
 
     assert response.status_code == 400
     assert response.json()["detail"] == "invalid run_id"
 
 
 def test_get_run_result_rejects_traversal_run_id() -> None:
-    response = _local_client().get("/runs/foo.bar")
+    response = _local_client().get("/v1/runs/foo.bar")
 
     assert response.status_code == 400
     assert response.json()["detail"] == "invalid run_id"
@@ -246,12 +246,12 @@ def test_session_endpoints_reject_traversal_session_id() -> None:
     client = _local_client()
 
     cases = [
-        ("get", "/sessions/foo.bar", None),
-        ("delete", "/sessions/foo.bar", None),
-        ("patch", "/sessions/foo.bar", {"title": "x"}),
-        ("post", "/sessions/foo.bar/messages", {"content": "x"}),
-        ("get", "/sessions/foo.bar/messages", None),
-        ("post", "/sessions/foo.bar/cancel", None),
+        ("get", "/v1/sessions/foo.bar", None),
+        ("delete", "/v1/sessions/foo.bar", None),
+        ("patch", "/v1/sessions/foo.bar", {"title": "x"}),
+        ("post", "/v1/sessions/foo.bar/messages", {"content": "x"}),
+        ("get", "/v1/sessions/foo.bar/messages", None),
+        ("post", "/v1/sessions/foo.bar/cancel", None),
     ]
     for method, path, body in cases:
         kwargs = {"json": body} if body is not None else {}
@@ -261,7 +261,7 @@ def test_session_endpoints_reject_traversal_session_id() -> None:
 
 
 def test_session_event_stream_rejects_traversal_session_id() -> None:
-    response = _local_client().get("/sessions/foo.bar/events")
+    response = _local_client().get("/v1/sessions/foo.bar/events")
 
     assert response.status_code == 400
     assert response.json()["detail"] == "invalid session_id"
@@ -271,9 +271,9 @@ def test_swarm_run_endpoints_reject_traversal_run_id() -> None:
     client = _local_client()
 
     for method, path in (
-        ("get", "/swarm/runs/foo.bar"),
-        ("get", "/swarm/runs/foo.bar/events"),
-        ("post", "/swarm/runs/foo.bar/cancel"),
+        ("get", "/v1/swarm/runs/foo.bar"),
+        ("get", "/v1/swarm/runs/foo.bar/events"),
+        ("post", "/v1/swarm/runs/foo.bar/cancel"),
     ):
         response = getattr(client, method)(path)
         assert response.status_code == 400, f"{method.upper()} {path} should be rejected"

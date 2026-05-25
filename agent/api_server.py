@@ -259,6 +259,24 @@ app.include_router(v1)
 
 
 # ---------------------------------------------------------------------------
+# Backward-compatible re-exports for tests (moved to common.py / settings_routes.py)
+# ---------------------------------------------------------------------------
+
+from src.api.common import build_response_from_run_dir  # noqa: E402
+_build_response_from_run_dir = build_response_from_run_dir
+_is_local_client = is_local_client
+_shell_tools_enabled_for_request = shell_tools_enabled_for_request
+_validate_path_param = validate_path_param
+
+from src.api.settings_routes import (  # noqa: E402
+    _read_user_llm_config,
+    _read_user_ds_config,
+    _write_user_llm_config,
+    _write_user_ds_config,
+)
+
+
+# ---------------------------------------------------------------------------
 # Main Entry Point
 # ---------------------------------------------------------------------------
 

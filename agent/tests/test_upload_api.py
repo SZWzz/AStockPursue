@@ -31,7 +31,7 @@ def _existing_uploads(uploads_dir: Path) -> list[Path]:
 def test_upload_under_limit_succeeds(client: TestClient, tmp_path: Path) -> None:
     payload = b"x" * (2 * 1024)  # 2 KB, well under the 4 KB limit
     response = client.post(
-        "/upload",
+        "/v1/upload",
         files={"file": ("note.txt", payload, "text/plain")},
     )
 
@@ -49,7 +49,7 @@ def test_upload_under_limit_succeeds(client: TestClient, tmp_path: Path) -> None
 def test_upload_exactly_at_limit_succeeds(client: TestClient) -> None:
     payload = b"y" * (4 * 1024)
     response = client.post(
-        "/upload",
+        "/v1/upload",
         files={"file": ("ok.txt", payload, "text/plain")},
     )
     assert response.status_code == 200
@@ -60,7 +60,7 @@ def test_upload_over_limit_returns_413_and_cleans_partial_file(
 ) -> None:
     payload = b"z" * (4 * 1024 + 1)  # one byte over
     response = client.post(
-        "/upload",
+        "/v1/upload",
         files={"file": ("big.txt", payload, "text/plain")},
     )
 
@@ -72,7 +72,7 @@ def test_upload_over_limit_returns_413_and_cleans_partial_file(
 
 def test_upload_blocked_extension_returns_400(client: TestClient, tmp_path: Path) -> None:
     response = client.post(
-        "/upload",
+        "/v1/upload",
         files={"file": ("malware.exe", b"MZ", "application/octet-stream")},
     )
     assert response.status_code == 400
