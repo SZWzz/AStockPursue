@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Code, Save, Trash2, Plus, Target, Sparkles, Play, CheckSquare,
   Square, Layers, Clock, Activity, X, Bell,
@@ -687,6 +687,7 @@ export function StrategyLab() {
   const [priceData, setPriceData] = useState<PriceBar[]>([]);
   const [chartLoading, setChartLoading] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
+  const backtestPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [backtestRunning, setBacktestRunning] = useState(false);
   const [btTradeMarkers, setBtTradeMarkers] = useState<TradeMarker[]>([]);
   const [btEquityCurve, setBtEquityCurve] = useState<EquityPoint[]>([]);
@@ -723,6 +724,12 @@ export function StrategyLab() {
       })
       .catch(() => setMessage("Failed to load strategy"));
   }, [selectedId]);
+
+  useEffect(() => {
+    return () => {
+      if (backtestPollRef.current) clearInterval(backtestPollRef.current);
+    };
+  }, []);
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
@@ -898,11 +905,11 @@ export function StrategyLab() {
       const runId: string = data.run_id;
 
       // Poll for results
-      const poll = setInterval(async () => {
+      backtestPollRef.current = setInterval(async () => {
         try {
           const run = await api.getRun(runId);
           if (run.status === "success" || run.status === "failed") {
-            clearInterval(poll);
+            if (backtestPollRef.current) { clearInterval(backtestPollRef.current); backtestPollRef.current = null; }
             setBacktestRunning(false);
             // Save to backtest history
             try {
@@ -931,8 +938,6 @@ export function StrategyLab() {
           /* ignore poll errors */
         }
       }, 1000);
-
-      return () => clearInterval(poll);
     } catch (e) {
       setChartError(String(e));
       setBacktestRunning(false);

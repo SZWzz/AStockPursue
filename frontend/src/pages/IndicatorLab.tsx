@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Code, FlaskConical, Play, Save, Sparkles, ChevronDown, Trash2, Plus, Clock, Library, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
@@ -437,6 +437,7 @@ export function IndicatorLab() {
   const [priceData, setPriceData] = useState<PriceBar[]>([]);
   const [chartLoading, setChartLoading] = useState(false);
   const [chartError, setChartError] = useState<string | null>(null);
+  const backtestPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [backtestRunning, setBacktestRunning] = useState(false);
   const [btTradeMarkers, setBtTradeMarkers] = useState<TradeMarker[]>([]);
   const [btEquityCurve, setBtEquityCurve] = useState<EquityPoint[]>([]);
@@ -458,6 +459,12 @@ export function IndicatorLab() {
   useEffect(() => {
     loadList();
   }, [loadList]);
+
+  useEffect(() => {
+    return () => {
+      if (backtestPollRef.current) clearInterval(backtestPollRef.current);
+    };
+  }, []);
 
   // Load selected indicator
   useEffect(() => {
@@ -629,11 +636,11 @@ export function IndicatorLab() {
       }
       const runId: string = data.run_id;
 
-      const poll = setInterval(async () => {
+      backtestPollRef.current = setInterval(async () => {
         try {
           const run = await api.getRun(runId);
           if (run.status === "success" || run.status === "failed") {
-            clearInterval(poll);
+            if (backtestPollRef.current) { clearInterval(backtestPollRef.current); backtestPollRef.current = null; }
             setBacktestRunning(false);
           }
           const firstSymbol = run.price_series ? Object.keys(run.price_series)[0] : null;
@@ -648,8 +655,6 @@ export function IndicatorLab() {
           /* ignore */
         }
       }, 1000);
-
-      return () => clearInterval(poll);
     } catch (e) {
       setChartError(String(e));
       setBacktestRunning(false);
