@@ -23,7 +23,7 @@ export function BacktestPanel({ code, onClose }: BacktestPanelProps) {
     setRunning(true);
     setError(null);
     try {
-      const res = await fetch("/indicator-lab/backtest", {
+      const res = await fetch("/v1/indicator-lab/backtest", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ code, symbol, start_date: startDate, end_date: endDate, interval, source, leverage }),

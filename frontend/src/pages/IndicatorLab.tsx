@@ -19,7 +19,7 @@ import type {
 import type { PriceBar, TradeMarker, EquityPoint, IndicatorPoint } from "@/lib/api";
 import { api } from "@/lib/api";
 
-const API_BASE = "/indicator-lab";
+const API_BASE = "/v1/indicator-lab";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json", ...authHeaders() as Record<string, string> };
@@ -607,7 +607,7 @@ export function IndicatorLab() {
     setBacktestRunning(true);
     setChartError(null);
     try {
-      const res = await fetch("/indicator-lab/backtest", {
+      const res = await fetch("/v1/indicator-lab/backtest", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
@@ -648,11 +648,13 @@ export function IndicatorLab() {
           /* ignore */
         }
       }, 1000);
+
+      return () => clearInterval(poll);
     } catch (e) {
       setChartError(String(e));
       setBacktestRunning(false);
     }
-  }, [code, chartSymbol, chartStartDate, chartEndDate, chartSource, chartInterval]);
+  }, [code, chartSymbol, chartStartDate, chartEndDate, chartSource, chartInterval, initialCash]);
 
   // Delete
   const handleDelete = async (id: string) => {

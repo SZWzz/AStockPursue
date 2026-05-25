@@ -27,7 +27,7 @@ export function PostLoginSetup() {
   useEffect(() => {
     const token = localStorage.getItem("vt_token");
     if (!token) return;
-    fetch("/api/auth/llm-config", { headers: { Authorization: `Bearer ${token}` } })
+    fetch("/v1/api/auth/llm-config", { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.json())
       .then((data) => {
         const cfg = data.llm_config || {};
@@ -46,7 +46,7 @@ export function PostLoginSetup() {
     setLoading(true);
     const token = localStorage.getItem("vt_token");
     try {
-      await fetch("/api/auth/llm-config", {
+      await fetch("/v1/api/auth/llm-config", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(config),

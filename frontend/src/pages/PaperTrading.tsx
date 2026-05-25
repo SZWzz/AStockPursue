@@ -98,7 +98,7 @@ export default function PaperTrading() {
     setStrategies([]);
     try {
       if (source === "strategy-lab") {
-        const res = await fetch("/strategy-lab/list", { headers: authHeaders() });
+        const res = await fetch("/v1/strategy-lab/list", { headers: authHeaders() });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         const list = (json.strategies || []).map((s: { id: string; name: string }) => ({
@@ -141,7 +141,7 @@ export default function PaperTrading() {
   const loadStrategyCode = async (item: StrategyItem) => {
     if (item.code) { setCode(item.code); return; }
     try {
-      const res = await fetch(`/strategy-lab/${item.id}`, { headers: authHeaders() });
+      const res = await fetch(`/v1/strategy-lab/${item.id}`, { headers: authHeaders() });
       if (!res.ok) return;
       const json = await res.json();
       setCode(json.code || "");
@@ -185,7 +185,7 @@ export default function PaperTrading() {
     setInterval("1D");
     // Try to load strategy from the run's code
     try {
-      const res = await fetch(`/runs/${runId}/code`, { headers: authHeaders() });
+      const res = await fetch(`/v1/runs/${runId}/code`, { headers: authHeaders() });
       const codeMap = await res.json();
       if (codeMap["signal_engine.py"]) setCode(codeMap["signal_engine.py"]);
     } catch { /* ignore */ }
@@ -200,7 +200,7 @@ export default function PaperTrading() {
     setCreating(true);
     try {
       // P0: validate code before deploying
-      const vRes = await fetch("/strategy-lab/verify", {
+      const vRes = await fetch("/v1/strategy-lab/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ code }),
@@ -395,7 +395,7 @@ export default function PaperTrading() {
                   if (!code || !codes) return;
                   setChartLoading(true);
                   try {
-                    const res = await fetch("/strategy-lab/backtest", {
+                    const res = await fetch("/v1/strategy-lab/backtest", {
                       method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
                       body: JSON.stringify({ code, codes: codes.split(",").map(s => s.trim()).filter(Boolean), start_date: "2024-01-01", end_date: "2026-05-24", source: "auto", interval: "1D", initial_cash: initialCapital }),
                     });
@@ -447,7 +447,7 @@ export default function PaperTrading() {
                   if (!code || !codes) return;
                   setChartLoading(true);
                   try {
-                    const res = await fetch("/strategy-lab/backtest", {
+                    const res = await fetch("/v1/strategy-lab/backtest", {
                       method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
                       body: JSON.stringify({ code, codes: codes.split(",").map(s => s.trim()).filter(Boolean), start_date: "2024-01-01", end_date: "2026-05-24", source: "auto", interval: "1D", initial_cash: initialCapital }),
                     });

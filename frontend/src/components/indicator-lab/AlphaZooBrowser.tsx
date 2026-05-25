@@ -29,7 +29,7 @@ export function AlphaZooBrowser({ onSelect }: AlphaZooBrowserProps) {
       "Content-Type": "application/json",
       ...(authHeaders() as Record<string, string>),
     };
-    fetch("/indicator-lab/alpha/list?limit=100", { headers })
+    fetch("/v1/indicator-lab/alpha/list?limit=100", { headers })
       .then((res) => res.json())
       .then((data) => setAlphas(data.alphas || []))
       .catch(() => setError("Failed to load alphas"))
@@ -44,7 +44,7 @@ export function AlphaZooBrowser({ onSelect }: AlphaZooBrowserProps) {
         "Content-Type": "application/json",
         ...(authHeaders() as Record<string, string>),
       };
-      const res = await fetch(`/indicator-lab/alpha/${encodeURIComponent(alpha.id)}/convert`, { headers });
+      const res = await fetch(`/v1/indicator-lab/alpha/${encodeURIComponent(alpha.id)}/convert`, { headers });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       onSelect(data.code, data.nickname);

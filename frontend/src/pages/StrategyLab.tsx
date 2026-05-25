@@ -14,7 +14,7 @@ import type { QualityHint } from "@/components/indicator-lab/types";
 import type { PriceBar, TradeMarker, EquityPoint, IndicatorPoint } from "@/lib/api";
 import { api } from "@/lib/api";
 
-const API_BASE = "/strategy-lab";
+const API_BASE = "/v1/strategy-lab";
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
@@ -869,7 +869,7 @@ export function StrategyLab() {
     setChartError(null);
     try {
       const codes = chartSymbols.split(",").map((s) => s.trim()).filter(Boolean);
-      const res = await fetch(`/strategy-lab/backtest`, {
+      const res = await fetch(`${API_BASE}/backtest`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
@@ -931,11 +931,13 @@ export function StrategyLab() {
           /* ignore poll errors */
         }
       }, 1000);
+
+      return () => clearInterval(poll);
     } catch (e) {
       setChartError(String(e));
       setBacktestRunning(false);
     }
-  }, [code, chartSymbols, chartStartDate, chartEndDate, chartSource, chartInterval]);
+  }, [code, chartSymbols, chartStartDate, chartEndDate, chartSource, chartInterval, initialCash]);
 
   // ── Delete / Batch ────────────────────────────────────────────────────────
 

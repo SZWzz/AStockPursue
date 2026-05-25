@@ -32,7 +32,7 @@ export function WatchlistPanel({ collapsed, onAnalyze }: WatchlistPanelProps) {
 
   const loadWatchlist = useCallback(async () => {
     try {
-      const res = await fetch("/api/watchlist", { headers: authHeaders() });
+      const res = await fetch("/v1/api/watchlist", { headers: authHeaders() });
       const data = await res.json();
       setSymbols(data.symbols || []);
     } catch { /* ignore */ }
@@ -40,7 +40,7 @@ export function WatchlistPanel({ collapsed, onAnalyze }: WatchlistPanelProps) {
 
   const loadPrices = useCallback(async () => {
     try {
-      const res = await fetch("/api/watchlist/prices", { headers: authHeaders() });
+      const res = await fetch("/v1/api/watchlist/prices", { headers: authHeaders() });
       const data = await res.json();
       setPrices(data.prices || {});
     } catch { /* ignore */ }
@@ -54,7 +54,7 @@ export function WatchlistPanel({ collapsed, onAnalyze }: WatchlistPanelProps) {
     if (!s) return;
     setLoading(true);
     try {
-      await fetch("/api/watchlist", {
+      await fetch("/v1/api/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ symbol: s }),
@@ -68,7 +68,7 @@ export function WatchlistPanel({ collapsed, onAnalyze }: WatchlistPanelProps) {
   };
 
   const removeSymbol = async (symbol: string) => {
-    await fetch(`/api/watchlist/${symbol}`, { method: "DELETE", headers: authHeaders() });
+    await fetch(`/v1/api/watchlist/${symbol}`, { method: "DELETE", headers: authHeaders() });
     loadWatchlist();
   };
 

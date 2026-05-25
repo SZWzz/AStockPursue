@@ -219,7 +219,7 @@ export const api = {
   importSkill: (file: File) => {
     const form = new FormData();
     form.append("file", file);
-    return fetch("/settings/skills/import", { method: "POST", headers: authHeaders(), body: form }).then(r => r.json()) as Promise<{ ok: boolean; name: string }>;
+    return fetch(`${BASE}/settings/skills/import`, { method: "POST", headers: authHeaders(), body: form }).then(r => r.json()) as Promise<{ ok: boolean; name: string }>;
   },
   deleteSkill: (name: string) => request<{ ok: boolean }>(`/settings/skills/${encodeURIComponent(name)}`, { method: "DELETE" }),
   getMcpSettings: () => request<{ service_name: string; transport: string; sse_port: number; shell_tools_enabled: boolean; config_path: string; install_cmd: string }>("/settings/mcp"),

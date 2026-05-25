@@ -22,7 +22,7 @@ export function StrategyBacktestPanel({ code, onClose }: StrategyBacktestPanelPr
     setRunning(true); setError(null);
     const codes = symbols.split(",").map(s => s.trim()).filter(Boolean);
     try {
-      const res = await fetch("/strategy-lab/backtest", {
+      const res = await fetch("/v1/strategy-lab/backtest", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ code, codes, start_date: startDate, end_date: endDate, interval, source }),

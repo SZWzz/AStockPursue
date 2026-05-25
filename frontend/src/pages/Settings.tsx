@@ -381,7 +381,7 @@ export function Settings() {
     setChangingPw(true); setPwMsg(null);
     try {
       const token = localStorage.getItem("vt_token");
-      const res = await fetch("/api/auth/change-password", {
+      const res = await fetch("/v1/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ old_password: oldPw, new_password: newPw }),
@@ -400,7 +400,7 @@ export function Settings() {
     setChangingUser(true); setUserMsg(null);
     try {
       const token = localStorage.getItem("vt_token");
-      const res = await fetch("/api/auth/change-username", {
+      const res = await fetch("/v1/api/auth/change-username", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ username: newName }),

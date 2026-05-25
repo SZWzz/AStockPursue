@@ -43,7 +43,7 @@ export function StockInput({ value, onChange, placeholder = "600519.SH", multi =
         "Content-Type": "application/json",
         ...(authHeaders() as Record<string, string>),
       };
-      const res = await fetch(`/stock/search?q=${encodeURIComponent(q.trim())}`, { headers });
+      const res = await fetch(`/v1/stock/search?q=${encodeURIComponent(q.trim())}`, { headers });
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
       setResults(data.results || []);

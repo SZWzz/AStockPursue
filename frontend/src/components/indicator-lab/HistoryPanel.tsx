@@ -25,7 +25,7 @@ export function HistoryPanel({ indicatorId }: HistoryPanelProps) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/indicator-lab/${indicatorId}/history`, { headers: authHeaders() });
+      const res = await fetch(`/v1/indicator-lab/${indicatorId}/history`, { headers: authHeaders() });
       const data = await res.json();
       setEntries(data.history || []);
     } catch {
@@ -44,7 +44,7 @@ export function HistoryPanel({ indicatorId }: HistoryPanelProps) {
     setError(null);
     try {
       const res = await fetch(
-        `/indicator-lab/${indicatorId}/rollback?commit_hash=${hash}`,
+        `/v1/indicator-lab/${indicatorId}/rollback?commit_hash=${hash}`,
         { method: "POST", headers: authHeaders() }
       );
       if (res.ok) {
