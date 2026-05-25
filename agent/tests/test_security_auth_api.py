@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import api_server
+from src.api import common as _common
 
 
 def _remote_client() -> TestClient:
@@ -47,7 +48,7 @@ def test_docker_gateway_dev_write_allowed_only_with_compose_trust_flag(
 ) -> None:
     request = SimpleNamespace(client=SimpleNamespace(host="172.18.0.1"))
     monkeypatch.setattr(
-        api_server,
+        _common,
         "_default_gateway_ips",
         lambda: {ipaddress.IPv4Address("172.18.0.1")},
     )
@@ -65,7 +66,7 @@ def test_docker_network_peer_is_not_local_even_with_compose_trust_flag(
     request = SimpleNamespace(client=SimpleNamespace(host="172.18.0.42"))
     monkeypatch.setenv("ASTOCKPURSUE_TRUST_DOCKER_LOOPBACK", "1")
     monkeypatch.setattr(
-        api_server,
+        _common,
         "_default_gateway_ips",
         lambda: {ipaddress.IPv4Address("172.18.0.1")},
     )

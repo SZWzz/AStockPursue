@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import api_server
+from src.api import settings_routes as _settings
 
 
 @pytest.fixture
@@ -31,8 +32,8 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
         + "\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr(api_server, "ENV_PATH", env_path)
-    monkeypatch.setattr(api_server, "ENV_EXAMPLE_PATH", env_example)
+    monkeypatch.setattr(_settings, "ENV_PATH", env_path)
+    monkeypatch.setattr(_settings, "ENV_EXAMPLE_PATH", env_example)
     monkeypatch.delenv("API_AUTH_KEY", raising=False)
     return TestClient(api_server.app, client=("127.0.0.1", 50000))
 
@@ -84,8 +85,8 @@ def test_update_llm_settings_persists_project_env(
     client: TestClient, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     written = {}
-    monkeypatch.setattr(api_server, "_read_user_llm_config", lambda uid: {})
-    monkeypatch.setattr(api_server, "_write_user_llm_config", lambda uid, updates: written.update(updates) or True)
+    monkeypatch.setattr(_settings, "_read_user_llm_config", lambda uid: {})
+    monkeypatch.setattr(_settings, "_write_user_llm_config", lambda uid, updates: written.update(updates) or True)
 
     response = client.put(
         "/v1/settings/llm",
@@ -140,7 +141,7 @@ def test_settings_response_never_exposes_configured_secret_hints(
         + "\n",
         encoding="utf-8",
     )
-    monkeypatch.setattr(api_server, "_read_user_ds_config", lambda uid: {"tushare_token": "ts-secret-private-token"})
+    monkeypatch.setattr(_settings, "_read_user_ds_config", lambda uid: {"tushare_token": "ts-secret-private-token"})
 
     llm_response = client.get("/v1/settings/llm")
     data_response = client.get("/v1/settings/data-sources")
@@ -176,8 +177,8 @@ def test_settings_reads_reject_remote_dev_mode_clients(
         encoding="utf-8",
     )
     env_example.write_text("LANGCHAIN_PROVIDER=openai\n", encoding="utf-8")
-    monkeypatch.setattr(api_server, "ENV_PATH", env_path)
-    monkeypatch.setattr(api_server, "ENV_EXAMPLE_PATH", env_example)
+    monkeypatch.setattr(_settings, "ENV_PATH", env_path)
+    monkeypatch.setattr(_settings, "ENV_EXAMPLE_PATH", env_example)
     monkeypatch.delenv("API_AUTH_KEY", raising=False)
     remote_client = TestClient(api_server.app, client=("203.0.113.10", 50000))
 
@@ -206,8 +207,8 @@ def test_settings_reads_require_bearer_when_api_auth_key_is_configured(
         encoding="utf-8",
     )
     env_example.write_text("LANGCHAIN_PROVIDER=openai\n", encoding="utf-8")
-    monkeypatch.setattr(api_server, "ENV_PATH", env_path)
-    monkeypatch.setattr(api_server, "ENV_EXAMPLE_PATH", env_example)
+    monkeypatch.setattr(_settings, "ENV_PATH", env_path)
+    monkeypatch.setattr(_settings, "ENV_EXAMPLE_PATH", env_example)
     monkeypatch.setenv("API_AUTH_KEY", "settings-secret")
     local_client = TestClient(api_server.app, client=("127.0.0.1", 50000))
 
@@ -225,8 +226,8 @@ def test_update_data_source_settings_persists_tushare_token(
     client: TestClient, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     written = {}
-    monkeypatch.setattr(api_server, "_read_user_ds_config", lambda uid: written.copy())
-    monkeypatch.setattr(api_server, "_write_user_ds_config", lambda uid, updates: written.update(updates) or True)
+    monkeypatch.setattr(_settings, "_read_user_ds_config", lambda uid: written.copy())
+    monkeypatch.setattr(_settings, "_write_user_ds_config", lambda uid, updates: written.update(updates) or True)
 
     response = client.put(
         "/v1/settings/data-sources",
@@ -248,8 +249,8 @@ def test_settings_writes_reject_remote_dev_mode_clients(
     env_example = tmp_path / ".env.example"
     env_path = tmp_path / ".env"
     env_example.write_text("LANGCHAIN_PROVIDER=openai\n", encoding="utf-8")
-    monkeypatch.setattr(api_server, "ENV_PATH", env_path)
-    monkeypatch.setattr(api_server, "ENV_EXAMPLE_PATH", env_example)
+    monkeypatch.setattr(_settings, "ENV_PATH", env_path)
+    monkeypatch.setattr(_settings, "ENV_EXAMPLE_PATH", env_example)
     monkeypatch.delenv("API_AUTH_KEY", raising=False)
     remote_client = TestClient(api_server.app, client=("203.0.113.10", 50000))
 

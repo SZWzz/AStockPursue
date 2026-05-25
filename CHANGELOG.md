@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026.5.25
+
+### Changed
+
+- **api_server.py 拆分** — 2650 行巨型文件拆分为 6 个路由模块（runs/sessions/settings/auth/system）+ 共享工具 common.py，缩减 88%
+- **API 版本化** — 所有路由挂载 `/v1` 前缀，为未来 API 变更预留空间
+- **Docker Compose 合并** — `docker-compose.pg.yml` 合并入 `docker-compose.yml`，通过 `--profile pg` 按需启动 PostgreSQL
+- **Lab/ 模块重组** — `sandbox.py` 移至 `src/security/`，`repository.py`/`pg_repository.py` 移至 `src/lab/storage/`，职责更清晰
+- **前端类型拆分** — API 合约类型从 `lib/api.ts`（508 行）提取到独立 `types/api.ts`（~290 行）
+- **SSE 管理统一** — 提取 `lib/sseClient.ts` 共享工具（LRU 去重 + 指数退避重连），`useSSE` hook 和 `paperTradingStore` 统一使用
+- **前端 request() 去重** — `services/paperTrading.ts` 删除重复的 `request()` 实现，改用 `lib/api.ts` 导出
+
+### Fixed
+
+- **user_id 硬编码** — 26 处 `auth.get("user_id", 1)` 防御性回退替换为 `auth["user_id"]`，由 `require_auth` 保证存在
+- **auth 端点速率限制** — `/api/auth/login` 和 `/register` 增加内存滑动窗口限流（5 次/分钟），防暴力破解
+
+### Added
+
+- **前端测试基础设施** — vitest + testing-library + jsdom，3 个测试文件 17 个测试用例（api/apiAuth/StockInput）
+
 ## 2026.5.24 (evening)
 
 ### Added

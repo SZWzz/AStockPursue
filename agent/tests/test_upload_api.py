@@ -14,13 +14,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 import api_server
+from src.api import system_routes as _sys
 
 
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setattr(api_server, "UPLOADS_DIR", tmp_path)
-    monkeypatch.setattr(api_server, "MAX_UPLOAD_SIZE", 4 * 1024)  # 4 KB
-    monkeypatch.setattr(api_server, "_UPLOAD_CHUNK_SIZE", 1024)  # 1 KB
+    monkeypatch.setattr(_sys, "UPLOADS_DIR", tmp_path)
+    monkeypatch.setattr(_sys, "MAX_UPLOAD_SIZE", 4 * 1024)  # 4 KB
+    monkeypatch.setattr(_sys, "_UPLOAD_CHUNK_SIZE", 1024)  # 1 KB
     return TestClient(api_server.app)
 
 
@@ -77,5 +78,3 @@ def test_upload_blocked_extension_returns_400(client: TestClient, tmp_path: Path
     )
     assert response.status_code == 400
     assert _existing_uploads(tmp_path) == []
-
-

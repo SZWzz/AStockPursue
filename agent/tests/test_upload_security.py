@@ -8,11 +8,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 import api_server
+from src.api import system_routes as _sys
 
 
 @pytest.fixture
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
-    monkeypatch.setattr(api_server, "UPLOADS_DIR", tmp_path)
+    monkeypatch.setattr(_sys, "UPLOADS_DIR", tmp_path)
     monkeypatch.delenv("API_AUTH_KEY", raising=False)
     return TestClient(api_server.app, client=("127.0.0.1", 50000))
 
