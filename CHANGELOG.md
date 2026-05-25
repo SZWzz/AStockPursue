@@ -2,8 +2,24 @@
 
 ## 2026.5.25
 
+### Added
+
+- **TradingEngine — 统一回测和实盘执行引擎** — 新建 `agent/src/trading/` 包（6 个模块，~1100 行），回测和模拟盘共享同一套 `on_bar()` 管道，SignalEngine 策略一次编写、两个场景运行
+  - `TradingEngine` — 统一 `on_bar(bar, ts) → BarResult` 管道：market hooks → 信号生成 → 优化器 → 风控检查 → 状态机约束 → 撮合执行 → 权益快照
+  - `SignalAdapter` — 自动检测 batch/tick 模式，batch 模式等价于 `_align()` shift(1)，tick 模式委托 `TickHandler.on_bar()`
+  - `BacktestDriver` — 快速模式（预计算权重，回测结果 100% 向后兼容）+ 模拟模式（逐 bar 增量生成，匹配实盘行为）
+  - `LiveDriver` — 从 `PaperTradingScheduler` 提取异步实盘循环，连续错误熔断 + 心跳 + 种子历史数据
+  - `OptimizerAdapter` — 滚动窗口在线组合优化（Phase 2），支持风险平价等优化器
+  - `RiskPipeline` — 从 `papertrade/risk_manager.py` 迁移，止损/止盈/追迹止损/日内亏损限制
+  - `FlatStateMachine` — 从 `papertrade/state_machine.py` 迁移，强制 flat→long→flat→short 状态转换
+- **回测模拟模式** — `BacktestDriver` 新增 simulation 模式，逐 bar 通过完整 signal pipeline，用于验证策略在真实环境中不会出现未来函数
+- **状态代理模式** — `TradingEngine` 通过 property 代理将 capital/positions/trades 读写穿透到 `BaseEngine`，确保 `CryptoEngine.on_bar()` 等子类 hook 看到一致状态
+
 ### Changed
 
+- **回测执行路径重组** — `BaseEngine._execute_bars()` / `_rebalance()` / `run_backtest()` 委托给 `BacktestDriver`；`backtest/runner.py` 直接使用 `BacktestDriver.run()`
+- **模拟盘调度器简化** — `PaperTradingScheduler` 删除内联轮询循环，委托给 `LiveDriver.run()`，调度器只保留 SSE 推送 + DB 持久化
+- **papertrade/ 向后兼容** — `engine.py` / `tick_handler.py` / `risk_manager.py` / `state_machine.py` 改为 re-export，所有外部 import 路径不受影响
 - **api_server.py 拆分** — 2650 行巨型文件拆分为 6 个路由模块（runs/sessions/settings/auth/system）+ 共享工具 common.py，缩减 88%
 - **API 版本化** — 所有路由挂载 `/v1` 前缀，为未来 API 变更预留空间
 - **Docker Compose 合并** — `docker-compose.pg.yml` 合并入 `docker-compose.yml`，通过 `--profile pg` 按需启动 PostgreSQL

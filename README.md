@@ -4,6 +4,7 @@
 
 ## 功能
 
+- **统一交易引擎** — 回测和模拟盘共享 `TradingEngine.on_bar()` 执行管道，SignalEngine 策略一次编写、两个场景运行，杜绝回测/实盘行为不一致
 - **AI 智能体对话** — 自然语言驱动策略生成、回测、分析，SSE 实时流式输出，87 个技能包覆盖量化全领域，切页不中断
 - **策略实验室** — SignalEngine 合约编辑器，K 线图实时回测面板，10 个策略模板，AI 生成策略自动入库，回测历史记录
 - **模拟盘交易** — 三栏布局（策略库 + 代码编辑器 + K 线图），实时交易标记叠加，持仓即时更新，月度收益热力图，运行日志 + 信号统计，克隆运行，部署前自动验证
@@ -59,7 +60,7 @@ AStockPursue/
 │   ├── api_server.py       #   FastAPI 主入口
 │   ├── mcp_server.py       #   MCP Server（22 工具）
 │   ├── backtest/           #   多市场回测引擎 + 加载器注册表
-│   ├── papertrade/         #   模拟盘引擎 + 调度器 + 风控
+│   ├── papertrade/         #   模拟盘引擎 + 调度器 + 风控（re-export 自 src/trading）
 │   ├── src/
 │   │   ├── agent/          #   SkillsLoader + ContextBuilder
 │   │   ├── api/            #   FastAPI 路由
@@ -71,7 +72,8 @@ AStockPursue/
 │   │   ├── session/        #   会话管理（文件 / PG 双存储）
 │   │   ├── skills/         #   87 个技能包（SKILL.md）
 │   │   ├── swarm/          #   多智能体协作
-│   │   └── tools/          #   22 个 MCP 工具
+│   │   ├── tools/          #   22 个 MCP 工具
+│   │   └── trading/        #   统一交易引擎（回测/实盘共享 on_bar 管道）
 │   └── migrations/         #   数据库迁移（含增量）
 ├── frontend/               # React 前端
 │   └── src/

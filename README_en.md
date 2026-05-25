@@ -4,6 +4,7 @@ Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT Licen
 
 ## Features
 
+- **Unified Trading Engine** — Backtest and paper trading share the same `TradingEngine.on_bar()` execution pipeline. Write a SignalEngine strategy once, run it in both modes — no more backtest/live behavior divergence
 - **AI Agent Chat** — Natural language strategy generation, backtest, and analysis. SSE streaming output, 87 skill packs covering the full quant domain, survives page navigation
 - **Strategy Lab** — SignalEngine contract editor, K-line real-time backtest panel, 10 strategy templates, AI-generated strategies auto-saved, backtest history
 - **Paper Trading** — 3-column layout (strategy library + code editor + K-line chart), real-time trade markers overlaid, live position updates, monthly return heatmap, run log + signal stats, clone runs, pre-deploy validation
@@ -61,7 +62,7 @@ AStockPursue/
 │   ├── api_server.py       #   FastAPI main entry
 │   ├── mcp_server.py       #   MCP Server (22 tools)
 │   ├── backtest/           #   Multi-market backtest engine + loader registry
-│   ├── papertrade/         #   Paper trading engine + scheduler + risk
+│   ├── papertrade/         #   Paper trading engine + scheduler + risk (re-exports from src/trading)
 │   ├── src/
 │   │   ├── agent/          #   SkillsLoader + ContextBuilder
 │   │   ├── api/            #   FastAPI routes
@@ -73,7 +74,8 @@ AStockPursue/
 │   │   ├── session/        #   Session management (file / PG)
 │   │   ├── skills/         #   87 skill packs (SKILL.md)
 │   │   ├── swarm/          #   Multi-agent collaboration
-│   │   └── tools/          #   22 MCP tools
+│   │   ├── tools/          #   22 MCP tools
+│   │   └── trading/        #   Unified trading engine (shared on_bar pipeline)
 │   └── migrations/         #   DB migrations (incremental)
 ├── frontend/               # React frontend
 │   └── src/

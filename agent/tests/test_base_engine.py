@@ -182,30 +182,6 @@ class TestClosePosition:
 
 
 # ---------------------------------------------------------------------------
-# _calc_equity
-# ---------------------------------------------------------------------------
-
-
-class TestCalcEquity:
-    def test_no_positions(self) -> None:
-        engine = ChinaAEngine({"initial_cash": 1_000_000})
-        dates = pd.DatetimeIndex([pd.Timestamp("2025-01-02")])
-        close_df = pd.DataFrame({"X": [15.0]}, index=dates)
-        eq = engine._calc_equity(close_df, dates[0])
-        assert eq == 1_000_000.0
-
-    def test_with_unrealized_gain(self) -> None:
-        engine = ChinaAEngine({"initial_cash": 1_000_000})
-        engine.capital = 985_000.0
-        engine.positions["X"] = Position("X", 1, 15.0, pd.Timestamp("2025-01-02"), 1000.0)
-        dates = pd.DatetimeIndex([pd.Timestamp("2025-01-03")])
-        close_df = pd.DataFrame({"X": [16.0]}, index=dates)
-        eq = engine._calc_equity(close_df, dates[0])
-        # capital + margin + unrealized = 985000 + (1000×15/1) + (1×1000×(16-15)) = 985000 + 15000 + 1000 = 1001000
-        assert eq == pytest.approx(1_001_000.0)
-
-
-# ---------------------------------------------------------------------------
 # _safe_price
 # ---------------------------------------------------------------------------
 

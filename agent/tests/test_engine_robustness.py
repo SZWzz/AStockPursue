@@ -95,7 +95,10 @@ class TestFfillLimit:
 
 class TestSymbolIsolation:
     def test_one_symbol_error_doesnt_crash_backtest(self) -> None:
-        """If rebalance fails for one symbol, other symbols still execute."""
+        """If one symbol's signal processing fails, other symbols still execute."""
+        from src.trading.engine import TradingEngine
+        from src.trading.signal_adapter import SignalAdapter
+
         dates = pd.bdate_range("2025-01-01", periods=10)
         df_good = pd.DataFrame(
             {
@@ -109,31 +112,53 @@ class TestSymbolIsolation:
         )
         df_bad = df_good.copy()
         data_map: Dict[str, pd.DataFrame] = {"GOOD": df_good, "BAD": df_bad}
+        valid_codes = ["GOOD", "BAD"]
 
         sig = pd.Series(0.0, index=dates)
         sig.iloc[2:] = 1.0
         signal_map = {"GOOD": sig.copy(), "BAD": sig.copy()}
-        valid_codes = ["GOOD", "BAD"]
 
         _, close_df, target_pos, _ = _align(data_map, signal_map, valid_codes)
 
-        engine = ChinaAEngine({"initial_cash": 1_000_000})
+        market_engine = ChinaAEngine({"initial_cash": 1_000_000})
 
-        # Patch _rebalance to throw for BAD only
-        original_rebalance = ChinaAEngine._rebalance
+        # Build TradingEngine and patch can_execute to explode for BAD
+        signal_adapter = SignalAdapter(engine=SimpleNamespace(generate=lambda dm: signal_map))
+        tengine = TradingEngine(
+            config={"codes": valid_codes, "initial_capital": 1_000_000},
+            signal_adapter=signal_adapter,
+            market_engine=market_engine,
+        )
+        tengine.initialize(data_map)
 
-        def _exploding_rebalance(self, symbol, target_weight, df, ts, equity):
+        original_can_execute = market_engine.can_execute
+
+        def _exploding_can_execute(symbol, direction, bar):
             if symbol == "BAD":
                 raise RuntimeError("Simulated failure for BAD")
-            return original_rebalance(self, symbol, target_weight, df, ts, equity)
+            return original_can_execute(symbol, direction, bar)
 
-        with patch.object(ChinaAEngine, "_rebalance", _exploding_rebalance):
-            # Should NOT raise — exception is caught internally
-            engine._execute_bars(dates, data_map, close_df, target_pos, valid_codes)
+        with patch.object(market_engine, "can_execute", _exploding_can_execute):
+            for i, ts in enumerate(dates):
+                bar = {}
+                weights = {}
+                for c in valid_codes:
+                    if ts in data_map[c].index:
+                        bar[c] = data_map[c].loc[ts]
+                    try:
+                        w = float(target_pos.at[ts, c]) if ts in target_pos.index else 0.0
+                        if abs(w) > 1e-9:
+                            weights[c] = w
+                    except Exception:
+                        pass
+                if bar:
+                    tengine.on_bar(bar, ts, precomputed_weights=weights)
+
+        tengine.force_close_all("end_of_backtest")
 
         # GOOD should have traded despite BAD exploding
-        assert len(engine.trades) > 0
-        assert all(t.symbol == "GOOD" for t in engine.trades)
+        assert len(tengine.trades) > 0
+        assert all(t.symbol == "GOOD" for t in tengine.trades)
 
     def test_backtest_enriches_data_map_with_configured_fundamental_fields(
         self,
@@ -449,6 +474,9 @@ class TestDateRangeValidation:
 class TestFullBacktestRobustness:
     def test_backtest_with_suspension_gap(self) -> None:
         """A stock suspended for >5 bars should not produce fake flat equity."""
+        from src.trading.engine import TradingEngine
+        from src.trading.signal_adapter import SignalAdapter
+
         dates = pd.bdate_range("2025-01-01", periods=20)
         # Normal stock
         df_normal = pd.DataFrame(
@@ -487,7 +515,30 @@ class TestFullBacktestRobustness:
             f"14-bar gap with ffill(limit=5) should leave >=9 NaN, got {suspended_nan_count}"
         )
 
-        # Engine should still complete without crashing
-        engine = ChinaAEngine({"initial_cash": 1_000_000})
-        engine._execute_bars(dates, data_map, close_df, target_pos, valid_codes)
-        assert len(engine.equity_snapshots) == 20
+        # Engine should still complete without crashing via TradingEngine
+        market_engine = ChinaAEngine({"initial_cash": 1_000_000})
+        signal_adapter = SignalAdapter(engine=SimpleNamespace(generate=lambda dm: signal_map))
+        tengine = TradingEngine(
+            config={"codes": valid_codes, "initial_capital": 1_000_000},
+            signal_adapter=signal_adapter,
+            market_engine=market_engine,
+        )
+        tengine.initialize(data_map)
+
+        for i, ts in enumerate(dates):
+            bar = {}
+            weights = {}
+            for c in valid_codes:
+                if ts in data_map[c].index:
+                    bar[c] = data_map[c].loc[ts]
+                try:
+                    w = float(target_pos.at[ts, c]) if ts in target_pos.index else 0.0
+                    if abs(w) > 1e-9:
+                        weights[c] = w
+                except Exception:
+                    pass
+            if bar:
+                tengine.on_bar(bar, ts, precomputed_weights=weights)
+
+        tengine.force_close_all("end_of_backtest")
+        assert len(tengine.equity_snapshots) == 20

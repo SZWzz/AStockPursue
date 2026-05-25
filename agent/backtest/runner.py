@@ -473,7 +473,9 @@ def main(run_dir: Path) -> None:
         run_options_backtest(config, loader, signal_engine, run_dir, bars_per_year=bars_per_year)
     else:
         market_engine = _create_market_engine(effective_source, config, codes)
-        market_engine.run_backtest(config, loader, signal_engine, run_dir, bars_per_year=bars_per_year)
+        from src.trading.backtest_driver import BacktestDriver
+        driver = BacktestDriver()
+        driver.run(config, loader, signal_engine, run_dir, market_engine, bars_per_year=bars_per_year)
 
 
 def _create_market_engine(source: str, config: dict, codes: List[str]):
