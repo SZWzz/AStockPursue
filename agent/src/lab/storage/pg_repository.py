@@ -12,7 +12,7 @@ from typing import Any
 
 from src.db.pool import get_connection
 from src.lab.params import IndicatorParamsParser, StrategyConfigParser
-from src.lab.repository import IndicatorInfo, _extract_meta_from_code
+from src.lab.storage.repository import IndicatorInfo, _extract_meta_from_code
 
 logger = logging.getLogger(__name__)
 
@@ -188,7 +188,7 @@ class PgIndicatorRepository:
 
     def save_strategy(self, code: str, strategy_id: str | None = None, name: str = "") -> dict:
         if not name:
-            from src.lab.repository import _extract_meta_from_code as _em
+            from src.lab.storage.repository import _extract_meta_from_code as _em
             name, description = _em(code)
         else:
             description = ""

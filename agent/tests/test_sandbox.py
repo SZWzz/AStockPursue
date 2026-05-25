@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from src.lab.sandbox import (
+from src.security.sandbox import (
     SAFE_IMPORT_MODULES,
     SandboxTimeoutError,
     build_safe_builtins,
@@ -86,6 +86,25 @@ df["buy"] = rsi < 30
     def test_rejects_globals_call(self) -> None:
         safe, _ = validate_code_safety("globals()")
         assert not safe
+
+    def test_allows_local_signal_variable(self) -> None:
+        """Local variable named 'signal' (trading signal) should not be flagged."""
+        safe, err = validate_code_safety("""
+signal = df['close'] > df['close'].rolling(20).mean()
+signal.replace(True, 1, inplace=True)
+signal.replace(False, -1, inplace=True)
+""")
+        assert safe, f"Should allow local variable 'signal', got: {err}"
+
+    def test_rejects_imported_signal_module_call(self) -> None:
+        """import signal + signal.alarm() should still be rejected."""
+        safe, _ = validate_code_safety("import signal\nsignal.alarm(10)")
+        assert not safe
+
+    def test_allows_local_signal_but_rejects_signal_import(self) -> None:
+        """Mixed: local 'signal' var OK, but 'import signal' is still blocked at regex level."""
+        safe, _ = validate_code_safety("import signal\nsignal = 1\nsignal.replace(0, -1)")
+        assert not safe  # blocked by regex r"\bimport\s+signal\b"
 
 
 class TestBuildSafeBuiltins:

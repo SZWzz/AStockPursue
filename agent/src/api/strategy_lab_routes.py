@@ -23,8 +23,8 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from src.auth.dependencies import require_auth
-from src.lab.repository import IndicatorRepository
-from src.lab.sandbox import validate_code_safety
+from src.lab.storage.repository import IndicatorRepository
+from src.security.sandbox import validate_code_safety
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def _get_repo():
 
         # Try PG first
         try:
-            from src.lab.pg_repository import PgIndicatorRepository
+            from src.lab.storage.pg_repository import PgIndicatorRepository
             pg = PgIndicatorRepository()
             pg.list_strategies()  # health check
             _repo = pg
@@ -207,7 +207,7 @@ async def delete_strategy(strategy_id: str):
 async def backtest_strategy(req: StrategyBacktestRequest, user: dict = Depends(require_auth)):
     from src.lab.strategy_backtest_bridge import run_strategy_backtest
 
-    user_id = user.get("user_id", 1)
+    user_id = user["user_id"]
     try:
         from src.auth.user_config import load_user_config
         load_user_config(user_id)
@@ -335,7 +335,7 @@ def _execute_strategy_code(code: str) -> dict[str, Any]:
         )
         data_map[sym] = df
 
-    from src.lab.sandbox import build_safe_builtins
+    from src.security.sandbox import build_safe_builtins
 
     # Provide safe sys constants so AI-generated code doesn't need `import sys`
     import sys as _sys
@@ -510,7 +510,7 @@ def _build_strategy_generation_prompt(user_prompt: str, style: str) -> str:
     )
 
 
-from src.lab.repository import extract_code_from_response as _extract_code_from_response  # noqa: F811 — shared utility
+from src.lab.storage.repository import extract_code_from_response as _extract_code_from_response  # noqa: F811 — shared utility
 
 
 def _build_strategy_template(style: str) -> str:

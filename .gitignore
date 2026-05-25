@@ -50,6 +50,7 @@ data/test_write.txt
 agent/.pytest_tmp/
 agent/vibe_trading.egg-info/
 agent/vibe_trading_ai.egg-info/
+agent/AStockPursue.egg-info/
 agent/tests/e2e_backtest/
 dist/
 build/

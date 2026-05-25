@@ -7,6 +7,7 @@ import {
   type RunSummary,
   type Trade,
 } from "@/services/paperTrading";
+import { createDedupTracker, scheduleReconnect } from "@/lib/sseClient";
 
 interface PaperTradingState {
   // Run list
@@ -28,6 +29,8 @@ interface PaperTradingState {
   // SSE status
   sseStatus: "disconnected" | "connected" | "reconnecting";
   eventSource: EventSource | null;
+  reconnectCount: number;
+  reconnectTimer: ReturnType<typeof setTimeout> | null;
 
   // Actions
   fetchRuns: () => Promise<void>;
@@ -58,6 +61,8 @@ const initialState = {
   signalLog: [],
   sseStatus: "disconnected" as const,
   eventSource: null,
+  reconnectCount: 0,
+  reconnectTimer: null,
 };
 
 export const usePaperTradingStore = create<PaperTradingState>((set, get) => ({
@@ -128,111 +133,125 @@ export const usePaperTradingStore = create<PaperTradingState>((set, get) => ({
     const state = get();
     state.disconnectSSE();
 
-    const url = paperTradingApi.getSSEUrl(runId);
-    const es = new EventSource(url);
-    set({ eventSource: es, sseStatus: "connected" });
+    const dedup = createDedupTracker(500);
+    let reconnectCount = 0;
 
-    es.addEventListener("bar", (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data);
-        set((s) => ({
-          equity: [
-            ...s.equity,
-            {
-              point_time: data.timestamp,
-              equity: data.equity,
-              capital: data.capital,
-              unrealized: data.unrealized,
-              drawdown: data.drawdown,
-            },
-          ].slice(-500),
-          // Update positions from bar event
-          positions: data.positions
-            ? data.positions.map((p: Record<string, unknown>) => ({
-                symbol: p.symbol as string,
-                direction: p.direction as number,
-                entry_price: p.entry_price as number,
-                entry_time: data.timestamp as string,
-                size: p.size as number,
-                leverage: (p.leverage as number) || 1,
-                current_price: null,
-                unrealized_pnl: null,
-                pnl_pct: null,
-              }))
-            : s.positions,
-        }));
-      } catch { /* ignore */ }
-    });
+    const doConnect = (initialConnect: boolean) => {
+      const url = paperTradingApi.getSSEUrl(runId);
+      const es = new EventSource(url);
+      set({ eventSource: es, sseStatus: initialConnect ? "connected" : "connected", reconnectCount });
 
-    es.addEventListener("trade", (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data);
-        // Build trade markers for K-line chart
-        const markers: Array<{ time: string; price: number; side: "BUY" | "SELL"; text?: string }> = [];
-        if (data.entry_time && data.entry_price != null) {
-          markers.push({ time: data.entry_time, price: data.entry_price, side: "BUY", text: `Enter ${data.symbol}` });
+      es.addEventListener("bar", (e: MessageEvent) => {
+        try {
+          if (e.lastEventId && dedup.track(e.lastEventId)) return;
+          const data = JSON.parse(e.data);
+          set((s) => ({
+            equity: [
+              ...s.equity,
+              {
+                point_time: data.timestamp,
+                equity: data.equity,
+                capital: data.capital,
+                unrealized: data.unrealized,
+                drawdown: data.drawdown,
+              },
+            ].slice(-500),
+            positions: data.positions
+              ? data.positions.map((p: Record<string, unknown>) => ({
+                  symbol: p.symbol as string,
+                  direction: p.direction as number,
+                  entry_price: p.entry_price as number,
+                  entry_time: data.timestamp as string,
+                  size: p.size as number,
+                  leverage: (p.leverage as number) || 1,
+                  current_price: null,
+                  unrealized_pnl: null,
+                  pnl_pct: null,
+                }))
+              : s.positions,
+          }));
+        } catch { /* ignore */ }
+      });
+
+      es.addEventListener("trade", (e: MessageEvent) => {
+        try {
+          if (e.lastEventId && dedup.track(e.lastEventId)) return;
+          const data = JSON.parse(e.data);
+          const markers: Array<{ time: string; price: number; side: "BUY" | "SELL"; text?: string }> = [];
+          if (data.entry_time && data.entry_price != null) {
+            markers.push({ time: data.entry_time, price: data.entry_price, side: "BUY", text: `Enter ${data.symbol}` });
+          }
+          if (data.exit_time && data.exit_price != null) {
+            markers.push({ time: data.exit_time, price: data.exit_price, side: "SELL", text: `Exit ${data.symbol} (${data.exit_reason || "signal"})` });
+          }
+          if (markers.length > 0) {
+            set((s) => ({ tradeMarkers: [...s.tradeMarkers, ...markers].slice(-200) }));
+          }
+          if (get().activeRunId === runId) {
+            get().selectRun(runId);
+          }
+        } catch { /* ignore */ }
+      });
+
+      es.addEventListener("signal", (e: MessageEvent) => {
+        try {
+          if (e.lastEventId && dedup.track(e.lastEventId)) return;
+          const data = JSON.parse(e.data);
+          set((s) => ({
+            signalLog: [
+              ...s.signalLog,
+              {
+                symbol: data.symbol as string,
+                direction: data.direction as number,
+                price: data.price as number,
+                reason: (data.reason as string) || "",
+                timestamp: data.timestamp as string,
+              },
+            ].slice(-100),
+          }));
+        } catch { /* ignore */ }
+      });
+
+      es.addEventListener("status", (e: MessageEvent) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.status === "stopped" || data.status === "error") {
+            set({ sseStatus: "disconnected", reconnectCount: 0 });
+            es.close();
+          }
+        } catch { /* ignore */ }
+        get().fetchRuns();
+      });
+
+      es.onerror = () => {
+        const { eventSource } = get();
+        if (!eventSource || eventSource !== es) return;
+        es.close();
+        if (es.readyState === EventSource.CLOSED) {
+          set({ sseStatus: "disconnected", reconnectCount: 0 });
+          return;
         }
-        if (data.exit_time && data.exit_price != null) {
-          markers.push({ time: data.exit_time, price: data.exit_price, side: "SELL", text: `Exit ${data.symbol} (${data.exit_reason || "signal"})` });
-        }
-        if (markers.length > 0) {
-          set((s) => ({ tradeMarkers: [...s.tradeMarkers, ...markers].slice(-200) }));
-        }
-        // Also refresh detail
-        if (get().activeRunId === runId) {
-          get().selectRun(runId);
-        }
-      } catch { /* ignore */ }
-    });
-
-    es.addEventListener("signal", (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data);
-        set((s) => ({
-          signalLog: [
-            ...s.signalLog,
-            {
-              symbol: data.symbol as string,
-              direction: data.direction as number,
-              price: data.price as number,
-              reason: (data.reason as string) || "",
-              timestamp: data.timestamp as string,
-            },
-          ].slice(-100),
-        }));
-      } catch { /* ignore */ }
-    });
-
-    es.addEventListener("status", (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.status === "stopped" || data.status === "error") {
-          set({ sseStatus: "disconnected" });
-          es.close();
-        }
-      } catch { /* ignore */ }
-      get().fetchRuns();
-    });
-
-    es.addEventListener("error", () => {
-      set({ sseStatus: "reconnecting" });
-      get().fetchRuns();
-    });
-
-    es.onerror = () => {
-      if (es.readyState === EventSource.CLOSED) {
-        set({ sseStatus: "disconnected" });
-      } else {
-        set({ sseStatus: "reconnecting" });
-      }
+        reconnectCount += 1;
+        set({ sseStatus: "reconnecting", reconnectCount });
+        const timer = scheduleReconnect(
+          () => doConnect(false),
+          reconnectCount,
+        );
+        set({ reconnectTimer: timer });
+      };
     };
+
+    doConnect(true);
   },
 
   disconnectSSE: () => {
-    const { eventSource } = get();
+    const { eventSource, reconnectTimer } = get();
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+    }
     if (eventSource) {
       eventSource.close();
-      set({ eventSource: null, sseStatus: "disconnected" });
+      set({ eventSource: null, sseStatus: "disconnected", reconnectCount: 0, reconnectTimer: null });
     }
   },
 

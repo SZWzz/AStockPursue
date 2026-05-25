@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { BarChart3, Sparkles, MessageSquare } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { BarChart3, Sparkles, MessageSquare, BookOpen } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { CorrelationMatrix } from "@/components/charts/CorrelationMatrix";
 import { StockInput } from "@/components/indicator-lab/StockInput";
@@ -101,6 +101,13 @@ export function Correlation() {
       <div className="flex items-center gap-3">
         <BarChart3 className="h-6 w-6 text-primary" />
         <h1 className="text-2xl font-bold">{t.correlation || "Correlation Matrix"}</h1>
+        <Link
+          to="/correlation/docs"
+          className="flex items-center gap-1.5 ml-auto px-3 py-1.5 rounded-md bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition"
+        >
+          <BookOpen className="h-4 w-4" />
+          {t.correlationViewDocs}
+        </Link>
       </div>
 
       <div className="flex flex-col gap-4 border rounded-lg p-4">

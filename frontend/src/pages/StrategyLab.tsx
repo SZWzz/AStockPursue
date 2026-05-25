@@ -882,6 +882,13 @@ export function StrategyLab() {
           initial_cash: initialCash,
         }),
       });
+      if (!res.ok) {
+        let detail = `HTTP ${res.status}`;
+        try { const b = await res.json(); detail = b.detail || detail; } catch {}
+        setChartError(typeof detail === "string" ? detail : JSON.stringify(detail));
+        setBacktestRunning(false);
+        return;
+      }
       const data = await res.json();
       if (!data.success || !data.run_id) {
         setChartError(data.error || "Backtest failed");

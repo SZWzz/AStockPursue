@@ -205,7 +205,7 @@ def run_indicator_backtest(
         dict with keys: success, error, run_id.
         Run artifacts are written to runs/{run_id}/ for RunDetail page rendering.
     """
-    from src.lab.sandbox import build_safe_builtins, safe_exec_with_validation
+    from src.security.sandbox import build_safe_builtins, safe_exec_with_validation
 
     # 1. Fetch real data
     try:

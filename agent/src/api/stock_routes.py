@@ -43,13 +43,16 @@ async def search_stocks(q: str = Query("", max_length=64)):
     results: list[dict] = []
     seen = set()
     for s in symbols:
+        code_lower = s["code"].lower()
+        if code_lower in seen:
+            continue
         if (
-            query in s["code"].lower()
+            query in code_lower
             or query in s["name"].lower()
             or query in s.get("pinyin", "")
         ):
             results.append(s)
-            seen.add(s["code"].lower())
+            seen.add(code_lower)
             if len(results) >= 20:
                 break
 
@@ -115,7 +118,7 @@ async def get_ohlcv(
     user: dict = Depends(require_auth),
 ):
     """Fetch OHLCV price bars for a symbol."""
-    user_id = user.get("user_id", 1)
+    user_id = user["user_id"]
     try:
         from src.auth.user_config import load_user_config
         load_user_config(user_id)

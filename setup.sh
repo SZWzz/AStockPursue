@@ -53,7 +53,7 @@ if [ "$HAS_PG" = "n" ] || [ "$HAS_PG" = "N" ] || [ "$HAS_PG" = "no" ]; then
     echo ""
     echo "[✓] Will auto-deploy PostgreSQL via Docker."
     echo "    Database: AStockPursue | User: AStockPursue | Password: vr_pg_2026"
-    echo "    (change password in docker-compose.pg.yml after setup)"
+    echo "    (change password in docker-compose.yml after setup)"
     echo ""
 
     DB_HOST=postgres
@@ -150,11 +150,11 @@ echo ""
 if [ "$USE_AUTO_PG" = true ]; then
     echo "  Next steps:"
     echo "    1. Review agent/.env and edit if needed"
-    echo "    2. docker compose -f docker-compose.yml -f docker-compose.pg.yml up -d --build"
+    echo "    2. docker compose --profile pg up -d --build"
     echo "    3. Open http://localhost:8899"
     echo ""
     echo "  PostgreSQL is auto-deployed (port 5432)."
-    echo "  To stop: docker compose -f docker-compose.yml -f docker-compose.pg.yml down"
+    echo "  To stop: docker compose --profile pg down"
 else
     echo "  Next steps:"
     echo "    1. Review agent/.env and edit if needed"

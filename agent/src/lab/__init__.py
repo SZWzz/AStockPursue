@@ -4,7 +4,7 @@ Provides sandboxed execution, parameter parsing, code quality analysis,
 and a file-based indicator repository — all compatible with the Alpha Zoo.
 """
 
-from src.lab.sandbox import (
+from src.security.sandbox import (
     build_safe_builtins,
     safe_exec_code,
     safe_exec_isolated,
@@ -14,7 +14,7 @@ from src.lab.sandbox import (
 )
 from src.lab.params import IndicatorParamsParser, StrategyConfigParser
 from src.lab.quality import analyze_indicator_code_quality
-from src.lab.repository import IndicatorRepository
+from src.lab.storage.repository import IndicatorRepository
 from src.lab.backtest_bridge import (
     LabSignalEngine,
     extract_weight_series,

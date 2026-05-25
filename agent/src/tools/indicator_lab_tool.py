@@ -16,8 +16,8 @@ from typing import Any
 from src.agent.tools import BaseTool
 from src.lab.params import IndicatorParamsParser, StrategyConfigParser
 from src.lab.quality import analyze_indicator_code_quality
-from src.lab.repository import IndicatorRepository, _extract_meta_from_code
-from src.lab.sandbox import validate_code_safety
+from src.lab.storage.repository import IndicatorRepository, _extract_meta_from_code
+from src.security.sandbox import validate_code_safety
 
 logger = logging.getLogger(__name__)
 

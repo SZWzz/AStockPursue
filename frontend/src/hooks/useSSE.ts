@@ -1,18 +1,23 @@
 /**
  * SSE Hook — auto-reconnect + exponential backoff + LRU dedup + Last-Event-ID resume.
+ * Internal implementation delegates to @/lib/sseClient utilities.
  */
 
 import { useCallback, useRef } from "react";
+import {
+  createDedupTracker,
+  scheduleReconnect,
+  buildReconnectUrl,
+  type DedupTracker,
+  type ReconnectConfig,
+} from "@/lib/sseClient";
 
 type EventHandler = (data: Record<string, unknown>) => void;
 type Handlers = Record<string, EventHandler>;
 
 export type SSEStatus = "disconnected" | "connected" | "reconnecting";
 
-interface SSEConfig {
-  initialRetryMs?: number;
-  maxRetryMs?: number;
-  backoffFactor?: number;
+interface SSEConfig extends ReconnectConfig {
   dedupeCapacity?: number;
 }
 
@@ -34,42 +39,17 @@ export function useSSE(config?: SSEConfig) {
   const lastEventIdRef = useRef<string | null>(null);
   const statusRef = useRef<SSEStatus>("disconnected");
   const onStatusChangeRef = useRef<((s: SSEStatus) => void) | null>(null);
-
-  // LRU dedup set
-  const seenIdsRef = useRef<Set<string>>(new Set());
-  const seenOrderRef = useRef<string[]>([]);
-
-  const trackEventId = useCallback((eventId: string): boolean => {
-    if (!eventId) return false;
-    const seen = seenIdsRef.current;
-    const order = seenOrderRef.current;
-    if (seen.has(eventId)) return true; // duplicate
-    seen.add(eventId);
-    order.push(eventId);
-    if (order.length > opts.dedupeCapacity) {
-      const oldest = order.shift()!;
-      seen.delete(oldest);
-    }
-    return false;
-  }, [opts.dedupeCapacity]);
+  const dedupRef = useRef<DedupTracker>(createDedupTracker(opts.dedupeCapacity));
 
   const setStatus = useCallback((s: SSEStatus) => {
     statusRef.current = s;
     onStatusChangeRef.current?.(s);
   }, []);
 
-  const buildUrl = useCallback((baseUrl: string) => {
-    const sep = baseUrl.includes("?") ? "&" : "?";
-    if (lastEventIdRef.current) {
-      return `${baseUrl}${sep}Last-Event-ID=${encodeURIComponent(lastEventIdRef.current)}`;
-    }
-    return baseUrl;
-  }, []);
-
   const doConnect = useCallback(() => {
     if (closedRef.current) return;
 
-    const url = buildUrl(urlRef.current);
+    const url = buildReconnectUrl(urlRef.current, lastEventIdRef.current);
     const source = new EventSource(url);
     sourceRef.current = source;
 
@@ -78,7 +58,6 @@ export function useSSE(config?: SSEConfig) {
       setStatus("connected");
     };
 
-    // Only subscribe to event types the backend actually emits
     const knownTypes = [
       "text_delta", "thinking_done", "tool_call", "tool_result", "compact",
       "attempt.completed", "attempt.failed",
@@ -89,7 +68,7 @@ export function useSSE(config?: SSEConfig) {
       if (raw.lastEventId) {
         lastEventIdRef.current = raw.lastEventId;
       }
-      if (raw.lastEventId && trackEventId(raw.lastEventId)) return;
+      if (raw.lastEventId && dedupRef.current.track(raw.lastEventId)) return;
 
       let parsed: Record<string, unknown>;
       try {
@@ -110,25 +89,20 @@ export function useSSE(config?: SSEConfig) {
       if (closedRef.current) return;
       source.close();
       sourceRef.current = null;
-      scheduleReconnect();
+      retryCountRef.current += 1;
+      setStatus("reconnecting");
+      handlersRef.current["reconnect"]?.({ attempt: retryCountRef.current, delayMs: 0 });
+
+      retryTimerRef.current = scheduleReconnect(
+        () => {
+          retryTimerRef.current = null;
+          doConnect();
+        },
+        retryCountRef.current,
+        opts,
+      );
     };
-  }, [buildUrl, trackEventId, setStatus]);
-
-  const scheduleReconnect = useCallback(() => {
-    if (closedRef.current) return;
-    retryCountRef.current += 1;
-    const delay = Math.min(
-      opts.initialRetryMs * Math.pow(opts.backoffFactor, retryCountRef.current - 1),
-      opts.maxRetryMs,
-    );
-    setStatus("reconnecting");
-    handlersRef.current["reconnect"]?.({ attempt: retryCountRef.current, delayMs: delay });
-
-    retryTimerRef.current = setTimeout(() => {
-      retryTimerRef.current = null;
-      doConnect();
-    }, delay);
-  }, [opts.initialRetryMs, opts.backoffFactor, opts.maxRetryMs, setStatus, doConnect]);
+  }, [opts, setStatus]);
 
   const connect = useCallback((url: string, handlers: Handlers) => {
     closedRef.current = true;
@@ -143,8 +117,7 @@ export function useSSE(config?: SSEConfig) {
     closedRef.current = false;
     retryCountRef.current = 0;
     lastEventIdRef.current = null;
-    seenIdsRef.current.clear();
-    seenOrderRef.current.length = 0;
+    dedupRef.current.reset();
 
     doConnect();
   }, [doConnect]);

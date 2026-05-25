@@ -1,38 +1,6 @@
-import { authHeaders } from "@/lib/apiAuth";
+import { request } from "@/lib/api";
 
-const BASE = "";
-
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const mergedHeaders: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...authHeaders(),
-  };
-  if (options?.headers) {
-    new Headers(options.headers).forEach((value, key) => {
-      mergedHeaders[key] = value;
-    });
-  }
-  const { headers: _, ...rest } = options ?? {};
-  const res = await fetch(`${BASE}${path}`, { ...rest, headers: mergedHeaders });
-  if (!res.ok) {
-    let detail = `HTTP ${res.status}`;
-    try {
-      const body = await res.json();
-      detail = body.detail || body.message || detail;
-    } catch { /* ignore */ }
-    throw new Error(detail);
-  }
-  const ct = res.headers.get("content-type") || "";
-  const text = await res.text();
-  if (!text) return {} as T;
-  try {
-    return JSON.parse(text);
-  } catch {
-    const preview = text.slice(0, 150).replace(/\s+/g, " ").trim();
-    const hint = ct.includes("text/html") ? " (got HTML — check API path)" : "";
-    throw new Error(`Unexpected response from ${path}: ${preview || "(empty)"}${hint}`);
-  }
-}
+const BASE = "/v1";
 
 // ── Types ────────────────────────────────────────────────────────────
 

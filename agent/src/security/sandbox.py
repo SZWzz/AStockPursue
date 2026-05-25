@@ -401,6 +401,26 @@ def validate_code_safety(code: str) -> tuple[bool, str | None]:
         "__func__", "__dict__", "__module__",
     }
 
+    # First pass: collect names that are explicitly imported from dangerous modules.
+    # We only block method calls on names that were actually imported (e.g. "signal"
+    # from "import signal"), not local variables that happen to share the name
+    # (e.g. "signal" as a Pandas Series of trading signals).
+    dangerous_bound_names: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                root = alias.name.split(".")[0]
+                if root in dangerous_modules:
+                    bound_name = alias.asname or root
+                    dangerous_bound_names.add(bound_name)
+        elif isinstance(node, ast.ImportFrom):
+            if node.module:
+                root = node.module.split(".")[0]
+                if root in dangerous_modules:
+                    for alias in node.names:
+                        bound_name = alias.asname or alias.name
+                        dangerous_bound_names.add(bound_name)
+
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
@@ -426,7 +446,7 @@ def validate_code_safety(code: str) -> tuple[bool, str | None]:
             if isinstance(node.func, ast.Attribute):
                 if (
                     isinstance(node.func.value, ast.Name)
-                    and node.func.value.id in dangerous_modules
+                    and node.func.value.id in dangerous_bound_names
                 ):
                     return False, (
                         f"Dangerous module call: {node.func.value.id}.{node.func.attr}"

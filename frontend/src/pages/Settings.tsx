@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
-import { Database, KeyRound, Layers, Loader2, RotateCcw, Save, Server, SlidersHorizontal, User } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { ChevronDown, ChevronRight, Database, KeyRound, Layers, Loader2, RotateCcw, Save, Server, SlidersHorizontal, Trash2, Upload, User } from "lucide-react";
 import { toast } from "sonner";
 import { api, type DataSourceSettings, type LLMProviderOption, type LLMSettings } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -32,15 +32,29 @@ function toForm(settings: LLMSettings): LLMFormState {
   };
 }
 
+interface SkillItem {
+  name: string;
+  description: string;
+  category: string;
+  enabled: boolean;
+  source: "builtin" | "user";
+}
+
 function SkillSection() {
   const { t } = useI18n();
-  const [skills, setSkills] = useState<Array<{ name: string; description: string; category: string; enabled: boolean }>>([]);
+  const [skills, setSkills] = useState<SkillItem[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(true);
   const [savingSkills, setSavingSkills] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [builtinOpen, setBuiltinOpen] = useState(false);
+  const [userOpen, setUserOpen] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
+  const loadSkills = () => {
     api.getSkillSettings().then(d => { setSkills(d.skills); setSkillsLoading(false); }).catch(() => setSkillsLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { loadSkills(); }, []);
 
   const toggleSkill = (name: string) => {
     setSkills(prev => prev.map(s => s.name === name ? { ...s, enabled: !s.enabled } : s));
@@ -49,13 +63,62 @@ function SkillSection() {
   const saveSkills = async () => {
     setSavingSkills(true);
     const disabled = skills.filter(s => !s.enabled).map(s => s.name);
-    try { await api.updateSkillSettings(disabled); alert("已保存，下次 AI 对话生效"); }
-    catch { alert("保存失败"); }
+    try { await api.updateSkillSettings(disabled); toast.success(t.skillSaved || "已保存"); }
+    catch { toast.error(t.skillSaveFailed || "保存失败"); }
     finally { setSavingSkills(false); }
   };
 
-  const categories = [...new Set(skills.map(s => s.category))].sort();
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const res = await api.importSkill(file);
+      if (res.ok) { toast.success(`${t.skillImportOk || "已导入"}：${res.name}`); loadSkills(); }
+      else { toast.error(t.skillImportFailed || "导入失败"); }
+    } catch { toast.error(t.skillImportFailed || "导入失败"); }
+    finally { setImporting(false); if (fileInputRef.current) fileInputRef.current.value = ""; }
+  };
+
+  const handleDelete = async (name: string) => {
+    if (!confirm(`${t.skillDeleteConfirm || "确认删除技能"} "${name}"？`)) return;
+    try {
+      await api.deleteSkill(name);
+      toast.success(`${t.skillDeleted || "已删除"}：${name}`);
+      loadSkills();
+    } catch { toast.error(t.skillDeleteFailed || "删除失败"); }
+  };
+
+  const builtinSkills = skills.filter(s => s.source !== "user");
+  const userSkills = skills.filter(s => s.source === "user");
   const enabledCount = skills.filter(s => s.enabled).length;
+
+  const renderSkillList = (list: SkillItem[]) => {
+    const categories = [...new Set(list.map(s => s.category))].sort();
+    return categories.map(cat => (
+      <div key={cat}>
+        <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5">{cat}</h4>
+        <div className="space-y-1">
+          {list.filter(s => s.category === cat).map(s => (
+            <div key={s.name} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/30 group">
+              <label className="flex items-center min-w-0 cursor-pointer flex-1">
+                <input type="checkbox" checked={s.enabled} onChange={() => toggleSkill(s.name)} className="mr-2 shrink-0 rounded" />
+                <div className="min-w-0">
+                  <span className="text-sm">{s.name}</span>
+                  <span className="ml-2 text-xs text-muted-foreground truncate">{s.description.slice(0, 60)}</span>
+                </div>
+              </label>
+              {s.source === "user" && (
+                <button onClick={() => handleDelete(s.name)} className="ml-2 p-0.5 rounded text-muted-foreground/50 hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover:opacity-100 transition-opacity" title={t.skillDelete}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    ));
+  };
 
   return (
     <div className="card p-5 space-y-4">
@@ -74,23 +137,48 @@ function SkillSection() {
           <button onClick={saveSkills} disabled={savingSkills} className="btn-sm btn-primary">{savingSkills ? "保存中..." : "保存"}</button>
         </div>
       </div>
+
       {skillsLoading ? <div className="text-sm text-muted-foreground">加载中...</div> : (
-        categories.map(cat => (
-          <div key={cat}>
-            <h4 className="text-xs font-semibold text-muted-foreground uppercase mb-1.5">{cat}</h4>
-            <div className="space-y-1">
-              {skills.filter(s => s.category === cat).map(s => (
-                <label key={s.name} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/30 cursor-pointer">
-                  <div className="min-w-0">
-                    <span className="text-sm">{s.name}</span>
-                    <span className="ml-2 text-xs text-muted-foreground truncate">{s.description.slice(0, 60)}</span>
-                  </div>
-                  <input type="checkbox" checked={s.enabled} onChange={() => toggleSkill(s.name)} className="ml-2 shrink-0 rounded" />
-                </label>
-              ))}
-            </div>
+        <>
+          {/* Built-in skills — collapsible */}
+          <div className="border rounded-lg">
+            <button
+              onClick={() => setBuiltinOpen(!builtinOpen)}
+              className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/30 rounded-lg transition-colors"
+            >
+              <span className="text-sm font-medium">{t.skillBuiltin || "内置技能"} ({builtinSkills.length})</span>
+              {builtinOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+            </button>
+            {builtinOpen && <div className="px-3 pb-2 space-y-2">{renderSkillList(builtinSkills)}</div>}
           </div>
-        ))
+
+          {/* User-imported skills — collapsible, with import button */}
+          <div className="border rounded-lg">
+            <button
+              onClick={() => setUserOpen(!userOpen)}
+              className="w-full flex items-center justify-between px-3 py-2 hover:bg-muted/30 rounded-lg transition-colors"
+            >
+              <span className="text-sm font-medium">{t.skillUserImported || "用户导入"} ({userSkills.length})</span>
+              <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                <input ref={fileInputRef} type="file" accept=".zip" onChange={handleImport} className="hidden" />
+                <button onClick={() => fileInputRef.current?.click()} disabled={importing} className="btn-sm btn-secondary flex items-center gap-1 text-xs">
+                  <Upload className="h-3 w-3" />
+                  {importing ? "导入中..." : (t.skillImportBtn || "导入")}
+                </button>
+                {userOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+              </div>
+            </button>
+            {userOpen && (
+              <div className="px-3 pb-2 space-y-2">
+                {userSkills.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2">{t.skillImportHint || "上传 .zip 文件（需包含 SKILL.md）"}</p>
+                ) : (
+                  renderSkillList(userSkills)
+                )}
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

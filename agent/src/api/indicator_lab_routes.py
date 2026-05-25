@@ -32,8 +32,8 @@ from src.auth.dependencies import require_auth
 
 from src.lab.params import IndicatorParamsParser, StrategyConfigParser
 from src.lab.quality import analyze_indicator_code_quality
-from src.lab.repository import IndicatorRepository
-from src.lab.sandbox import build_safe_builtins, safe_exec_with_validation, validate_code_safety
+from src.lab.storage.repository import IndicatorRepository
+from src.security.sandbox import build_safe_builtins, safe_exec_with_validation, validate_code_safety
 
 logger = logging.getLogger(__name__)
 
@@ -469,7 +469,7 @@ async def generate_indicator(req: GenerateRequest, request: Request):
             # Try to use the agent loop for generation
             try:
                 from src.agent.loop import run_agent_sync
-                from src.lab.sandbox import build_safe_builtins, validate_code_safety
+                from src.security.sandbox import build_safe_builtins, validate_code_safety
 
                 system_prompt = _build_generation_prompt(req.prompt, req.style)
                 generated_code = ""
@@ -530,7 +530,7 @@ async def backtest_indicator(req: BacktestRequest, user: dict = Depends(require_
     """Run indicator code against real market data and return backtest results."""
     from src.lab.backtest_bridge import run_indicator_backtest
 
-    user_id = user.get("user_id", 1)
+    user_id = user["user_id"]
     try:
         from src.auth.user_config import load_user_config
         load_user_config(user_id)
@@ -735,22 +735,49 @@ def _build_indicator_from_alpha(
     # Strip the alpha source of its own imports, __alpha_meta__, ALPHA_ID
     stripped_lines: list[str] = []
     in_meta = False
+    in_docstring = False
+    in_import_cont = False
     for line in source_code.split("\n"):
-        if line.strip().startswith("__alpha_meta__"):
+        s = line.strip()
+
+        # Track __alpha_meta__ dict block
+        if s.startswith("__alpha_meta__"):
             in_meta = True
             continue
         if in_meta:
-            if line.strip() == "}" or line.strip().startswith("}"):
+            if s == "}" or s.startswith("}"):
                 in_meta = False
             continue
-        if line.strip().startswith("from __future__"):
+
+        # Track multi-line import continuations:  from X import (\n  ...\n)
+        if in_import_cont:
+            if ")" in s:
+                in_import_cont = False
             continue
-        if line.strip().startswith("import ") or line.strip().startswith("from "):
-            stripped_lines.append(line)
+
+        # Track multi-line docstrings ("""...""" or '''...''')
+        if in_docstring:
+            if '"""' in s or "'''" in s:
+                in_docstring = False
             continue
-        if line.strip().startswith("ALPHA_ID"):
+
+        if s.startswith('"""') or s.startswith("'''"):
+            # Single-line docstring: starts and ends with same triple-quote
+            triple = '"""' if s.startswith('"""') else "'''"
+            is_single_line = len(s) > len(triple) * 2 and s.endswith(triple)
+            if not is_single_line:
+                in_docstring = True
             continue
-        if line.strip().startswith('"""') or line.strip().startswith('#'):
+
+        if s.startswith("from __future__"):
+            continue
+        if s.startswith("import ") or s.startswith("from "):
+            if "(" in s and ")" not in s:
+                in_import_cont = True
+            continue
+        if s.startswith("ALPHA_ID"):
+            continue
+        if s.startswith("#"):
             continue
         stripped_lines.append(line)
 
@@ -783,20 +810,42 @@ def _build_indicator_from_alpha(
     compute_match = re.search(r'def compute\(.*?\n(.*?)(?=\n\S|\Z)', func_source, re.DOTALL)
     if compute_match:
         compute_body = compute_match.group(1)
-        # Add helper functions (everything before compute)
+        # Add helper functions (everything before compute).
+        # Imports are already stripped from the source, so pre_compute only
+        # contains helper function definitions and blank lines.
         pre_compute = func_source[:compute_match.start()].strip()
         if pre_compute:
             for line in pre_compute.split("\n"):
                 lines.append(line)
-            lines.append("")
+            if lines and lines[-1] != "":
+                lines.append("")
         # Add the adapted compute logic
         lines.append("# Call the alpha's compute logic (adapted for single asset)")
-        lines.append(f"def _compute_local(panel):")
-        for line in compute_body.split("\n"):
-            if line.strip():
-                lines.append(f"    {line}")
+        lines.append("def _compute_local(panel):")
+
+        # Strip the compute function's own docstring from the body
+        body_lines = compute_body.split("\n")
+        in_body_docstring = False
+        for bl in body_lines:
+            bs = bl.strip()
+            if in_body_docstring:
+                if '"""' in bs or "'''" in bs:
+                    in_body_docstring = False
+                continue
+            if bs.startswith('"""') or bs.startswith("'''"):
+                triple = '"""' if bs.startswith('"""') else "'''"
+                is_single_line = len(bs) > len(triple) * 2 and bs.endswith(triple)
+                if is_single_line:
+                    continue
+                in_body_docstring = True
+                continue
+            # The body lines already have their original indentation;
+            # we only add the standard 4-space indent for the new wrapper function.
+            if bs:
+                lines.append(f"    {bl}")
             else:
                 lines.append("")
+
         lines.append("")
         lines.append("alpha_values = _compute_local(panel)")
     else:
@@ -856,7 +905,7 @@ def _build_generation_prompt(user_prompt: str, style: str) -> str:
     )
 
 
-from src.lab.repository import extract_code_from_response as _extract_code_from_response  # noqa: F811 — shared utility
+from src.lab.storage.repository import extract_code_from_response as _extract_code_from_response  # noqa: F811 — shared utility
 
 
 def _build_template_code(prompt: str, style: str) -> str:

@@ -24,9 +24,11 @@ export function StockInput({ value, onChange, placeholder = "600519.SH", multi =
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [codeNames, setCodeNames] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectedFromDropdown = useRef(false);
 
   const search = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -71,6 +73,9 @@ export function StockInput({ value, onChange, placeholder = "600519.SH", multi =
   }, []);
 
   const addSymbol = (symbol: StockSymbol) => {
+    selectedFromDropdown.current = true;
+    setCodeNames((prev) => ({ ...prev, [symbol.code]: symbol.name || symbol.code }));
+
     if (multi) {
       const current = value ? value.split(",").map((s) => s.trim()).filter(Boolean) : [];
       if (!current.includes(symbol.code)) {
@@ -89,10 +94,12 @@ export function StockInput({ value, onChange, placeholder = "600519.SH", multi =
   const removeSymbol = (code: string) => {
     if (!multi) {
       onChange("");
+      setCodeNames((prev) => { const n = { ...prev }; delete n[code]; return n; });
       return;
     }
     const current = value.split(",").map((s) => s.trim()).filter((s) => s && s !== code);
     onChange(current.join(", "));
+    setCodeNames((prev) => { const n = { ...prev }; delete n[code]; return n; });
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -107,7 +114,6 @@ export function StockInput({ value, onChange, placeholder = "600519.SH", multi =
       if (selectedIndex >= 0 && results.length > 0) {
         addSymbol(results[selectedIndex]);
       } else if (query.trim()) {
-        // Allow free-text entry for symbols not in the search list (e.g. AAPL.US, BTC-USDT)
         addSymbol({ code: query.trim().toUpperCase(), name: query.trim(), market: "", type: "" });
       }
     } else if (e.key === "Escape") {
@@ -126,12 +132,16 @@ export function StockInput({ value, onChange, placeholder = "600519.SH", multi =
             <span
               key={code}
               className="inline-flex items-center gap-1 px-2 py-0.5 text-xs rounded-md bg-primary/10 text-primary font-mono"
+              title={codeNames[code] || code}
             >
               {code}
+              {codeNames[code] && codeNames[code] !== code && (
+                <span className="text-muted-foreground font-normal truncate max-w-[120px]">{codeNames[code]}</span>
+              )}
               <button
                 type="button"
                 onClick={() => removeSymbol(code)}
-                className="hover:text-danger transition-colors"
+                className="hover:text-danger transition-colors shrink-0"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -151,6 +161,10 @@ export function StockInput({ value, onChange, placeholder = "600519.SH", multi =
           onKeyDown={handleKeyDown}
           onBlur={() => {
             setTimeout(() => {
+              if (selectedFromDropdown.current) {
+                selectedFromDropdown.current = false;
+                return;
+              }
               if (query.trim() && (!multi || !value.split(",").includes(query.trim().toUpperCase()))) {
                 addSymbol({ code: query.trim().toUpperCase(), name: query.trim(), market: "", type: "" });
               }
@@ -166,10 +180,15 @@ export function StockInput({ value, onChange, placeholder = "600519.SH", multi =
       {/* Current value (single mode) */}
       {!multi && value && (
         <div className="mt-1 flex items-center gap-1.5">
-          <span className="text-xs font-mono text-primary font-medium bg-primary/10 px-2 py-0.5 rounded">{value}</span>
+          <span className="text-xs font-mono text-primary font-medium bg-primary/10 px-2 py-0.5 rounded">
+            {value}
+            {codeNames[value] && codeNames[value] !== value && (
+              <span className="ml-1.5 text-muted-foreground font-normal">{codeNames[value]}</span>
+            )}
+          </span>
           <button
             type="button"
-            onClick={() => onChange("")}
+            onClick={() => { onChange(""); setCodeNames((prev) => { const n = { ...prev }; delete n[value]; return n; }); }}
             className="text-muted-foreground hover:text-danger transition-colors"
           >
             <X className="h-3 w-3" />
@@ -200,7 +219,7 @@ export function StockInput({ value, onChange, placeholder = "600519.SH", multi =
                 <span className="text-muted-foreground truncate">{s.name}</span>
               </div>
               <span className="text-xs text-muted-foreground/60 shrink-0 ml-2">
-                {s.type === "index" ? "指数" : s.market === "CN" ? "A股" : "港股"}
+                {s.type === "index" ? "指数" : s.market === "CN" ? "A股" : s.market === "HK" ? "港股" : s.market || s.type}
               </span>
             </div>
           ))}

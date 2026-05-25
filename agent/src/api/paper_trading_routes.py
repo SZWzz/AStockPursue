@@ -44,7 +44,7 @@ def _get_scheduler(request: Request):
 
 
 def _get_user_id(auth: dict) -> int:
-    return int(auth.get("user_id", 1))
+    return int(auth["user_id"])
 
 
 def _require_run_owner(run_id: str, user_id: int) -> dict:
@@ -69,7 +69,7 @@ async def create_run(
 ) -> dict:
     user_id = _get_user_id(auth)
 
-    from src.lab.sandbox import validate_code_safety
+    from src.security.sandbox import validate_code_safety
     valid, msg = validate_code_safety(req.strategy_code)
     if not valid:
         raise HTTPException(status_code=400, detail=f"Strategy code unsafe: {msg}")

@@ -329,7 +329,7 @@ class SessionService:
                     m = _re.search(r'my_indicator_name\s*=\s*["\'](.+?)["\']', code)
                     if m:
                         strategy_name = m.group(1)
-                    from src.lab.pg_repository import PgIndicatorRepository
+                    from src.lab.storage.pg_repository import PgIndicatorRepository
                     user_id = (session_config or {}).get("_user_id", 1)
                     repo = PgIndicatorRepository(user_id=user_id)
                     repo.save_strategy(code=code, name=strategy_name)

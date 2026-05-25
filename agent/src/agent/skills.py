@@ -23,6 +23,7 @@ class Skill:
         body: SKILL.md body text.
         dir_path: Skill directory path (used for on-demand loading of supporting files).
         metadata: Parsed frontmatter metadata.
+        source: "builtin" or "user" — where the skill was loaded from.
     """
 
     name: str
@@ -31,6 +32,7 @@ class Skill:
     body: str = ""
     dir_path: Optional[Path] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
+    source: str = "builtin"
 
     def load_support_file(self, filename: str) -> Optional[str]:
         """Load a supporting file on demand.
@@ -129,13 +131,14 @@ class SkillsLoader:
         Skills in the disabled set are skipped.
         """
         seen_names: set[str] = set()
-        for directory in (self._user_skills_dir, self.skills_dir):
+        for directory, source in ((self._user_skills_dir, "user"), (self.skills_dir, "builtin")):
             if not directory or not directory.exists():
                 continue
             for path in sorted(directory.iterdir()):
                 if path.is_dir() and (path / "SKILL.md").exists():
                     skill = _load_skill_dir(path)
                     if skill and skill.name not in seen_names and skill.name not in self._disabled:
+                        skill.source = source
                         self.skills.append(skill)
                         seen_names.add(skill.name)
 

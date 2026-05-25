@@ -47,7 +47,7 @@ bash setup.sh                # 可选择自动部署 PostgreSQL
 docker compose up -d --build
 ```
 
-如选择自动部署 PG：`docker compose -f docker-compose.yml -f docker-compose.pg.yml up -d --build`
+如选择自动部署 PG：`docker compose --profile pg up -d --build`
 
 访问 `http://localhost:8899`，admin / admin123 登录，在设置中配置 LLM 和数据源即可使用。
 
@@ -81,8 +81,7 @@ AStockPursue/
 │       ├── hooks/          #   自定义 hooks（SSE / 暗色模式）
 │       └── lib/            #   工具函数 + i18n（100+ 键）+ API 客户端
 ├── setup.sh                # 一键初始化脚本
-├── docker-compose.yml      # 主部署配置
-├── docker-compose.pg.yml   # PG 容器配置
+├── docker-compose.yml      # 部署配置（含 PG profile）
 ├── CHANGELOG.md
 └── README.md
 ```

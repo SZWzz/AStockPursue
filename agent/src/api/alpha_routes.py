@@ -417,7 +417,7 @@ def register_alpha_routes(
     )
     async def kick_off_bench(payload: BenchRequest, user: dict = Depends(require_auth)) -> dict[str, Any]:
         """Queue a background bench job and return a job_id."""
-        _user_id = user.get("user_id", 1) if user else 1
+        _user_id = user["user_id"] if user else 1
         # Cheap period parse pre-check so we 400 here instead of letting the
         # worker fail asynchronously.
         from src.tools.alpha_bench_tool import _parse_period
