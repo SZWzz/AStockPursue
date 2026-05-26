@@ -277,14 +277,37 @@ class TradingEngine:
     ) -> list[TradeRecord]:
         trades: list[TradeRecord] = []
         for symbol, pos in list(self._market.positions.items()):
-            price = float(bar[symbol].get("close", 0)) if symbol in bar else pos.entry_price
-            self._last_bar_prices[symbol] = price
+            if symbol not in bar:
+                continue
+            row = bar[symbol]
+            close = float(row.get("close", 0))
+            self._last_bar_prices[symbol] = close
 
+            # Intraday check first (bar high/low — more accurate)
+            if getattr(self._risk, "_use_intraday", False):
+                reason, exec_price = self._risk.check_position_intraday(
+                    symbol, pos.direction, pos.entry_price,
+                    float(row.get("open", close)),
+                    float(row.get("high", close)),
+                    float(row.get("low", close)),
+                    close,
+                )
+                if reason:
+                    trade = self._close_position(symbol, exec_price, timestamp, reason)
+                    if trade:
+                        trades.append(trade)
+                        self._risk.on_position_closed(symbol)
+                        self._risk.accumulate_daily(trade.pnl, today)
+                        if not self._market.positions and self._sm:
+                            self._sm.force(self._get_sm_flat_state())
+                    continue  # already closed, skip close-based check
+
+            # Fallback: close-based check (existing behaviour)
             reason_str = self._risk.check_position(
-                symbol, pos.direction, pos.entry_price, price, today
+                symbol, pos.direction, pos.entry_price, close, today
             )
             if reason_str:
-                trade = self._close_position(symbol, price, timestamp, reason_str)
+                trade = self._close_position(symbol, close, timestamp, reason_str)
                 if trade:
                     trades.append(trade)
                     self._risk.on_position_closed(symbol)

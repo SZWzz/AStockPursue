@@ -702,6 +702,74 @@ async def convert_alpha_to_indicator(alpha_id: str):
     }
 
 
+def _inline_factor_base() -> str:
+    """Return the source of src/factors/base.py utility functions, stripped of
+    imports / docstring / classes, suitable for inlining into Indicator Lab code."""
+    from pathlib import Path
+
+    base_path = Path(__file__).resolve().parent.parent / "factors" / "base.py"
+    base_source = base_path.read_text(encoding="utf-8")
+
+    lines = base_source.split("\n")
+    out: list[str] = []
+    in_docstring = False
+    in_class = False
+    class_indent: int | None = None
+    skip_decorator = False
+    for line in lines:
+        s = line.strip()
+        if not s:
+            if in_class:
+                continue
+            if not out:
+                continue
+            out.append(line)
+            continue
+
+        if s in ("from __future__ import annotations",):
+            continue
+        if s.startswith("from ") or s.startswith("import "):
+            continue
+
+        # Skip decorators (they precede class/function defs we may skip)
+        if s.startswith("@"):
+            skip_decorator = True
+            continue
+
+        # Track and skip class definitions
+        if s.startswith("class "):
+            in_class = True
+            class_indent = len(line) - len(line.lstrip())
+            skip_decorator = False
+            continue
+        if in_class:
+            line_indent = len(line) - len(line.lstrip())
+            if line_indent <= (class_indent or 0) and s:
+                in_class = False
+                class_indent = None
+                # This line is outside the class, process it normally
+            else:
+                continue
+
+        # Track docstrings
+        if in_docstring:
+            if '"""' in s or "'''" in s:
+                in_docstring = False
+            continue
+        if s.startswith('"""') or s.startswith("'''"):
+            triple = '"""' if s.startswith('"""') else "'''"
+            is_single_line = len(s) > len(triple) * 2 and s.endswith(triple)
+            if not is_single_line:
+                in_docstring = True
+            continue
+
+        if skip_decorator and s.startswith("def "):
+            skip_decorator = False
+
+        out.append(line)
+    return "\n".join(out)
+
+
 def _build_indicator_from_alpha(
     alpha_id: str,
     nickname: str,
@@ -731,6 +799,9 @@ def _build_indicator_from_alpha(
     lines.append("import numpy as np")
     lines.append("import pandas as pd")
     lines.append("")
+
+    # Detect whether the alpha uses factor base imports
+    needs_factor_base = "from src.factors.base import" in source_code or "from src.factors.base import (" in source_code
 
     # Strip the alpha source of its own imports, __alpha_meta__, ALPHA_ID
     stripped_lines: list[str] = []
@@ -783,6 +854,13 @@ def _build_indicator_from_alpha(
 
     # Extract compute function body
     func_source = "\n".join(stripped_lines)
+
+    # Inline factor base utility functions if the alpha uses them
+    if needs_factor_base:
+        lines.append("# ── Inlined from src/factors/base.py ──")
+        lines.append(_inline_factor_base())
+        lines.append("# ── End inlined factor base ──")
+        lines.append("")
 
     # The compute function takes panel (dict of DataFrames for multi-asset) and
     # returns a wide alpha DataFrame. For single-asset Indicator Lab,

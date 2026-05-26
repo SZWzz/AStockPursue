@@ -190,6 +190,15 @@ def _run_bench_blocking(job_id: str, zoo: str, universe: str, period: str, top: 
         if job is not None:
             job["status"] = "running"
 
+    # Check cancellation before starting heavy work
+    with _JOBS_LOCK:
+        job = ALPHA_BENCH_JOBS.get(job_id)
+        if job is not None and job.get("_cancelled"):
+            job["status"] = "error"
+            job["error"] = "bench cancelled by user"
+            job["_finished_at"] = time.time()
+            return
+
     try:
         result = run_bench(
             zoo=zoo,
@@ -226,6 +235,23 @@ def _run_bench_blocking(job_id: str, zoo: str, universe: str, period: str, top: 
             }
             job["status"] = "done"
             job["result"] = slim
+
+            # Persist to database
+            try:
+                from src.db.alpha_bench_store import save_bench_result
+                saved_id = save_bench_result(
+                    user_id=user_id,
+                    zoo=zoo,
+                    universe=universe,
+                    period=period,
+                    top=top,
+                    result=result,
+                )
+                if saved_id:
+                    job["_saved_id"] = saved_id
+            except Exception:
+                logger.exception("Failed to persist bench result (job=%s)", job_id)
+
         job["_finished_at"] = time.time()
 
 
@@ -558,6 +584,70 @@ def register_alpha_routes(
                 "X-Accel-Buffering": "no",
             },
         )
+
+    # -----------------------------------------------------------------------
+    # GET /alpha/bench/history
+    # -----------------------------------------------------------------------
+
+    @app.get("/alpha/bench/history", dependencies=[Depends(require_auth)])
+    async def list_bench_history(
+        limit: int = Query(20, ge=1, le=100),
+        offset: int = Query(0, ge=0),
+        user: dict = Depends(require_auth),
+    ) -> dict[str, Any]:
+        """List saved bench runs for the current user."""
+        from src.db.alpha_bench_store import list_bench_results
+        _user_id = user["user_id"] if user else 1
+        items = list_bench_results(user_id=_user_id, limit=limit, offset=offset)
+        return {"status": "ok", "history": items, "total": len(items)}
+
+    # -----------------------------------------------------------------------
+    # GET /alpha/bench/history/{run_id}
+    # -----------------------------------------------------------------------
+
+    @app.get("/alpha/bench/history/{run_id}", dependencies=[Depends(require_auth)])
+    async def get_bench_history_detail(run_id: str) -> dict[str, Any]:
+        """Return full detail for a saved bench run."""
+        if not _JOB_ID_RE.fullmatch(run_id or ""):
+            raise HTTPException(status_code=400, detail="invalid run_id")
+        from src.db.alpha_bench_store import get_bench_result
+        detail = get_bench_result(run_id)
+        if detail is None:
+            raise HTTPException(status_code=404, detail="bench run not found")
+        return {"status": "ok", "run": detail}
+
+    # -----------------------------------------------------------------------
+    # DELETE /alpha/bench/history/{run_id}
+    # -----------------------------------------------------------------------
+
+    @app.delete("/alpha/bench/history/{run_id}", dependencies=[Depends(require_auth)])
+    async def delete_bench_history(run_id: str) -> dict[str, Any]:
+        """Delete a saved bench run."""
+        if not _JOB_ID_RE.fullmatch(run_id or ""):
+            raise HTTPException(status_code=400, detail="invalid run_id")
+        from src.db.alpha_bench_store import delete_bench_result
+        ok = delete_bench_result(run_id)
+        if not ok:
+            raise HTTPException(status_code=500, detail="failed to delete")
+        return {"status": "ok"}
+
+    # -----------------------------------------------------------------------
+    # POST /alpha/bench/{job_id}/cancel
+    # -----------------------------------------------------------------------
+
+    @app.post("/alpha/bench/{job_id}/cancel", dependencies=[Depends(require_auth)])
+    async def cancel_bench(job_id: str) -> dict[str, Any]:
+        """Cancel a running or queued bench job."""
+        if not _JOB_ID_RE.fullmatch(job_id or ""):
+            raise HTTPException(status_code=400, detail="invalid job_id")
+        with _JOBS_LOCK:
+            job = ALPHA_BENCH_JOBS.get(job_id)
+            if job is None:
+                raise HTTPException(status_code=404, detail=f"job {job_id} not found")
+            if job["status"] in ("done", "error"):
+                raise HTTPException(status_code=400, detail="job already finished")
+            job["_cancelled"] = True
+        return {"status": "ok", "job_id": job_id}
 
 
 # ---------------------------------------------------------------------------

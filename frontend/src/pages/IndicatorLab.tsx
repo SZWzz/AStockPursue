@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Code, FlaskConical, Play, Save, Sparkles, ChevronDown, Trash2, Plus, Clock, Library, Layers } from "lucide-react";
+import { Code, FlaskConical, Play, Save, Sparkles, ChevronDown, Trash2, Plus, Clock, Library, Layers, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { authHeaders } from "@/lib/apiAuth";
@@ -427,9 +427,10 @@ export function IndicatorLab() {
   const [generatedCode, setGeneratedCode] = useState("");
   const [paramValues, setParamValues] = useState<Record<string, string | number | boolean>>({});
   const [sidePanel, setSidePanel] = useState<"params" | "quality" | "indicators" | "history" | "builtins" | "templates" | "alphazoo">("indicators");
+  const [rightCollapsed, setRightCollapsed] = useState(false);
   // ── Chart state ────────────────────────────────────────────────────────────
 
-  const [chartSymbol, setChartSymbol] = useState("600519.SH");
+  const [chartSymbol, setChartSymbol] = useState("");
   const [chartStartDate, setChartStartDate] = useState("2024-01-01");
   const [chartEndDate, setChartEndDate] = useState("2025-12-31");
   const [chartSource, setChartSource] = useState("auto");
@@ -725,7 +726,7 @@ export function IndicatorLab() {
             </div>
             <div>
               <h1>{t.indicatorLab}</h1>
-              <p className="page-header-desc">Create, backtest and optimize custom technical indicators</p>
+              <p className="page-header-desc">{t.indicatorLabPageDesc}</p>
             </div>
           </div>
           <div className="page-header-actions">
@@ -810,12 +811,28 @@ export function IndicatorLab() {
           metrics={btMetrics}
           backtestRunning={backtestRunning}
           title={chartTitle || undefined}
-          backtestLabel="Run Backtest"
+          backtestLabel={t.indicatorLabRunBacktest}
         />
       </div>
 
       {/* Right sidebar */}
-      <aside className="w-80 border-l bg-card flex flex-col shrink-0">
+      <aside className={cn(
+        "border-l bg-card flex flex-col shrink-0 transition-all duration-200",
+        rightCollapsed ? "w-10" : "w-80"
+      )}>
+        {/* Collapse toggle */}
+        <div className={cn("flex items-center border-b", rightCollapsed ? "justify-center py-2" : "justify-end px-2 py-1")}>
+          <button
+            onClick={() => setRightCollapsed(!rightCollapsed)}
+            className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
+            title={rightCollapsed ? t.expandSidebar : t.collapseSidebar}
+          >
+            {rightCollapsed ? <ChevronsLeft className="h-4 w-4" /> : <ChevronsRight className="h-4 w-4" />}
+          </button>
+        </div>
+
+        {!rightCollapsed && (
+        <>
         {/* Panel tabs */}
         <div className="tab-bar">
           {([
@@ -824,7 +841,7 @@ export function IndicatorLab() {
             ["templates", t.indicatorLabTemplates, Layers],
             ["params", t.indicatorLabParams, FlaskConical],
             ["quality", t.indicatorLabQuality, ChevronDown],
-            ["alphazoo", "Alpha Zoo", Layers],
+            ["alphazoo", t.alphaZoo, Layers],
             ["history", t.indicatorLabHistory, Clock],
           ] as const).map(([key, label, Icon]) => (
             <button
@@ -845,7 +862,7 @@ export function IndicatorLab() {
                 <div className="empty-state">
                   <Code className="empty-state-icon" />
                   <p className="empty-state-text">{t.indicatorLabNoIndicators}</p>
-                  <p className="empty-state-hint">Save your first indicator to see it here</p>
+                  <p className="empty-state-hint">{t.indicatorLabNoIndicatorsHint}</p>
                 </div>
               )}
               {indicators.map((ind) => (
@@ -923,6 +940,8 @@ export function IndicatorLab() {
               ))}
             </div>
           </div>
+        )}
+        </>
         )}
       </aside>
 

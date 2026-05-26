@@ -333,28 +333,43 @@ def web_search(query: str, max_results: int = 5) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _mcp_workspace() -> str:
+    """Return the default MCP workspace directory, creating it if needed."""
+    p = Path.home() / ".AStockPursue" / "workspace"
+    p.mkdir(parents=True, exist_ok=True)
+    return str(p)
+
+
 @mcp.tool
-def write_file(path: str, content: str) -> str:
-    """Write content to a file. Used to create config.json and signal_engine.py
-    for backtesting workflows.
+def write_file(path: str, content: str, run_dir: str = "") -> str:
+    """Write content to a file in a sandboxed workspace.
 
     Args:
-        path: File path (relative to workspace or absolute).
+        path: File path relative to run_dir.
         content: File content to write.
+        run_dir: Workspace root directory. Defaults to ~/.AStockPursue/workspace/.
     """
     registry = _get_registry()
-    return registry.execute("write_file", {"path": path, "content": content})
+    return registry.execute("write_file", {
+        "path": path,
+        "content": content,
+        "run_dir": run_dir or _mcp_workspace(),
+    })
 
 
 @mcp.tool
-def read_file(path: str) -> str:
-    """Read the contents of a file.
+def read_file(path: str, run_dir: str = "") -> str:
+    """Read the contents of a file from a sandboxed workspace.
 
     Args:
         path: File path to read.
+        run_dir: Workspace root directory. Defaults to ~/.AStockPursue/workspace/.
     """
     registry = _get_registry()
-    return registry.execute("read_file", {"path": path})
+    return registry.execute("read_file", {
+        "path": path,
+        "run_dir": run_dir or _mcp_workspace(),
+    })
 
 
 # ---------------------------------------------------------------------------
@@ -378,22 +393,22 @@ def list_swarm_presets() -> str:
 
 @mcp.tool
 def run_swarm(preset_name: str, variables: dict[str, str]) -> str:
-    """Run a swarm multi-agent team and return the final report.
+    """Start a swarm multi-agent team and return immediately with the run_id.
 
-    Assembles a team of specialized agents that collaborate through a DAG workflow.
-    For example, the 'investment_committee' preset runs bull analyst, bear analyst,
-    risk officer, and portfolio manager in sequence.
+    Assembles a team of specialized agents that collaborate through a DAG workflow
+    in a background thread. For example, the 'investment_committee' preset runs
+    bull analyst, bear analyst, risk officer, and portfolio manager in sequence.
 
     Use list_swarm_presets() to see available presets and their required variables.
+    Use get_swarm_status(run_id) to poll for progress.
+    Use get_run_result(run_id) to fetch the final report once completed.
 
     Args:
         preset_name: Swarm preset name (e.g. 'investment_committee', 'quant_strategy_desk').
         variables: Required variables for the preset (e.g. {"target": "AAPL.US", "market": "US"}).
     """
-    import time
     from src.swarm.runtime import SwarmRuntime
     from src.swarm.store import SwarmStore, swarm_runs_root
-    from src.swarm.models import RunStatus
 
     swarm_dir = swarm_runs_root()
     store = SwarmStore(base_dir=swarm_dir)
@@ -408,32 +423,16 @@ def run_swarm(preset_name: str, variables: dict[str, str]) -> str:
     except ValueError as exc:
         return json.dumps({"status": "error", "error": f"DAG validation failed: {exc}"}, ensure_ascii=False)
 
-    # Poll until complete (max 30 minutes)
-    for _ in range(360):
-        time.sleep(5)
-        current = store.load_run(run.id)
-        if current is None:
-            return json.dumps({"status": "error", "error": "Run record lost"}, ensure_ascii=False)
-        if current.status in (RunStatus.completed, RunStatus.failed, RunStatus.cancelled):
-            from src.swarm.serialization import run_level_error, serialize_task
-
-            tasks = [serialize_task(t) for t in current.tasks]
-            return json.dumps(
-                {
-                    "status": current.status.value,
-                    "preset": preset_name,
-                    "run_id": current.id,
-                    "final_report": current.final_report,
-                    "error": run_level_error(current),
-                    "tasks": tasks,
-                    "total_input_tokens": current.total_input_tokens,
-                    "total_output_tokens": current.total_output_tokens,
-                },
-                ensure_ascii=False,
-                indent=2,
-            )
-
-    return json.dumps({"status": "error", "error": "Swarm timed out after 30 minutes"}, ensure_ascii=False)
+    return json.dumps(
+        {
+            "status": "started",
+            "preset": preset_name,
+            "run_id": run.id,
+            "hint": "Use get_swarm_status(run_id) to check progress, get_run_result(run_id) for the final report.",
+        },
+        ensure_ascii=False,
+        indent=2,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -538,16 +537,20 @@ def get_market_data(
     else:
         groups = {source: list(codes)}
 
+    _unresolved_errors: dict[str, str] = {}
+
     for src, src_codes in groups.items():
         loader_cls = _get_loader(src)
         loader = loader_cls()
         try:
             data_map = loader.fetch(src_codes, start_date, end_date, interval=interval)
-        except Exception:
+        except Exception as exc:
             # A loader blow-up for one group must not lose already-resolved
             # symbols or surface as an opaque MCP error; those codes fall
             # through to _unresolved below (P05).
             logger.exception("market-data loader %r failed for %s; codes fall through to _unresolved", src, src_codes)
+            for c in src_codes:
+                _unresolved_errors[c] = f"loader {src} failed: {exc}"
             data_map = {}
         for symbol, df in data_map.items():
             records = df.reset_index().to_dict(orient="records")
@@ -559,14 +562,13 @@ def get_market_data(
                         r[k] = v.item()
             results[symbol] = _cap_rows(records, max_rows)
 
-    # P05: a typo / wrong-suffix / delisted / no-data symbol used to vanish
-    # silently (the dict only held winners), indistinguishable from "no data".
-    # Surface every requested code that produced nothing under a reserved key.
-    # Additive: omitted entirely when all codes resolved, so the happy-path
-    # payload is byte-identical to before.
+    # P05: surface unresolved codes with error reasons when available.
     unresolved = [c for c in codes if c not in results]
     if unresolved:
-        results["_unresolved"] = unresolved
+        results["_unresolved"] = [
+            {"code": c, "reason": _unresolved_errors.get(c, "no data returned")}
+            for c in unresolved
+        ]
 
     return json.dumps(results, ensure_ascii=False, indent=2)
 

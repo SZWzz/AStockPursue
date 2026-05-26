@@ -3,6 +3,8 @@ import type {
   AlphaBenchRequest,
   AlphaBenchResult,
   AlphaBenchTopRow,
+  BenchHistoryDetail,
+  BenchHistoryItem,
   AlphaDetail,
   AlphaDetailResponse,
   AlphaListParams,
@@ -36,6 +38,8 @@ export type {
   AlphaBenchRequest,
   AlphaBenchResult,
   AlphaBenchTopRow,
+  BenchHistoryDetail,
+  BenchHistoryItem,
   AlphaDetail,
   AlphaDetailResponse,
   AlphaListParams,
@@ -196,6 +200,14 @@ export const api = {
     }),
   alphaBenchStreamUrl: (jobId: string) =>
     withAuthQuery(`${BASE}/alpha/bench/${encodeURIComponent(jobId)}/stream`),
+  cancelAlphaBench: (jobId: string) =>
+    request<{ status: string; job_id: string }>(`/alpha/bench/${encodeURIComponent(jobId)}/cancel`, { method: "POST" }),
+  listBenchHistory: (limit = 20, offset = 0) =>
+    request<{ status: string; history: BenchHistoryItem[]; total: number }>(`/alpha/bench/history?limit=${limit}&offset=${offset}`),
+  getBenchHistoryDetail: (runId: string) =>
+    request<{ status: string; run: BenchHistoryDetail }>(`/alpha/bench/history/${encodeURIComponent(runId)}`),
+  deleteBenchHistory: (runId: string) =>
+    request<{ status: string }>(`/alpha/bench/history/${encodeURIComponent(runId)}`, { method: "DELETE" }),
 
   // Admin / User management
   listUsers: () => request<{ users: Array<{ id: number; username: string; email: string; role: string; created_at: string; llm_provider: string; llm_model: string; tushare_configured: boolean }> }>("/admin/users"),

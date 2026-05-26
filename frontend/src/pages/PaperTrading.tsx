@@ -1,11 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
-import { Loader2, TrendingUp, Library, List, Plus } from "lucide-react";
+import { Loader2, TrendingUp, Library, List, Plus, Check } from "lucide-react";
 import { usePaperTradingStore } from "@/stores/paperTradingStore";
 import { useI18n } from "@/lib/i18n";
 import { authHeaders } from "@/lib/apiAuth";
 import { api, type PriceBar, type TradeMarker } from "@/lib/api";
 import { CodeEditor } from "@/components/indicator-lab/CodeEditor";
 import { CandlestickChart } from "@/components/charts/CandlestickChart";
+import { StockInput } from "@/components/indicator-lab/StockInput";
 import EquityChart from "@/components/paper-trading/EquityChart";
 import PositionTable from "@/components/paper-trading/PositionTable";
 import TradeHistoryTable from "@/components/paper-trading/TradeHistoryTable";
@@ -73,6 +74,7 @@ export default function PaperTrading() {
   const [interval, setInterval] = useState("1D");
   const [initialCapital, setInitialCapital] = useState(100000);
   const [riskConfig, setRiskConfig] = useState<RiskConfig>({ ...defaultConfig });
+  const [selectedStrategy, setSelectedStrategy] = useState<StrategyItem | null>(null);
   const [creating, setCreating] = useState(false);
   const [autoStart, setAutoStart] = useState(true);
 
@@ -139,11 +141,14 @@ export default function PaperTrading() {
   // ── Load strategy code ──────────────────────────────────────────────────
 
   const loadStrategyCode = async (item: StrategyItem) => {
+    setSelectedStrategy(item);
     if (item.code) { setCode(item.code); return; }
     try {
       const res = await fetch(`/v1/strategy-lab/${item.id}`, { headers: authHeaders() });
       if (!res.ok) return;
       const json = await res.json();
+      const loaded = { ...item, code: json.code || "" };
+      setSelectedStrategy(loaded);
       setCode(json.code || "");
     } catch {
       /* ignore */
@@ -166,13 +171,28 @@ export default function PaperTrading() {
     }
   }, []);
 
-  // Auto-fetch chart when run is selected
+  // Auto-fetch chart when run is selected — only on symbol change, not on every tick
   useEffect(() => {
     const positions = store.activeRunDetail?.positions || [];
-    if (positions.length > 0 && positions[0].symbol) {
-      fetchChartData(positions[0].symbol);
-    }
-  }, [store.activeRunDetail?.positions, fetchChartData]);
+    const symbol = positions.length > 0 ? positions[0].symbol : null;
+    if (!symbol) return;
+    let cancelled = false;
+    const doFetch = async () => {
+      setChartLoading(true);
+      setChartError(null);
+      try {
+        const data = await api.getOHLCV({ symbol, start_date: "2026-01-01", end_date: "2026-05-24", source: "auto", interval: "1D" });
+        if (!cancelled) setPriceData(data.bars || []);
+      } catch (e) {
+        if (!cancelled) setChartError(String(e));
+      } finally {
+        if (!cancelled) setChartLoading(false);
+      }
+    };
+    doFetch();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store.activeRunDetail?.run?.id]);
 
   // ── Clone ──────────────────────────────────────────────────────────────
 
@@ -244,7 +264,7 @@ export default function PaperTrading() {
       <div className="flex items-center justify-between mb-3 shrink-0">
         <h1 className="text-xl font-bold">{t.ptTitle}</h1>
         <div className="flex items-center gap-2">
-          <button className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700" onClick={() => { setRunName(""); setCodes(""); setShowDeploy(true); setLeftTab("library"); }}>
+          <button className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700" onClick={() => { setRunName(""); setCodes(""); setSelectedStrategy(null); setShowDeploy(true); setLeftTab("library"); }}>
             <Plus className="h-3.5 w-3.5 inline mr-1" />{t.newStrategy}
           </button>
         </div>
@@ -255,6 +275,14 @@ export default function PaperTrading() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-card border rounded-xl shadow-2xl w-[600px] max-h-[80vh] overflow-auto animate-scale-in p-5 space-y-4">
             <h2 className="text-lg font-bold">{t.deployToPaper}</h2>
+            {selectedStrategy && (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-sm">
+                <Check className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-muted-foreground">已选策略：</span>
+                <span className="font-medium truncate">{selectedStrategy.name}</span>
+                <span className="text-muted-foreground text-xs font-mono">({selectedStrategy.id.slice(0, 12)})</span>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelClass}>{t.ptStrategyName}</label>
@@ -266,9 +294,9 @@ export default function PaperTrading() {
                   {MARKET_OPTIONS.map((o) => (<option key={o.value} value={o.value}>{t[o.labelKey as keyof typeof t]}</option>))}
                 </select>
               </div>
-              <div>
+              <div className="col-span-2">
                 <label className={labelClass}>{t.ptCodes}</label>
-                <input className={`${inputClass} font-mono`} value={codes} onChange={(e) => setCodes(e.target.value)} placeholder={t.ptCodesPlaceholder} />
+                <StockInput value={codes} onChange={setCodes} placeholder={t.ptCodesPlaceholder} multi />
               </div>
               <div>
                 <label className={labelClass}>{t.ptInterval}</label>
@@ -329,12 +357,22 @@ export default function PaperTrading() {
                 ) : strategies.length === 0 ? (
                   <div className="text-center text-muted-foreground py-8 text-xs">{t.ptNoRuns}</div>
                 ) : (
-                  strategies.map((s) => (
-                    <button key={s.id} className="w-full text-left p-2 rounded-md hover:bg-muted/50 text-xs border border-border" onClick={() => loadStrategyCode(s)}>
-                      <div className="font-medium truncate">{s.name}</div>
-                      <div className="text-muted-foreground text-[10px] font-mono">{s.id.slice(0, 12)}</div>
-                    </button>
-                  ))
+                  strategies.map((s) => {
+                    const isSelected = selectedStrategy?.id === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        className={`w-full text-left p-2 rounded-md text-xs border transition-colors ${isSelected ? "border-primary bg-primary/10 ring-1 ring-primary/30" : "border-border hover:bg-muted/50"}`}
+                        onClick={() => loadStrategyCode(s)}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          {isSelected && <Check className="h-3 w-3 text-primary shrink-0" />}
+                          <span className="font-medium truncate">{s.name}</span>
+                        </div>
+                        <div className="text-muted-foreground text-[10px] font-mono mt-0.5">{s.id.slice(0, 12)}</div>
+                      </button>
+                    );
+                  })
                 )}
               </div>
             ) : (
@@ -380,15 +418,13 @@ export default function PaperTrading() {
               <div className="flex gap-2 items-end flex-wrap">
                 <div className="flex-1 min-w-[100px]">
                   <label className="text-[10px] text-muted-foreground">标的代码</label>
-                  <input
-                    className="w-full text-xs rounded-md border border-border bg-background px-2 py-1.5 font-mono"
+                  <StockInput
+                    value={codes?.split(",")[0]?.trim() || ""}
+                    onChange={(v) => { setCodes(v); if (v) fetchChartData(v); }}
                     placeholder="600519.SH"
-                    value={codes}
-                    onChange={(e) => { setCodes(e.target.value); }}
-                    onKeyDown={(e) => { if (e.key === "Enter") fetchChartData(codes || "600519.SH"); }}
                   />
                 </div>
-                <button className="px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:opacity-90" onClick={() => fetchChartData(codes || "600519.SH")}>
+                <button className="px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:opacity-90" onClick={() => fetchChartData(codes?.split(",")[0]?.trim() || "600519.SH")}>
                   {chartLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "加载"}
                 </button>
                 <button className="px-3 py-1.5 text-xs rounded-md border hover:bg-muted" onClick={async () => {
@@ -421,10 +457,17 @@ export default function PaperTrading() {
                   {btMetrics.trade_count != null && <span>交易 <span className="font-mono font-medium">{btMetrics.trade_count}</span></span>}
                 </div>
               )}
-              {chartLoading ? (
+              {priceData.length > 0 ? (
+                <div className="relative">
+                  {chartLoading && (
+                    <div className="absolute top-1 right-2 z-10 flex items-center gap-1 text-[10px] text-muted-foreground bg-card/80 px-1.5 py-0.5 rounded">
+                      <Loader2 className="h-3 w-3 animate-spin" />更新中
+                    </div>
+                  )}
+                  <CandlestickChart data={priceData} markers={btTradeMarkers} height={320} />
+                </div>
+              ) : chartLoading ? (
                 <div className="flex items-center justify-center flex-1 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mr-1" />Loading...</div>
-              ) : priceData.length > 0 ? (
-                <CandlestickChart data={priceData} markers={btTradeMarkers} height={320} />
               ) : (
                 <div className="flex flex-col items-center justify-center flex-1 text-sm text-muted-foreground gap-2">
                   <TrendingUp className="h-8 w-8 opacity-30" />
@@ -489,10 +532,17 @@ export default function PaperTrading() {
               </div>
 
               {/* K-line chart with trade markers */}
-              {chartLoading ? (
+              {priceData.length > 0 ? (
+                <div className="relative">
+                  {chartLoading && (
+                    <div className="absolute top-1 right-2 z-10 flex items-center gap-1 text-[10px] text-muted-foreground bg-card/80 px-1.5 py-0.5 rounded">
+                      <Loader2 className="h-3 w-3 animate-spin" />更新中
+                    </div>
+                  )}
+                  <CandlestickChart data={priceData} markers={store.tradeMarkers.length > 0 ? store.tradeMarkers : btTradeMarkers} height={220} />
+                </div>
+              ) : chartLoading ? (
                 <div className="flex items-center justify-center h-36 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mr-1" />Loading...</div>
-              ) : priceData.length > 0 ? (
-                <CandlestickChart data={priceData} markers={store.tradeMarkers.length > 0 ? store.tradeMarkers : btTradeMarkers} height={220} />
               ) : chartError ? (
                 <div className="text-xs text-danger">{chartError}</div>
               ) : null}

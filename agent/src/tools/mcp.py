@@ -533,36 +533,34 @@ class MCPRemoteTool(BaseTool):
 def _run_sync(operation: Callable[[], Coroutine[Any, Any, ResultT]]) -> ResultT:
     """Run an async operation from sync code.
 
-    Args:
-        operation: Async callable to execute.
-
-    Returns:
-        Result returned by the async callable.
-
-    Raises:
-        BaseException: Re-raises exceptions from the async operation.
+    When no event loop is running, uses ``asyncio.run()`` directly.
+    When called from within an existing event loop (e.g. SessionService),
+    dispatches the operation to a persistent background event loop so we
+    avoid creating a new thread + loop per call.
     """
     try:
         asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(operation())
 
-    result: dict[str, ResultT] = {}
-    failure: dict[str, BaseException] = {}
+    return asyncio.run_coroutine_threadsafe(operation(), _get_mcp_loop()).result()
 
-    def _runner() -> None:
-        try:
-            result["value"] = asyncio.run(operation())
-        except BaseException as exc:
-            failure["error"] = exc
 
-    thread = threading.Thread(target=_runner, daemon=True)
-    thread.start()
-    thread.join()
+# ── Persistent background event loop for cross-thread MCP I/O ────────
 
-    if "error" in failure:
-        raise failure["error"]
-    return result["value"]
+_mcp_loop: asyncio.AbstractEventLoop | None = None
+_mcp_loop_lock = threading.Lock()
+
+
+def _get_mcp_loop() -> asyncio.AbstractEventLoop:
+    """Return a long-lived background event loop for MCP client operations."""
+    global _mcp_loop
+    with _mcp_loop_lock:
+        if _mcp_loop is None or _mcp_loop.is_closed():
+            _mcp_loop = asyncio.new_event_loop()
+            t = threading.Thread(target=_mcp_loop.run_forever, daemon=True, name="mcp-io")
+            t.start()
+        return _mcp_loop
 
 
 def _sanitize_name_segment(value: str) -> str:

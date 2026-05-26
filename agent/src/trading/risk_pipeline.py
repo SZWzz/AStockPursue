@@ -20,6 +20,7 @@ class RiskConfig:
     trailing_stop_pct: float = 0.0
     max_daily_loss_pct: float = 3.0
     max_position_pct: float = 30.0
+    use_intraday_stop: bool = True  # check bar high/low, not just close
 
 
 class RiskPipeline:
@@ -39,6 +40,7 @@ class RiskPipeline:
         self._max_daily_loss = initial_capital * abs(config.max_daily_loss_pct) / 100.0
         self._max_position_pct = abs(config.max_position_pct) / 100.0
 
+        self._use_intraday = config.use_intraday_stop
         self._trailing_highs: dict[str, float] = {}
         self._daily_pnl: float = 0.0
         self._daily_date: str = ""
@@ -80,6 +82,58 @@ class RiskPipeline:
 
         return None
 
+    # ── Intraday checks (bar high/low) ──────────────────────────────
+
+    def check_position_intraday(
+        self,
+        symbol: str,
+        direction: int,
+        entry_price: float,
+        bar_open: float,
+        bar_high: float,
+        bar_low: float,
+        bar_close: float,
+    ) -> tuple[str | None, float | None]:
+        """Check if stop/target was hit *within* the bar using high/low.
+
+        Returns ``(exit_reason, execution_price)`` or ``(None, None)``.
+        Priority: stop_loss > trailing_stop > take_profit.
+        """
+        if entry_price <= 0 or bar_open <= 0:
+            return None, None
+
+        stop_p = entry_price * (1.0 + direction * self._stop_loss_pct)
+        target_p = entry_price * (1.0 + direction * self._take_profit_pct)
+
+        if direction == 1:
+            stop_touched = bar_low <= stop_p
+            target_touched = bar_high >= target_p
+        else:
+            stop_touched = bar_high >= stop_p
+            target_touched = bar_low <= target_p
+
+        trail_touched = False
+        trail_p = 0.0
+        if self._trailing_enabled:
+            if symbol not in self._trailing_highs:
+                self._trailing_highs[symbol] = entry_price
+            self._trailing_highs[symbol] = max(self._trailing_highs[symbol], bar_high)
+            trail_p = self._trailing_highs[symbol] * (1.0 - direction * self._trailing_stop_pct)
+            if direction == 1:
+                trail_touched = bar_low <= trail_p
+            else:
+                trail_touched = bar_high >= trail_p
+
+        # Priority: stop > trail > target (risk-first)
+        if stop_touched:
+            return "stop_loss", _intraday_exec_price(bar_open, stop_p, direction, is_stop=True)
+        if trail_touched:
+            return "trailing_stop", _intraday_exec_price(bar_open, trail_p, direction, is_stop=True)
+        if target_touched:
+            return "take_profit", _intraday_exec_price(bar_open, target_p, direction, is_stop=False)
+
+        return None, None
+
     # ── Daily loss ──────────────────────────────────────────────────
 
     def check_daily_loss(self) -> bool:
@@ -104,3 +158,18 @@ class RiskPipeline:
 
     def on_position_closed(self, symbol: str) -> None:
         self._trailing_highs.pop(symbol, None)
+
+
+def _intraday_exec_price(
+    open_p: float, trigger_p: float, direction: int, *, is_stop: bool,
+) -> float:
+    """Execution price when a stop/target is touched within a bar.
+
+    If the market gapped through the trigger (open already beyond it),
+    execution happens at open.  Otherwise at the trigger price.
+    """
+    if is_stop:
+        gapped = (direction == 1 and open_p <= trigger_p) or (direction == -1 and open_p >= trigger_p)
+    else:
+        gapped = (direction == 1 and open_p >= trigger_p) or (direction == -1 and open_p <= trigger_p)
+    return open_p if gapped else trigger_p

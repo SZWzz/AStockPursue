@@ -838,6 +838,7 @@ def create_router(require_auth) -> APIRouter:
         config_path = Path.home() / ".AStockPursue" / "mcp_config.json"
         config_path.parent.mkdir(parents=True, exist_ok=True)
         config_path.write_text(json.dumps(payload, indent=2))
+        os.chmod(config_path, 0o600)
         if "shell_tools_enabled" in payload:
             os.environ["ASTOCKPURSUE_ENABLE_SHELL_TOOLS"] = "1" if payload["shell_tools_enabled"] else "0"
         return {"ok": True}

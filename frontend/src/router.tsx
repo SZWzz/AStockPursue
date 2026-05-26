@@ -64,7 +64,7 @@ export const router = createBrowserRouter([
       { path: "/runs/:runId", element: wrap(RunDetail) },
       { path: "/compare", element: wrap(Compare) },
       { path: "/correlation", element: wrap(Correlation) },
-      { path: "/correlation/docs", element: wrap(Docs) },
+      { path: "/docs", element: wrap(Docs) },
       { path: "/alpha-zoo", element: wrap(AlphaZoo) },
       { path: "/alpha-zoo/bench", element: wrap(AlphaZoo) },
       { path: "/alpha-zoo/:alphaId", element: wrap(AlphaZoo) },

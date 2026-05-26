@@ -183,10 +183,13 @@ class TestSymbolIsolation:
                 return {"000001.SZ": bars.copy()}
 
         class SignalEngine:
+            def __init__(self):
+                self.call_lengths: list[int] = []
+
             def generate(self, data_map):
                 frame = data_map["000001.SZ"]
                 assert "income_total_revenue" in frame.columns
-                assert frame["income_total_revenue"].iloc[-1] == 120.0
+                self.call_lengths.append(len(frame))
                 return {"000001.SZ": pd.Series(0.0, index=frame.index)}
 
         def fake_enrich(data_map, provider, fields_by_table, *, as_of, periods=None):
@@ -199,6 +202,7 @@ class TestSymbolIsolation:
         monkeypatch.setattr(base_engine, "TushareFundamentalProvider", lambda: object(), raising=False)
         monkeypatch.setattr(base_engine, "enrich_price_frames_with_fundamentals", fake_enrich, raising=False)
 
+        signal_engine = SignalEngine()
         engine = ChinaAEngine({"initial_cash": 1_000_000})
         engine.run_backtest(
             {
@@ -210,9 +214,15 @@ class TestSymbolIsolation:
                 "initial_cash": 1_000_000,
             },
             FakeLoader(),
-            SignalEngine(),
+            signal_engine,
             tmp_path,
         )
+
+        # Progressive generation: called at each bar after warmup.
+        # 3 bars, warmup=1 → 2 calls with expanding windows (2 bars, then 3).
+        assert len(signal_engine.call_lengths) == 2
+        assert signal_engine.call_lengths[0] == 2
+        assert signal_engine.call_lengths[1] == 3
 
     def test_backtest_records_explicit_benchmark_metadata(
         self,

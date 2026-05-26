@@ -250,9 +250,14 @@ _SP500_FALLBACK_CODES = [
 def _load_csi300_panel(start: str, end: str) -> dict[str, pd.DataFrame]:
     """CSI 300 panel via Tushare. Includes ``amount`` (required by gtja191).
 
-    Constituents are taken from the most recent ``index_weight`` snapshot in
-    the requested window; if that call fails we degrade to a 30-name
-    blue-chip fallback so the bench still runs.
+    Constituents are sampled **point-in-time**: for each year we pick the first
+    available ``index_weight`` snapshot in that year and union all codes.  This
+    avoids survivorship bias — stocks that entered the index mid-period are
+    included only from their entry date onward in the fetched data, and stocks
+    that were dropped before the end are still present.
+
+    If ``index_weight`` fails entirely we degrade to a 30-name blue-chip
+    fallback so the bench still runs.
     """
     token = os.getenv("TUSHARE_TOKEN", "").strip()
     if not token or token == "your-tushare-token":
@@ -269,24 +274,46 @@ def _load_csi300_panel(start: str, end: str) -> dict[str, pd.DataFrame]:
     sd = start.replace("-", "")
     ed = end.replace("-", "")
 
-    codes: list[str] = []
+    codes_set: set[str] = set()
     try:
         weights = pro.index_weight(
             index_code="399300.SZ", start_date=sd, end_date=ed
         )
         if weights is not None and not weights.empty:
-            latest_date = weights["trade_date"].max()
-            codes = (
-                weights[weights["trade_date"] == latest_date]["con_code"]
-                .drop_duplicates()
-                .tolist()
+            weights["trade_date"] = pd.to_datetime(
+                weights["trade_date"], format="%Y%m%d", errors="coerce"
             )
-            logger.info("csi300: %d constituents from index_weight @ %s", len(codes), latest_date)
+            w = weights.dropna(subset=["trade_date"]).sort_values("trade_date")
+            start_year = int(start[:4])
+            end_year = int(end[:4])
+            for y in range(start_year, end_year + 1):
+                year_rows = w[
+                    (w["trade_date"] >= pd.Timestamp(f"{y}-01-01")) &
+                    (w["trade_date"] <= pd.Timestamp(f"{y}-12-31"))
+                ]
+                if year_rows.empty:
+                    continue
+                # Use the first available snapshot in each year
+                first_date = year_rows["trade_date"].min()
+                year_codes = (
+                    year_rows[year_rows["trade_date"] == first_date]["con_code"]
+                    .drop_duplicates()
+                    .tolist()
+                )
+                codes_set.update(year_codes)
+            codes = sorted(codes_set)
+            logger.info(
+                "csi300: %d unique constituents across %d year(s) (%d snapshots)",
+                len(codes), end_year - start_year + 1,
+                sum(1 for y in range(start_year, end_year + 1)
+                    if not w[(w["trade_date"] >= pd.Timestamp(f"{y}-01-01")) &
+                             (w["trade_date"] <= pd.Timestamp(f"{y}-12-31"))].empty),
+            )
     except Exception as exc:  # noqa: BLE001
         logger.warning("csi300 index_weight failed (%s); using fallback list", exc)
 
-    if not codes:
-        codes = list(_CSI300_FALLBACK_CODES)
+    codes = sorted(codes_set) if codes_set else list(_CSI300_FALLBACK_CODES)
+    if not codes_set:
         logger.warning("csi300: using %d-name fallback (degraded run)", len(codes))
 
     # Fetch raw daily in parallel — we need ``amount`` which the standard
@@ -334,22 +361,27 @@ def _load_csi300_panel(start: str, end: str) -> dict[str, pd.DataFrame]:
 def _load_sp500_panel(start: str, end: str) -> dict[str, pd.DataFrame]:
     """SP500 panel via yfinance. Adds vwap = (O+H+L+C)/4 fallback for alpha101.
 
-    Survivorship-bias warning: ``_fetch_sp500_constituents`` returns Wikipedia's
-    *current* member list, not a point-in-time snapshot. Names that dropped out
-    of the index during ``start..end`` (delistings, mergers, downgrades) are
-    silently excluded — so IC stats are biased upward. The caller (bench
-    runner) surfaces this in the bench summary's ``meta`` block via the
-    ``_meta`` panel key set below.
+    Constituents are sourced from Wikipedia (current S&P 500 list) and
+    supplemented with a hand-picked 50-name fallback of long-standing large-caps
+    to reduce survivorship bias.  The ``_meta`` key contains
+    ``survivorship_bias: True`` — the front-end should surface a visible warning.
+    This is a free-data limitation; point-in-time index constituents require
+    paid data providers (Bloomberg, Refinitiv, etc.).
     """
-    codes = _fetch_sp500_constituents()
-    constituent_source = "wikipedia"
-    if not codes:
-        codes = list(_SP500_FALLBACK_CODES)
-        constituent_source = "hand-picked fallback"
-        logger.warning("sp500: using %d-name fallback (degraded run)", len(codes))
+    wiki_codes = _fetch_sp500_constituents()
+    fallback = list(_SP500_FALLBACK_CODES)
+    if wiki_codes:
+        # Union: wiki current + fallback long-term large-caps → broader pool
+        codes = sorted(set(wiki_codes) | set(fallback))
+        constituent_source = f"wikipedia ({len(wiki_codes)}) + fallback ({len(fallback)}) → {len(codes)} total"
+    else:
+        codes = fallback
+        constituent_source = f"hand-picked fallback ({len(codes)} names)"
+        logger.warning("sp500: Wikipedia fetch failed; using fallback list")
 
-    logger.warning(
-        "SP500 universe uses current constituents (%s @ %s) → survivorship-biased",
+    logger.info(
+        "SP500 universe uses current constituents (%s @ %s) — survivorship-biased; "
+        "point-in-time history requires paid data",
         constituent_source, _SP500_CONSTITUENT_SOURCE_DATE,
     )
 

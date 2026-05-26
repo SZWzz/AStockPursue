@@ -345,7 +345,33 @@ export interface AlphaBenchResult {
   reversed: number;
   dead: number;
   skipped?: number;
+  n_alphas_tested?: number;
+  n_skipped?: number;
   top5_by_ir: AlphaBenchTopRow[];
   dead_examples: AlphaBenchTopRow[];
   by_theme: Record<string, { alive: number; reversed: number; dead: number }>;
+  meta?: Record<string, unknown>;
+}
+
+export interface BenchHistoryItem {
+  run_id: string;
+  zoo: string;
+  universe: string;
+  period: string;
+  top: number;
+  alive: number;
+  reversed: number;
+  dead: number;
+  n_alphas_tested: number;
+  n_skipped: number;
+  wall_seconds: number;
+  created_at: string;
+}
+
+export interface BenchHistoryDetail extends BenchHistoryItem {
+  user_id: number;
+  by_theme: Record<string, { alive: number; reversed: number; dead: number }>;
+  top5_by_ir: AlphaBenchTopRow[];
+  dead_examples: AlphaBenchTopRow[];
+  meta: Record<string, unknown>;
 }

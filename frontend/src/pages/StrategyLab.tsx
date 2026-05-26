@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Code, Save, Trash2, Plus, Target, Sparkles, Play, CheckSquare,
-  Square, Layers, Clock, Activity, X, Bell,
+  Square, Layers, Clock, Activity, X, Bell, ChevronsRight, ChevronsLeft, ChevronRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
@@ -13,6 +13,7 @@ import { StrategyVerifyPanel } from "@/components/indicator-lab/StrategyVerifyPa
 import type { QualityHint } from "@/components/indicator-lab/types";
 import type { PriceBar, TradeMarker, EquityPoint, IndicatorPoint } from "@/lib/api";
 import { api } from "@/lib/api";
+import { usePaperTradingStore } from "@/stores/paperTradingStore";
 
 const API_BASE = "/v1/strategy-lab";
 
@@ -604,48 +605,6 @@ function loadBacktestHistory(): BacktestHistoryEntry[] {
   }
 }
 
-// ── Mock signal notifications ─────────────────────────────────────────────────
-
-const MOCK_NOTIFICATIONS: SignalNotification[] = [
-  {
-    id: "1",
-    symbol: "600519.SH",
-    side: "buy",
-    price: 1685.50,
-    timestamp: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
-    read: false,
-    reason: "RSI oversold at 28.5",
-  },
-  {
-    id: "2",
-    symbol: "000001.SZ",
-    side: "sell",
-    price: 12.38,
-    timestamp: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
-    read: false,
-    reason: "MA death cross confirmed",
-  },
-  {
-    id: "3",
-    symbol: "AAPL",
-    side: "buy",
-    price: 198.20,
-    timestamp: new Date(Date.now() - 1000 * 60 * 120).toISOString(),
-    read: true,
-    reason: "SuperTrend flipped bullish",
-  },
-];
-
-// ── Mock runtime logs ─────────────────────────────────────────────────────────
-
-const MOCK_LOGS: RuntimeLog[] = [
-  { timestamp: new Date().toISOString(), level: "info", message: "SignalEngine initialized with 10 assets" },
-  { timestamp: new Date(Date.now() - 60000).toISOString(), level: "info", message: "Data fetch complete: 600519.SH (500 bars)" },
-  { timestamp: new Date(Date.now() - 120000).toISOString(), level: "warn", message: "000001.SZ: insufficient data (only 15 bars), skipping" },
-  { timestamp: new Date(Date.now() - 180000).toISOString(), level: "info", message: "Signal generated: 600519.SH → 0.5 (long)" },
-  { timestamp: new Date(Date.now() - 300000).toISOString(), level: "error", message: "AAPL: data fetch timeout after 30s, using cached data" },
-];
-
 // ── Page Component ────────────────────────────────────────────────────────────
 
 type SidePanelTab = "list" | "templates" | "history" | "monitor";
@@ -670,6 +629,7 @@ export function StrategyLab() {
     symbol_count: number;
   } | null>(null);
   const [sidePanel, setSidePanel] = useState<SidePanelTab>("list");
+  const [rightCollapsed, setRightCollapsed] = useState(false);
 
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -679,7 +639,7 @@ export function StrategyLab() {
 
   // ── Chart state ─────────────────────────────────────────────────────────────
 
-  const [chartSymbols, setChartSymbols] = useState("600519.SH");
+  const [chartSymbols, setChartSymbols] = useState("");
   const [chartStartDate, setChartStartDate] = useState("2024-01-01");
   const [chartEndDate, setChartEndDate] = useState("2025-12-31");
   const [chartSource, setChartSource] = useState("auto");
@@ -697,7 +657,9 @@ export function StrategyLab() {
   const [chartTitle, setChartTitle] = useState("");
 
   // Monitor state
-  const [notifications, setNotifications] = useState<SignalNotification[]>(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<SignalNotification[]>([]);
+  const [runtimeLogs, setRuntimeLogs] = useState<RuntimeLog[]>([]);
+  const [expandedLogIndex, setExpandedLogIndex] = useState<number | null>(null);
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   // ── Data loading ──────────────────────────────────────────────────────────
@@ -1043,7 +1005,7 @@ export function StrategyLab() {
             </div>
             <div>
               <h1>{t.strategyLab || "Strategy Lab"}</h1>
-              <p className="page-header-desc">Design, backtest and deploy quantitative trading strategies</p>
+              <p className="page-header-desc">{t.strategyLabPageDesc}</p>
             </div>
           </div>
           <div className="page-header-actions">
@@ -1148,12 +1110,28 @@ export function StrategyLab() {
           metrics={btMetrics}
           backtestRunning={backtestRunning}
           title={chartTitle || undefined}
-          backtestLabel="Run Backtest"
+          backtestLabel={t.indicatorLabRunBacktest}
         />
       </div>
 
       {/* Right sidebar */}
-      <aside className="w-80 border-l bg-card flex flex-col shrink-0">
+      <aside className={cn(
+        "border-l bg-card flex flex-col shrink-0 transition-all duration-200",
+        rightCollapsed ? "w-10" : "w-80"
+      )}>
+        {/* Collapse toggle */}
+        <div className={cn("flex items-center border-b", rightCollapsed ? "justify-center py-2" : "justify-end px-2 py-1")}>
+          <button
+            onClick={() => setRightCollapsed(!rightCollapsed)}
+            className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
+            title={rightCollapsed ? t.expandSidebar : t.collapseSidebar}
+          >
+            {rightCollapsed ? <ChevronsLeft className="h-4 w-4" /> : <ChevronsRight className="h-4 w-4" />}
+          </button>
+        </div>
+
+        {!rightCollapsed && (
+        <>
         {/* Panel tabs */}
         <div className="tab-bar">
           {([
@@ -1206,7 +1184,7 @@ export function StrategyLab() {
                 <div className="empty-state">
                   <Code className="empty-state-icon" />
                   <p className="empty-state-text">{t.strategyLabNoStrategies}</p>
-                  <p className="empty-state-hint">Save your first strategy to see it here</p>
+                  <p className="empty-state-hint">{t.strategyLabNoStrategiesHint}</p>
                 </div>
               )}
 
@@ -1378,43 +1356,105 @@ export function StrategyLab() {
               <div>
                 <div className="flex items-center justify-between mb-2.5">
                   <span className="text-sm font-medium">{t.strategyLabRuntimeLogs}</span>
-                  <span className="text-xs text-muted-foreground">{MOCK_LOGS.length} entries</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">{runtimeLogs.length} entries</span>
+                    {runtimeLogs.length > 0 && (
+                      <button onClick={() => setRuntimeLogs([])} className="text-xs text-muted-foreground hover:text-danger transition-colors">
+                        {t.strategyLabClearLogs}
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                <div className="space-y-px max-h-64 overflow-auto bg-muted/30 rounded-lg p-2">
-                  {MOCK_LOGS.map((log, i) => (
-                    <div key={i} className="flex items-start gap-2 px-2 py-1.5 text-xs font-mono rounded hover:bg-muted/50 transition-colors">
-                      <span className="text-muted-foreground/60 shrink-0 w-14">{log.timestamp.slice(11, 19)}</span>
-                      <span className={cn(
-                        "shrink-0 w-10 text-right font-semibold uppercase",
-                        log.level === "error" ? "text-danger" : log.level === "warn" ? "text-warning" : "text-info"
-                      )}>
-                        {log.level}
-                      </span>
-                      <span className="text-muted-foreground truncate">{log.message}</span>
-                    </div>
-                  ))}
-                </div>
+                {runtimeLogs.length === 0 ? (
+                  <div className="empty-state py-6 border border-dashed border-border rounded-lg">
+                    <Activity className="empty-state-icon h-6 w-6" />
+                    <p className="empty-state-text text-xs">{t.strategyLabNoLogs}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-px max-h-64 overflow-auto bg-muted/30 rounded-lg p-2">
+                    {runtimeLogs.map((log, i) => (
+                      <div key={i}>
+                        <div
+                          className="flex items-start gap-2 px-2 py-1.5 text-xs font-mono rounded hover:bg-muted/50 transition-colors cursor-pointer"
+                          onClick={() => setExpandedLogIndex(expandedLogIndex === i ? null : i)}
+                        >
+                          <span className="text-muted-foreground/60 shrink-0 w-14">{log.timestamp.slice(11, 19)}</span>
+                          <span className={cn(
+                            "shrink-0 w-10 text-right font-semibold uppercase",
+                            log.level === "error" ? "text-danger" : log.level === "warn" ? "text-warning" : "text-info"
+                          )}>
+                            {log.level}
+                          </span>
+                          <span className="text-muted-foreground truncate flex-1">{log.message}</span>
+                          <ChevronRight className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", expandedLogIndex === i && "rotate-90")} />
+                        </div>
+                        {expandedLogIndex === i && (
+                          <div className="px-2 py-2 mx-2 mb-1 rounded bg-muted/50 text-xs text-muted-foreground space-y-1">
+                            <div><span className="text-muted-foreground/60">{t.strategyLabLogDetailTime}：</span>{log.timestamp}</div>
+                            <div><span className="text-muted-foreground/60">{t.strategyLabLogDetailLevel}：</span>{log.level.toUpperCase()}</div>
+                            <div><span className="text-muted-foreground/60">{t.strategyLabLogDetailMessage}：</span>{log.message}</div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Running strategies placeholder */}
+              {/* Running strategies — linked to Paper Trading */}
               <div>
                 <div className="flex items-center gap-2 mb-2.5">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <span className="text-sm font-medium">{t.strategyLabLiveMonitor}</span>
                 </div>
-                <div className="empty-state py-8 border border-dashed border-border rounded-lg">
-                  <Activity className="empty-state-icon h-8 w-8" />
-                  <p className="empty-state-text">{t.strategyLabNoRunning}</p>
-                </div>
+                <RunningStrategiesList />
               </div>
             </div>
           )}
         </div>
+        </>
+        )}
       </aside>
 
     </div>
   );
+}
+
+function RunningStrategiesList() {
+  const { t } = useI18n();
+  try {
+    const runs = usePaperTradingStore(s => s.runs);
+    const activeRunId = usePaperTradingStore(s => s.activeRunId);
+    const sseStatus = usePaperTradingStore(s => s.sseStatus);
+    const running = runs.filter(r => r.status === "running" || r.status === "paused");
+    if (running.length === 0) return (
+      <div className="empty-state py-8 border border-dashed border-border rounded-lg">
+        <Activity className="empty-state-icon h-8 w-8" />
+        <p className="empty-state-text">{t.strategyLabNoRunningStrategies}</p>
+      </div>
+    );
+    return (
+      <div className="space-y-2">
+        {running.map(run => (
+          <div key={run.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs border ${activeRunId === run.id ? "border-primary/30 bg-primary/5" : "border-border"}`}>
+            <div className={`w-2 h-2 rounded-full shrink-0 ${run.status === "running" ? "bg-emerald-400 animate-pulse" : "bg-warning"}`} />
+            <div className="min-w-0 flex-1">
+              <div className="font-medium truncate">{run.run_name}</div>
+              <div className="text-muted-foreground text-[10px]">{run.market} · {sseStatus === "connected" ? t.strategyLabLiveConnection : run.status}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  } catch {
+    return (
+      <div className="empty-state py-8 border border-dashed border-border rounded-lg">
+        <Activity className="empty-state-icon h-8 w-8" />
+        <p className="empty-state-text">{t.strategyLabNoRunningStrategies}</p>
+      </div>
+    );
+  }
 }
 
 interface StrategyVerifyResult {

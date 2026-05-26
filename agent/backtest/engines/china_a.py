@@ -61,7 +61,21 @@ class ChinaAEngine(BaseEngine):
                 if bar_date is not None and entry_date is not None and bar_date == entry_date:
                     return False
 
-        # 3. Price limits
+        # 3. Open-based price limits (execution-time check).
+        #    _process_signals() executes at bar open, so we must verify
+        #    the stock is tradable at that price — not just at the close.
+        open_price = float(bar.get("open", 0))
+        pre_close = float(bar.get("pre_close", 0))
+        if open_price > 0 and pre_close > 0:
+            open_pct = (open_price - pre_close) / pre_close
+            limit = _price_limit(symbol)
+            if direction == 1 and open_pct >= limit - 0.001:
+                return False  # opened at limit-up, cannot buy
+            if direction == 0 and open_pct <= -limit + 0.001:
+                return False  # opened at limit-down, cannot sell
+
+        # 4. Close-based price limits (supplementary — catches stocks that
+        #    hit the limit during the session)
         pct_chg = _calc_pct_change(bar)
         if pct_chg is not None:
             limit = _price_limit(symbol)

@@ -25,6 +25,10 @@ import {
   AlertTriangle,
   XCircle,
   Library,
+  Download,
+  Square,
+  History,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -34,6 +38,7 @@ import {
   type AlphaDetailResponse,
   type AlphaBenchResult,
   type AlphaBenchTopRow,
+  type BenchHistoryItem,
 } from "@/lib/api";
 import { echarts } from "@/lib/echarts";
 import { getChartTheme } from "@/lib/chart-theme";
@@ -107,6 +112,11 @@ function metaString(meta: Record<string, unknown>, key: string): string {
 /** Resolve a dynamic i18n key against the active bundle; falls back to key. */
 function tkey(t: Record<string, string>, key: string): string {
   return t[key] || key;
+}
+
+/** Translate a theme name via i18n azTheme_<name> key; falls back to original. */
+function translateTheme(t: Record<string, string>, theme: string): string {
+  return t[`azTheme_${theme}`] || theme;
 }
 
 /* ---------- Page entry ---------- */
@@ -287,7 +297,7 @@ function BrowseView() {
             <option value="">{t.azAllThemes}</option>
             {themeOptions.map((tname) => (
               <option key={tname} value={tname}>
-                {tname}
+                {translateTheme(t, tname)}
               </option>
             ))}
           </select>
@@ -367,10 +377,10 @@ function BrowseView() {
                     </td>
                     <td className="px-4 py-2 text-xs">{a.zoo}</td>
                     <td className="px-4 py-2 text-xs text-muted-foreground">
-                      {(a.theme || []).join(", ") || "—"}
+                      {(a.theme || []).map(th => translateTheme(t, th)).join(", ") || "—"}
                     </td>
                     <td className="px-4 py-2 text-xs text-muted-foreground hidden md:table-cell">
-                      {(a.universe || []).join(", ") || "—"}
+                      {(a.universe || []).map(u => tkey(t, `azUniverse_${u}`)).join(", ") || "—"}
                     </td>
                     <td className="px-4 py-2 text-right font-mono tabular-nums text-xs">
                       {a.decay_horizon ?? "—"}
@@ -590,6 +600,11 @@ function BenchView() {
   const sourceRef = useRef<EventSource | null>(null);
   const doneRef = useRef(false);
 
+  // History
+  const [history, setHistory] = useState<BenchHistoryItem[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
+
   const universeOptions = useMemo(
     () => UNIVERSE_OPTION_KEYS.map((u) => ({ value: u.value, label: tkey(t, u.labelKey) })),
     [t],
@@ -601,6 +616,22 @@ function BenchView() {
       sourceRef.current = null;
     };
   }, []);
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const data = await api.listBenchHistory(50, 0);
+      setHistory(data.history || []);
+    } catch { /* ignore */ }
+    finally { setHistoryLoading(false); }
+  };
+
+  useEffect(() => { loadHistory(); }, []);
+
+  // Reload history when a bench completes
+  useEffect(() => {
+    if (status === "done") loadHistory();
+  }, [status]);
 
   const startBench = async (e: FormEvent) => {
     e.preventDefault();
@@ -681,6 +712,44 @@ function BenchView() {
       source.close();
       sourceRef.current = null;
     });
+  };
+
+  const cancelBench = async () => {
+    if (!jobId) return;
+    try {
+      await api.cancelAlphaBench(jobId);
+      sourceRef.current?.close();
+      sourceRef.current = null;
+      setStatus("idle");
+      toast.info("Bench cancelled");
+    } catch {
+      toast.error("Failed to cancel");
+    }
+  };
+
+  const exportCsv = () => {
+    if (!result) return;
+    const rows = result.top5_by_ir || [];
+    const headers = ["Alpha ID", "IC Mean", "IR", "Theme", "Category"];
+    const csvLines = [headers.join(",")];
+    for (const r of rows) {
+      csvLines.push([
+        r.id,
+        r.ic_mean.toFixed(4),
+        r.ir.toFixed(4),
+        (r.theme || []).join(";"),
+        r.category,
+      ].join(","));
+    }
+    csvLines.push("");
+    csvLines.push(`Alive,${result.alive},Reversed,${result.reversed},Dead,${result.dead}`);
+    const blob = new Blob(["﻿" + csvLines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `alpha-bench-${zoo}-${universe}-${period}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const busy = status === "submitting" || status === "streaming";
@@ -767,22 +836,28 @@ function BenchView() {
             className="w-full px-3 py-2 rounded-lg border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
           />
         </div>
-        <div className="flex flex-col gap-1">
-          <button
-            type="submit"
-            disabled={busy}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition disabled:opacity-50"
-          >
-            {busy ? (
-              <>
+        <div className="flex gap-2">
+          {busy ? (
+            <>
+              <button
+                type="button"
+                onClick={cancelBench}
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg border border-danger/30 text-danger text-sm font-medium hover:bg-danger/10 transition"
+              >
+                <Square className="h-3.5 w-3.5" aria-hidden="true" /> Cancel
+              </button>
+              <div className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary/50 text-primary-foreground text-sm font-medium">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> {t.azBenchRunning}
-              </>
-            ) : (
-              <>
-                <Play className="h-3.5 w-3.5" aria-hidden="true" /> {t.azRunBench}
-              </>
-            )}
-          </button>
+              </div>
+            </>
+          ) : (
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition"
+            >
+              <Play className="h-3.5 w-3.5" aria-hidden="true" /> {t.azRunBench}
+            </button>
+          )}
         </div>
         {formError && (
           <p
@@ -796,11 +871,127 @@ function BenchView() {
 
       {/* Progress */}
       {(status === "submitting" || status === "streaming") && (
-        <ProgressPanel jobId={jobId} progress={progress} />
+        <ProgressPanel jobId={jobId} progress={progress} onCancel={cancelBench} />
       )}
 
       {/* Result */}
-      {result && <ResultPanel result={result} />}
+      {result && (
+        <>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold">{t.azBenchTitle}</h2>
+            <button
+              onClick={exportCsv}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border hover:bg-muted transition"
+            >
+              <Download className="h-3.5 w-3.5" /> Export CSV
+            </button>
+          </div>
+          <ResultPanel result={result} />
+        </>
+      )}
+
+      {/* History */}
+      <div className="border-t pt-6">
+        <button
+          onClick={() => { setShowHistory(!showHistory); if (!showHistory) loadHistory(); }}
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <History className="h-4 w-4" />
+          {t.azBenchHistory || "Benchmark History"}
+          <span className="text-xs text-muted-foreground">({history.length})</span>
+        </button>
+        {showHistory && (
+          <div className="mt-3">
+            {historyLoading ? (
+              <div className="flex items-center justify-center py-8 text-xs text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin mr-1" /> Loading...
+              </div>
+            ) : history.length === 0 ? (
+              <div className="text-center py-8 text-xs text-muted-foreground">
+                No saved benchmarks yet. Run a benchmark to see it here.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="py-2 pr-3">Zoo</th>
+                      <th className="py-2 pr-3">Universe</th>
+                      <th className="py-2 pr-3">Period</th>
+                      <th className="py-2 pr-3 text-right">Alive</th>
+                      <th className="py-2 pr-3 text-right">Rev</th>
+                      <th className="py-2 pr-3 text-right">Dead</th>
+                      <th className="py-2 pr-3 text-right">Time</th>
+                      <th className="py-2 pr-3">Date</th>
+                      <th className="py-2" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((h) => (
+                      <tr key={h.run_id} className="border-b last:border-0 hover:bg-muted/20">
+                        <td className="py-2 pr-3 font-medium">{h.zoo}</td>
+                        <td className="py-2 pr-3 text-muted-foreground">{tkey(t, `azUniverse_${h.universe}`)}</td>
+                        <td className="py-2 pr-3 font-mono text-muted-foreground">{h.period}</td>
+                        <td className="py-2 pr-3 text-right text-emerald-400 font-mono">{h.alive}</td>
+                        <td className="py-2 pr-3 text-right text-amber-400 font-mono">{h.reversed}</td>
+                        <td className="py-2 pr-3 text-right text-danger font-mono">{h.dead}</td>
+                        <td className="py-2 pr-3 text-right font-mono text-muted-foreground">
+                          {h.wall_seconds ? `${h.wall_seconds.toFixed(0)}s` : "—"}
+                        </td>
+                        <td className="py-2 pr-3 text-muted-foreground">
+                          {h.created_at ? h.created_at.slice(0, 10) : "—"}
+                        </td>
+                        <td className="py-2">
+                          <div className="flex gap-1">
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const detail = await api.getBenchHistoryDetail(h.run_id);
+                                  if (detail.run) {
+                                    setResult({
+                                      alive: detail.run.alive,
+                                      reversed: detail.run.reversed,
+                                      dead: detail.run.dead,
+                                      n_alphas_tested: detail.run.n_alphas_tested,
+                                      n_skipped: detail.run.n_skipped,
+                                      top5_by_ir: detail.run.top5_by_ir,
+                                      dead_examples: detail.run.dead_examples,
+                                      by_theme: detail.run.by_theme,
+                                      meta: detail.run.meta,
+                                    });
+                                    setStatus("done");
+                                  }
+                                } catch { /* ignore */ }
+                              }}
+                              className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
+                              title="View"
+                            >
+                              <Play className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!confirm("Delete this benchmark?")) return;
+                                try {
+                                  await api.deleteBenchHistory(h.run_id);
+                                  loadHistory();
+                                } catch { /* ignore */ }
+                              }}
+                              className="p-1 text-muted-foreground hover:text-danger rounded transition-colors"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -808,9 +999,11 @@ function BenchView() {
 function ProgressPanel({
   jobId,
   progress,
+  onCancel,
 }: {
   jobId: string | null;
   progress: BenchProgress | null;
+  onCancel?: () => void;
 }) {
   const { t } = useI18n();
   const pct = progress && progress.n_total > 0
@@ -823,11 +1016,21 @@ function ProgressPanel({
           <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
           {jobId ? t.azBenchJob.replace("{id}", jobId.slice(0, 12)) : t.azBenchSubmitting}
         </span>
-        {progress && (
-          <span className="font-mono tabular-nums">
-            {progress.n_done} / {progress.n_total}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {progress && (
+            <span className="font-mono tabular-nums">
+              {progress.n_done} / {progress.n_total}
+            </span>
+          )}
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="px-2 py-0.5 text-[10px] rounded border border-danger/30 text-danger hover:bg-danger/10 transition-colors"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </div>
       <div className="h-2 rounded-full bg-muted overflow-hidden">
         <div
@@ -853,7 +1056,7 @@ function ResultPanel({ result }: { result: AlphaBenchResult }) {
     if (!chartRef.current) return;
     const theme = getChartTheme();
     const chart = echarts.init(chartRef.current);
-    const themes = Object.keys(result.by_theme || {}).sort();
+    const themes = Object.keys(result.by_theme || {}).sort().map(k => translateTheme(t, k));
     const aliveSeries = themes.map((k) => result.by_theme[k].alive);
     const reversedSeries = themes.map((k) => result.by_theme[k].reversed);
     const deadSeries = themes.map((k) => result.by_theme[k].dead);
@@ -903,6 +1106,21 @@ function ResultPanel({ result }: { result: AlphaBenchResult }) {
 
   return (
     <div className="space-y-4">
+      {/* Survivorship bias warning */}
+      {(result.meta && Boolean(result.meta.survivorship_bias)) && (
+        <div className="flex items-start gap-2 px-4 py-3 rounded-lg border border-amber-500/30 bg-amber-500/5 text-sm">
+          <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-medium text-amber-600 dark:text-amber-400">Survivorship Bias Warning</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              This universe uses current index constituents, not point-in-time historical membership.
+              Stocks that left the index (due to delisting, mergers, or downgrades) are excluded,
+              so IC statistics may be biased upward. Point-in-time data requires paid providers.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {totals.map(({ label, value, icon: Icon, tone }) => (
@@ -970,7 +1188,7 @@ function TopTable({ title, rows }: { title: string; rows: AlphaBenchTopRow[] }) 
                 </td>
                 <td className="px-4 py-2 text-right font-mono tabular-nums text-xs">{fmtNum(r.ic_mean)}</td>
                 <td className="px-4 py-2 text-right font-mono tabular-nums text-xs">{fmtNum(r.ir)}</td>
-                <td className="px-4 py-2 text-xs text-muted-foreground">{(r.theme || []).join(", ") || "—"}</td>
+                <td className="px-4 py-2 text-xs text-muted-foreground">{(r.theme || []).map(th => translateTheme(t, th)).join(", ") || "—"}</td>
                 <td className="px-4 py-2 text-xs">
                   <CategoryBadge category={r.category} />
                 </td>

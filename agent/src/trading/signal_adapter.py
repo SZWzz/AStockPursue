@@ -82,16 +82,28 @@ class SignalAdapter:
         bar: dict[str, pd.Series],
         data_map: dict[str, pd.DataFrame],
     ) -> dict[str, float]:
-        """Batch fallback: append new bar, call generate(), extract last confirmed signal.
+        """Generate signal from *existing* data, then append the new bar.
 
-        Returns the signal from the **second-to-last** bar (confirmed bar),
-        matching the ``_align()`` shift(1) semantics in the backtest engine.
+        The strategy never sees the current bar — it only has access to data
+        up to the previous bar.  This prevents look-ahead bias by construction:
+        the signal that drives execution at bar T is computed from data[0..T-1].
         """
+        # 1. Generate signals using only existing data (strategy cannot see new bar)
+        signal_map = self._engine.generate(data_map)
+
+        result: dict[str, float] = {}
+        for code, series in signal_map.items():
+            if len(series) < 1:
+                continue
+            val = float(series.iloc[-1])
+            if pd.isna(val) or abs(val) <= _EPSILON:
+                continue
+            result[code] = val
+
+        # 2. Append the new bar for future calls
         for code, row in bar.items():
             if code in data_map:
                 df = data_map[code]
-                # Resolve bar timestamp: prefer the Series name, fall back to
-                # the last existing index + 1 to keep ordering stable.
                 if hasattr(row, "name") and row.name is not None:
                     ts = row.name
                 elif len(df) > 0:
@@ -100,20 +112,8 @@ class SignalAdapter:
                     ts = pd.Timestamp.now()
                 new_row = pd.DataFrame([row], index=[ts])
                 data_map[code] = pd.concat([df, new_row])
-                # Bound history to keep concat cost O(_MAX_HISTORY) per call
                 if len(data_map[code]) > _MAX_HISTORY:
                     data_map[code] = data_map[code].iloc[-_MAX_HISTORY:]
-
-        signal_map = self._engine.generate(data_map)
-
-        result: dict[str, float] = {}
-        for code, series in signal_map.items():
-            if len(series) < 2:
-                continue
-            val = series.iloc[-2]
-            if pd.isna(val) or abs(float(val)) <= _EPSILON:
-                continue
-            result[code] = float(val)
 
         return result
 

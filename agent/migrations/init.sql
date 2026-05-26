@@ -165,3 +165,27 @@ CREATE TABLE IF NOT EXISTS vt_indicator_versions (
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_indicator_versions ON vt_indicator_versions(indicator_id);
+
+-- ---------------------------------------------------------------------------
+-- 12. Alpha Bench Runs (Phase 4, benchmark history)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS vt_alpha_bench_runs (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id         INTEGER NOT NULL REFERENCES vt_users(id) ON DELETE CASCADE,
+    zoo             VARCHAR(32) NOT NULL,
+    universe        VARCHAR(32) NOT NULL,
+    period          VARCHAR(32) NOT NULL,
+    top             INTEGER NOT NULL DEFAULT 20,
+    alive           INTEGER NOT NULL DEFAULT 0,
+    reversed        INTEGER NOT NULL DEFAULT 0,
+    dead            INTEGER NOT NULL DEFAULT 0,
+    n_alphas_tested INTEGER NOT NULL DEFAULT 0,
+    n_skipped       INTEGER NOT NULL DEFAULT 0,
+    by_theme        JSONB DEFAULT '{}',
+    top5_by_ir      JSONB DEFAULT '[]',
+    dead_examples   JSONB DEFAULT '[]',
+    meta            JSONB DEFAULT '{}',
+    wall_seconds    DOUBLE PRECISION,
+    created_at      TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_alpha_bench_runs_user ON vt_alpha_bench_runs(user_id, created_at DESC);

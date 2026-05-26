@@ -101,9 +101,40 @@ class BacktestDriver:
     ) -> dict:
         """Pre-compute all weights, then feed bars through TradingEngine."""
         codes = config.get("codes", [])
+        if not codes:
+            codes = sorted(data_map.keys())
 
-        # Generate signals (one-shot)
-        signal_map = signal_engine.generate(data_map)
+        # Generate signals progressively — strategy only sees data up to the
+        # current bar.  This prevents look-ahead bias by construction: the
+        # signal value at bar T is computed using only data[0..T].
+        warmup_bars = config.get("warmup_bars", 0) or max(min(50, len(data_map) or 1), 1)
+
+        all_dates_set: set = set()
+        for df in data_map.values():
+            all_dates_set.update(df.index)
+        all_dates = pd.DatetimeIndex(sorted(all_dates_set))
+
+        signal_map: dict[str, pd.Series] = {}
+        for c in codes:
+            if c in data_map:
+                signal_map[c] = pd.Series(index=data_map[c].index, dtype=float)
+
+        if len(all_dates) > 0:
+            wb = min(warmup_bars, len(all_dates) - 1)
+            for i in range(wb, len(all_dates)):
+                ts = all_dates[i]
+                truncated: dict[str, pd.DataFrame] = {}
+                for c in codes:
+                    if c in data_map and ts in data_map[c].index:
+                        truncated[c] = data_map[c].loc[:ts]
+                if not truncated:
+                    continue
+                sig = signal_engine.generate(truncated)
+                for c in truncated:
+                    s = sig.get(c)
+                    if s is not None and len(s) > 0:
+                        signal_map[c].loc[ts] = float(s.iloc[-1])
+
         valid_codes = sorted(c for c in signal_map if c in data_map)
         if not valid_codes:
             print(json.dumps({"error": "No valid signals generated"}))

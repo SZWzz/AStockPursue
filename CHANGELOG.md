@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026.5.26
+
+### Fixed
+
+- **回测引擎前瞻性偏差（4 项改进）** — 审计发现策略可通过 `generate()` 访问未来数据，导致回测虚高
+  - **Fast 模式渐进式信号生成** — `_run_fast()` 将一次性 `generate(data_map)` 替换为逐 bar 扩展窗口调用，策略在时点 T 只能看到 `data[0..T]`，从根源消除未来数据泄漏
+  - **Simulation 模式数据截断** — `on_bar_batch()` 重排序：先 `generate()` 再追加新 bar，策略看不到当前 bar 数据，与 `_align()` shift(1) 语义一致
+  - **止损/止盈支持 bar 内高低价** — `RiskPipeline` 新增 `check_position_intraday()` 方法，使用 bar high/low 检测止损/止盈在 bar 内触及，跳空以开盘价成交；优先级：止损 > 追迹止损 > 止盈
+  - **开盘价涨跌停判断** — `ChinaAEngine.can_execute()` 新增 open-based 涨跌停检查，开盘即封板时直接阻止交易，避免用收盘价判断但开盘价执行的时机不一致
+- **MCP 服务器设计缺陷（5 项修复）**
+  - `run_swarm` 移除 360×5s 轮询阻塞，立即返回 run_id，通过 `get_swarm_status`/`get_run_result` 异步查询
+  - `write_file`/`read_file` 新增 `run_dir` 参数，默认工作目录 `~/.AStockPursue/workspace/`，修复文件操作完全失效的问题
+  - `_run_sync` 替换为持久后台事件循环 `_get_mcp_loop()`，避免每次 MCP 调用创建新线程
+  - `_unresolved` 返回格式从 `[code]` 升级为 `[{code, reason}]`，不再静默吞掉错误原因
+  - MCP 配置文件写入后 `chmod 0o600`，防止凭证泄露
+
+### Changed
+
+- **Lab 模块重组** — `sandbox.py` 移至 `src/security/`，`repository.py`/`pg_repository.py` 移至 `src/lab/storage/`，`alpha_bench_store.py` 新建于 `src/db/`
+- **Docker Compose 合并** — `docker-compose.pg.yml` 合并入 `docker-compose.yml`，通过 `--profile pg` 按需启动 PostgreSQL
+- **API 版本化** — 所有路由挂载 `/v1` 前缀，前端 `request()` 统一拼接 `/v1` 前缀
+- **前端类型拆分** — API 合约类型从 `lib/api.ts` 提取到独立 `types/api.ts`
+- **i18n 新增 AlphaZoo/IndicatorLab 相关 key**
+
 ## 2026.5.25
 
 ### Added

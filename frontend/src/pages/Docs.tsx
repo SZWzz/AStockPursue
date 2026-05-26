@@ -28,7 +28,7 @@ export function Docs() {
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-        <Link to="/correlation" className="hover:text-primary transition-colors">{t.correlation || "Correlation Matrix"}</Link>
+        <Link to="/" className="hover:text-primary transition-colors">{t.home || "Home"}</Link>
         <span>/</span>
         <span className="text-foreground">{t.docsBreadcrumb}</span>
       </div>
