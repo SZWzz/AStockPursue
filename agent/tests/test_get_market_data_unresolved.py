@@ -63,7 +63,10 @@ def _call(codes):
 def test_unresolved_symbol_is_surfaced(good_only):
     out = _call(["GOOD.US", "BOGUS.US"])
     assert "GOOD.US" in out
-    assert out.get("_unresolved") == ["BOGUS.US"]
+    unresolved = out.get("_unresolved", [])
+    assert len(unresolved) == 1
+    assert unresolved[0]["code"] == "BOGUS.US"
+    assert unresolved[0]["reason"] == "no data returned"
 
 
 def test_all_resolved_has_no_unresolved_key(good_only):
@@ -76,7 +79,10 @@ def test_all_resolved_has_no_unresolved_key(good_only):
 def test_loader_exception_is_contained_not_lost(monkeypatch):
     monkeypatch.setattr(mcp_server, "_get_loader", lambda src: _BoomLoader)
     out = _call(["AAA.US", "BBB.US"])  # must not raise an opaque MCP error
-    assert sorted(out.get("_unresolved", [])) == ["AAA.US", "BBB.US"]
+    unresolved = out.get("_unresolved", [])
+    assert sorted([u["code"] for u in unresolved]) == ["AAA.US", "BBB.US"]
+    for u in unresolved:
+        assert "simulated loader blow-up" in u["reason"] or "loader yfinance failed" in u["reason"]
 
 
 def test_partial_loader_only_missing_codes_unresolved(monkeypatch):
@@ -85,7 +91,7 @@ def test_partial_loader_only_missing_codes_unresolved(monkeypatch):
     monkeypatch.setattr(mcp_server, "_get_loader", lambda src: _PartialLoader)
     out = _call(["OK1.US", "OK2.US", "MISS1.US", "MISS2.US"])
     assert "OK1.US" in out and "OK2.US" in out
-    assert sorted(out.get("_unresolved", [])) == ["MISS1.US", "MISS2.US"]
+    assert sorted([u["code"] for u in out.get("_unresolved", [])]) == ["MISS1.US", "MISS2.US"]
 
 
 def test_swallowed_loader_exception_is_logged(monkeypatch, caplog):
