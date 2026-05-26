@@ -23,6 +23,22 @@
 - **API 版本化** — 所有路由挂载 `/v1` 前缀，前端 `request()` 统一拼接 `/v1` 前缀
 - **前端类型拆分** — API 合约类型从 `lib/api.ts` 提取到独立 `types/api.ts`
 - **i18n 新增 AlphaZoo/IndicatorLab 相关 key**
+- **前端 UX 全面优化**
+  - **回测指标卡片化** — ChartPanel 回测指标从 K 线图底部文字条移至图表上方网格卡片，不会被工具栏按钮遮挡
+  - **权益曲线 Y 轴修复** — EquityChart grid 边距从 8px 增至 60px，containLabel 不再与绘图区域重叠
+  - **模拟盘代码/预览分离** — PaperTrading `codes` 状态拆分为 `deployCodes`（部署弹窗）和 `previewSymbol`（右侧预览），互不污染
+  - **模拟盘快速部署** — 策略库卡片新增「快速部署」按钮，一键填入代码 + 打开部署弹窗
+  - **模拟盘克隆修复** — 克隆从 `/v1/runs/{runId}/config` API 读取原始 codes
+  - **模拟盘风控保存** — 风控 tab 新增「保存风控配置」按钮，调用 `PUT /v1/runs/{runId}/risk`
+  - **模拟盘 SSE 切换** — 切换运行实例时自动断开旧 SSE 连接，避免事件串扰
+  - **模拟盘 K 线高度自适应** — 选中运行后 K 线图 220→320px，权益曲线 ResizeObserver 动态撑满
+  - **策略实验室移除空壳 Monitor tab** — 删除无实际功能的运行监控面板及跨页面耦合
+  - **策略实验室 AI 取消** — 代码生成按钮旁新增取消按钮（AbortController），可中断长时间 SSE 流
+  - **策略实验室批量删除** — 删除策略前弹出 confirm 确认，防止误删
+  - **useBacktest hook 提取** — PaperTrading/StrategyLab/IndicatorLab 共享回测状态管理，减少 ~200 行重复代码
+  - **自选股搜索输入** — WatchlistPanel 纯文本输入替换为 StockInput 组件，支持代码/名称/拼音搜索
+  - **自选股实时价格** — 新增 10 秒轮询自动刷新价格，无需手动点刷新
+  - **免费数据源卡片** — Settings 页面免费数据源区域加边框卡片 + 内层描边，层级分明
 
 ## 2026.5.25
 

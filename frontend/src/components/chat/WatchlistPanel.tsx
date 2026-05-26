@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
-import { Plus, RefreshCw, X, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { RefreshCw, X, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { authHeaders } from "@/lib/apiAuth";
+import { StockInput } from "@/components/indicator-lab/StockInput";
 
 interface WatchlistItem {
   id: number;
@@ -27,8 +28,9 @@ export function WatchlistPanel({ collapsed, onAnalyze }: WatchlistPanelProps) {
   const { t } = useI18n();
   const [symbols, setSymbols] = useState<WatchlistItem[]>([]);
   const [prices, setPrices] = useState<Record<string, PriceInfo>>({});
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [stockInput, setStockInput] = useState("");
+  const [adding, setAdding] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadWatchlist = useCallback(async () => {
     try {
@@ -47,24 +49,32 @@ export function WatchlistPanel({ collapsed, onAnalyze }: WatchlistPanelProps) {
   }, []);
 
   useEffect(() => { loadWatchlist(); }, [loadWatchlist]);
-  useEffect(() => { if (symbols.length > 0) loadPrices(); }, [symbols.length, loadPrices]);
 
-  const addSymbol = async () => {
-    const s = input.trim().toUpperCase();
+  // Real-time price polling every 10s
+  useEffect(() => {
+    if (symbols.length === 0) return;
+    loadPrices();
+    pollRef.current = setInterval(loadPrices, 10000);
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [symbols, loadPrices]);
+
+  const addSymbol = async (code: string) => {
+    const s = code.trim().toUpperCase();
     if (!s) return;
-    setLoading(true);
+    setAdding(true);
     try {
       await fetch("/v1/api/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({ symbol: s }),
       });
-      setInput("");
+      setStockInput("");
       await loadWatchlist();
-      // Fetch price for new symbol immediately
       setTimeout(() => loadPrices(), 500);
     } catch { /* ignore */ }
-    setLoading(false);
+    setAdding(false);
   };
 
   const removeSymbol = async (symbol: string) => {
@@ -81,33 +91,25 @@ export function WatchlistPanel({ collapsed, onAnalyze }: WatchlistPanelProps) {
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Add input */}
-      <form
-        onSubmit={(e) => { e.preventDefault(); addSymbol(); }}
-        className="flex gap-1 px-3 py-2 border-b shrink-0"
-      >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder={t.watchlistPlaceholder || "600519, AAPL..."}
-          className="flex-1 min-w-0 rounded border bg-background px-2 py-1 text-[11px] outline-none focus:border-primary"
-        />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition disabled:opacity-50"
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
+      {/* Search + add */}
+      <div className="flex items-center gap-1 px-3 py-2 border-b shrink-0">
+        <div className="flex-1 min-w-0">
+          <StockInput
+            value={stockInput}
+            onChange={(v) => { setStockInput(v); if (v.trim()) addSymbol(v); }}
+            placeholder={t.watchlistPlaceholder || "搜索股票代码或名称…"}
+          />
+        </div>
         <button
           type="button"
           onClick={loadPrices}
-          className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition"
+          disabled={adding}
+          className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition shrink-0 self-start mt-1"
           title={t.watchlistRefresh || "Refresh"}
         >
           <RefreshCw className="h-3.5 w-3.5" />
         </button>
-      </form>
+      </div>
 
       {/* Symbol list */}
       <div className="flex-1 overflow-auto">

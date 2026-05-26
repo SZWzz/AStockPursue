@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as echarts from "echarts";
 import { getChartTheme } from "@/lib/chart-theme";
 import { useI18n } from "@/lib/i18n";
@@ -6,26 +6,47 @@ import type { EquityPoint } from "@/services/paperTrading";
 
 interface Props {
   data: EquityPoint[];
-  height?: number;
+  minHeight?: number;
 }
 
-export default function EquityChart({ data, height = 300 }: Props) {
+export default function EquityChart({ data, minHeight = 180 }: Props) {
   const { t } = useI18n();
-  const chartRef = useRef<HTMLDivElement>(null);
-  const instanceRef = useRef<echarts.ECharts | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<echarts.ECharts | null>(null);
+  const [containerHeight, setContainerHeight] = useState(minHeight);
 
   useEffect(() => {
-    if (!chartRef.current) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerHeight(Math.max(minHeight, entry.contentRect.height));
+      }
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [minHeight]);
 
-    if (!instanceRef.current) {
-      instanceRef.current = echarts.init(chartRef.current, getChartTheme());
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    if (!chartRef.current) {
+      chartRef.current = echarts.init(containerRef.current, getChartTheme());
     }
 
+    const chart = chartRef.current;
     const times = data.map((d) => d.point_time);
     const equity = data.map((d) => d.equity);
     const drawdown = data.map((d) => d.drawdown * 100);
 
-    instanceRef.current.setOption(
+    const gridTop = 8;
+    const gridBottom = 30;
+    const totalH = containerHeight;
+    const mainH = Math.max(40, totalH - gridTop - gridBottom - 50); // 50 for drawdown sub-chart
+    const ddTop = gridTop + mainH + 8;
+    const ddH = Math.max(20, totalH - ddTop - gridBottom);
+
+    chart.setOption(
       {
         tooltip: {
           trigger: "axis",
@@ -36,8 +57,8 @@ export default function EquityChart({ data, height = 300 }: Props) {
           bottom: 0,
         },
         grid: [
-          { left: 60, right: 20, top: 20, height: "70%" },
-          { left: 60, right: 20, top: "78%", height: "18%" },
+          { left: 60, right: 20, top: gridTop, height: mainH },
+          { left: 60, right: 20, top: ddTop, height: ddH },
         ],
         xAxis: [
           {
@@ -124,11 +145,14 @@ export default function EquityChart({ data, height = 300 }: Props) {
       true
     );
 
+    const handleResize = () => chart.resize();
+    window.addEventListener("resize", handleResize);
     return () => {
-      instanceRef.current?.dispose();
-      instanceRef.current = null;
+      window.removeEventListener("resize", handleResize);
+      chart.dispose();
+      chartRef.current = null;
     };
-  }, [data, t]);
+  }, [data, t, containerHeight]);
 
-  return <div ref={chartRef} style={{ width: "100%", height }} />;
+  return <div ref={containerRef} style={{ width: "100%", height: "100%", minHeight }} />;
 }

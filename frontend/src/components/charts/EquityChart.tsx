@@ -57,8 +57,8 @@ export function EquityChart({ data, height = 300 }: Props) {
       },
       legend: { data: ["Equity", "Drawdown%"], textStyle: { color: t.textColor, fontSize: 11 }, right: 60, top: 4 },
       grid: [
-        { left: 8, right: 8, top: 36, height: "56%", containLabel: true },
-        { left: 8, right: 8, top: "68%", height: "20%", containLabel: true },
+        { left: 60, right: 60, top: 36, height: "56%" },
+        { left: 60, right: 60, top: "68%", height: "20%" },
       ],
       xAxis: [
         { type: "category", data: dates, gridIndex: 0, axisLine: { lineStyle: { color: t.axisColor } }, axisLabel: { color: t.textColor, fontSize: 10 } },

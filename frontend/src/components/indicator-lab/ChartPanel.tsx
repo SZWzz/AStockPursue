@@ -72,7 +72,8 @@ export function ChartPanel({
     if (!el) return;
     const ro = new ResizeObserver(() => {
       const h = el.clientHeight;
-      setChartHeight(Math.max(280, h - 8));
+      // 8 = container padding, 28 = CandlestickChart internal toolbar
+      setChartHeight(Math.max(280, h - 36));
     });
     ro.observe(el);
     return () => ro.disconnect();
@@ -154,8 +155,46 @@ export function ChartPanel({
         </div>
       </div>
 
+      {/* Metrics card — above the chart */}
+      {metrics && Object.keys(metrics).length > 0 && (
+        <div className="shrink-0 px-3 pt-2">
+          <div className="grid grid-cols-4 sm:grid-cols-5 gap-x-3 gap-y-1.5 rounded-lg border bg-muted/30 px-3 py-2">
+            {metrics.total_return != null && (
+              <div><span className="text-[10px] text-muted-foreground">总收益</span><br /><span className={`text-xs font-mono font-bold ${metrics.total_return >= 0 ? "text-up" : "text-down"}`}>{metrics.total_return >= 0 ? "+" : ""}{(metrics.total_return * 100).toFixed(2)}%</span></div>
+            )}
+            {metrics.annual_return != null && (
+              <div><span className="text-[10px] text-muted-foreground">年化</span><br /><span className={`text-xs font-mono font-bold ${metrics.annual_return >= 0 ? "text-up" : "text-down"}`}>{(metrics.annual_return * 100).toFixed(2)}%</span></div>
+            )}
+            {metrics.sharpe != null && (
+              <div><span className="text-[10px] text-muted-foreground">夏普</span><br /><span className="text-xs font-mono font-bold">{metrics.sharpe.toFixed(2)}</span></div>
+            )}
+            {metrics.max_drawdown != null && (
+              <div><span className="text-[10px] text-muted-foreground">最大回撤</span><br /><span className="text-xs font-mono font-bold text-down">{(metrics.max_drawdown * 100).toFixed(2)}%</span></div>
+            )}
+            {metrics.win_rate != null && (
+              <div><span className="text-[10px] text-muted-foreground">胜率</span><br /><span className="text-xs font-mono font-bold">{(metrics.win_rate * 100).toFixed(2)}%</span></div>
+            )}
+            {metrics.trade_count != null && (
+              <div><span className="text-[10px] text-muted-foreground">交易</span><br /><span className="text-xs font-mono font-bold">{metrics.trade_count}</span></div>
+            )}
+            {metrics.final_value != null && (
+              <div><span className="text-[10px] text-muted-foreground">终值</span><br /><span className="text-xs font-mono font-bold">{metrics.final_value.toFixed(0)}</span></div>
+            )}
+            {metrics.benchmark_return != null && (
+              <div><span className="text-[10px] text-muted-foreground">基准</span><br /><span className={`text-xs font-mono font-bold ${metrics.benchmark_return >= 0 ? "text-up" : "text-down"}`}>{(metrics.benchmark_return * 100).toFixed(2)}%</span></div>
+            )}
+            {metrics.excess_return != null && (
+              <div><span className="text-[10px] text-muted-foreground">超额</span><br /><span className={`text-xs font-mono font-bold ${metrics.excess_return >= 0 ? "text-up" : "text-down"}`}>{metrics.excess_return >= 0 ? "+" : ""}{(metrics.excess_return * 100).toFixed(2)}%</span></div>
+            )}
+            {metrics.profit_factor != null && (
+              <div><span className="text-[10px] text-muted-foreground">盈亏比</span><br /><span className="text-xs font-mono font-bold">{metrics.profit_factor.toFixed(2)}</span></div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Chart area */}
-      <div ref={containerRef} className="flex-1 min-h-0 p-2">
+      <div ref={containerRef} className="flex-1 min-h-0 p-2 overflow-hidden">
         {error && (
           <div className="flex items-center gap-2 px-3 py-2 mb-2 rounded-md text-xs bg-danger/10 text-danger border border-danger/20">
             <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
@@ -181,44 +220,6 @@ export function ChartPanel({
           />
         )}
       </div>
-
-      {/* Metrics strip after backtest */}
-      {metrics && Object.keys(metrics).length > 0 && (
-        <div className="shrink-0 border-t px-3 py-2">
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-            {metrics.total_return != null && (
-              <span>总收益 <span className={`font-mono font-medium ${metrics.total_return >= 0 ? "text-up" : "text-down"}`}>{metrics.total_return >= 0 ? "+" : ""}{(metrics.total_return * 100).toFixed(2)}%</span></span>
-            )}
-            {metrics.annual_return != null && (
-              <span>年化 <span className={`font-mono font-medium ${metrics.annual_return >= 0 ? "text-up" : "text-down"}`}>{(metrics.annual_return * 100).toFixed(2)}%</span></span>
-            )}
-            {metrics.sharpe != null && (
-              <span>夏普 <span className="font-mono font-medium">{metrics.sharpe.toFixed(2)}</span></span>
-            )}
-            {metrics.max_drawdown != null && (
-              <span>最大回撤 <span className="font-mono font-medium text-down">{(metrics.max_drawdown * 100).toFixed(2)}%</span></span>
-            )}
-            {metrics.win_rate != null && (
-              <span>胜率 <span className="font-mono font-medium">{(metrics.win_rate * 100).toFixed(2)}%</span></span>
-            )}
-            {metrics.trade_count != null && (
-              <span>交易 <span className="font-mono font-medium">{metrics.trade_count}</span></span>
-            )}
-            {metrics.final_value != null && (
-              <span>终值 <span className="font-mono font-medium">{metrics.final_value.toFixed(0)}</span></span>
-            )}
-            {metrics.benchmark_return != null && (
-              <span>基准 <span className={`font-mono font-medium ${metrics.benchmark_return >= 0 ? "text-up" : "text-down"}`}>{metrics.benchmark_return >= 0 ? "+" : ""}{(metrics.benchmark_return * 100).toFixed(2)}%</span></span>
-            )}
-            {metrics.excess_return != null && (
-              <span>超额 <span className={`font-mono font-medium ${metrics.excess_return >= 0 ? "text-up" : "text-down"}`}>{metrics.excess_return >= 0 ? "+" : ""}{(metrics.excess_return * 100).toFixed(2)}%</span></span>
-            )}
-            {metrics.profit_factor != null && (
-              <span>盈亏比 <span className="font-mono font-medium">{metrics.profit_factor.toFixed(2)}</span></span>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Equity sub-chart after backtest */}
       {equityCurve && equityCurve.length > 0 && (

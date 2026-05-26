@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Code, Save, Trash2, Plus, Target, Sparkles, Play, CheckSquare,
-  Square, Layers, Clock, Activity, X, Bell, ChevronsRight, ChevronsLeft, ChevronRight,
+  Square, Layers, Clock, X, ChevronsRight, ChevronsLeft,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
@@ -11,9 +11,7 @@ import { ChartPanel } from "@/components/indicator-lab/ChartPanel";
 import { TemplateBrowser, type TemplateItem } from "@/components/indicator-lab/TemplateBrowser";
 import { StrategyVerifyPanel } from "@/components/indicator-lab/StrategyVerifyPanel";
 import type { QualityHint } from "@/components/indicator-lab/types";
-import type { PriceBar, TradeMarker, EquityPoint, IndicatorPoint } from "@/lib/api";
-import { api } from "@/lib/api";
-import { usePaperTradingStore } from "@/stores/paperTradingStore";
+import { useBacktest } from "@/hooks/useBacktest";
 
 const API_BASE = "/v1/strategy-lab";
 
@@ -87,22 +85,6 @@ interface BacktestHistoryEntry {
   endDate: string;
   runId: string;
   timestamp: string;
-}
-
-interface RuntimeLog {
-  timestamp: string;
-  level: "info" | "warn" | "error";
-  message: string;
-}
-
-interface SignalNotification {
-  id: string;
-  symbol: string;
-  side: "buy" | "sell";
-  price: number;
-  timestamp: string;
-  read: boolean;
-  reason: string;
 }
 
 // ── Templates embedded ────────────────────────────────────────────────────────
@@ -607,7 +589,7 @@ function loadBacktestHistory(): BacktestHistoryEntry[] {
 
 // ── Page Component ────────────────────────────────────────────────────────────
 
-type SidePanelTab = "list" | "templates" | "history" | "monitor";
+type SidePanelTab = "list" | "templates" | "history";
 
 export function StrategyLab() {
   const { t } = useI18n();
@@ -644,23 +626,24 @@ export function StrategyLab() {
   const [chartEndDate, setChartEndDate] = useState("2025-12-31");
   const [chartSource, setChartSource] = useState("auto");
   const [chartInterval, setChartInterval] = useState("1D");
-  const [priceData, setPriceData] = useState<PriceBar[]>([]);
-  const [chartLoading, setChartLoading] = useState(false);
-  const [chartError, setChartError] = useState<string | null>(null);
-  const backtestPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [backtestRunning, setBacktestRunning] = useState(false);
-  const [btTradeMarkers, setBtTradeMarkers] = useState<TradeMarker[]>([]);
-  const [btEquityCurve, setBtEquityCurve] = useState<EquityPoint[]>([]);
-  const [btIndicatorSeries, setBtIndicatorSeries] = useState<Record<string, IndicatorPoint[]>>({});
-  const [btMetrics, setBtMetrics] = useState<Record<string, number> | null>(null);
   const [initialCash, setInitialCash] = useState(100000);
   const [chartTitle, setChartTitle] = useState("");
 
-  // Monitor state
-  const [notifications, setNotifications] = useState<SignalNotification[]>([]);
-  const [runtimeLogs, setRuntimeLogs] = useState<RuntimeLog[]>([]);
-  const [expandedLogIndex, setExpandedLogIndex] = useState<number | null>(null);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const {
+    priceData,
+    chartLoading, chartError,
+    backtestRunning,
+    btTradeMarkers,
+    btEquityCurve,
+    btIndicatorSeries,
+    btMetrics,
+    handleRunBacktest: runBacktest,
+    fetchOHLCV,
+    clearPolling,
+  } = useBacktest();
+
+  // AI generation abort controller
+  const aiAbortRef = useRef<AbortController | null>(null);
 
   // ── Data loading ──────────────────────────────────────────────────────────
 
@@ -689,9 +672,10 @@ export function StrategyLab() {
 
   useEffect(() => {
     return () => {
-      if (backtestPollRef.current) clearInterval(backtestPollRef.current);
+      clearPolling();
+      if (aiAbortRef.current) aiAbortRef.current.abort();
     };
-  }, []);
+  }, [clearPolling]);
 
   // ── Save ──────────────────────────────────────────────────────────────────
 
@@ -727,10 +711,8 @@ export function StrategyLab() {
       setVerifyResult(result);
       if (result.success) {
         setMessage("Verification passed");
-        setSidePanel("list");
       } else {
         setMessage(`Verification failed: ${result.error}`);
-        setSidePanel("list");
       }
     } catch (e) {
       setMessage(String(e));
@@ -754,6 +736,8 @@ export function StrategyLab() {
     setGenerating(true);
     setGeneratedCode("");
     setMessage(null);
+    const controller = new AbortController();
+    aiAbortRef.current = controller;
     try {
       const res = await fetch(`${API_BASE}/generate`, {
         method: "POST",
@@ -762,6 +746,7 @@ export function StrategyLab() {
           prompt: "Create a multi-asset momentum strategy with risk management",
           style: "momentum",
         }),
+        signal: controller.signal,
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -792,11 +777,20 @@ export function StrategyLab() {
           }
         }
       }
-    } catch (e) {
-      setMessage(String(e));
+    } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        setMessage("Generation cancelled");
+      } else {
+        setMessage(String(e));
+      }
     } finally {
       setGenerating(false);
+      aiAbortRef.current = null;
     }
+  };
+
+  const handleCancelGenerate = () => {
+    if (aiAbortRef.current) aiAbortRef.current.abort();
   };
 
   const acceptGenerated = () => {
@@ -808,36 +802,17 @@ export function StrategyLab() {
 
   // ── Chart data fetch ───────────────────────────────────────────────────────
 
-  const fetchOHLCV = useCallback(async () => {
-    setChartLoading(true);
-    setChartError(null);
-    try {
-      const data = await api.getOHLCV({
-        symbol: chartSymbols,
-        start_date: chartStartDate,
-        end_date: chartEndDate,
-        source: chartSource,
-        interval: chartInterval,
-      });
-      setPriceData(data.bars || []);
-      setBtTradeMarkers([]);
-      setBtEquityCurve([]);
-      setBtMetrics(null);
-      setBtIndicatorSeries({});
-    } catch (e) {
-      setChartError(String(e));
-    } finally {
-      setChartLoading(false);
-    }
-  }, [chartSymbols, chartStartDate, chartEndDate, chartSource, chartInterval]);
+  const handleFetchOHLCV = useCallback(async () => {
+    await fetchOHLCV(chartSymbols, chartStartDate, chartEndDate, chartSource, chartInterval);
+  }, [fetchOHLCV, chartSymbols, chartStartDate, chartEndDate, chartSource, chartInterval]);
 
   // ── Run backtest + poll ────────────────────────────────────────────────────
 
   const handleRunBacktest = useCallback(async () => {
-    setBacktestRunning(true);
-    setChartError(null);
-    try {
-      const codes = chartSymbols.split(",").map((s) => s.trim()).filter(Boolean);
+    const codes = chartSymbols.split(",").map((s) => s.trim()).filter(Boolean);
+    if (!codes.length) return;
+
+    await runBacktest(async () => {
       const res = await fetch(`${API_BASE}/backtest`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -854,57 +829,28 @@ export function StrategyLab() {
       if (!res.ok) {
         let detail = `HTTP ${res.status}`;
         try { const b = await res.json(); detail = b.detail || detail; } catch {}
-        setChartError(typeof detail === "string" ? detail : JSON.stringify(detail));
-        setBacktestRunning(false);
-        return;
+        throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
       }
       const data = await res.json();
-      if (!data.success || !data.run_id) {
-        setChartError(data.error || "Backtest failed");
-        setBacktestRunning(false);
-        return;
-      }
-      const runId: string = data.run_id;
+      if (!data.success || !data.run_id) throw new Error(data.error || "Backtest failed");
+      return data.run_id;
+    });
 
-      // Poll for results
-      backtestPollRef.current = setInterval(async () => {
-        try {
-          const run = await api.getRun(runId);
-          if (run.status === "success" || run.status === "failed") {
-            if (backtestPollRef.current) { clearInterval(backtestPollRef.current); backtestPollRef.current = null; }
-            setBacktestRunning(false);
-            // Save to backtest history
-            try {
-              const raw = localStorage.getItem(HISTORY_KEY);
-              const history: BacktestHistoryEntry[] = raw ? JSON.parse(raw) : [];
-              history.unshift({
-                id: runId,
-                runId,
-                symbols: codes.join(", "),
-                startDate: chartStartDate,
-                endDate: chartEndDate,
-                timestamp: new Date().toISOString(),
-              });
-              localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 50)));
-            } catch { /* ignore */ }
-          }
-          const firstSymbol = run.price_series ? Object.keys(run.price_series)[0] : null;
-          if (run.price_series && firstSymbol) {
-            setPriceData(run.price_series[firstSymbol]);
-          }
-          if (run.trade_markers) setBtTradeMarkers(run.trade_markers);
-          if (run.equity_curve) setBtEquityCurve(run.equity_curve as EquityPoint[]);
-          if (run.indicator_series && firstSymbol) setBtIndicatorSeries(run.indicator_series[firstSymbol] as unknown as Record<string, IndicatorPoint[]>);
-          if (run.metrics) setBtMetrics(run.metrics as Record<string, number>);
-        } catch {
-          /* ignore poll errors */
-        }
-      }, 1000);
-    } catch (e) {
-      setChartError(String(e));
-      setBacktestRunning(false);
-    }
-  }, [code, chartSymbols, chartStartDate, chartEndDate, chartSource, chartInterval, initialCash]);
+    // Save to backtest history
+    try {
+      const raw = localStorage.getItem(HISTORY_KEY);
+      const history: BacktestHistoryEntry[] = raw ? JSON.parse(raw) : [];
+      history.unshift({
+        id: Date.now().toString(),
+        runId: Date.now().toString(),
+        symbols: codes.join(", "),
+        startDate: chartStartDate,
+        endDate: chartEndDate,
+        timestamp: new Date().toISOString(),
+      });
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 50)));
+    } catch { /* ignore */ }
+  }, [code, chartSymbols, chartStartDate, chartEndDate, chartSource, chartInterval, initialCash, runBacktest]);
 
   // ── Delete / Batch ────────────────────────────────────────────────────────
 
@@ -925,6 +871,7 @@ export function StrategyLab() {
   };
 
   const handleBatchDelete = async () => {
+    if (!confirm(`确定要删除选中的 ${selectedIds.size} 个策略吗？此操作不可恢复。`)) return;
     for (const id of selectedIds) {
       try {
         await apiFetch(`/delete/${id}`, { method: "POST" });
@@ -973,20 +920,6 @@ export function StrategyLab() {
     setGeneratedCode("");
   };
 
-  // ── Notification actions ──────────────────────────────────────────────────
-
-  const markRead = (id: string) => {
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-  };
-
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const clearNotifications = () => {
-    setNotifications([]);
-  };
-
   // ── Derived ───────────────────────────────────────────────────────────────
 
   const isError = message && (message.includes("failed") || message.includes("error"));
@@ -1017,6 +950,12 @@ export function StrategyLab() {
               <Sparkles className="h-3.5 w-3.5" />
               {generating ? t.strategyLabGenerating : t.strategyLabAIGenerate}
             </button>
+            {generating && (
+              <button onClick={handleCancelGenerate} className="btn-sm btn-danger">
+                <X className="h-3.5 w-3.5" />
+                取消
+              </button>
+            )}
             <button onClick={handleVerify} disabled={verifying} className="btn-sm btn-warning">
               <Play className="h-3.5 w-3.5" />
               {verifying ? t.strategyLabVerifying : t.strategyLabVerify}
@@ -1099,7 +1038,7 @@ export function StrategyLab() {
           onIntervalChange={setChartInterval}
           initialCash={initialCash}
           onInitialCashChange={setInitialCash}
-          onFetch={fetchOHLCV}
+          onFetch={handleFetchOHLCV}
           onRunBacktest={handleRunBacktest}
           priceData={priceData}
           loading={chartLoading}
@@ -1138,7 +1077,6 @@ export function StrategyLab() {
             ["list", t.indicatorLabList, Code],
             ["templates", t.strategyLabTemplates, Layers],
             ["history", t.strategyLabHistory, Clock],
-            ["monitor", t.strategyLabMonitor, Activity],
           ] as const).map(([key, label, Icon]) => (
             <button
               key={key}
@@ -1147,11 +1085,6 @@ export function StrategyLab() {
             >
               <Icon className="h-3.5 w-3.5" />
               {label}
-              {key === "monitor" && unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full bg-danger text-[9px] flex items-center justify-center text-white font-bold">
-                  {unreadCount > 9 ? "9+" : unreadCount}
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -1274,144 +1207,6 @@ export function StrategyLab() {
             </div>
           )}
 
-          {/* ── Monitor tab ─────────────────────────────────────────────── */}
-          {sidePanel === "monitor" && (
-            <div className="space-y-5">
-              {/* Notifications */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Bell className="h-4 w-4 text-primary" />
-                    <span className="text-sm font-medium">
-                      {t.strategyLabSignalNotifications}
-                    </span>
-                    {unreadCount > 0 && (
-                      <span className="px-2 py-0.5 text-xs rounded-full bg-primary/10 text-primary font-medium">
-                        {unreadCount} {t.strategyLabUnread}
-                      </span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={markAllRead} className="text-xs text-muted-foreground hover:text-foreground transition-colors">
-                      {t.strategyLabMarkAllRead}
-                    </button>
-                    <button onClick={clearNotifications} className="text-xs text-muted-foreground hover:text-danger transition-colors">
-                      {t.strategyLabClearAll}
-                    </button>
-                  </div>
-                </div>
-
-                {notifications.length === 0 ? (
-                  <div className="empty-state py-8">
-                    <Bell className="empty-state-icon h-8 w-8" />
-                    <p className="empty-state-text">{t.strategyLabNoSignals}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {notifications.map((n) => (
-                      <div
-                        key={n.id}
-                        className={cn(
-                          "flex items-start gap-2.5 px-3 py-2.5 rounded-lg text-sm border transition-all duration-150 cursor-pointer",
-                          n.read
-                            ? "border-border bg-card opacity-60"
-                            : "border-primary/20 bg-primary/5 shadow-sm"
-                        )}
-                        onClick={() => markRead(n.id)}
-                      >
-                        <div
-                          className={cn(
-                            "w-2 h-2 rounded-full mt-1.5 shrink-0",
-                            n.side === "buy" ? "bg-emerald-400" : "bg-rose-400"
-                          )}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-semibold font-mono">{n.symbol}</span>
-                            <span className={cn(
-                              "text-xs font-semibold",
-                              n.side === "buy" ? "text-emerald-400" : "text-rose-400"
-                            )}>
-                              {n.side.toUpperCase()}
-                            </span>
-                            <span className="text-xs text-muted-foreground">@ {n.price}</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground mt-0.5 truncate">{n.reason}</div>
-                        </div>
-                        {!n.read && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); markRead(n.id); }}
-                            className="text-xs text-primary hover:underline shrink-0 mt-0.5"
-                          >
-                            {t.strategyLabMarkRead}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Runtime logs */}
-              <div>
-                <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-sm font-medium">{t.strategyLabRuntimeLogs}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">{runtimeLogs.length} entries</span>
-                    {runtimeLogs.length > 0 && (
-                      <button onClick={() => setRuntimeLogs([])} className="text-xs text-muted-foreground hover:text-danger transition-colors">
-                        {t.strategyLabClearLogs}
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {runtimeLogs.length === 0 ? (
-                  <div className="empty-state py-6 border border-dashed border-border rounded-lg">
-                    <Activity className="empty-state-icon h-6 w-6" />
-                    <p className="empty-state-text text-xs">{t.strategyLabNoLogs}</p>
-                  </div>
-                ) : (
-                  <div className="space-y-px max-h-64 overflow-auto bg-muted/30 rounded-lg p-2">
-                    {runtimeLogs.map((log, i) => (
-                      <div key={i}>
-                        <div
-                          className="flex items-start gap-2 px-2 py-1.5 text-xs font-mono rounded hover:bg-muted/50 transition-colors cursor-pointer"
-                          onClick={() => setExpandedLogIndex(expandedLogIndex === i ? null : i)}
-                        >
-                          <span className="text-muted-foreground/60 shrink-0 w-14">{log.timestamp.slice(11, 19)}</span>
-                          <span className={cn(
-                            "shrink-0 w-10 text-right font-semibold uppercase",
-                            log.level === "error" ? "text-danger" : log.level === "warn" ? "text-warning" : "text-info"
-                          )}>
-                            {log.level}
-                          </span>
-                          <span className="text-muted-foreground truncate flex-1">{log.message}</span>
-                          <ChevronRight className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", expandedLogIndex === i && "rotate-90")} />
-                        </div>
-                        {expandedLogIndex === i && (
-                          <div className="px-2 py-2 mx-2 mb-1 rounded bg-muted/50 text-xs text-muted-foreground space-y-1">
-                            <div><span className="text-muted-foreground/60">{t.strategyLabLogDetailTime}：</span>{log.timestamp}</div>
-                            <div><span className="text-muted-foreground/60">{t.strategyLabLogDetailLevel}：</span>{log.level.toUpperCase()}</div>
-                            <div><span className="text-muted-foreground/60">{t.strategyLabLogDetailMessage}：</span>{log.message}</div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Running strategies — linked to Paper Trading */}
-              <div>
-                <div className="flex items-center gap-2 mb-2.5">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-sm font-medium">{t.strategyLabLiveMonitor}</span>
-                </div>
-                <RunningStrategiesList />
-              </div>
-            </div>
-          )}
         </div>
         </>
         )}
@@ -1419,42 +1214,6 @@ export function StrategyLab() {
 
     </div>
   );
-}
-
-function RunningStrategiesList() {
-  const { t } = useI18n();
-  try {
-    const runs = usePaperTradingStore(s => s.runs);
-    const activeRunId = usePaperTradingStore(s => s.activeRunId);
-    const sseStatus = usePaperTradingStore(s => s.sseStatus);
-    const running = runs.filter(r => r.status === "running" || r.status === "paused");
-    if (running.length === 0) return (
-      <div className="empty-state py-8 border border-dashed border-border rounded-lg">
-        <Activity className="empty-state-icon h-8 w-8" />
-        <p className="empty-state-text">{t.strategyLabNoRunningStrategies}</p>
-      </div>
-    );
-    return (
-      <div className="space-y-2">
-        {running.map(run => (
-          <div key={run.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs border ${activeRunId === run.id ? "border-primary/30 bg-primary/5" : "border-border"}`}>
-            <div className={`w-2 h-2 rounded-full shrink-0 ${run.status === "running" ? "bg-emerald-400 animate-pulse" : "bg-warning"}`} />
-            <div className="min-w-0 flex-1">
-              <div className="font-medium truncate">{run.run_name}</div>
-              <div className="text-muted-foreground text-[10px]">{run.market} · {sseStatus === "connected" ? t.strategyLabLiveConnection : run.status}</div>
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  } catch {
-    return (
-      <div className="empty-state py-8 border border-dashed border-border rounded-lg">
-        <Activity className="empty-state-icon h-8 w-8" />
-        <p className="empty-state-text">{t.strategyLabNoRunningStrategies}</p>
-      </div>
-    );
-  }
 }
 
 interface StrategyVerifyResult {

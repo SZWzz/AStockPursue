@@ -903,8 +903,8 @@ export function Settings() {
           </div>
 
           {/* Free data sources */}
-          <div className="space-y-2">
-            <h3 className="text-sm font-semibold">免费数据源</h3>
+          <div className="grid gap-3 rounded-lg border bg-muted/20 p-4">
+            <span className="text-sm font-medium">免费数据源</span>
             {([
               ["AKShare", `A股/港股/美股/期货/外汇${dataSettings.akshare_available && dataSettings.akshare_version ? ` v${dataSettings.akshare_version}` : ""}`, dataSettings.akshare_available],
               ["YFinance", "美股 / 港股", dataSettings.yfinance_available],
@@ -915,7 +915,7 @@ export function Settings() {
               ["Global Indices", "全球指数", dataSettings.global_indices_available],
               ["Commodities", "大宗商品", dataSettings.commodities_available],
             ] as [string, string, boolean][]).map(([name, desc, available]) => (
-              <div key={name} className="flex items-center justify-between py-1.5 px-3 rounded-md bg-muted/10">
+              <div key={name} className="flex items-center justify-between py-1.5 px-3 rounded-md bg-background/60 border border-border/50">
                 <div>
                   <span className="text-sm">{name}</span>
                   <span className="ml-2 text-xs text-muted-foreground">{desc}</span>

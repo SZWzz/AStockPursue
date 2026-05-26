@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Code, FlaskConical, Play, Save, Sparkles, ChevronDown, Trash2, Plus, Clock, Library, Layers, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
@@ -16,8 +16,7 @@ import type {
   IndicatorDetail,
   VerifyResult,
 } from "@/components/indicator-lab/types";
-import type { PriceBar, TradeMarker, EquityPoint, IndicatorPoint } from "@/lib/api";
-import { api } from "@/lib/api";
+import { useBacktest } from "@/hooks/useBacktest";
 
 const API_BASE = "/v1/indicator-lab";
 
@@ -435,17 +434,21 @@ export function IndicatorLab() {
   const [chartEndDate, setChartEndDate] = useState("2025-12-31");
   const [chartSource, setChartSource] = useState("auto");
   const [chartInterval, setChartInterval] = useState("1D");
-  const [priceData, setPriceData] = useState<PriceBar[]>([]);
-  const [chartLoading, setChartLoading] = useState(false);
-  const [chartError, setChartError] = useState<string | null>(null);
-  const backtestPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [backtestRunning, setBacktestRunning] = useState(false);
-  const [btTradeMarkers, setBtTradeMarkers] = useState<TradeMarker[]>([]);
-  const [btEquityCurve, setBtEquityCurve] = useState<EquityPoint[]>([]);
-  const [btIndicatorSeries, setBtIndicatorSeries] = useState<Record<string, IndicatorPoint[]>>({});
-  const [btMetrics, setBtMetrics] = useState<Record<string, number> | null>(null);
   const [initialCash, setInitialCash] = useState(100000);
   const [chartTitle, setChartTitle] = useState("");
+
+  const {
+    priceData,
+    chartLoading, chartError,
+    backtestRunning,
+    btTradeMarkers,
+    btEquityCurve,
+    btIndicatorSeries,
+    btMetrics,
+    handleRunBacktest: runBacktest,
+    fetchOHLCV,
+    clearPolling,
+  } = useBacktest();
 
   // Load indicator list
   const loadList = useCallback(async () => {
@@ -462,10 +465,8 @@ export function IndicatorLab() {
   }, [loadList]);
 
   useEffect(() => {
-    return () => {
-      if (backtestPollRef.current) clearInterval(backtestPollRef.current);
-    };
-  }, []);
+    return () => { clearPolling(); };
+  }, [clearPolling]);
 
   // Load selected indicator
   useEffect(() => {
@@ -586,35 +587,15 @@ export function IndicatorLab() {
 
   // ── Chart data fetch ───────────────────────────────────────────────────────
 
-  const fetchOHLCV = useCallback(async () => {
-    setChartLoading(true);
-    setChartError(null);
-    try {
-      const data = await api.getOHLCV({
-        symbol: chartSymbol,
-        start_date: chartStartDate,
-        end_date: chartEndDate,
-        source: chartSource,
-        interval: chartInterval,
-      });
-      setPriceData(data.bars || []);
-      setBtTradeMarkers([]);
-      setBtEquityCurve([]);
-      setBtIndicatorSeries({});
-      setBtMetrics(null);
-    } catch (e) {
-      setChartError(String(e));
-    } finally {
-      setChartLoading(false);
-    }
-  }, [chartSymbol, chartStartDate, chartEndDate, chartSource, chartInterval]);
+  const handleFetchOHLCV = useCallback(async () => {
+    await fetchOHLCV(chartSymbol, chartStartDate, chartEndDate, chartSource, chartInterval);
+  }, [fetchOHLCV, chartSymbol, chartStartDate, chartEndDate, chartSource, chartInterval]);
 
   // ── Run backtest + poll ────────────────────────────────────────────────────
 
   const handleRunBacktest = useCallback(async () => {
-    setBacktestRunning(true);
-    setChartError(null);
-    try {
+    if (!chartSymbol) return;
+    await runBacktest(async () => {
       const res = await fetch("/v1/indicator-lab/backtest", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
@@ -630,37 +611,10 @@ export function IndicatorLab() {
         }),
       });
       const data = await res.json();
-      if (!data.success || !data.run_id) {
-        setChartError(data.error || "Backtest failed");
-        setBacktestRunning(false);
-        return;
-      }
-      const runId: string = data.run_id;
-
-      backtestPollRef.current = setInterval(async () => {
-        try {
-          const run = await api.getRun(runId);
-          if (run.status === "success" || run.status === "failed") {
-            if (backtestPollRef.current) { clearInterval(backtestPollRef.current); backtestPollRef.current = null; }
-            setBacktestRunning(false);
-          }
-          const firstSymbol = run.price_series ? Object.keys(run.price_series)[0] : null;
-          if (run.price_series && firstSymbol) {
-            setPriceData(run.price_series[firstSymbol]);
-          }
-          if (run.trade_markers) setBtTradeMarkers(run.trade_markers);
-          if (run.equity_curve) setBtEquityCurve(run.equity_curve as EquityPoint[]);
-          if (run.indicator_series && firstSymbol) setBtIndicatorSeries(run.indicator_series[firstSymbol] as unknown as Record<string, IndicatorPoint[]>);
-          if (run.metrics) setBtMetrics(run.metrics as Record<string, number>);
-        } catch {
-          /* ignore */
-        }
-      }, 1000);
-    } catch (e) {
-      setChartError(String(e));
-      setBacktestRunning(false);
-    }
-  }, [code, chartSymbol, chartStartDate, chartEndDate, chartSource, chartInterval, initialCash]);
+      if (!data.success || !data.run_id) throw new Error(data.error || "Backtest failed");
+      return data.run_id;
+    });
+  }, [code, chartSymbol, chartStartDate, chartEndDate, chartSource, chartInterval, initialCash, runBacktest]);
 
   // Delete
   const handleDelete = async (id: string) => {
@@ -800,7 +754,7 @@ export function IndicatorLab() {
           onIntervalChange={setChartInterval}
           initialCash={initialCash}
           onInitialCashChange={setInitialCash}
-          onFetch={fetchOHLCV}
+          onFetch={handleFetchOHLCV}
           onRunBacktest={handleRunBacktest}
           priceData={priceData}
           loading={chartLoading}
