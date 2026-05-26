@@ -738,3 +738,29 @@ async def list_strategy_templates():
             },
         ]
     }
+
+
+# ── Compile (visual builder) ──────────────────────────────────────────────────
+
+
+class CompileRequest(BaseModel):
+    name: str = Field(default="Compiled Strategy", max_length=100)
+    entry_rules: list[dict] = Field(default_factory=list)
+    exit_rules: list[dict] = Field(default_factory=list)
+    logic: str = Field(default="and", pattern=r"^(and|or)$")
+    position_config: dict | None = None
+    pyramiding_rules: dict | None = None
+    risk_management: dict | None = None
+
+
+@router.post("/compile")
+async def compile_strategy(req: CompileRequest):
+    """Compile visual builder config into SignalEngine Python code."""
+    from src.lab.compiler import compile_signal_engine
+
+    try:
+        code = compile_signal_engine(req.model_dump())
+        return {"code": code, "name": req.name}
+    except Exception as e:
+        logger.exception("compile failed")
+        raise HTTPException(status_code=400, detail=str(e))

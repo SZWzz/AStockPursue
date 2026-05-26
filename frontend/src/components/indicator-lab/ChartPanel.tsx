@@ -4,6 +4,7 @@ import type { PriceBar, TradeMarker, EquityPoint, IndicatorPoint } from "@/lib/a
 import { CandlestickChart } from "@/components/charts/CandlestickChart";
 import { EquityChart } from "@/components/charts/EquityChart";
 import { StockInput } from "@/components/indicator-lab/StockInput";
+import { useI18n } from "@/lib/i18n";
 
 export interface ChartPanelProps {
   symbol: string;
@@ -64,6 +65,7 @@ export function ChartPanel({
   backtestRunning,
   backtestLabel = "Run Backtest",
 }: ChartPanelProps) {
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const [chartHeight, setChartHeight] = useState(400);
 
@@ -79,7 +81,7 @@ export function ChartPanel({
     return () => ro.disconnect();
   }, []);
 
-  const busy = loading || backtestRunning;
+  const busy = loading || backtestRunning || !symbol.trim();
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -90,7 +92,7 @@ export function ChartPanel({
         )}
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex-1 min-w-[120px]">
-            <label className={labelClass}>Symbol</label>
+            <label className={labelClass}>{t.indicatorLabSymbol}</label>
             <StockInput
               value={symbol}
               onChange={onSymbolChange}
@@ -99,7 +101,7 @@ export function ChartPanel({
             />
           </div>
           <div>
-            <label className={labelClass}>Start</label>
+            <label className={labelClass}>{t.indicatorLabStartDate}</label>
             <input
               type="date"
               value={startDate}
@@ -109,7 +111,7 @@ export function ChartPanel({
             />
           </div>
           <div>
-            <label className={labelClass}>End</label>
+            <label className={labelClass}>{t.indicatorLabEndDate}</label>
             <input
               type="date"
               value={endDate}
@@ -119,7 +121,7 @@ export function ChartPanel({
             />
           </div>
           <div>
-            <label className={labelClass}>Source</label>
+            <label className={labelClass}>{t.indicatorLabSource}</label>
             <select value={source} onChange={(e) => onSourceChange(e.target.value)} className={inputClass} disabled={busy}>
               {["auto", "tushare", "akshare", "yfinance", "okx", "ccxt", "twelvedata", "finnhub", "futu", "tencent", "coingecko", "global_indices", "commodities"].map((v) => (
                 <option key={v} value={v}>{v}</option>
@@ -127,20 +129,20 @@ export function ChartPanel({
             </select>
           </div>
           <div>
-            <label className={labelClass}>Interval</label>
+            <label className={labelClass}>{t.indicatorLabInterval}</label>
             <select value={interval} onChange={(e) => onIntervalChange(e.target.value)} className={inputClass} disabled={busy}>
               {["1D", "1H", "4H", "1W"].map((v) => (<option key={v} value={v}>{v}</option>))}
             </select>
           </div>
           <div>
-            <label className={labelClass}>初始资金</label>
+            <label className={labelClass}>{t.ptInitialCapital}</label>
             <input type="number" min={1000} step={10000} value={initialCash} onChange={(e) => onInitialCashChange(Number(e.target.value) || 100000)} className={inputClass} disabled={busy} />
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={onFetch} disabled={busy} className="btn-sm btn-outline flex items-center gap-1.5">
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <BarChart3 className="h-3.5 w-3.5" />}
-            Load Data
+            {t.chartLoadData}
           </button>
           <button onClick={onRunBacktest} disabled={busy} className="btn-sm btn-success flex items-center gap-1.5">
             {backtestRunning ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}

@@ -1,45 +1,68 @@
-# AStockPursue — AI Quantitative Trading Research Platform
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=flat&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/React-19-61DAFB?style=flat&logo=react&logoColor=black" alt="React">
+  <img src="https://img.shields.io/badge/FastAPI-0.104+-009688?style=flat&logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/PostgreSQL-14+-4169E1?style=flat&logo=postgresql&logoColor=white" alt="PostgreSQL">
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="License">
+  <img src="https://img.shields.io/badge/Factors-450+-orange?style=flat" alt="Alpha Factors">
+</p>
+
+<h1 align="center">AStockPursue</h1>
+<p align="center"><strong>AI-Powered Quantitative Trading Research Platform</strong></p>
+
+---
 
 Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT License).
 
 ## Features
 
-- **Unified Trading Engine** — Backtest and paper trading share the same `TradingEngine.on_bar()` execution pipeline. Write a SignalEngine strategy once, run it in both modes — no more backtest/live behavior divergence
-- **AI Agent Chat** — Natural language strategy generation, backtest, and analysis. SSE streaming output, 87 skill packs covering the full quant domain, survives page navigation
-- **Strategy Lab** — SignalEngine contract editor, K-line real-time backtest panel, 10 strategy templates, AI-generated strategies auto-saved, backtest history
-- **Paper Trading** — 3-column layout (strategy library + code editor + K-line chart), real-time trade markers overlaid, live position updates, monthly return heatmap, run log + signal stats, clone runs, pre-deploy validation
-- **Indicator Lab** — Python indicator IDE (Monaco editor), K-line backtest panel, sandbox execution, code quality analysis, Alpha Zoo one-click conversion, safe sys injection
-- **Alpha Zoo** — 450+ quantitative factors (Alpha101 / GTJA191 / Qlib158), user-defined promotion
-- **Multi-Source Data** — A-share / HK / US / Crypto / Futures / Forex / Indices / Commodities, 13 loaders with auto fallback, Tencent free A-share quotes
+<table>
+<tr><td width="50%">
+
+### Trading Engine
+- **Unified Trading Engine** — Backtest and paper trading share the same `TradingEngine.on_bar()` pipeline. Write a SignalEngine strategy once, run it in both modes
+- **Paper Trading** — 3-column layout (library + editor + chart), real-time trade markers, monthly return heatmap, clone runs, pre-deploy validation
+- **Lookahead Bias Protection** — Progressive signal generation + data truncation + intraday stop detection + open-price limit checks
+
+### AI Agent
+- **AI Chat** — Natural language strategy generation, backtest, and analysis. SSE streaming, 87 skill packs
+- **AI Code Generation** — Foldable chat panel below editor — describe your strategy and get code streamed directly into the editor with auto-save
+- **MCP Server** — 22 MCP tools for Claude Desktop / Cursor, admin settings panel
+
+### Strategy & Indicator Dev
+- **Strategy Lab** — SignalEngine contract editor, K-line backtest panel, 10 templates, backtest history
+- **Indicator Lab** — Python indicator IDE (Monaco), sandbox execution, code quality analysis, Alpha Zoo conversion
+- **Custom Mode** — No-code visual builder — configure entry/exit rules and risk parameters via dropdowns and sliders, compile to code in one click
+
+</td><td width="50%">
+
+### Factors & Data
+- **Alpha Zoo** — 450+ quantitative factors (Alpha101 / GTJA191 / Qlib158 / Academic), user-defined promotion
+- **Multi-Source Data** — CN/HK/US/Crypto/Futures/Forex/Indices/Commodities, 13 loaders with auto fallback
 - **Non-OHLCV Data** — Market sentiment (VIX/DXY/Yield Curve), fundamentals (PE/PB/ROE), news aggregation
-- **Smart Stock Search** — Tencent quote API dynamic CN/HK lookup, free-text US/Crypto input, code/name/pinyin matching
-- **Watchlist Panel** — Real-time prices with red-up/green-down (Chinese convention), click to trigger AI analysis
 - **Correlation Matrix** — Cross-market correlation (Pearson/Spearman), AI analysis + save to session
-- **User System** — JWT login/register, per-user LLM / Data Source / Skill config, PBKDF2 password hashing
-- **Skill Management** — 87 skill packs per-user enable/disable, ZIP import custom skills, per-user isolation
-- **MCP Server** — 22 MCP tools exposed to Claude Desktop / Cursor, admin settings panel
-- **User Management** — Admin panel for all users, global Skill import visibility
-- **PostgreSQL Persistence** — Session history, backtest results, strategy/indicator cloud sync, full-text search, auto incremental migration
-- **i18n** — 100+ translation keys, auto-detect browser language (Chinese / English)
-- **Dark Mode** — Light/dark themes, 4-level surface system, CSS variable driven
-- **Red-Up/Green-Down** — `html[lang="zh"]` auto-switches Chinese market color convention across K-line, equity curves, and P&L display
+
+### Platform
+- **User System** — JWT login/register, per-user LLM/Data Source/Skill config, PBKDF2 hashing, admin panel
+- **PostgreSQL Persistence** — Session history, backtest results, strategy/indicator cloud sync, full-text search, auto migration
+- **Dark Mode** — Light/dark themes, 4-level surface system (CSS variables)
+- **Red-Up/Green-Down** — Chinese market color convention auto-switched per locale
+- **i18n** — 150+ translation keys (Chinese / English), auto-detect browser language
+- **Card UI** — Rounded card-based layout (`rounded-2xl` + gap spacing), soft modern aesthetic
 - **11 LLM Providers** — OpenAI / OpenRouter / DeepSeek / Moonshot / MiniMax / Zhipu / Qwen / Gemini / Groq / Ollama
+
+</td></tr>
+</table>
 
 ## Tech Stack
 
 | Layer | Stack |
 |-------|-------|
-| Backend | Python 3.11+ / FastAPI / LangChain / Pandas / PostgreSQL / Pydantic |
-| Frontend | React 19 / TypeScript / Tailwind CSS / ECharts / Monaco Editor / Zustand |
-| Data | Tushare / AKShare / yfinance / OKX / CCXT / Tencent / Twelve Data / Finnhub / CoinGecko / Futu / Global Indices / Commodities |
-| MCP | FastMCP / 22 tools exposed |
-| Deploy | Docker / Docker Compose |
-
-## Prerequisites
-
-- **PostgreSQL 14+** — stores users, sessions, backtest results, watchlist, etc.
-- **Docker & Docker Compose** — containerized deployment
-- (Optional) Tushare Token — for A-share data
+| **Backend** | Python 3.11+ · FastAPI · LangChain · Pandas · NumPy · SciPy · PostgreSQL · DuckDB · Pydantic |
+| **Frontend** | React 19 · TypeScript · Tailwind CSS · ECharts · Monaco Editor · Zustand · Vite |
+| **Data** | Tushare · AKShare · yfinance · OKX · CCXT · Tencent · Twelve Data · Finnhub · CoinGecko · Futu · Global Indices · Commodities · Tiingo |
+| **MCP** | FastMCP · 22 tools exposed |
+| **Deploy** | Docker · Docker Compose |
 
 ## Quick Start
 
@@ -47,10 +70,10 @@ Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT Licen
 git clone https://github.com/SZWzz/AStockPursue.git
 cd AStockPursue
 bash setup.sh                     # optionally auto-deploy PostgreSQL
-docker compose up -d --build
+docker compose up -d --build      # start services
 ```
 
-To include auto-deployed PG: `docker compose -f docker-compose.yml -f docker-compose.pg.yml up -d --build`
+> To include auto-deployed PostgreSQL: `docker compose --profile pg up -d --build`
 
 Visit `http://localhost:8899`, login with `admin` / `admin123`, configure LLM and data sources in Settings.
 
@@ -58,38 +81,36 @@ Visit `http://localhost:8899`, login with `admin` / `admin123`, configure LLM an
 
 ```
 AStockPursue/
-├── agent/                  # Python backend
-│   ├── api_server.py       #   FastAPI main entry
-│   ├── mcp_server.py       #   MCP Server (22 tools)
-│   ├── backtest/           #   Multi-market backtest engine + loader registry
-│   ├── papertrade/         #   Paper trading engine + scheduler + risk (re-exports from src/trading)
+├── agent/                     # Python backend
+│   ├── api_server.py          #   FastAPI main entry (v1 API)
+│   ├── mcp_server.py          #   MCP Server (22 tools)
+│   ├── backtest/              #   Multi-market backtest engine + loader registry
+│   ├── papertrade/            #   Paper trading engine + scheduler + risk
 │   ├── src/
-│   │   ├── agent/          #   SkillsLoader + ContextBuilder
-│   │   ├── api/            #   FastAPI routes
-│   │   ├── auth/           #   JWT auth + per-user config (Token/Skill)
-│   │   ├── data/           #   Stock symbol static data
-│   │   ├── db/             #   PG connection pool + AES encryption + auto migrate
-│   │   ├── factors/        #   Alpha factor registry + zoo directory
-│   │   ├── lab/            #   Strategy/Indicator lab (repo / sandbox / quality)
-│   │   ├── session/        #   Session management (file / PG)
-│   │   ├── skills/         #   87 skill packs (SKILL.md)
-│   │   ├── swarm/          #   Multi-agent collaboration
-│   │   ├── tools/          #   22 MCP tools
-│   │   └── trading/        #   Unified trading engine (shared on_bar pipeline)
-│   └── migrations/         #   DB migrations (incremental)
-├── frontend/               # React frontend
+│   │   ├── agent/             #   SkillsLoader + ContextBuilder
+│   │   ├── api/               #   FastAPI routes (12 modules)
+│   │   ├── auth/              #   JWT auth + per-user encrypted config
+│   │   ├── db/                #   PG pool + AES encryption + auto migrate
+│   │   ├── factors/           #   Alpha factor registry + zoo (4 families)
+│   │   ├── lab/               #   Strategy/Indicator lab (compiler/repo/sandbox/quality)
+│   │   ├── session/           #   Session management (PG + file dual store)
+│   │   ├── skills/            #   87 skill packs (SKILL.md)
+│   │   ├── swarm/             #   Multi-agent collaboration
+│   │   ├── tools/             #   MCP tool implementations
+│   │   └── trading/           #   Unified trading engine (on_bar pipeline)
+│   └── migrations/            #   DB migrations (incremental)
+├── frontend/                  # React frontend
 │   └── src/
-│       ├── pages/          #   Pages (Agent / PaperTrading / IndicatorLab / StrategyLab / AlphaZoo / Settings)
-│       ├── components/     #   Shared components (chat / indicator-lab / paper-trading / charts)
-│       ├── stores/         #   Zustand state management
-│       ├── hooks/          #   Custom hooks (SSE / dark mode)
-│       └── lib/            #   Utils + i18n (100+ keys) + API client
-├── setup.sh                # One-click init script
-├── docker-compose.yml      # Main deploy config
-├── docker-compose.pg.yml   # PG container config
-├── README.md               # 中文文档
-├── README_EN.md            # English docs
-└── CHANGELOG.md
+│       ├── pages/             #   Pages (Agent/PTP/IndicatorLab/StrategyLab/AlphaZoo/Settings...)
+│       ├── components/        #   Components (chat/indicator-lab/paper-trading/charts/layout)
+│       ├── stores/            #   Zustand state management
+│       ├── hooks/             #   Custom hooks (SSE/dark mode/backtest)
+│       └── lib/               #   Utils + i18n (150+ keys) + API client
+├── setup.sh                   # One-click init
+├── docker-compose.yml         # Deploy config (with PG profile)
+├── CHANGELOG.md               # Changelog
+├── README.md                  # 中文文档
+└── README_EN.md
 ```
 
 ## License

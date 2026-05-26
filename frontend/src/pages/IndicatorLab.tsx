@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Code, FlaskConical, Play, Save, Sparkles, ChevronDown, Trash2, Plus, Clock, Library, Layers, ChevronsRight, ChevronsLeft } from "lucide-react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Code, FlaskConical, Play, Save, ChevronDown, Trash2, Plus, Clock, Library, Layers, ChevronsRight, ChevronsLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { authHeaders } from "@/lib/apiAuth";
@@ -7,6 +7,8 @@ import { CodeEditor } from "@/components/indicator-lab/CodeEditor";
 import { QualityHints } from "@/components/indicator-lab/QualityHints";
 import { ParamPanel } from "@/components/indicator-lab/ParamPanel";
 import { ChartPanel } from "@/components/indicator-lab/ChartPanel";
+import { AiChatPanel } from "@/components/indicator-lab/AiChatPanel";
+import { VisualBuilder } from "@/components/indicator-lab/VisualBuilder";
 import { HistoryPanel } from "@/components/indicator-lab/HistoryPanel";
 import { BuiltinIndicators, type BuiltinIndicator } from "@/components/indicator-lab/BuiltinIndicators";
 import { TemplateBrowser, type TemplateItem } from "@/components/indicator-lab/TemplateBrowser";
@@ -423,10 +425,34 @@ export function IndicatorLab() {
   const [verifying, setVerifying] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [generatedCode, setGeneratedCode] = useState("");
+  const [aiChatVisible, setAiChatVisible] = useState(false);
+  const [customModeOpen, setCustomModeOpen] = useState(false);
   const [paramValues, setParamValues] = useState<Record<string, string | number | boolean>>({});
   const [sidePanel, setSidePanel] = useState<"params" | "quality" | "indicators" | "history" | "builtins" | "templates" | "alphazoo">("indicators");
-  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(() => {
+    return localStorage.getItem("indicator-lab-sidebar-collapsed") === "true";
+  });
+
+  const handleToggleSidebar = () => {
+    setRightCollapsed((prev) => {
+      const next = !prev;
+      localStorage.setItem("indicator-lab-sidebar-collapsed", String(next));
+      return next;
+    });
+  };
+
+  // Preserve sidebar scroll position across re-renders
+  const sidebarScrollRef = useRef<HTMLDivElement>(null);
+  const sidebarScrollTopRef = useRef(0);
+  useLayoutEffect(() => {
+    const el = sidebarScrollRef.current;
+    if (el) el.scrollTop = sidebarScrollTopRef.current;
+  });
+  const saveSidebarScroll = () => {
+    const el = sidebarScrollRef.current;
+    if (el) sidebarScrollTopRef.current = el.scrollTop;
+  };
+
   // ── Chart state ────────────────────────────────────────────────────────────
 
   const [chartSymbol, setChartSymbol] = useState("");
@@ -533,15 +559,15 @@ export function IndicatorLab() {
   };
 
   // Generate
-  const handleGenerate = async () => {
+  const handleGenerate = async (prompt: string) => {
     setGenerating(true);
-    setGeneratedCode("");
     setMessage(null);
+    let streamed = "";
     try {
       const res = await fetch(`${API_BASE}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ prompt: "Create a momentum-based trading indicator with RSI and MACD confirmation", style: "momentum" }),
+        body: JSON.stringify({ prompt, style: "custom" }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
@@ -561,9 +587,19 @@ export function IndicatorLab() {
           try {
             const evt = JSON.parse(line.slice(6));
             if (evt.type === "code") {
-              setGeneratedCode((prev) => prev + evt.content);
+              streamed += evt.content;
+              setCode(streamed);
             } else if (evt.type === "done") {
               setMessage("Generation complete");
+              try {
+                const data = await apiFetch<IndicatorInfo>("/save", {
+                  method: "POST",
+                  body: JSON.stringify({ code: streamed }),
+                });
+                setSelectedId(data.id);
+                setChartTitle(data.name);
+                loadList();
+              } catch { /* save failure is non-fatal */ }
             } else if (evt.type === "error") {
               setMessage(`Generation error: ${evt.message}`);
             }
@@ -575,14 +611,6 @@ export function IndicatorLab() {
     } finally {
       setGenerating(false);
     }
-  };
-
-  // Accept generated code
-  const acceptGenerated = () => {
-    setCode(generatedCode);
-    setGeneratedCode("");
-    setChartTitle("AI Generated");
-    setMessage("Generated code loaded into editor");
   };
 
   // ── Chart data fetch ───────────────────────────────────────────────────────
@@ -635,7 +663,6 @@ export function IndicatorLab() {
     setChartTitle("");
     setVerifyResult(null);
     setMessage(null);
-    setGeneratedCode("");
   };
 
   // Built-in indicator selection
@@ -669,9 +696,9 @@ export function IndicatorLab() {
   const isError = message && (message.includes("failed") || message.includes("error") || message.includes("Error"));
 
   return (
-    <div className="flex h-[calc(100vh-3rem)]">
+    <div className="flex h-[calc(100vh-3rem)] gap-3 p-3">
       {/* Main editor area */}
-      <div className="flex-1 flex flex-col min-w-0 min-w-[320px]">
+      <div className="flex-1 flex flex-col min-w-0 min-w-[320px] gap-3">
         {/* Header */}
         <div className="page-header">
           <div className="page-header-title">
@@ -688,9 +715,9 @@ export function IndicatorLab() {
               <Plus className="h-3.5 w-3.5" />
               {t.indicatorLabNew}
             </button>
-            <button onClick={handleGenerate} disabled={generating} className="btn-sm btn-outline">
-              <Sparkles className="h-3.5 w-3.5" />
-              {generating ? t.indicatorLabGenerating : t.indicatorLabAIGenerate}
+            <button onClick={() => setCustomModeOpen(true)} className="btn-sm btn-outline">
+              <Layers className="h-3.5 w-3.5" />
+              {t.customMode}
             </button>
             <button onClick={handleVerify} disabled={verifying} className="btn-sm btn-warning">
               <Play className="h-3.5 w-3.5" />
@@ -710,26 +737,8 @@ export function IndicatorLab() {
           </div>
         )}
 
-        {/* Generated code preview */}
-        {generatedCode && (
-          <div className="mx-5 mt-4 border border-primary/30 rounded-lg overflow-hidden bg-[#1e1e2e] shrink-0 max-h-52 animate-scale-in">
-            <div className="flex items-center justify-between px-4 py-2 bg-primary/10">
-              <span className="text-sm text-primary font-medium">AI Generated Code</span>
-              <div className="flex items-center gap-2">
-                <button onClick={acceptGenerated} className="btn-sm btn-primary">
-                  Accept
-                </button>
-                <button onClick={() => setGeneratedCode("")} className="btn-sm btn-ghost">
-                  Dismiss
-                </button>
-              </div>
-            </div>
-            <pre className="p-4 text-sm text-[#cdd6f4] overflow-auto font-mono">{generatedCode}</pre>
-          </div>
-        )}
-
         {/* Editor */}
-        <div className="flex-1 p-5 min-h-0">
+        <div className="flex-1 min-h-0 section-card">
           <CodeEditor
             value={code}
             onChange={setCode}
@@ -737,10 +746,19 @@ export function IndicatorLab() {
             onVerify={handleVerify}
           />
         </div>
+
+        {/* AI Chat panel */}
+        <AiChatPanel
+          visible={aiChatVisible}
+          onToggle={() => setAiChatVisible(!aiChatVisible)}
+          generating={generating}
+          onGenerate={handleGenerate}
+          onCancel={() => {}}
+        />
       </div>
 
       {/* Chart panel */}
-      <div className="flex-1 flex flex-col min-w-0 min-w-[380px] border-l">
+      <div className="flex-1 flex flex-col min-w-0 min-w-[380px] section-card">
         <ChartPanel
           symbol={chartSymbol}
           onSymbolChange={setChartSymbol}
@@ -771,13 +789,13 @@ export function IndicatorLab() {
 
       {/* Right sidebar */}
       <aside className={cn(
-        "border-l bg-card flex flex-col shrink-0 transition-all duration-200",
+        "section-card shrink-0 transition-all duration-200",
         rightCollapsed ? "w-10" : "w-80"
       )}>
         {/* Collapse toggle */}
-        <div className={cn("flex items-center border-b", rightCollapsed ? "justify-center py-2" : "justify-end px-2 py-1")}>
+        <div className={cn("flex items-center rounded-t-2xl bg-muted/30", rightCollapsed ? "justify-center py-2" : "justify-end px-2 py-1")}>
           <button
-            onClick={() => setRightCollapsed(!rightCollapsed)}
+            onClick={handleToggleSidebar}
             className="p-1 text-muted-foreground hover:text-foreground rounded transition-colors"
             title={rightCollapsed ? t.expandSidebar : t.collapseSidebar}
           >
@@ -809,7 +827,7 @@ export function IndicatorLab() {
           ))}
         </div>
 
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-auto p-4" ref={sidebarScrollRef} onScroll={saveSidebarScroll}>
           {sidePanel === "indicators" && (
             <div className="space-y-1">
               {indicators.length === 0 && (
@@ -898,6 +916,19 @@ export function IndicatorLab() {
         </>
         )}
       </aside>
+
+      {/* Custom mode modal */}
+      {customModeOpen && (
+        <VisualBuilder
+          mode="indicator"
+          onClose={() => setCustomModeOpen(false)}
+          onCodeGenerated={(code, name) => {
+            setCode(code);
+            setChartTitle(name);
+            handleSave();
+          }}
+        />
+      )}
 
     </div>
   );

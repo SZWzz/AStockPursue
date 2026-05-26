@@ -875,9 +875,11 @@ def _build_indicator_from_alpha(
 
     # Build the adapted code
     lines.append("# Build single-asset panel dict for the alpha compute function")
-    lines.append('panel = {"close": df["close"], "open": df["open"],')
-    lines.append('         "high": df["high"], "low": df["low"],')
-    lines.append('         "volume": df["volume"]}')
+    lines.append("# Use double-bracket [[...]] so each value is a single-column DataFrame,")
+    lines.append("# not a Series — alpha compute() expects .columns to exist on every panel value.")
+    lines.append('panel = {"close": df[["close"]], "open": df[["open"]],')
+    lines.append('         "high": df[["high"]], "low": df[["low"]],')
+    lines.append('         "volume": df[["volume"]]}')
     lines.append("")
     lines.append("lookback = params.get(\"lookback\", 20)")
     lines.append("")

@@ -193,7 +193,7 @@ export function Layout() {
                             "h-2 w-2 rounded-full shrink-0",
                             s.status === "failed" ? "bg-danger" : isActive ? "bg-warning" : "bg-success/60"
                           )} />
-                          {s.title || s.session_id.slice(0, 20)}
+                          {s.title || `${t.unnamedSession} #${s.session_id.slice(0, 8)}`}
                         </span>
                       </Link>
                     )}

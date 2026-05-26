@@ -318,6 +318,7 @@ function shortHash(value: string): string {
 }
 
 function ChartTab({ run }: { run: RunData }) {
+  const { t } = useI18n();
   const entries = run.price_series ? Object.entries(run.price_series) : [];
   const hasEquity = run.equity_curve && run.equity_curve.length > 0;
 
@@ -340,7 +341,7 @@ function ChartTab({ run }: { run: RunData }) {
       ))}
       {hasEquity && (
         <div>
-          <h3 className="text-sm font-medium mb-1">Equity & Drawdown</h3>
+          <h3 className="text-sm font-medium mb-1">{t.equityDrawdown}</h3>
           <EquityChart data={run.equity_curve!} height={280} />
         </div>
       )}

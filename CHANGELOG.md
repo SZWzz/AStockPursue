@@ -2,7 +2,28 @@
 
 ## 2026.5.26
 
+### Added
+
+- **自定义模式（可视化策略/指标构建器）** — 策略实验室和指标实验室新增「自定义模式」按钮，弹出 VisualBuilder 模态面板，通过下拉框/滑块/开关可视化配置入场/出场规则、风控参数，编译为 Python 代码并加载到编辑器。策略实验室新增 `/v1/strategy-lab/compile` 端点，compiler 新增 `compile_signal_engine()` 函数
+- **AI 对话面板** — 代码编辑器下方新增可折叠 AiChatPanel，用户输入自然语言描述，AI 流式生成代码直接写入编辑器，完成后自动保存并同步右侧列表。后端内置策略/指标合约系统提示词，无需用户手动编写
+- **圆角卡片式页面布局** — 新增 `.section-card` CSS 类，页面分隔从硬边框 (`border-b`/`border-l`) 改为 `rounded-2xl border shadow-sm` 圆角卡片 + `gap-3 p-3` 间距，视觉更柔和
+
+### Changed
+
+- **AI Generate 按钮移除** — 页面头部的「AI 生成」按钮已由 AiChatPanel 替代，减少按钮拥挤
+- **侧边栏折叠状态持久化** — 两个实验室的侧边栏折叠状态写入 localStorage，切换页面不再丢失
+- **侧边栏列表滚动位置保持** — 点击列表项后不再跳回顶部，useLayoutEffect 自动恢复滚动位置
+- **两个实验室标签汉化** — ChartPanel 中 Symbol→标的、Start→开始、End→结束、Source→数据源、Interval→周期、Load Data→加载数据、初始资金→ptInitialCapital（支持中英切换）
+- **回测「Equity & Drawdown」汉化** — 硬编码英文替换为 i18n `equityDrawdown` 键（净值与回撤）
+- **会话列表空标题** — 新建会话不再显示裸 hex id（`c50f2760bf14`），改为「未命名 #c50f2760」
+- **未输入标的前端禁用回测按钮** — ChartPanel 中 symbol 为空时「加载数据」和「运行回测」按钮置灰不可点击
+- **相关性矩阵移除「API 文档与指南」按钮**
+- **策略实验室默认代码模板汉化** — docstring、注释从英文翻译为中文
+- **i18n 新增 ~30 个键** — aiChat*、customMode、visualBuilder*、chartLoadData、unnamedSession、cancel 等
+
 ### Fixed
+
+- **Alpha 因子库调用报错修复** — indicator_lab_routes.py 生成的代码中 `df["close"]`（Series）改为 `df[["close"]]`（单列 DataFrame），修复 `'Series' object has no attribute 'columns'` 错误，alpha 因子的 `compute()` 函数不再崩溃
 
 - **回测引擎前瞻性偏差（4 项改进）** — 审计发现策略可通过 `generate()` 访问未来数据，导致回测虚高
   - **Fast 模式渐进式信号生成** — `_run_fast()` 将一次性 `generate(data_map)` 替换为逐 bar 扩展窗口调用，策略在时点 T 只能看到 `data[0..T]`，从根源消除未来数据泄漏
