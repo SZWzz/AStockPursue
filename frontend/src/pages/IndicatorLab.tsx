@@ -636,6 +636,7 @@ export function IndicatorLab() {
           interval: chartInterval,
           initial_cash: initialCash,
           leverage: 1,
+          benchmark: "auto",
         }),
       });
       const data = await res.json();

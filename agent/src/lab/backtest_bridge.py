@@ -198,6 +198,7 @@ def run_indicator_backtest(
     interval: str = "1D",
     initial_cash: float = 100_000.0,
     leverage: float = 1.0,
+    benchmark: str | None = "auto",
 ) -> dict[str, Any]:
     """Run a full backtest of indicator code against real market data.
 
@@ -255,6 +256,7 @@ def run_indicator_backtest(
         "initial_cash": initial_cash,
         "leverage": leverage,
         "engine": "daily",
+        "benchmark": benchmark,
     }
     (run_dir / "config.json").write_text(json.dumps(config, indent=2))
 

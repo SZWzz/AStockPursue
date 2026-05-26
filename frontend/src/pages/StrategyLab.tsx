@@ -850,6 +850,7 @@ export function StrategyLab() {
           source: chartSource,
           interval: chartInterval,
           initial_cash: initialCash,
+          benchmark: "auto",
         }),
       });
       if (!res.ok) {

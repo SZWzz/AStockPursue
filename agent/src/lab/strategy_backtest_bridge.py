@@ -90,6 +90,7 @@ def run_strategy_backtest(
     initial_cash: float = 100_000.0,
     leverage: float = 1.0,
     extra_fields: list[str] | None = None,
+    benchmark: str | None = "auto",
 ) -> dict[str, Any]:
     """Run a full backtest using the original AStockPursue engine.
 
@@ -128,6 +129,7 @@ def run_strategy_backtest(
         "initial_cash": initial_cash,
         "leverage": leverage,
         "engine": "daily",
+        "benchmark": benchmark,
     }
     if extra_fields:
         config["extra_fields"] = extra_fields

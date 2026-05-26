@@ -82,6 +82,7 @@ class StrategyBacktestRequest(BaseModel):
     interval: str = Field(default="1D", pattern=r"^(1m|5m|15m|30m|1H|4H|1D|1W|4W)$")
     initial_cash: float = Field(default=100_000.0, ge=1000.0)
     leverage: float = Field(default=1.0, ge=1.0, le=20.0)
+    benchmark: str | None = Field(default="auto", max_length=20)
     extra_fields: list[str] | None = None
 
 
@@ -225,6 +226,7 @@ async def backtest_strategy(req: StrategyBacktestRequest, user: dict = Depends(r
             initial_cash=req.initial_cash,
             leverage=req.leverage,
             extra_fields=req.extra_fields,
+            benchmark=req.benchmark,
         )
         return BacktestResponse(**result)
     except Exception as e:
