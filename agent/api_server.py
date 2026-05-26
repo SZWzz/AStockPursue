@@ -255,6 +255,19 @@ v1.include_router(create_auth_router(require_auth))
 from src.api.system_routes import create_router as create_system_router  # noqa: E402
 v1.include_router(create_system_router(require_auth))
 
+# Version endpoint — reads from project root VERSION
+_VERSION_PATH = Path(__file__).resolve().parent.parent / "VERSION"
+
+
+@v1.get("/version")
+def get_version():
+    try:
+        ver = _VERSION_PATH.read_text(encoding="utf-8").strip()
+    except Exception:
+        ver = "0.0.0"
+    return {"version": ver}
+
+
 app.include_router(v1)
 
 

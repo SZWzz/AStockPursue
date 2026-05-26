@@ -91,7 +91,7 @@ export function ChartPanel({
           <div className="text-xs font-semibold truncate" title={title}>{title}</div>
         )}
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex-1 min-w-[120px]">
+          <div className="flex-[2] min-w-[200px]">
             <label className={labelClass}>{t.indicatorLabSymbol}</label>
             <StockInput
               value={symbol}
@@ -122,7 +122,7 @@ export function ChartPanel({
           </div>
           <div>
             <label className={labelClass}>{t.indicatorLabSource}</label>
-            <select value={source} onChange={(e) => onSourceChange(e.target.value)} className={inputClass} disabled={busy}>
+            <select value={source} onChange={(e) => onSourceChange(e.target.value)} className={inputClass} style={{width: 110}} disabled={busy}>
               {["auto", "tushare", "akshare", "yfinance", "okx", "ccxt", "twelvedata", "finnhub", "futu", "tencent", "coingecko", "global_indices", "commodities"].map((v) => (
                 <option key={v} value={v}>{v}</option>
               ))}
@@ -136,7 +136,7 @@ export function ChartPanel({
           </div>
           <div>
             <label className={labelClass}>{t.ptInitialCapital}</label>
-            <input type="number" min={1000} step={10000} value={initialCash} onChange={(e) => onInitialCashChange(Number(e.target.value) || 100000)} className={inputClass} disabled={busy} />
+            <input type="number" min={1000} step={10000} value={initialCash} onChange={(e) => onInitialCashChange(Number(e.target.value) || 100000)} className={inputClass} style={{width: 100}} disabled={busy} />
           </div>
         </div>
         <div className="flex items-center gap-2">

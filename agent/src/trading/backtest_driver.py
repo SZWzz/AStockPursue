@@ -179,15 +179,17 @@ class BacktestDriver:
         # External benchmark
         benchmark_metadata: dict = {}
         bench_ticker = config.get("benchmark")
-        if bench_ticker and bench_ticker != "auto":
+        if bench_ticker:
             from backtest.benchmark import resolve_benchmark
+            # "auto" → let resolve_benchmark pick based on market
+            explicit = bench_ticker if bench_ticker != "auto" else None
             bench_result = resolve_benchmark(
                 strategy_codes=codes,
                 source=config.get("source", "yfinance"),
                 start_date=config.get("start_date", ""),
                 end_date=config.get("end_date", ""),
                 interval=config.get("interval", "1D"),
-                explicit=bench_ticker,
+                explicit=explicit,
             )
             if bench_result is not None:
                 bench_ret = bench_result.ret_series.reindex(dates).fillna(0.0)

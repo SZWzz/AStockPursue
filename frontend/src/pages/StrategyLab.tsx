@@ -1000,7 +1000,7 @@ export function StrategyLab() {
           <code className="bg-muted px-1.5 py-0.5 rounded text-xs">
             generate(self, data_map) → dict[str, pd.Series]
           </code>
-          <span className="ml-1.5">return signal_map values in [-1, 1]</span>
+          <span className="ml-1.5">返回 signal_map，取值 [-1, 1]，正=做多，负=做空</span>
         </div>
 
         {/* Verify result inline display */}

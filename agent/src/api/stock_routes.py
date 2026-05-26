@@ -30,6 +30,29 @@ def _load_symbols() -> list[dict]:
     return _SYMBOLS_CACHE
 
 
+# A-share code prefix → exchange suffix
+#  https://www.sse.com.cn/ (Shanghai) / https://www.szse.cn/ (Shenzhen)
+_CN_PREFIX_EXCHANGE: dict[tuple[str, ...], str] = {
+    ("000", "001", "002", "003", "300", "301"): ".SZ",
+    ("600", "601", "603", "605", "688"): ".SH",
+    ("430", "830", "831", "832", "833", "834", "835", "836", "837", "838", "839",
+     "870", "871", "872", "873", "920"): ".BJ",
+}
+
+
+def _cn_exchange_candidates(code: str) -> list[str]:
+    """Return the most likely exchange-qualified code(s) for a numeric A-share code."""
+    if len(code) != 6:
+        # Unrecognised length — try both major exchanges
+        return [f"{code}.SZ", f"{code}.SH"]
+    prefix = code[:3]
+    for prefixes, suffix in _CN_PREFIX_EXCHANGE.items():
+        if prefix in prefixes:
+            return [f"{code}{suffix}"]
+    # Prefix not in known map — try both
+    return [f"{code}.SZ", f"{code}.SH"]
+
+
 @router.get("/search")
 async def search_stocks(q: str = Query("", max_length=64)):
     """Search stock symbols by code, name, or pinyin. Returns up to 20 matches.
@@ -65,7 +88,8 @@ async def search_stocks(q: str = Query("", max_length=64)):
         elif q.isalpha() and len(q) <= 5:
             candidates = [q, f"{q}.HK"]
         elif q.isdigit():
-            candidates = [f"{q}.SZ", f"{q}.SH", f"{q}.HK"]
+            # Determine exchange by A-share code prefix to avoid duplicate results
+            candidates = _cn_exchange_candidates(q) + [f"{q}.HK"]
         for code in candidates[:5]:
             try:
                 from backtest.loaders.tencent import normalize_cn_code, normalize_hk_code, _is_cn, _is_hk
@@ -100,7 +124,7 @@ async def search_stocks(q: str = Query("", max_length=64)):
         clean = q.replace(".US", "").replace(".HK", "").replace(".SZ", "").replace(".SH", "")
         if "-" in q:
             results.append({"code": q, "name": q, "market": "CRYPTO", "type": "", "pinyin": query.lower()})
-        elif q.endswith(".US") or (clean.isalpha() and len(clean) <= 5):
+        elif q.endswith(".US") or (clean.isascii() and clean.isalpha() and len(clean) <= 5):
             results.append({"code": q if q.endswith(".US") else q, "name": q, "market": "US", "type": "", "pinyin": query.lower()})
         elif q.endswith(".HK") or (clean.isdigit() and len(clean) <= 5):
             results.append({"code": q, "name": q, "market": "HK", "type": "", "pinyin": query.lower()})

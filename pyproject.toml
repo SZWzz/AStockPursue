@@ -1,6 +1,6 @@
 [project]
 name = "AStockPursue"
-version = "2026.5.24"
+dynamic = ["version"]
 description = "AStockPursue: AI-powered quantitative trading research platform"
 requires-python = ">=3.11"
 license = "MIT"
@@ -69,6 +69,16 @@ Issues = "https://github.com/SZWzz/AStockPursue/issues"
 AStockPursue = "cli:main"
 AStockPursue-mcp = "mcp_server:main"
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-socket>=0.7.0",
+]
+
+[tool.setuptools.dynamic]
+version = {file = "VERSION"}
+
 [tool.setuptools]
 package-dir = {"" = "agent"}
 py-modules = ["cli", "api_server", "mcp_server"]
@@ -92,13 +102,6 @@ include = ["src*", "backtest*", "papertrade*", "migrations*"]
 ]
 "backtest" = ["*.py"]
 "src.factors" = ["zoo/**/*.yaml", "zoo/**/*.md", "zoo/**/NOTICE"]
-
-[project.optional-dependencies]
-dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "pytest-socket>=0.7.0",
-]
 
 [tool.pytest.ini_options]
 testpaths = ["agent/tests"]
