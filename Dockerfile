@@ -29,7 +29,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Python deps (install before copying code for layer caching)
 COPY agent/requirements.txt agent/requirements.txt
-RUN pip install --no-cache-dir -r agent/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+ARG PYPI_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple
+RUN pip install --no-cache-dir -r agent/requirements.txt -i ${PYPI_MIRROR}
 
 # Copy project
 COPY pyproject.toml LICENSE NOTICE SECURITY.md README.md README_EN.md ./
@@ -47,7 +48,7 @@ RUN useradd --create-home --shell /usr/sbin/nologin research \
 USER research
 
 # Install CLI entrypoint
-RUN pip install --no-cache-dir -e . -i https://pypi.tuna.tsinghua.edu.cn/simple
+RUN pip install --no-cache-dir -e . -i ${PYPI_MIRROR}
 
 # Default ports: API (8899) + MCP Server SSE (8900)
 EXPOSE 8899 8900

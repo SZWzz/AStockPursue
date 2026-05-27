@@ -275,4 +275,23 @@ def create_router(require_auth) -> APIRouter:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
+    # ========================================================================
+    # SSE token endpoint (short-lived JWT for EventSource query param)
+    # ========================================================================
+
+    @router.get("/api/sse-token", dependencies=[Depends(require_auth)])
+    async def get_sse_token(auth: dict = Security(require_auth)):
+        """Issue a short-lived JWT (5 min) for SSE query-param auth.
+
+        SSE (EventSource) cannot set custom HTTP headers, so the JWT must
+        be passed as a query parameter. This short-lived token limits the
+        damage window if the token appears in server/proxy logs.
+        """
+        from src.auth.jwt import create_sse_token
+        token = create_sse_token(
+            user_id=auth["user_id"],
+            username=auth.get("username", ""),
+        )
+        return {"token": token, "expires_in_minutes": 5}
+
     return router

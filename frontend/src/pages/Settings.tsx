@@ -380,7 +380,7 @@ export function Settings() {
     const newPw = (form.elements.namedItem("new_password") as HTMLInputElement).value;
     setChangingPw(true); setPwMsg(null);
     try {
-      const token = localStorage.getItem("vt_token");
+      const token = sessionStorage.getItem("vt_token");
       const res = await fetch("/v1/api/auth/change-password", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -399,7 +399,7 @@ export function Settings() {
     const newName = (form.elements.namedItem("new_username") as HTMLInputElement).value;
     setChangingUser(true); setUserMsg(null);
     try {
-      const token = localStorage.getItem("vt_token");
+      const token = sessionStorage.getItem("vt_token");
       const res = await fetch("/v1/api/auth/change-username", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
@@ -409,18 +409,18 @@ export function Settings() {
       if (res.ok) {
         setUserMsg("用户名已更新");
         // Update stored user info
-        const raw = localStorage.getItem("vt_user") || "{}";
+        const raw = sessionStorage.getItem("vt_user") || "{}";
         let u: Record<string, unknown> = {};
         try { u = JSON.parse(raw); } catch { /* ignore */ }
         u.username = newName;
-        localStorage.setItem("vt_user", JSON.stringify(u));
+        sessionStorage.setItem("vt_user", JSON.stringify(u));
       }
       else setUserMsg(data.detail || "修改失败");
     } catch { setUserMsg("网络错误"); }
     finally { setChangingUser(false); }
   };
 
-  const loggedIn = !!localStorage.getItem("vt_token");
+  const loggedIn = !!sessionStorage.getItem("vt_token");
   // LLM & data source settings are stored per-user in DB — no manual sync needed
 
   const accountSection = loggedIn ? (
@@ -434,7 +434,7 @@ export function Settings() {
       <form onSubmit={changeUsername} className="flex gap-3 items-end">
         <label className="grid gap-1.5 flex-1">
           <span className="text-sm font-medium">用户名</span>
-          <input name="new_username" required minLength={2} placeholder={((): string => { try { return JSON.parse(localStorage.getItem("vt_user") || "{}").username || ""; } catch { return ""; } })()} className="input" />
+          <input name="new_username" required minLength={2} placeholder={((): string => { try { return JSON.parse(sessionStorage.getItem("vt_user") || "{}").username || ""; } catch { return ""; } })()} className="input" />
         </label>
         <button type="submit" disabled={changingUser} className="btn-sm btn-primary">
           {changingUser ? "..." : "修改"}

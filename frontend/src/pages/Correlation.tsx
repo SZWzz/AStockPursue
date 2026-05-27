@@ -103,7 +103,7 @@ export function Correlation() {
         <h1 className="text-2xl font-bold">{t.correlation || "Correlation Matrix"}</h1>
       </div>
 
-      <div className="flex flex-col gap-4 border rounded-lg p-4">
+      <div className="flex flex-col gap-4 section-card p-4">
         <div className="flex flex-col gap-1.5">
           <label className="text-sm font-medium">{t.selectAssets || "Asset codes"}</label>
           <StockInput value={codes} onChange={setCodes} placeholder="600519.SH, 000001.SZ, BTC-USDT, AAPL" multi />
@@ -138,7 +138,6 @@ export function Correlation() {
 
       {labels.length > 0 && (
         <>
-          <CorrelationMatrix labels={labels} matrix={matrix} height={520} />
           <div className="flex items-center gap-3">
             <button onClick={aiAnalyze} className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition">
               <Sparkles className="h-4 w-4" />{t.correlationAIAnalyze}
@@ -147,6 +146,9 @@ export function Correlation() {
               <MessageSquare className="h-4 w-4" />{savingSession ? (t.llmSaving || "Saving...") : t.correlationSaveToSession}
             </button>
             {sessionMsg && <span className="text-xs text-muted-foreground">{sessionMsg}</span>}
+          </div>
+          <div className="section-card p-4">
+            <CorrelationMatrix labels={labels} matrix={matrix} height={520} />
           </div>
         </>
       )}

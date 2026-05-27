@@ -24,17 +24,35 @@ if not _SECRET:
         else:
             _SECRET = secrets.token_hex(32)
             _secret_file.parent.mkdir(parents=True, exist_ok=True)
-            _secret_file.write_text(_SECRET, encoding="utf-8")
-            os.chmod(_secret_file, 0o600)
+            # Use umask + tmpfile + replace to avoid race: the key file
+            # is never on disk with 644 permissions (even briefly).
+            old_umask = os.umask(0o177)  # 0o600
+            try:
+                import tempfile
+                fd, tmp_path = tempfile.mkstemp(dir=str(_secret_file.parent), prefix=".jwt_secret_tmp_")
+                try:
+                    with os.fdopen(fd, "w", encoding="utf-8") as f:
+                        f.write(_SECRET)
+                    os.replace(tmp_path, str(_secret_file))
+                except Exception:
+                    try:
+                        os.unlink(tmp_path)
+                    except OSError:
+                        pass
+                    raise
+            finally:
+                os.umask(old_umask)
     except OSError:
         _SECRET = secrets.token_hex(32)
     os.environ["JWT_SECRET"] = _SECRET
 
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_DAYS = 7
+SSE_TOKEN_EXPIRE_MINUTES = 5  # short-lived tokens for SSE query param
 
 
 def create_token(user_id: int, username: str, role: str, token_version: int) -> str:
+    """Create a signed JWT for a user (7-day expiry)."""
     """Create a signed JWT for a user."""
     now = datetime.now(timezone.utc)
     payload = {
@@ -57,6 +75,24 @@ def verify_token(token: str) -> dict | None:
         return None
     except pyjwt.InvalidTokenError:
         return None
+
+
+def create_sse_token(user_id: int, username: str) -> str:
+    """Create a short-lived JWT (5 min) for SSE query-param authentication.
+
+    SSE (EventSource) cannot set custom HTTP headers, so the token must
+    be passed as a query parameter. By using a very short expiry window,
+    we limit the damage if the token is captured in server logs.
+    """
+    now = datetime.now(timezone.utc)
+    payload = {
+        "sub": username,
+        "user_id": user_id,
+        "purpose": "sse",
+        "iat": now,
+        "exp": now + timedelta(minutes=SSE_TOKEN_EXPIRE_MINUTES),
+    }
+    return pyjwt.encode(payload, _SECRET, algorithm=ALGORITHM)
 
 
 _PBKDF2_ITERATIONS = 600_000

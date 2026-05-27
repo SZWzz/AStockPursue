@@ -110,7 +110,8 @@ signal.replace(False, -1, inplace=True)
 class TestBuildSafeBuiltins:
     def test_includes_safe_functions(self) -> None:
         b = build_safe_builtins()
-        assert "print" in b
+        # "print" intentionally excluded — stdout captured by safe_exec_code
+        assert "print" not in b
         assert "len" in b
         assert "range" in b
         assert "True" in b

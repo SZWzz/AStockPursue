@@ -17,12 +17,12 @@ export function RightSidebar({ collapsed, onToggle, onAnalyze, onSelectExample }
     <aside
       aria-label="Right sidebar"
       className={cn(
-        "border-l bg-card flex flex-col shrink-0 transition-all duration-200 overflow-hidden",
-        collapsed ? "w-0 border-l-0" : "w-72"
+        "section-card shrink-0 transition-all duration-200 overflow-hidden my-3 mr-3",
+        collapsed ? "w-0 border-0" : "w-72"
       )}
     >
       {/* Toggle + Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b shrink-0">
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 shrink-0 rounded-t-2xl bg-muted/30">
         <button
           onClick={onToggle}
           className="p-1.5 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition"
@@ -37,7 +37,7 @@ export function RightSidebar({ collapsed, onToggle, onAnalyze, onSelectExample }
       {/* Watchlist section */}
       <div className="flex flex-col flex-1 min-h-0">
         {/* Watchlist header */}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-border/30 shrink-0">
+        <div className="flex items-center gap-1.5 px-3 py-1.5 shrink-0">
           <Star className="h-3 w-3 text-primary" />
           <span className="text-xs font-semibold uppercase tracking-wider">{t.watchlist || "自选"}</span>
         </div>

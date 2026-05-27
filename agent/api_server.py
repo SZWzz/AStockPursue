@@ -20,6 +20,7 @@ from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from rich.console import Console
 
+from src.auth.user_config import _ENV_KEYS, clear_user_config
 from src.api.common import (
     AGENT_DIR,
     ENV_PATH,
@@ -56,6 +57,38 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+
+# ── Per-request os.environ isolation middleware ────────────────────────────
+# Saves managed env keys before each request, restores after.
+# Prevents user A's API keys from leaking to user B's request context.
+
+
+@app.middleware("http")
+async def user_config_env_middleware(request: Request, call_next):
+    saved = {}
+    for k in _ENV_KEYS:
+        try:
+            if k in os.environ:
+                saved[k] = os.environ[k]
+        except Exception:
+            pass
+
+    try:
+        response = await call_next(request)
+    finally:
+        for k in _ENV_KEYS:
+            try:
+                if k in saved:
+                    os.environ[k] = saved[k]
+                else:
+                    os.environ.pop(k, None)
+            except Exception:
+                pass
+        clear_user_config()
+
+    return response
+
 
 _DEFAULT_CORS_ORIGINS = [
     "http://localhost:3000",
@@ -254,19 +287,6 @@ v1.include_router(create_auth_router(require_auth))
 
 from src.api.system_routes import create_router as create_system_router  # noqa: E402
 v1.include_router(create_system_router(require_auth))
-
-# Version endpoint — reads from project root VERSION
-_VERSION_PATH = Path(__file__).resolve().parent.parent / "VERSION"
-
-
-@v1.get("/version")
-def get_version():
-    try:
-        ver = _VERSION_PATH.read_text(encoding="utf-8").strip()
-    except Exception:
-        ver = "0.0.0"
-    return {"version": ver}
-
 
 app.include_router(v1)
 

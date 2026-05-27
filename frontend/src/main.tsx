@@ -9,7 +9,7 @@ import { useAuthStore } from "./stores/auth";
 import "highlight.js/styles/github-dark-dimmed.min.css";
 import "./index.css";
 
-// Restore JWT token from localStorage
+// Restore JWT token from sessionStorage (tab-scoped)
 useAuthStore.getState().loadFromStorage();
 
 createRoot(document.getElementById("root")!).render(

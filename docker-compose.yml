@@ -45,11 +45,15 @@ services:
   # Auto-deployed PostgreSQL for users without an existing PG instance.
   # If you already have a PostgreSQL instance, configure DB_HOST/DB_PORT/
   # DB_NAME/DB_USER/DB_PASSWORD_ENC in agent/.env and skip the pg profile.
+  # WARNING: The default password below is for development only.
+  # Change it before exposing this service to a network.
+  # Set POSTGRES_PASSWORD in a .env file to override:
+  #   echo "POSTGRES_PASSWORD=your_secure_password" >> .env
   postgres:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: AStockPursue
-      POSTGRES_PASSWORD: vr_pg_2026
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vr_pg_2026}
       POSTGRES_DB: AStockPursue
     ports:
       - "5432:5432"

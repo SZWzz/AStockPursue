@@ -86,7 +86,6 @@ class BacktestRequest(BaseModel):
     interval: str = Field(default="1D", pattern=r"^(1m|5m|15m|30m|1H|4H|1D|1W|4W)$")
     initial_cash: float = Field(default=100_000.0, ge=1000.0)
     leverage: float = Field(default=1.0, ge=1.0, le=20.0)
-    benchmark: str | None = Field(default="auto", max_length=20)
 
 
 class CompileRequest(BaseModel):
@@ -107,21 +106,41 @@ class BacktestResponse(BaseModel):
 
 
 def _generate_mock_df(length: int = 200) -> pd.DataFrame:
-    """Generate mock K-line data for code verification."""
+    """Generate mock K-line data for code verification using GBM.
+
+    Uses Geometric Brownian Motion with stochastic volatility to produce
+    more realistic price paths (volatility clustering, occasional gaps)
+    compared to the old fixed-seed Gaussian random walk.
+    """
     dates = [datetime.now() - timedelta(minutes=i) for i in range(length)]
     dates.reverse()
 
-    np.random.seed(42)
+    mu = 0.0001       # drift
+    sigma_base = 0.02 # base volatility
     close = 100.0
     data: dict[str, list[float]] = {
         "open": [], "high": [], "low": [], "close": [], "volume": []
     }
+    # Random seed with entropy from system time — avoid fixed seed so
+    # indicators are tested against varying data distributions.
+    np.random.seed(None)
+
+    # GBM with stochastic volatility (volatility clustering)
+    vol = sigma_base
     for _ in range(length):
-        change = np.random.randn() * 2
-        o = close
-        c = close + change
-        h = max(o, c) + abs(np.random.randn()) * 1.5
-        l = min(o, c) - abs(np.random.randn()) * 1.5
+        # Random walk on volatility (clustering effect)
+        vol += np.random.randn() * 0.002
+        vol = max(vol, 0.005)  # floor volatility
+        vol = min(vol, 0.06)   # ceiling volatility
+
+        # GBM step
+        epsilon = np.random.randn()
+        ret = mu + vol * epsilon
+        gap = np.random.randn() * vol * 0.3 if np.random.random() < 0.02 else 0.0  # occasional gap
+        o = close + gap * close
+        c = o * (1 + ret)
+        h = max(o, c) * (1 + abs(np.random.randn()) * vol * 0.5)
+        l = min(o, c) * (1 - abs(np.random.randn()) * vol * 0.5)
         v = abs(np.random.randn()) * 1000 + 5000
         data["open"].append(round(o, 2))
         data["high"].append(round(h, 2))
@@ -548,7 +567,6 @@ async def backtest_indicator(req: BacktestRequest, user: dict = Depends(require_
             interval=req.interval,
             initial_cash=req.initial_cash,
             leverage=req.leverage,
-            benchmark=req.benchmark,
         )
         return BacktestResponse(**result)
     except Exception as e:
@@ -877,11 +895,9 @@ def _build_indicator_from_alpha(
 
     # Build the adapted code
     lines.append("# Build single-asset panel dict for the alpha compute function")
-    lines.append("# Use double-bracket [[...]] so each value is a single-column DataFrame,")
-    lines.append("# not a Series — alpha compute() expects .columns to exist on every panel value.")
-    lines.append('panel = {"close": df[["close"]], "open": df[["open"]],')
-    lines.append('         "high": df[["high"]], "low": df[["low"]],')
-    lines.append('         "volume": df[["volume"]]}')
+    lines.append('panel = {"close": df["close"], "open": df["open"],')
+    lines.append('         "high": df["high"], "low": df["low"],')
+    lines.append('         "volume": df["volume"]}')
     lines.append("")
     lines.append("lookback = params.get(\"lookback\", 20)")
     lines.append("")

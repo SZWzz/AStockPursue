@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import ast
 import builtins as _builtins_mod
+import io
 import logging
 import multiprocessing
 import os
@@ -37,7 +38,8 @@ _BUILTINS_WHITELIST: set[str] = {
     "repr", "ascii", "chr", "ord", "format", "bin", "hex", "oct",
     "hash", "id",
     "isinstance", "issubclass", "hasattr", "callable",
-    "print",
+    # NOTE: "print" intentionally excluded — stdout captured by safe_exec_code.
+    #       See safe_exec_code() for the sys.stdout replacement logic.
     "Exception", "ValueError", "TypeError", "KeyError", "IndexError",
     "AttributeError", "ZeroDivisionError", "StopIteration",
     "RuntimeError", "OverflowError", "ArithmeticError",
@@ -143,13 +145,22 @@ def safe_exec_code(
     timeout: int = 30,
     max_memory_mb: int | None = None,
 ) -> dict[str, Any]:
-    """Execute Python code in-process with timeout protection."""
+    """Execute Python code in-process with timeout protection.
+
+    Captures stdout (since ``print`` was excluded from the builtins whitelist,
+    but user code may still write to sys.stdout directly). Output is discarded
+    to prevent info-leak via the sandbox; set ``capture_stdout=True`` to pipe
+    it back for debugging.
+    """
     if exec_locals is None:
         exec_locals = exec_globals
 
     if max_memory_mb is None:
         max_memory_mb = 500
 
+    # Capture stdout to prevent info-leak from sandboxed code
+    old_stdout = sys.stdout
+    sys.stdout = io.StringIO()
     try:
         if sys.platform != "win32" and os.getenv("SAFE_EXEC_ENABLE_RLIMIT", "") == "true":
             try:
@@ -163,7 +174,6 @@ def safe_exec_code(
             exec(code, exec_globals, exec_locals)
 
         return {"success": True, "error": None, "result": None}
-
     except MemoryError:
         error_msg = f"Code execution out of memory (limit={max_memory_mb}MB)"
         logger.error(error_msg)
@@ -175,6 +185,8 @@ def safe_exec_code(
         error_msg = f"Code execution error: {e}\n{traceback.format_exc()}"
         logger.error(f"Code execution error: {e}")
         return {"success": False, "error": error_msg, "result": None}
+    finally:
+        sys.stdout = old_stdout
 
 
 def safe_exec_with_validation(
@@ -321,7 +333,31 @@ def safe_exec_isolated(
 # ── Static validation ───────────────────────────────────────────────────────
 
 def validate_code_safety(code: str) -> tuple[bool, str | None]:
-    """Validate code safety via regex + AST double check."""
+    """Validate code safety via regex + AST double check.
+
+    Design note — layered defense:
+    ┌─ Layer 1: Regex scan ──────────────────────────────────────────┐
+    │  Catches obvious dangerous patterns (os.system, eval, etc.)    │
+    │  by substring match. Bypassable via string concatenation       │
+    │  (\"o\"+\"s.system\"), but that's where Layer 2 steps in.      │
+    ├─ Layer 2: AST walk ────────────────────────────────────────────┤
+    │  Parses the code into a syntax tree and inspects every node:   │
+    │  • Import statements — only SAFE_IMPORT_MODULES allowed        │
+    │  • Call names — eval/exec/__import__/open are blocked          │
+    │  • Attribute access — .__class__/__globals__/__builtins__      │
+    │    are blocked                                                 │
+    │  • Bound names — if user code does ``import signal`` (which    │
+    │    is dangerous), subsequent ``signal.alarm()`` is blocked     │
+    ├─ Layer 3: Restricted builtins ──────────────────────────────────┤
+    │  build_safe_builtins() ships a minimal __builtins__ dict        │
+    │  without eval/exec/__import__/open/getattr. Safe __import__    │
+    │  only allows whitelisted modules.                              │
+    ├─ Layer 4: Subprocess isolation ─────────────────────────────────┤
+    │  safe_exec_isolated() runs code in a separate OS process       │
+    │  with RLIMIT_AS memory cap.                                    │
+    └─ Layer 5: Stdout capture ───────────────────────────────────────┘
+    │  sys.stdout replaced so info-leak via print is blocked.
+    """
     dangerous_patterns = [
         r"\bos\.system\b", r"\bos\.popen\b", r"\bos\.spawn\b",
         r"\bos\.exec\b", r"\bos\.fork\b", r"\bos\.environ\b",

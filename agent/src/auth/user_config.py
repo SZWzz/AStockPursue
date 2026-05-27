@@ -7,6 +7,7 @@ encrypted at rest in the database.
 
 from __future__ import annotations
 
+import contextvars
 import logging
 import os
 
@@ -14,6 +15,27 @@ from src.db.crypto import decrypt_password, encrypt_password, generate_key_b64
 
 logger = logging.getLogger(__name__)
 
+# ── Per-request context (contextvars) ──────────────────────────────────
+# These avoid the cross-request os.environ leak that plagued the old design.
+# Middleware in api_server.py saves/restores os.environ per-request.
+_current_user_config: contextvars.ContextVar[dict | None] = contextvars.ContextVar(
+    "user_config", default=None
+)
+_current_user_id: contextvars.ContextVar[int | None] = contextvars.ContextVar(
+    "user_id", default=None
+)
+
+# Keys managed per-request in os.environ — middleware saves/restores these
+# so concurrent requests don't leak credentials across each other.
+_ENV_KEYS: set[str] = {
+    "LANGCHAIN_PROVIDER", "LANGCHAIN_MODEL_NAME",
+    "OPENAI_BASE_URL", "OPENAI_API_KEY",
+    "TUSHARE_TOKEN",
+    "OKX_API_KEY", "OKX_SECRET_KEY", "OKX_PASSPHRASE",
+    "TWELVE_DATA_API_KEY", "FINNHUB_API_KEY", "TIINGO_API_KEY",
+}
+
+# Legacy global state (deprecated, kept for backward compatibility)
 _ACTIVE_USER_CONFIG: dict | None = None
 _ACTIVE_USER_ID: int | None = None
 
@@ -125,6 +147,10 @@ def load_user_config(user_id: int) -> dict:
     _ACTIVE_USER_CONFIG = {"llm": llm_cfg, "data_source": ds_cfg}
     _ACTIVE_USER_ID = user_id
 
+    # Store in contextvars for per-request access
+    _current_user_config.set(_ACTIVE_USER_CONFIG)
+    _current_user_id.set(user_id)
+
     logger.info("Loaded config for user %s: provider=%s model=%s tushare=%s twelvedata=%s",
                 user_id,
                 llm_cfg.get("provider", "default"),
@@ -134,8 +160,24 @@ def load_user_config(user_id: int) -> dict:
     return _ACTIVE_USER_CONFIG
 
 
+def get_current_user_config() -> dict | None:
+    """Get the current request's user config from contextvars.
+
+    Returns None if no user config has been loaded for this request.
+    Preferred over reading os.environ directly.
+    """
+    return _current_user_config.get()
+
+
+def get_current_user_id() -> int | None:
+    """Get the current request's user ID from contextvars."""
+    return _current_user_id.get()
+
+
 def clear_user_config() -> None:
-    """Clear active user config overrides."""
+    """Clear active user config overrides (both legacy globals and contextvars)."""
     global _ACTIVE_USER_CONFIG, _ACTIVE_USER_ID
     _ACTIVE_USER_CONFIG = None
     _ACTIVE_USER_ID = None
+    _current_user_config.set(None)
+    _current_user_id.set(None)

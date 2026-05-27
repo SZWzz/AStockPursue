@@ -17,6 +17,11 @@ interface AuthState {
   loadFromStorage: () => void;
 }
 
+// Security note: JWT is stored in sessionStorage (tab-scoped, cleared on close)
+// rather than localStorage (persists across restarts, more XSS exposure).
+// The backend also sets an httpOnly cookie for SSE endpoints.
+const STORAGE = window.sessionStorage;
+
 export const useAuthStore = create<AuthState>((set) => ({
   token: null,
   user: null,
@@ -37,8 +42,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       const data = await res.json();
       const token = data.token as string;
       const user: UserInfo = { user_id: data.user_id, username: data.username, role: data.role };
-      localStorage.setItem("vt_token", token);
-      localStorage.setItem("vt_user", JSON.stringify(user));
+      // Use sessionStorage instead of localStorage — cleared when tab closes
+      STORAGE.setItem("vt_token", token);
+      STORAGE.setItem("vt_user", JSON.stringify(user));
       set({ token, user, loading: false });
       return null;
     } catch (e) {
@@ -68,21 +74,21 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    localStorage.removeItem("vt_token");
-    localStorage.removeItem("vt_user");
+    STORAGE.removeItem("vt_token");
+    STORAGE.removeItem("vt_user");
     set({ token: null, user: null });
   },
 
   loadFromStorage: () => {
-    const token = localStorage.getItem("vt_token");
-    const userStr = localStorage.getItem("vt_user");
+    const token = STORAGE.getItem("vt_token");
+    const userStr = STORAGE.getItem("vt_user");
     if (token && userStr) {
       try {
         const user = JSON.parse(userStr) as UserInfo;
         set({ token, user });
       } catch {
-        localStorage.removeItem("vt_token");
-        localStorage.removeItem("vt_user");
+        STORAGE.removeItem("vt_token");
+        STORAGE.removeItem("vt_user");
       }
     }
   },

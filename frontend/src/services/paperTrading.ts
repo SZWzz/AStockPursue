@@ -136,7 +136,7 @@ export const paperTradingApi = {
     ),
 
   getSSEUrl: (runId: string) => {
-    const jwt = window.localStorage.getItem("vt_token");
+    const jwt = window.sessionStorage.getItem("vt_token");
     const base = `${BASE}/paper-trading/runs/${runId}/stream`;
     return jwt ? `${base}?jwt=${encodeURIComponent(jwt)}` : base;
   },

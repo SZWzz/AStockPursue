@@ -80,36 +80,45 @@ class PaperTradingScheduler:
         self._repo.update_run(run_id, tick_mode=(bridge_mode == "tick"), status="running")
         self._repo.set_start_time(run_id)
 
-        # Seed with historical data
-        self._seed_historical(engine, codes, market, interval, user_id=pt_user_id)
-
-        await self._persist(run_id, engine)
-
-        # Build LiveDriver
         try:
-            from src.auth.user_config import load_user_config
-            load_user_config(pt_user_id)
-        except Exception:
-            pass
+            # Seed with historical data
+            self._seed_historical(engine, codes, market, interval, user_id=pt_user_id)
 
-        from backtest.loaders.registry import resolve_loader
-        loader = resolve_loader(market)
+            await self._persist(run_id, engine)
 
-        driver = LiveDriver(
-            engine=engine,
-            loader=loader,
-            codes=codes,
-            interval=interval,
-            on_bar_result=lambda rid, result: self._on_bar_result(rid, result),
-            on_error=lambda rid, msg: self._on_loop_error(rid, msg),
-            on_heartbeat=lambda rid: self._push_event(rid, "heartbeat", {"timestamp": datetime.now().isoformat()}),
-        )
-        self._drivers[run_id] = driver
+            # Build LiveDriver
+            try:
+                from src.auth.user_config import load_user_config
+                load_user_config(pt_user_id)
+            except Exception:
+                pass
 
-        task = asyncio.create_task(self._run_with_driver(run_id, driver))
-        self._tasks[run_id] = task
+            from backtest.loaders.registry import resolve_loader
+            loader = resolve_loader(market)
 
-        await self._push_event(run_id, "status", {"status": "running", "message": "Paper trading started"})
+            driver = LiveDriver(
+                engine=engine,
+                loader=loader,
+                codes=codes,
+                interval=interval,
+                on_bar_result=lambda rid, result: self._on_bar_result(rid, result),
+                on_error=lambda rid, msg: self._on_loop_error(rid, msg),
+                on_heartbeat=lambda rid: self._push_event(rid, "heartbeat", {"timestamp": datetime.now().isoformat()}),
+            )
+            self._drivers[run_id] = driver
+
+            task = asyncio.create_task(self._run_with_driver(run_id, driver))
+            self._tasks[run_id] = task
+
+            await self._push_event(run_id, "status", {"status": "running", "message": "Paper trading started"})
+        except Exception as e:
+            # Roll back status to "stopped" so the UI doesn't show a stale "running"
+            self._active.pop(run_id, None)
+            self._queues.pop(run_id, None)
+            self._drivers.pop(run_id, None)
+            self._repo.update_run(run_id, status="stopped", error_message=f"Failed to start: {e}")
+            await self._push_event(run_id, "status", {"status": "stopped", "message": str(e)})
+            raise
 
     async def stop(self, run_id: str, close_positions: bool = True) -> None:
         """Stop a running / paused paper-trading run."""
@@ -221,9 +230,18 @@ class PaperTradingScheduler:
     # ── Run loop (delegates to LiveDriver) ──────────────────────────
 
     async def _run_with_driver(self, run_id: str, driver: LiveDriver) -> None:
-        """Run the LiveDriver and handle cleanup on exit."""
+        """Run the LiveDriver and handle cleanup on exit.
+
+        On normal LiveDriver exit (circuit breaker / stop signal), sets
+        DB status to ``stopped`` so the UI reflects reality even when
+        the scheduler's in-memory state is lost.
+        """
         try:
             await driver.run(run_id)
+            # LiveDriver exited normally (circuit breaker or stop signal).
+            # Update DB status so the UI doesn't show a stale "running".
+            self._repo.update_run(run_id, status="stopped", error_message="LiveDriver stopped — check data source availability")
+            await self._push_event(run_id, "status", {"status": "stopped", "message": "LiveDriver exited"})
         except asyncio.CancelledError:
             raise
         except Exception as e:

@@ -47,11 +47,35 @@ from rich.table import Table
 from rich.text import Text
 
 console = Console()
-AGENT_DIR = Path(__file__).resolve().parent
-RUNS_DIR = AGENT_DIR / "runs"
-SWARM_DIR = AGENT_DIR / ".swarm" / "runs"
-SESSIONS_DIR = AGENT_DIR / "sessions"
-UPLOADS_DIR = AGENT_DIR / "uploads"
+
+# ── Lazy path resolution ──────────────────────────────────────────────────
+# Module-level Path(__file__).parent is fragile when the code is packaged
+# (.egg/PyInstaller). Resolve at call time via functions instead.
+
+_agent_dir_cache: Path | None = None
+
+
+def _get_agent_dir() -> Path:
+    global _agent_dir_cache
+    if _agent_dir_cache is None:
+        _agent_dir_cache = Path(__file__).resolve().parent
+    return _agent_dir_cache
+
+
+def _get_runs_dir() -> Path:
+    return _get_agent_dir() / "runs"
+
+
+def _get_swarm_dir() -> Path:
+    return _get_agent_dir() / ".swarm" / "runs"
+
+
+def _get_sessions_dir() -> Path:
+    return _get_agent_dir() / "sessions"
+
+
+def _get_uploads_dir() -> Path:
+    return _get_agent_dir() / "uploads"
 
 EXIT_SUCCESS = 0
 EXIT_RUN_FAILED = 1
@@ -1284,7 +1308,7 @@ def cmd_continue(
     no_rich: bool = False,
 ) -> int:
     """Continue an existing run."""
-    run_dir = RUNS_DIR / run_id
+    run_dir = _get_runs_dir() / run_id
     if not run_dir.exists():
         if no_rich:
             print(f"Run {run_id} not found")
@@ -1356,8 +1380,8 @@ def _build_welcome_panel(term_width: Optional[int] = None) -> Panel:
     key_value = os.getenv(key_env or "")
     credential_ready = provider in {"ollama", "openai-codex"} or bool(key_value)
     key_state = "READY" if credential_ready else "MISSING"
-    recent_runs = len([d for d in RUNS_DIR.iterdir() if d.is_dir()]) if RUNS_DIR.exists() else 0
-    recent_swarms = len([d for d in SWARM_DIR.iterdir() if d.is_dir()]) if SWARM_DIR.exists() else 0
+    recent_runs = len([d for d in _get_runs_dir().iterdir() if d.is_dir()]) if _get_runs_dir().exists() else 0
+    recent_swarms = len([d for d in _get_swarm_dir().iterdir() if d.is_dir()]) if _get_swarm_dir().exists() else 0
     content_width = widths["content"]
 
     header_lines: list[Text] = []
@@ -1386,7 +1410,7 @@ def _build_welcome_panel(term_width: Optional[int] = None) -> Panel:
             ("Credential", key_state, "bold green" if credential_ready else "bold yellow"),
             ("Runs", str(recent_runs), "cyan"),
             ("Swarms", str(recent_swarms), "cyan"),
-            ("Workspace", str(AGENT_DIR), "dim"),
+            ("Workspace", str(_get_agent_dir()), "dim"),
         ]
         for label, value, value_style in rows:
             config_lines.append(
@@ -1403,7 +1427,7 @@ def _build_welcome_panel(term_width: Optional[int] = None) -> Panel:
         rows = [
             ("Provider", str(provider), "bold cyan", "Credential", key_state, "bold green" if credential_ready else "bold yellow"),
             ("Model", str(model), "white", "Runs", str(recent_runs), "cyan"),
-            ("Workspace", str(AGENT_DIR), "dim", "Swarms", str(recent_swarms), "cyan"),
+            ("Workspace", str(_get_agent_dir()), "dim", "Swarms", str(recent_swarms), "cyan"),
         ]
         for left_label, left_value, left_style, right_label, right_value, right_style in rows:
             config_lines.append(
@@ -1934,7 +1958,7 @@ def cmd_swarm_run_live(preset: str, vars_json: Optional[str] = None) -> None:
             console.print(f"[red]Invalid JSON: {exc}[/red]")
             return
 
-    store = SwarmStore(base_dir=SWARM_DIR)
+    store = SwarmStore(base_dir=_get_swarm_dir())
     runtime = SwarmRuntime(store=store)
     _agent_color_map.clear()
 
@@ -2124,10 +2148,10 @@ def _cmd_db_rotate_key() -> int:
 
 def cmd_list(limit: int = 20) -> None:
     """List run history."""
-    if not RUNS_DIR.exists():
+    if not _get_runs_dir().exists():
         console.print("[dim]No runs yet[/dim]")
         return
-    dirs = sorted([d for d in RUNS_DIR.iterdir() if d.is_dir()], key=lambda d: d.name, reverse=True)[:limit]
+    dirs = sorted([d for d in _get_runs_dir().iterdir() if d.is_dir()], key=lambda d: d.name, reverse=True)[:limit]
     if not dirs:
         console.print("[dim]No runs yet[/dim]")
         return
@@ -2160,7 +2184,7 @@ def cmd_list(limit: int = 20) -> None:
 
 def cmd_show(run_id: str) -> None:
     """Show run details."""
-    run_dir = RUNS_DIR / run_id
+    run_dir = _get_runs_dir() / run_id
     if not run_dir.exists():
         console.print(f"[red]{run_id} not found[/red]")
         return
@@ -2194,7 +2218,7 @@ def cmd_show(run_id: str) -> None:
 
 def cmd_code(run_id: str) -> None:
     """Show generated code."""
-    code_dir = RUNS_DIR / run_id / "code"
+    code_dir = _get_runs_dir() / run_id / "code"
     if not code_dir.exists():
         console.print(f"[red]{run_id}/code not found[/red]")
         return
@@ -2208,7 +2232,7 @@ def cmd_code(run_id: str) -> None:
 
 def cmd_pine(run_id: str) -> None:
     """Show Pine Script for a run."""
-    pine_path = RUNS_DIR / run_id / "artifacts" / "strategy.pine"
+    pine_path = _get_runs_dir() / run_id / "artifacts" / "strategy.pine"
     if not pine_path.exists():
         console.print(f"[red]{run_id}/artifacts/strategy.pine not found[/red]")
         console.print("[dim]Ask the agent: \"export this strategy to Pine Script\"[/dim]")
@@ -2238,7 +2262,7 @@ def cmd_trace(run_id: str) -> None:
     """Replay trace.jsonl to show full execution."""
     from src.agent.trace import TraceWriter
 
-    run_dir = RUNS_DIR / run_id
+    run_dir = _get_runs_dir() / run_id
     if not run_dir.exists():
         console.print(f"[red]{run_id} not found[/red]")
         return
@@ -2408,7 +2432,7 @@ def cmd_swarm_list() -> None:
     """List swarm run history."""
     from src.swarm.store import SwarmStore
 
-    store = SwarmStore(base_dir=SWARM_DIR)
+    store = SwarmStore(base_dir=_get_swarm_dir())
     runs = store.list_runs()
 
     if not runs:
@@ -2445,7 +2469,7 @@ def cmd_swarm_show(run_id: str) -> None:
     from src.swarm.store import SwarmStore
     from src.swarm.models import TaskStatus
 
-    store = SwarmStore(base_dir=SWARM_DIR)
+    store = SwarmStore(base_dir=_get_swarm_dir())
     run = store.load_run(run_id)
 
     if run is None:
@@ -2496,7 +2520,7 @@ def cmd_swarm_cancel(run_id: str) -> None:
     from src.swarm.runtime import SwarmRuntime
     from src.swarm.store import SwarmStore
 
-    store = SwarmStore(base_dir=SWARM_DIR)
+    store = SwarmStore(base_dir=_get_swarm_dir())
     runtime = SwarmRuntime(store=store)
 
     if runtime.cancel_run(run_id):
@@ -2513,7 +2537,7 @@ def cmd_sessions() -> None:
     """List chat sessions."""
     from src.session.store import SessionStore
 
-    store = SessionStore(base_dir=SESSIONS_DIR)
+    store = SessionStore(base_dir=_get_sessions_dir())
     sessions = store.list_sessions()
 
     if not sessions:
@@ -2545,7 +2569,7 @@ def cmd_session_chat(session_id: str, max_iter: int) -> None:
     """Continue a session chat."""
     from src.session.store import SessionStore
 
-    store = SessionStore(base_dir=SESSIONS_DIR)
+    store = SessionStore(base_dir=_get_sessions_dir())
     session = store.get_session(session_id)
 
     if session is None:
@@ -2626,10 +2650,10 @@ def cmd_upload(file_path: str) -> None:
         console.print(f"[red]Not a file: {file_path}[/red]")
         return
 
-    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    _get_uploads_dir().mkdir(parents=True, exist_ok=True)
     ext = src.suffix
     dest_name = f"{uuid.uuid4().hex[:12]}{ext}"
-    dest = UPLOADS_DIR / dest_name
+    dest = _get_uploads_dir() / dest_name
 
     shutil.copy2(str(src), str(dest))
     console.print(f"[green]Uploaded:[/green] {dest}")

@@ -163,5 +163,6 @@ else
 fi
 echo ""
 echo "  Admin login: admin / admin123"
-echo "  (change password in Settings after login)"
+echo "  ⚠ WARNING: Change the admin password immediately after first login!"
+echo "  ⚠ WARNING: Default credentials are a security risk in production."
 echo ""

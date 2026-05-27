@@ -159,8 +159,8 @@ function BrowseView() {
       })
       .then((res) => {
         if (!alive) return;
-        setAlphas(res.alphas);
-        setTotal(res.total);
+        setAlphas(res.alphas || []);
+        setTotal(res.total || 0);
         setVisibleCount(PAGE_SIZE);
       })
       .catch((err: unknown) => {
@@ -626,11 +626,13 @@ function BenchView() {
     finally { setHistoryLoading(false); }
   };
 
-  useEffect(() => { loadHistory(); }, []);
+  useEffect(() => {
+    loadHistory().catch(() => {});
+  }, []);
 
   // Reload history when a bench completes
   useEffect(() => {
-    if (status === "done") loadHistory();
+    if (status === "done") loadHistory().catch(() => {});
   }, [status]);
 
   const startBench = async (e: FormEvent) => {
@@ -1057,9 +1059,9 @@ function ResultPanel({ result }: { result: AlphaBenchResult }) {
     const theme = getChartTheme();
     const chart = echarts.init(chartRef.current);
     const themes = Object.keys(result.by_theme || {}).sort().map(k => translateTheme(t, k));
-    const aliveSeries = themes.map((k) => result.by_theme[k].alive);
-    const reversedSeries = themes.map((k) => result.by_theme[k].reversed);
-    const deadSeries = themes.map((k) => result.by_theme[k].dead);
+    const aliveSeries = themes.map((k) => result.by_theme?.[k]?.alive ?? 0);
+    const reversedSeries = themes.map((k) => result.by_theme?.[k]?.reversed ?? 0);
+    const deadSeries = themes.map((k) => result.by_theme?.[k]?.dead ?? 0);
 
     chart.setOption({
       backgroundColor: "transparent",

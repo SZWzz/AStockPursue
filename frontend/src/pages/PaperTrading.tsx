@@ -445,7 +445,7 @@ export default function PaperTrading() {
                       run={run}
                       isActive={store.activeRunId === run.id}
                       onSelect={handleSelectRun}
-                      onStart={(id) => store.startRun(id)}
+                      onStart={async (id) => { try { await store.startRun(id); } catch (e) { alert(e instanceof Error ? e.message : String(e)); } }}
                       onStop={(id) => store.stopRun(id)}
                       onPause={(id) => store.pauseRun(id)}
                       onResume={(id) => store.resumeRun(id)}

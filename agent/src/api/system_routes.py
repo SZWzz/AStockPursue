@@ -402,7 +402,7 @@ def create_router(require_auth) -> APIRouter:
     # Backtest History API (PG-backed)
     # ========================================================================
 
-    @router.get("/api/backtest-history")
+    @router.get("/api/backtest-history", dependencies=[Depends(require_auth)])
     async def list_backtest_history(
         limit: int = Query(50, ge=1, le=500),
         offset: int = Query(0, ge=0),
@@ -416,7 +416,7 @@ def create_router(require_auth) -> APIRouter:
         except Exception as e:
             return {"runs": [], "total": 0, "error": str(e)}
 
-    @router.get("/api/backtest-history/{run_id}")
+    @router.get("/api/backtest-history/{run_id}", dependencies=[Depends(require_auth)])
     async def get_backtest_history(run_id: str):
         """Get a single backtest run with equity and trades."""
         try:
@@ -431,7 +431,7 @@ def create_router(require_auth) -> APIRouter:
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    @router.delete("/api/backtest-history/{run_id}")
+    @router.delete("/api/backtest-history/{run_id}", dependencies=[Depends(require_auth)])
     async def delete_backtest_history(run_id: str):
         """Delete a backtest run."""
         try:

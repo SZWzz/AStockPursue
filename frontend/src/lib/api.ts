@@ -141,6 +141,30 @@ async function uploadFile(file: File): Promise<UploadResult> {
   }
 }
 
+/** SSE token cache for short-lived EventSource URLs. */
+let _sseTokenPromise: Promise<string> | null = null;
+
+/** Get or refresh the short-lived SSE token. */
+async function _getSseToken(): Promise<string> {
+  if (!_sseTokenPromise) {
+    _sseTokenPromise = api.getSseToken().then(r => r.token).finally(() => {
+      _sseTokenPromise = null;
+    });
+  }
+  return _sseTokenPromise;
+}
+
+/** Build an SSE URL with a short-lived JWT in the query string.
+ *
+ * Uses a dedicated 5-minute SSE token instead of the long-lived session
+ * JWT, so any leakage via server/proxy logs has a limited damage window.
+ */
+export async function sseUrlWithToken(path: string): Promise<string> {
+  const token = await _getSseToken();
+  const sep = path.includes("?") ? "&" : "?";
+  return `${path}${sep}jwt=${encodeURIComponent(token)}`;
+}
+
 export const api = {
   uploadFile,
   listRuns: () => request<RunListItem[]>("/runs"),
@@ -224,6 +248,9 @@ export const api = {
     const q = new URLSearchParams(params).toString();
     return request<{ symbol: string; bars: PriceBar[]; source: string }>(`/stock/ohlcv?${q}`);
   },
+
+  // SSE token (short-lived JWT for EventSource query param)
+  getSseToken: () => request<{ token: string; expires_in_minutes: number }>("/api/sse-token"),
 
   // Skill management
   getSkillSettings: () => request<{ skills: Array<{ name: string; description: string; category: string; enabled: boolean; source: "builtin" | "user" }>; total: number; enabled_count: number }>("/settings/skills"),

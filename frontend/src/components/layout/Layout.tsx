@@ -77,12 +77,12 @@ export function Layout() {
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
       <aside className={cn(
-        "border-r bg-card/90 backdrop-blur-sm flex flex-col shrink-0 transition-all duration-200",
+        "border border-border rounded-r-2xl bg-card/90 backdrop-blur-sm flex flex-col shrink-0 transition-all duration-200 shadow-sm my-3 ml-3",
         collapsed ? "w-14" : "w-64"
       )}>
         {/* Brand */}
         <Link to="/" className={cn(
-          "flex items-center font-bold tracking-tight border-b",
+          "flex items-center font-bold tracking-tight border-b border-border/50",
           collapsed ? "h-12 justify-center" : "h-12 gap-2.5 px-4"
         )}>
           <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
