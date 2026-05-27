@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026.5.27
+
+### Fixed
+
+- **模拟盘 `use_intraday_stop` 启动报错** — `papertrade/models.py` 的 `RiskConfig` 缺少 `use_intraday_stop` 字段，传给 `RiskPipeline` 时抛 `AttributeError` 导致模拟盘启动失败，补上该字段（默认 `True`）与 `src/trading/risk_pipeline.py` 的 `RiskConfig` 对齐
+
+### Added
+
+- **模拟盘 K 线实时显示** — 选中运行中的策略后自动显示历史 K 线，每个交易日通过 SSE 实时追加新蜡烛，不再依赖「快速回测」
+  - `TradingEngine.get_bars()` — 从 `_data_map` 导出 OHLCV 为 JSON 安全格式，支持按品种和条数过滤
+  - `GET /paper-trading/runs/{run_id}/bars` — 新增 API 端点，返回引擎内存中的历史 bar 数据
+  - `BarResult.bars` — 每个 bar 处理完成后携带 `{code: {o,h,l,c,v}}`，供 SSE 推送
+  - SSE `bar` 事件 — 追加 `bars` 字段，前端收到后直接追加到 K 线图表
+  - `paperTradingStore.ohlcvData` — 新增状态 + `fetchBars` action，`selectRun` 自动拉取历史数据
+  - `PaperTrading.tsx` — K 线数据源从 `useBacktest.runQuickBacktest` 改为 `store.ohlcvData`，「快速回测」按钮替换为「刷新K线」
+
 ## 2026.5.26
 
 ### Added

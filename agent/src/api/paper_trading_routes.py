@@ -343,6 +343,30 @@ async def get_equity(
     ]
 
 
+@router.get("/runs/{run_id}/bars")
+async def get_bars(
+    run_id: str,
+    request: Request,
+    auth: dict = Depends(require_auth),
+    codes: str | None = Query(default=None, description="Comma-separated symbols. All if empty."),
+    limit: int = Query(default=500, ge=1, le=5000),
+) -> dict[str, list[dict]]:
+    """Return OHLCV bar history from the running engine's ``_data_map``.
+
+    Each bar: ``{time, open, high, low, close, volume}``.
+    """
+    user_id = _get_user_id(auth)
+    _require_run_owner(run_id, user_id)
+
+    sched = _get_scheduler(request)
+    engine = sched.get_engine(run_id)
+    if engine is None:
+        return {}
+
+    code_list = [c.strip() for c in codes.split(",") if c.strip()] if codes else None
+    return engine.get_bars(codes=code_list, limit=limit)
+
+
 @router.get("/runs/{run_id}/trades")
 async def get_trades(
     run_id: str,

@@ -119,6 +119,8 @@ class RiskConfig(BaseModel):
                                        description="Max daily loss as % of initial capital")
     max_position_pct: float = Field(default=30.0, ge=0.0, le=100.0,
                                      description="Max single-position notional as % of equity")
+    use_intraday_stop: bool = Field(default=True,
+                                     description="Check bar high/low, not just close")
 
 
 class CreateRunRequest(BaseModel):

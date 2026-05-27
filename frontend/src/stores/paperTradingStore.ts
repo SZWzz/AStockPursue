@@ -9,6 +9,15 @@ import {
 } from "@/services/paperTrading";
 import { createDedupTracker, scheduleReconnect } from "@/lib/sseClient";
 
+export interface BarData {
+  time: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
 interface PaperTradingState {
   // Run list
   runs: RunSummary[];
@@ -25,6 +34,7 @@ interface PaperTradingState {
   recentTrades: Trade[];
   tradeMarkers: Array<{ time: string; price: number; side: "BUY" | "SELL"; text?: string }>;
   signalLog: Array<{ symbol: string; direction: number; price: number; reason: string; timestamp: string }>;
+  ohlcvData: Record<string, BarData[]>;
 
   // SSE status
   sseStatus: "disconnected" | "connected" | "reconnecting";
@@ -43,6 +53,7 @@ interface PaperTradingState {
   deleteRun: (runId: string) => Promise<void>;
   connectSSE: (runId: string) => void;
   disconnectSSE: () => void;
+  fetchBars: (runId: string, codes?: string) => Promise<void>;
   fetchEquity: (runId: string) => Promise<void>;
   fetchTrades: (runId: string) => Promise<void>;
   reset: () => void;
@@ -59,6 +70,7 @@ const initialState = {
   recentTrades: [],
   tradeMarkers: [],
   signalLog: [],
+  ohlcvData: {},
   sseStatus: "disconnected" as const,
   eventSource: null,
   reconnectCount: 0,
@@ -83,6 +95,9 @@ export const usePaperTradingStore = create<PaperTradingState>((set, get) => ({
     try {
       const detail = await paperTradingApi.getRun(runId);
       set({ activeRunDetail: detail, detailLoading: false });
+      // Fetch historical K-line data for the run's symbols
+      const codes = detail.positions?.map(p => p.symbol).join(",") || "";
+      get().fetchBars(runId, codes || undefined);
     } catch {
       set({ detailLoading: false });
     }
@@ -124,7 +139,7 @@ export const usePaperTradingStore = create<PaperTradingState>((set, get) => ({
     get().disconnectSSE();
     await paperTradingApi.deleteRun(runId);
     if (get().activeRunId === runId) {
-      set({ activeRunId: null, activeRunDetail: null, equity: [], positions: [], recentTrades: [], tradeMarkers: [], signalLog: [] });
+      set({ activeRunId: null, activeRunDetail: null, equity: [], positions: [], recentTrades: [], tradeMarkers: [], signalLog: [], ohlcvData: {} });
     }
     await get().fetchRuns();
   },
@@ -145,31 +160,51 @@ export const usePaperTradingStore = create<PaperTradingState>((set, get) => ({
         try {
           if (e.lastEventId && dedup.track(e.lastEventId)) return;
           const data = JSON.parse(e.data);
-          set((s) => ({
-            equity: [
-              ...s.equity,
-              {
-                point_time: data.timestamp,
-                equity: data.equity,
-                capital: data.capital,
-                unrealized: data.unrealized,
-                drawdown: data.drawdown,
-              },
-            ].slice(-500),
-            positions: data.positions
-              ? data.positions.map((p: Record<string, unknown>) => ({
-                  symbol: p.symbol as string,
-                  direction: p.direction as number,
-                  entry_price: p.entry_price as number,
-                  entry_time: data.timestamp as string,
-                  size: p.size as number,
-                  leverage: (p.leverage as number) || 1,
-                  current_price: null,
-                  unrealized_pnl: null,
-                  pnl_pct: null,
-                }))
-              : s.positions,
-          }));
+          set((s) => {
+            // Append new bar OHLCV to ohlcvData
+            const newOhlcv = { ...s.ohlcvData };
+            if (data.bars && typeof data.bars === "object") {
+              for (const [code, bar] of Object.entries(data.bars)) {
+                const b = bar as Record<string, number>;
+                const row: BarData = {
+                  time: data.timestamp as string,
+                  open: b.open ?? 0,
+                  high: b.high ?? 0,
+                  low: b.low ?? 0,
+                  close: b.close ?? 0,
+                  volume: b.volume ?? 0,
+                };
+                const existing = newOhlcv[code] || [];
+                newOhlcv[code] = [...existing, row].slice(-500);
+              }
+            }
+            return {
+              equity: [
+                ...s.equity,
+                {
+                  point_time: data.timestamp,
+                  equity: data.equity,
+                  capital: data.capital,
+                  unrealized: data.unrealized,
+                  drawdown: data.drawdown,
+                },
+              ].slice(-500),
+              positions: data.positions
+                ? data.positions.map((p: Record<string, unknown>) => ({
+                    symbol: p.symbol as string,
+                    direction: p.direction as number,
+                    entry_price: p.entry_price as number,
+                    entry_time: data.timestamp as string,
+                    size: p.size as number,
+                    leverage: (p.leverage as number) || 1,
+                    current_price: null,
+                    unrealized_pnl: null,
+                    pnl_pct: null,
+                  }))
+                : s.positions,
+              ohlcvData: newOhlcv,
+            };
+          });
         } catch { /* ignore */ }
       });
 
@@ -253,6 +288,15 @@ export const usePaperTradingStore = create<PaperTradingState>((set, get) => ({
       eventSource.close();
       set({ eventSource: null, sseStatus: "disconnected", reconnectCount: 0, reconnectTimer: null });
     }
+  },
+
+  fetchBars: async (runId: string, codes?: string) => {
+    try {
+      const bars = await paperTradingApi.getBars(runId, codes);
+      if (bars && Object.keys(bars).length > 0) {
+        set({ ohlcvData: bars });
+      }
+    } catch { /* ignore */ }
   },
 
   fetchEquity: async (runId: string) => {

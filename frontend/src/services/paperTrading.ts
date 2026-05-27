@@ -130,6 +130,15 @@ export const paperTradingApi = {
     return request<EquityPoint[]>(`/paper-trading/runs/${runId}/equity${params}`);
   },
 
+  getBars: (runId: string, codes?: string, limit = 500) => {
+    const params = new URLSearchParams();
+    if (codes) params.set("codes", codes);
+    params.set("limit", String(limit));
+    return request<Record<string, Array<{ time: string; open: number; high: number; low: number; close: number; volume: number }>>>(
+      `/paper-trading/runs/${runId}/bars?${params.toString()}`
+    );
+  },
+
   getTrades: (runId: string, limit = 100, offset = 0) =>
     request<Trade[]>(
       `/paper-trading/runs/${runId}/trades?limit=${limit}&offset=${offset}`

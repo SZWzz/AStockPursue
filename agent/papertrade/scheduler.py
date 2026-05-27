@@ -280,6 +280,7 @@ class PaperTradingScheduler:
             "trade_count": len(result.trades),
             "position_count": len(result.positions),
             "positions": pos_list,
+            "bars": getattr(result, "bars", {}),
         })
         for trade in result.trades:
             await self._push_event(run_id, "trade", {

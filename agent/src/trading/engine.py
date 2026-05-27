@@ -52,6 +52,7 @@ class BarResult:
     signals: list[dict] = field(default_factory=list)
     trades: list[Any] = field(default_factory=list)
     positions: dict[str, Any] = field(default_factory=dict)
+    bars: dict[str, dict] = field(default_factory=dict)  # {code: {o,h,l,c,v}}
 
 
 class TradingEngine:
@@ -126,6 +127,39 @@ class TradingEngine:
     @property
     def tick_mode(self) -> bool:
         return self._signal.mode == "tick"
+
+    # ── Bar data access ─────────────────────────────────────────────
+
+    def get_bars(
+        self, codes: list[str] | None = None, limit: int = 500
+    ) -> dict[str, list[dict]]:
+        """Return OHLCV history from ``_data_map`` as a JSON-safe dict.
+
+        Args:
+            codes: Symbols to return (all if None).
+            limit: Max bars per symbol, newest first.
+
+        Returns:
+            ``{code: [{time, open, high, low, close, volume}, ...]}``
+        """
+        target = codes or list(self._data_map.keys())
+        result: dict[str, list[dict]] = {}
+        for code in target:
+            df = self._data_map.get(code)
+            if df is None or len(df) == 0:
+                continue
+            rows = []
+            for ts, row in df.sort_index().tail(limit).iterrows():
+                rows.append({
+                    "time": str(ts),
+                    "open": float(row["open"]),
+                    "high": float(row["high"]),
+                    "low": float(row["low"]),
+                    "close": float(row["close"]),
+                    "volume": float(row.get("volume", 0.0)),
+                })
+            result[code] = rows
+        return result
 
     # ── Initialization ──────────────────────────────────────────────
 
@@ -232,6 +266,16 @@ class TradingEngine:
             positions=len(self._market.positions),
         ))
 
+        bar_ohlcv: dict[str, dict] = {}
+        for code, series in bar.items():
+            bar_ohlcv[code] = {
+                "open": float(series.get("open", 0)),
+                "high": float(series.get("high", 0)),
+                "low": float(series.get("low", 0)),
+                "close": float(series.get("close", 0)),
+                "volume": float(series.get("volume", 0)),
+            }
+
         return BarResult(
             timestamp=timestamp,
             equity=equity,
@@ -241,6 +285,7 @@ class TradingEngine:
             signals=signals,
             trades=all_trades,
             positions={s: p for s, p in self._market.positions.items()},
+            bars=bar_ohlcv,
         )
 
     # ── Force-close all ─────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Loader2, TrendingUp, Library, List, Plus, Check, Save, Rocket } from "lucide-react";
 import { usePaperTradingStore } from "@/stores/paperTradingStore";
 import { useI18n } from "@/lib/i18n";
@@ -95,6 +95,22 @@ export default function PaperTrading() {
   const selectedRun = store.activeRunDetail?.run;
   const sseConnected = store.sseStatus === "connected";
 
+  // K-line data from paper-trading engine (real bars, live-updated via SSE)
+  const runChartData = useMemo(() => {
+    const ohlcv = store.ohlcvData;
+    if (!ohlcv || Object.keys(ohlcv).length === 0) return [];
+    // Pick the first symbol's bars — they all share the same timeline
+    const firstCode = Object.keys(ohlcv)[0];
+    return (ohlcv[firstCode] || []).map((b) => ({
+      time: b.time,
+      open: b.open,
+      high: b.high,
+      low: b.low,
+      close: b.close,
+      volume: b.volume,
+    }));
+  }, [store.ohlcvData]);
+
   useEffect(() => {
     fetchRuns();
     return () => { disconnectSSE(); };
@@ -175,14 +191,6 @@ export default function PaperTrading() {
   const handlePreviewFetch = useCallback((symbol: string) => {
     if (symbol) fetchOHLCV(symbol, "2026-01-01", "2026-05-24", "auto", "1D");
   }, [fetchOHLCV]);
-
-  // Auto-fetch chart when run is selected
-  useEffect(() => {
-    const positions = store.activeRunDetail?.positions || [];
-    const symbol = positions.length > 0 ? positions[0].symbol : null;
-    if (symbol) fetchOHLCV(symbol, "2026-01-01", "2026-05-24", "auto", "1D");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [store.activeRunDetail?.run?.id]);
 
   // ── Shared quick-backtest logic ─────────────────────────────────────────
 
@@ -531,14 +539,9 @@ export default function PaperTrading() {
                     {selectedRun.market} &middot; {sseConnected ? t.ptSseConnected : selectedRun.status}
                   </p>
                 </div>
-                <button className="px-2 py-1 text-[10px] rounded border hover:bg-muted" onClick={async () => {
-                  try {
-                    setChartLoading(true);
-                    const syms = store.activeRunDetail?.positions?.map(p => p.symbol).join(",") || "";
-                    await runQuickBacktest(code, syms);
-                  } catch (e) { setChartError(String(e)); }
-                  finally { setChartLoading(false); }
-                }}>快速回测</button>
+                <button className="px-2 py-1 text-[10px] rounded border hover:bg-muted" onClick={() => {
+                  if (selectedRun?.id) store.fetchBars(selectedRun.id);
+                }}>刷新K线</button>
               </div>
 
               {/* Return stats cards */}
@@ -565,23 +568,14 @@ export default function PaperTrading() {
                 })()}
               </div>
 
-              {/* K-line chart with trade markers */}
+              {/* K-line chart with trade markers — live from paper-trading engine */}
               <div className="min-h-[320px] shrink-0">
-                {priceData.length > 0 ? (
-                  <div className="relative">
-                    {chartLoading && (
-                      <div className="absolute top-1 right-2 z-10 flex items-center gap-1 text-[10px] text-muted-foreground bg-card/80 px-1.5 py-0.5 rounded">
-                        <Loader2 className="h-3 w-3 animate-spin" />更新中
-                      </div>
-                    )}
-                    <CandlestickChart data={priceData} markers={store.tradeMarkers.length > 0 ? store.tradeMarkers : btTradeMarkers} height={320} />
-                  </div>
-                ) : chartLoading ? (
+                {runChartData.length > 0 ? (
+                  <CandlestickChart data={runChartData} markers={store.tradeMarkers} height={320} />
+                ) : store.detailLoading ? (
                   <div className="flex items-center justify-center h-36 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mr-1" />Loading...</div>
-                ) : chartError ? (
-                  <div className="text-xs text-danger">{chartError}</div>
                 ) : (
-                  <div className="flex items-center justify-center h-36 text-xs text-muted-foreground">暂无价格数据</div>
+                  <div className="flex items-center justify-center h-36 text-xs text-muted-foreground">暂无 K 线数据，等待交易日刷新...</div>
                 )}
               </div>
 
