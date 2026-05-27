@@ -231,6 +231,7 @@ class BacktestDriver:
             m,
             data_sources=self._run_card_data_sources(config, None),
             strategy_path=run_dir / "code" / "signal_engine.py",
+            warnings=config.get("_warnings"),
         )
 
         print(json.dumps({k: v for k, v in m.items() if not isinstance(v, dict)}, indent=2))

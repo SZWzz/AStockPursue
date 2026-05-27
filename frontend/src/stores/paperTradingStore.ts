@@ -7,7 +7,7 @@ import {
   type RunSummary,
   type Trade,
 } from "@/services/paperTrading";
-import { createDedupTracker, scheduleReconnect } from "@/lib/sseClient";
+import { createDedupTracker, scheduleReconnect, calcReconnectDelay } from "@/lib/sseClient";
 
 export interface BarData {
   time: string;
@@ -40,6 +40,7 @@ interface PaperTradingState {
   sseStatus: "disconnected" | "connected" | "reconnecting";
   eventSource: EventSource | null;
   reconnectCount: number;
+  reconnectDelayMs: number;
   reconnectTimer: ReturnType<typeof setTimeout> | null;
 
   // Actions
@@ -74,6 +75,7 @@ const initialState = {
   sseStatus: "disconnected" as const,
   eventSource: null,
   reconnectCount: 0,
+  reconnectDelayMs: 0,
   reconnectTimer: null,
 };
 
@@ -267,7 +269,8 @@ export const usePaperTradingStore = create<PaperTradingState>((set, get) => ({
           return;
         }
         reconnectCount += 1;
-        set({ sseStatus: "reconnecting", reconnectCount });
+        const delayMs = calcReconnectDelay(reconnectCount);
+        set({ sseStatus: "reconnecting", reconnectCount, reconnectDelayMs: delayMs });
         const timer = scheduleReconnect(
           () => doConnect(false),
           reconnectCount,
@@ -286,7 +289,7 @@ export const usePaperTradingStore = create<PaperTradingState>((set, get) => ({
     }
     if (eventSource) {
       eventSource.close();
-      set({ eventSource: null, sseStatus: "disconnected", reconnectCount: 0, reconnectTimer: null });
+      set({ eventSource: null, sseStatus: "disconnected", reconnectCount: 0, reconnectDelayMs: 0, reconnectTimer: null });
     }
   },
 

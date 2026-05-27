@@ -441,8 +441,19 @@ def main(run_dir: Path) -> None:
                     source = fb_name
                     loader = fb_loader
                     break
+    # Survivorship-bias check: codes that returned empty DataFrames
+    missing_codes = [c for c in codes if c not in data_map or len(data_map.get(c, [])) == 0]
+    if missing_codes:
+        msg = f"{len(missing_codes)} symbol(s) have no data (delisted / inactive / wrong code): {', '.join(missing_codes[:5])}{'...' if len(missing_codes) > 5 else ''}"
+        logger.warning("Survivorship bias: %s", msg)
+        config.setdefault("_warnings", []).append(msg)
+        # Remove missing codes so engine doesn't crash
+        codes = [c for c in codes if c not in missing_codes]
+        config["codes"] = codes
+        data_map = {k: v for k, v in data_map.items() if k not in missing_codes}
+
     if not data_map:
-        print(json.dumps({"error": "No data fetched"}))
+        print(json.dumps({"error": "No data fetched — all symbols returned empty"}))
         sys.exit(1)
 
     if source == "auto":

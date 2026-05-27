@@ -112,6 +112,7 @@ class RunResponse(BaseModel):
     artifacts_metrics_csv: Optional[List[Dict[str, Any]]] = Field(None, description="Full metrics rows")
     artifacts_trades_csv: Optional[List[Dict[str, Any]]] = Field(None, description="Full trade rows")
     validation: Optional[Dict[str, Any]] = Field(None, description="Statistical validation results")
+    quality_hints: Optional[List[Dict[str, Any]]] = Field(None, description="Data-quality / survivorship warnings")
     run_directory: str = Field(..., description="Run directory path")
     run_stage: Optional[str] = Field(None, description="UI-facing run stage")
     run_context: Optional[Dict[str, Any]] = Field(None, description="Normalized request context")
@@ -301,6 +302,16 @@ def build_response_from_run_dir(run_dir: Path, elapsed: float, *, include_analys
                         exists=True,
                     )
                 )
+
+    # Survivorship / data-quality warnings from run_card
+    run_card_path = run_dir / "run_card.json"
+    if run_card_path.exists():
+        run_card = load_json_file(run_card_path)
+        if run_card and run_card.get("warnings"):
+            response.quality_hints = [
+                {"severity": "warn", "code": "BACKTEST_WARNING", "message": w}
+                for w in run_card["warnings"]
+            ]
 
     equity_path = run_dir / "artifacts" / "equity.csv"
     if equity_path.exists():

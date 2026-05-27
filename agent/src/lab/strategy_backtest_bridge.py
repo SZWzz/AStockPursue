@@ -89,6 +89,8 @@ def run_strategy_backtest(
     interval: str = "1D",
     initial_cash: float = 100_000.0,
     leverage: float = 1.0,
+    slippage: float | None = None,
+    slippage_mode: str = "fixed",
     extra_fields: list[str] | None = None,
     benchmark: str | None = "auto",
 ) -> dict[str, Any]:
@@ -130,6 +132,8 @@ def run_strategy_backtest(
         "leverage": leverage,
         "engine": "daily",
         "benchmark": benchmark,
+        "slippage": slippage,
+        "slippage_mode": slippage_mode,
     }
     if extra_fields:
         config["extra_fields"] = extra_fields
@@ -205,6 +209,16 @@ def run_strategy_backtest(
                 except Exception:
                     continue
 
+    # Survivorship-bias check
+    missing_codes = [c for c in codes if c not in data_map or len(data_map.get(c, [])) == 0]
+    if missing_codes:
+        msg = f"{len(missing_codes)} symbol(s) have no data (delisted / inactive): {', '.join(missing_codes[:5])}"
+        logger.warning("Survivorship bias: %s", msg)
+        config.setdefault("_warnings", []).append(msg)
+        codes = [c for c in codes if c not in missing_codes]
+        config["codes"] = codes
+        data_map = {k: v for k, v in data_map.items() if k not in missing_codes}
+
     if not data_map:
         return {"success": False, "error": f"No data fetched for {codes} (source={source})"}
 
@@ -214,7 +228,8 @@ def run_strategy_backtest(
     try:
         engine = _create_market_engine(source, config, list(data_map.keys()))
         auto_loader = _AutoLoader(data_map)
-        bars_per_year = _estimate_bars_per_year(interval)
+        from backtest.metrics import calc_bars_per_year
+        bars_per_year = calc_bars_per_year(interval, source)
         metrics = engine.run_backtest(
             config=config,
             loader=auto_loader,

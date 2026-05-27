@@ -461,6 +461,8 @@ export function IndicatorLab() {
   const [chartSource, setChartSource] = useState("auto");
   const [chartInterval, setChartInterval] = useState("1D");
   const [initialCash, setInitialCash] = useState(100000);
+  const [slippage, setSlippage] = useState(0.1);
+  const [slippageMode, setSlippageMode] = useState<"fixed" | "volume">("fixed");
   const [chartTitle, setChartTitle] = useState("");
 
   const {
@@ -636,6 +638,8 @@ export function IndicatorLab() {
           interval: chartInterval,
           initial_cash: initialCash,
           leverage: 1,
+          slippage: slippage / 100,
+          slippage_mode: slippageMode,
           benchmark: "auto",
         }),
       });
@@ -643,7 +647,7 @@ export function IndicatorLab() {
       if (!data.success || !data.run_id) throw new Error(data.error || "Backtest failed");
       return data.run_id;
     });
-  }, [code, chartSymbol, chartStartDate, chartEndDate, chartSource, chartInterval, initialCash, runBacktest]);
+  }, [code, chartSymbol, chartStartDate, chartEndDate, chartSource, chartInterval, initialCash, slippage, slippageMode, runBacktest]);
 
   // Delete
   const handleDelete = async (id: string) => {
@@ -784,6 +788,10 @@ export function IndicatorLab() {
           metrics={btMetrics}
           backtestRunning={backtestRunning}
           title={chartTitle || undefined}
+          slippage={slippage}
+          onSlippageChange={setSlippage}
+          slippageMode={slippageMode}
+          onSlippageModeChange={setSlippageMode}
           backtestLabel={t.indicatorLabRunBacktest}
         />
       </div>

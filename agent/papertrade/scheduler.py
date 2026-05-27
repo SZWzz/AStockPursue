@@ -224,6 +224,10 @@ class PaperTradingScheduler:
     def get_engine(self, run_id: str) -> TradingEngine | None:
         return self._active.get(run_id)
 
+    def get_loader_name(self, run_id: str) -> str:
+        driver = self._drivers.get(run_id)
+        return getattr(driver, "loader_name", "unknown") if driver else "unknown"
+
     def is_active(self, run_id: str) -> bool:
         return run_id in self._tasks
 

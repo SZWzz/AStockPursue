@@ -36,6 +36,7 @@ class ChinaAEngine(BaseEngine):
         self.stamp_tax: float = config.get("stamp_tax", 0.0005)
         self.transfer_fee: float = config.get("transfer_fee", 0.00001)
         self.slippage_rate: float = config.get("slippage", 0.001)
+        self.slippage_mode: str = config.get("slippage_mode", "fixed")  # "fixed" | "volume"
 
     def can_execute(self, symbol: str, direction: int, bar: pd.Series) -> bool:
         """A-share execution rules.
@@ -106,8 +107,21 @@ class ChinaAEngine(BaseEngine):
             comm += notional * self.stamp_tax
         return comm
 
-    def apply_slippage(self, price: float, direction: int) -> float:
-        """A-share slippage (relatively small due to tick size)."""
+    def apply_slippage(self, price: float, direction: int, volume: float = 0.0) -> float:
+        """A-share slippage.
+
+        In ``fixed`` mode (default): constant percentage of price.
+        In ``volume`` mode: tiered by notional turnover.
+        """
+        if self.slippage_mode == "volume" and volume > 0:
+            notional = price * volume
+            if notional < 500_000:        # < ¥50万 → 0.3%
+                rate = 0.003
+            elif notional < 5_000_000:    # ¥50万 ~ ¥500万 → 0.15%
+                rate = 0.0015
+            else:                          # > ¥500万 → 0.05%
+                rate = 0.0005
+            return price * (1 + direction * rate)
         return price * (1 + direction * self.slippage_rate)
 
 

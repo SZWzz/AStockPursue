@@ -107,7 +107,14 @@ class BarResult:
 
 
 class RiskConfig(BaseModel):
-    """Risk management parameters for a paper trading run."""
+    """Risk management parameters for a paper trading run.
+
+    .. note::
+
+        Field set must stay in sync with ``src.trading.risk_pipeline.RiskConfig``.
+        When adding/changing a field here, update the trading config too, and
+        vice versa.
+    """
 
     stop_loss_pct: float = Field(default=5.0, ge=0.0, le=100.0,
                                   description="Stop-loss threshold (%)")
@@ -196,3 +203,4 @@ class RunDetail(BaseModel):
     run: RunSummary
     positions: list[PositionOut] = []
     recent_trades: list[TradeOut] = []
+    data_source: str = "unknown"

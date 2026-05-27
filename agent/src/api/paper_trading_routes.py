@@ -148,6 +148,7 @@ async def get_run(
     sched = _get_scheduler(request)
     engine = sched.get_engine(run_id) if sched is not None else None
     engine_summary = engine.get_summary() if engine else {}
+    data_source = sched.get_loader_name(run_id) if sched else "unknown"
 
     positions = []
     for p in positions_raw:
@@ -211,7 +212,7 @@ async def get_run(
         last_bar_time=engine_summary.get("last_bar_time") or meta.get("last_bar_time"),
     )
 
-    return RunDetail(run=summary, positions=positions, recent_trades=trades)
+    return RunDetail(run=summary, positions=positions, recent_trades=trades, data_source=data_source)
 
 
 # ── Run lifecycle ──────────────────────────────────────────────────────

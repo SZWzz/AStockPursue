@@ -79,6 +79,7 @@ export interface RunDetail {
   run: RunSummary;
   positions: Position[];
   recent_trades: Trade[];
+  data_source?: string;
 }
 
 export interface SSEEvent {

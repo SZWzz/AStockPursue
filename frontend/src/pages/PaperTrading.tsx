@@ -536,7 +536,8 @@ export default function PaperTrading() {
                 <div>
                   <h2 className="text-sm font-bold">{selectedRun.run_name}</h2>
                   <p className="text-[10px] text-muted-foreground">
-                    {selectedRun.market} &middot; {sseConnected ? t.ptSseConnected : selectedRun.status}
+                    {selectedRun.market} &middot; {sseConnected ? t.ptSseConnected : store.sseStatus === "reconnecting" ? `重连中 (第${store.reconnectCount}次, ${Math.ceil(store.reconnectDelayMs / 1000)}s后)` : selectedRun.status}
+                    {store.activeRunDetail?.data_source && <> &middot; {store.activeRunDetail.data_source}</>}
                   </p>
                 </div>
                 <button className="px-2 py-1 text-[10px] rounded border hover:bg-muted" onClick={() => {

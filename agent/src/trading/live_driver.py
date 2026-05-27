@@ -68,6 +68,7 @@ class LiveDriver:
         self._loader = loader
         self._codes = codes
         self._interval = interval
+        self.loader_name: str = getattr(loader, "name", "unknown")
         self._poll_seconds = interval_to_seconds(interval)
         self._on_bar_result = on_bar_result
         self._on_error = on_error

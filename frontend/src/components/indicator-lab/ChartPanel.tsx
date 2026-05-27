@@ -32,6 +32,10 @@ export interface ChartPanelProps {
   title?: string;
   backtestRunning: boolean;
   backtestLabel?: string;
+  slippage: number;
+  onSlippageChange: (v: number) => void;
+  slippageMode: "fixed" | "volume";
+  onSlippageModeChange: (m: "fixed" | "volume") => void;
 }
 
 const labelClass = "text-[11px] font-medium text-muted-foreground whitespace-nowrap";
@@ -64,6 +68,10 @@ export function ChartPanel({
   title,
   backtestRunning,
   backtestLabel = "Run Backtest",
+  slippage,
+  onSlippageChange,
+  slippageMode,
+  onSlippageModeChange,
 }: ChartPanelProps) {
   const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -138,6 +146,17 @@ export function ChartPanel({
             <label className={labelClass}>{t.ptInitialCapital}</label>
             <input type="number" min={1000} step={10000} value={initialCash} onChange={(e) => onInitialCashChange(Number(e.target.value) || 100000)} className={inputClass} style={{width: 100}} disabled={busy} />
           </div>
+          <div>
+            <label className={labelClass}>滑点</label>
+            <div className="flex items-center gap-1">
+              <input type="number" min={0} max={5} step={0.01} value={slippage} onChange={(e) => onSlippageChange(Number(e.target.value) || 0)} className={inputClass} style={{width: 70}} disabled={busy || slippageMode === "volume"} />
+              <span className="text-[10px] text-muted-foreground">%</span>
+              <select value={slippageMode} onChange={(e) => onSlippageModeChange(e.target.value as "fixed" | "volume")} className={inputClass} style={{width: 60}} disabled={busy}>
+                <option value="fixed">固定</option>
+                <option value="volume">分档</option>
+              </select>
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={onFetch} disabled={busy} className="btn-sm btn-outline flex items-center gap-1.5">
@@ -187,6 +206,12 @@ export function ChartPanel({
             )}
             {metrics.excess_return != null && (
               <div><span className="text-[10px] text-muted-foreground">超额</span><br /><span className={`text-xs font-mono font-bold ${metrics.excess_return >= 0 ? "text-up" : "text-down"}`}>{metrics.excess_return >= 0 ? "+" : ""}{(metrics.excess_return * 100).toFixed(2)}%</span></div>
+            )}
+            {metrics.information_ratio != null && (
+              <div><span className="text-[10px] text-muted-foreground">信息比率</span><br /><span className="text-xs font-mono font-bold">{metrics.information_ratio.toFixed(2)}</span></div>
+            )}
+            {metrics.beta != null && (
+              <div><span className="text-[10px] text-muted-foreground">β</span><br /><span className="text-xs font-mono font-bold">{metrics.beta.toFixed(2)}</span></div>
             )}
             {metrics.profit_factor != null && (
               <div><span className="text-[10px] text-muted-foreground">盈亏比</span><br /><span className="text-xs font-mono font-bold">{metrics.profit_factor.toFixed(2)}</span></div>

@@ -652,6 +652,8 @@ export function StrategyLab() {
   const [chartSource, setChartSource] = useState("auto");
   const [chartInterval, setChartInterval] = useState("1D");
   const [initialCash, setInitialCash] = useState(100000);
+  const [slippage, setSlippage] = useState(0.1);
+  const [slippageMode, setSlippageMode] = useState<"fixed" | "volume">("fixed");
   const [chartTitle, setChartTitle] = useState("");
 
   const {
@@ -850,6 +852,8 @@ export function StrategyLab() {
           source: chartSource,
           interval: chartInterval,
           initial_cash: initialCash,
+          slippage: slippage / 100,  // % → decimal
+          slippage_mode: slippageMode,
           benchmark: "auto",
         }),
       });
@@ -1065,6 +1069,10 @@ export function StrategyLab() {
           backtestRunning={backtestRunning}
           title={chartTitle || undefined}
           backtestLabel={t.indicatorLabRunBacktest}
+          slippage={slippage}
+          onSlippageChange={setSlippage}
+          slippageMode={slippageMode}
+          onSlippageModeChange={setSlippageMode}
         />
       </div>
 

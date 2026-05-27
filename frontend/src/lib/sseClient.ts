@@ -44,10 +44,13 @@ const RECONNECT_DEFAULTS: Required<ReconnectConfig> = {
 
 export function calcReconnectDelay(retryCount: number, config?: ReconnectConfig): number {
   const { initialRetryMs, maxRetryMs, backoffFactor } = { ...RECONNECT_DEFAULTS, ...config };
-  return Math.min(
+  const base = Math.min(
     initialRetryMs * Math.pow(backoffFactor, retryCount),
     maxRetryMs,
   );
+  // Add jitter: ±25% random to avoid thundering herd
+  const jitter = base * 0.25 * (Math.random() * 2 - 1);
+  return Math.round(base + jitter);
 }
 
 export function scheduleReconnect(

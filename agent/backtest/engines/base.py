@@ -111,13 +111,27 @@ def _align(
             raise ValueError("All symbols have no data in the requested date range")
         close = close[codes]
 
+    # Track skipped bars for audit log
+    skipped_bars: int = 0
+
     pos = pd.DataFrame(0.0, index=dates, columns=codes)
     for c in codes:
-        # Shift on each symbol's OWN trading calendar, then ffill to unified
+        # Shift on each symbol's OWN trading calendar, then reindex to unified.
+        # NO ffill on positions — a non-trading day means we hold zero position
+        # (cannot enter/exit a suspended stock).  This prevents survivorship-bias
+        # leakage where a strategy "holds" through a multi-week suspension.
         own_dates = data_map[c].index
         raw = signal_map[c].reindex(own_dates).fillna(0.0).clip(-1.0, 1.0)
         shifted = raw.shift(1).fillna(0.0)
-        pos[c] = shifted.reindex(dates).ffill(limit=ffill_limit).fillna(0.0)
+        reindexed = shifted.reindex(dates)
+        nan_count = int(reindexed.isna().sum())
+        if nan_count > 0:
+            skipped_bars += nan_count
+            logger.debug("Symbol %s: %d non-trading bars zeroed", c, nan_count)
+        pos[c] = reindexed.fillna(0.0)
+
+    if skipped_bars > 0:
+        logger.info("Position alignment: %d non-trading bar(s) zeroed across all symbols", skipped_bars)
 
     ret = close.pct_change().fillna(0.0)
 

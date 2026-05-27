@@ -14,7 +14,7 @@ from backtest.models import TradeRecord
 
 # ─── Annualisation factor mapping ───
 
-_TRADING_DAYS = {"tushare": 252, "yfinance": 252, "okx": 365, "akshare": 252, "ccxt": 365}
+_TRADING_DAYS = {"tushare": 252, "yfinance": 252, "okx": 365, "akshare": 252, "ccxt": 365, "tencent": 252, "futu": 252, "finnhub": 252, "twelvedata": 252, "auto": 252}
 _BARS_PER_DAY = {
     "1m":  {"tushare": 240, "okx": 1440, "yfinance": 390, "akshare": 240, "ccxt": 1440},
     "5m":  {"tushare": 48,  "okx": 288,  "yfinance": 78,  "akshare": 48,  "ccxt": 288},
@@ -37,8 +37,42 @@ def calc_bars_per_year(interval: str = "1D", source: str = "tushare") -> int:
         Bars per year.
     """
     trading_days = _TRADING_DAYS.get(source, 252)
-    bars_per_day = _BARS_PER_DAY.get(interval, {}).get(source, 1)
-    return trading_days * bars_per_day
+
+    # Known intervals: lookup from table
+    if interval in _BARS_PER_DAY:
+        bars_per_day = _BARS_PER_DAY[interval].get(source, 1)
+        return trading_days * bars_per_day
+
+    # Fallback for non-standard intervals (e.g. "2h", "1W", "4W")
+    return _estimate_bars_per_year(interval, trading_days)
+
+
+def _estimate_bars_per_year(interval: str, trading_days: int) -> int:
+    """Estimate bars-per-year for intervals not in the lookup table."""
+    interval_lower = interval.strip().lower()
+    import re
+    m = re.match(r"^(\d+)\s*(m|min|h|hour|d|day|w|week)$", interval_lower)
+    if not m:
+        return trading_days  # Unknown: assume daily
+
+    num = int(m.group(1))
+    unit = m.group(2)
+
+    if unit in ("m", "min"):
+        minutes_per_bar = num
+        trading_minutes = 390 if trading_days == 252 else 1440
+        bars_per_day = max(1, trading_minutes // minutes_per_bar)
+        return trading_days * bars_per_day
+    elif unit in ("h", "hour"):
+        minutes_per_bar = num * 60
+        trading_minutes = 390 if trading_days == 252 else 1440
+        bars_per_day = max(1, trading_minutes // minutes_per_bar)
+        return trading_days * bars_per_day
+    elif unit in ("d", "day"):
+        return max(1, trading_days // num)  # N-day bars
+    elif unit in ("w", "week"):
+        return 52 // num  # N-week bars: ~52/N per year
+    return trading_days
 
 
 def win_rate_and_stats(trades: List[TradeRecord]) -> Dict[str, float]:
@@ -202,12 +236,18 @@ def calc_metrics(
     bench_return = 0.0
     excess = 0.0
     ir = 0.0
+    beta = 0.0
     if bench_ret is not None and len(bench_ret) > 0:
         bench_return = float((1 + bench_ret).prod() - 1)
         excess = total_ret - bench_return
-        active_ret = port_ret - bench_ret.reindex(port_ret.index).fillna(0.0)
+        aligned_bench = bench_ret.reindex(port_ret.index).fillna(0.0)
+        active_ret = port_ret - aligned_bench
         active_std = float(active_ret.std())
         ir = float(active_ret.mean() / (active_std + 1e-10) * np.sqrt(bpy))
+        # Beta: Cov(port, bench) / Var(bench)
+        bench_var = float(aligned_bench.var())
+        if bench_var > 1e-10:
+            beta = float(port_ret.cov(aligned_bench) / bench_var)
 
     return {
         "final_value": float(equity_curve.iloc[-1]),
@@ -226,6 +266,7 @@ def calc_metrics(
         "benchmark_return": round(bench_return, 6),
         "excess_return": round(excess, 6),
         "information_ratio": round(ir, 4),
+        "beta": round(beta, 4),
     }
 
 
@@ -237,5 +278,5 @@ def _empty_metrics(initial_cash: float) -> Dict[str, Any]:
         "sharpe": 0, "calmar": 0, "sortino": 0,
         "win_rate": 0, "profit_loss_ratio": 0, "profit_factor": 0,
         "max_consecutive_loss": 0, "avg_holding_days": 0, "trade_count": 0,
-        "benchmark_return": 0, "excess_return": 0, "information_ratio": 0,
+        "benchmark_return": 0, "excess_return": 0, "information_ratio": 0, "beta": 0,
     }

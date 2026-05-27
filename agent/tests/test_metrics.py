@@ -77,8 +77,15 @@ class TestBarsPerYear:
         assert calc_bars_per_year("1D", "unknown") == 252
 
     def test_unknown_interval(self) -> None:
-        # Falls back to 1 bar/day
-        assert calc_bars_per_year("2H", "tushare") == 252
+        # 2-hour bars: ~3 bars/day * 252 days
+        assert calc_bars_per_year("2H", "tushare") == 756
+
+    def test_weekly_interval(self) -> None:
+        assert calc_bars_per_year("1W", "tushare") == 52
+        assert calc_bars_per_year("4W", "tushare") == 13
+
+    def test_multi_day_interval(self) -> None:
+        assert calc_bars_per_year("2d", "yfinance") == 126
 
 
 # ---------------------------------------------------------------------------
