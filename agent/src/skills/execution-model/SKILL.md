@@ -10,6 +10,8 @@ category: strategy
 
 Provide more realistic execution assumptions for backtests, including slippage models, market-impact estimation, and execution-algorithm principles. This skill is for backtest simulation only and does not involve live order execution.
 
+> **Config-based slippage**: The backtest engine supports `config.json` → `slippage` (decimal, e.g. `0.001` = 0.1%) and `slippage_mode` (`"fixed"` for constant-rate or `"volume"` for notional-tiered: <¥50万→0.3%, ¥50~500万→0.15%, >¥500万→0.05%). This applies engine-level slippage without modifying `signal_engine.py`. The models below are for advanced custom implementations.
+
 ## Slippage Models
 
 ### Why Slippage Models Are Needed

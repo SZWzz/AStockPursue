@@ -62,6 +62,26 @@ These issues require the user to check the API token, switch data sources, or wa
 4. The equity series contains no `NaN`
 5. `exit_code == 0`
 
+## Data Quality Warnings
+
+After the backtest completes, check `run_card.json` → `warnings` for survivorship-bias alerts:
+
+- `"N symbol(s) have no data (delisted / inactive)"` — some requested codes returned empty DataFrames. They were excluded from the backtest. Results may be overly optimistic (survivorship bias). Consider: are all codes still listed? Were they delisted mid-period?
+- Missing warnings do NOT mean the dataset is clean — always verify `artifacts/metrics.csv` → `trade_count` and review equity curve for suspicious flat periods.
+
+## Benchmark Comparison
+
+`artifacts/metrics.csv` contains benchmark-related columns when `benchmark` is configured:
+
+| Column | Meaning |
+|--------|---------|
+| `benchmark_return` | Total return of the benchmark index |
+| `excess_return` | Strategy return − benchmark return (positive = alpha) |
+| `information_ratio` | Excess return / tracking error (annualized, >0.5 is good) |
+| `beta` | Market sensitivity (<1 = defensive, >1 = aggressive) |
+
+If `benchmark_return` is 0 or missing, the benchmark wasn't fetched. Check `config.json` → `benchmark` field.
+
 ## Fixing Principles
 
 - Use **edit_file** to make precise code fixes instead of rewriting the entire file with `write_file`, unless the structure is fundamentally broken

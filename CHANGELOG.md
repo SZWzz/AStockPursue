@@ -5,6 +5,10 @@
 ### Fixed
 
 - **模拟盘 `use_intraday_stop` 启动报错** — `papertrade/models.py` 的 `RiskConfig` 缺少 `use_intraday_stop` 字段，传给 `RiskPipeline` 时抛 `AttributeError` 导致模拟盘启动失败，补上该字段（默认 `True`）与 `src/trading/risk_pipeline.py` 的 `RiskConfig` 对齐
+- **停牌期信号污染（ffill 策略）** — `_align()` 中位置矩阵移除 ffill，停牌/非交易日仓位归零。此前 ffill_limit=5~10 意味着 1-2 周停牌期仍持仓，回测结果虚高。现在非交易日一律零仓位
+- **幸存者偏差未检测** — `runner.py` 和 `strategy_backtest_bridge.py` 在数据拉取后检测无数据的 codes（退市/停牌/错误代码），追加 `_warnings` 到 run_card，API 响应透传 `quality_hints`。回测结果页面显示黄色警告条
+- **auto source 年化系数漂移** — `_TRADING_DAYS` 补全 tencent/futu/finnhub/twelvedata/auto，`strategy_backtest_bridge.py` 从硬编码 `_estimate_bars_per_year` 改为 `calc_bars_per_year()`
+- **非标 interval 年化错误** — 周线 (1W) 年化从 252 修正为 52，4W→13，2 日线→126，2 小时→756。新增 `_estimate_bars_per_year()` fallback
 
 ### Added
 
@@ -15,6 +19,18 @@
   - SSE `bar` 事件 — 追加 `bars` 字段，前端收到后直接追加到 K 线图表
   - `paperTradingStore.ohlcvData` — 新增状态 + `fetchBars` action，`selectRun` 自动拉取历史数据
   - `PaperTrading.tsx` — K 线数据源从 `useBacktest.runQuickBacktest` 改为 `store.ohlcvData`，「快速回测」按钮替换为「刷新K线」
+- **基准对比指标** — `calc_metrics()` 新增 `beta` 计算（Cov/Var 方法），`benchmark_return`/`excess_return`/`information_ratio` 已存在。前端 ChartPanel 回测指标区新增「信息比率」「β」卡片；StrategyLab/IndicatorLab/PaperTrading 结果区同步显示
+- **前端滑点配置** — ChartPanel 回测参数区新增「滑点(%)」数字输入框（默认 0.1%）+ 「固定/分档」下拉。策略实验室/指标实验室回测请求透传 `slippage`/`slippage_mode`；后端 `ChinaAEngine` 新增 `slippage_mode` 参数（`"fixed"` 固定百分比 / `"volume"` 成交量三档分档）
+- **模拟盘数据源标识** — `LiveDriver.loader_name` → API `RunDetail.data_source` → 前端 PaperTrading 运行详情 header 显示实际数据源（如 `akshare`）
+- **核心引擎测试覆盖** — 新建 `test_risk_pipeline.py`（17 tests）、`test_live_driver.py`（7 tests）、`test_trading_engine.py`（9 tests），覆盖 RiskPipeline 止损/止盈/追迹/日内限额/intraday 检测、TradingEngine 初始化和 `get_bars`/`on_bar`、LiveDriver 构造和 seed_historical
+- **SSE 重连抖动** — `calcReconnectDelay` 新增 ±25% 随机抖动量（jitter），防止惊群效应；前端状态栏显示「重连中 (第N次, Xs后)」倒数
+- **AI Skill 新增** — 2 个新 skill（`paper-trading-guide` 模拟盘操作指南、`paper-trading-diagnose` 模拟盘问题诊断）
+- **AI Skill 文档更新** — `strategy-generate` 的 config.json 模板补 `slippage`/`slippage_mode`/`benchmark`；`backtest-diagnose` 新增数据质量警告和基准对比参考；`execution-model` 补 config-based slippage 说明
+
+### Changed
+
+- **README 默认英文** — `README.md` 改为英文，新增语言跳转链接 `README_zh.md`（中文），删除 `README_en.md`
+- **RiskConfig 同步提醒** — `papertrade/models.py` 和 `src/trading/risk_pipeline.py` 的 `RiskConfig` 添加 sync note 注释，防止字段不同步
 
 ## 2026.5.26
 

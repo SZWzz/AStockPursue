@@ -1,19 +1,20 @@
 [project]
 name = "AStockPursue"
 dynamic = ["version"]
-description = "AStockPursue: AI-powered quantitative trading research platform"
+description = "AStockPursue: AI-driven quantitative trading research platform with unified backtest/live engine, paper trading, 450+ alpha factors, and 89 AI skills"
 requires-python = ">=3.11"
 license = "MIT"
 readme = {file = "README.md", content-type = "text/markdown"}
 authors = [
     {name = "AStockPursue Contributors"},
 ]
-keywords = ["finance", "trading", "backtesting", "agent", "quantitative", "ai", "llm"]
+keywords = ["finance", "trading", "backtesting", "paper-trading", "agent", "quantitative", "ai", "llm", "alpha-factors", "china-a-shares"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Financial and Insurance Industry",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Office/Business :: Financial :: Investment",
 ]
 dependencies = [
@@ -64,6 +65,7 @@ dependencies = [
 [project.urls]
 Repository = "https://github.com/SZWzz/AStockPursue"
 Issues = "https://github.com/SZWzz/AStockPursue/issues"
+Changelog = "https://github.com/SZWzz/AStockPursue/blob/main/CHANGELOG.md"
 
 [project.scripts]
 AStockPursue = "cli:main"

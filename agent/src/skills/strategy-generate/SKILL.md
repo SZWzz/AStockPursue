@@ -124,6 +124,9 @@ Self-check after writing `signal_engine.py`:
   "optimizer": null,
   "optimizer_params": {},
   "engine": "daily",
+  "slippage": null,
+  "slippage_mode": "fixed",
+  "benchmark": "auto",
   "validation": null
 }
 ```
@@ -141,6 +144,9 @@ Self-check after writing `signal_engine.py`:
 - `engine`: backtest engine, default `"daily"`. For options strategies, set `"options"` (requires `OptionsSignalEngine`)
 - `initial_cash`: default 1,000,000
 - `commission`: default 0.1%
+- `slippage`: optional, default engine-specific (A-shares 0.001, crypto 0.0005). Decimal fraction, e.g. `0.002` = 0.2%
+- `slippage_mode`: optional, `"fixed"` (default, constant percentage) or `"volume"` (tiered by notional: <¥50万→0.3%, ¥50~500万→0.15%, >¥500万→0.05%)
+- `benchmark`: optional, benchmark ticker for excess-return / information-ratio / beta. `"auto"` (default) infers from market (CSI 300 for A-shares, S&P 500 for US, BTC for crypto)
 - `validation`: optional statistical validation after backtest completes. Omit to skip. Example:
   ```json
   "validation": {

@@ -8,112 +8,114 @@
 </p>
 
 <h1 align="center">AStockPursue</h1>
-<p align="center"><strong>AI 驱动的量化交易研究平台</strong></p>
+<p align="center"><strong>AI-Powered Quantitative Trading Research Platform</strong></p>
+<p align="center"><sub><a href="README_zh.md">中文文档</a></sub></p>
 
 ---
 
-基于 [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT License) 二次开发。
+Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT License).
 
-## 功能
+## Features
 
 <table>
 <tr><td width="50%">
 
-### 交易引擎
-- **统一交易引擎** — 回测和模拟盘共享 `TradingEngine.on_bar()` 执行管道，SignalEngine 策略一次编写、两个场景运行
-- **模拟盘交易** — 三栏布局（策略库 + 代码编辑器 + K 线图），实时交易标记叠加，月度收益热力图，克隆运行，部署前自动验证
-- **前瞻性偏差防护** — 渐进式信号生成 + 数据截断 + bar 内止损检测 + 开盘价涨跌停判断
+### Trading Engine
+- **Unified Trading Engine** — Backtest and paper trading share the same `TradingEngine.on_bar()` pipeline. Write a SignalEngine strategy once, run it in both modes
+- **Paper Trading** — 3-column layout (library + editor + chart), real-time trade markers on K-line, monthly return heatmap, clone runs, pre-deploy validation
+- **Lookahead Bias Protection** — Progressive signal generation + data truncation + intraday stop detection + open-price limit checks + survivorship-bias warnings
 
-### AI 智能体
-- **AI 对话** — 自然语言驱动策略生成、回测、分析，SSE 实时流式输出，87 个技能包覆盖量化全领域
-- **AI 代码生成** — 代码编辑器下方可折叠对话面板，输入需求直接生成代码并写入编辑器，自动保存同步列表
-- **MCP Server** — 22 个 MCP 工具暴露给 Claude Desktop / Cursor，管理员设置面板
+### AI Agent
+- **AI Chat** — Natural language strategy generation, backtest, and analysis. SSE streaming, 89 skill packs covering quantitative full stack
+- **AI Code Generation** — Foldable chat panel below editor — describe your strategy and get code streamed directly into the editor with auto-save
+- **MCP Server** — 22 MCP tools for Claude Desktop / Cursor, admin settings panel
 
-### 策略 & 指标开发
-- **策略实验室** — SignalEngine 合约编辑器，K 线实时回测，10 个策略模板，回测历史记录
-- **指标实验室** — Python 指标 IDE (Monaco)，沙箱安全执行，代码质量分析，Alpha Zoo 因子一键转换
-- **自定义模式** — 无代码可视化构建器，下拉框/滑块配置入场出场规则和风控参数，一键编译为代码
+### Strategy & Indicator Dev
+- **Strategy Lab** — SignalEngine contract editor, K-line backtest with benchmark comparison (β / IR / excess return), configurable slippage, 10 templates, backtest history
+- **Indicator Lab** — Python indicator IDE (Monaco), sandbox execution, code quality analysis, Alpha Zoo conversion
+- **Custom Mode** — No-code visual builder — configure entry/exit rules and risk parameters via dropdowns and sliders, compile to code in one click
 
 </td><td width="50%">
 
-### 因子 & 数据
-- **Alpha 因子库** — 450+ 量化因子 (Alpha101 / GTJA191 / Qlib158 / Academic)，支持用户自定义提升
-- **多数据源** — A股/港股/美股/加密货币/期货/外汇/指数/大宗商品，13 个数据源自动 fallback，Tencent 免费 A 股行情
-- **非 OHLCV 数据** — 市场情绪 (VIX/DXY/Yield Curve)、基本面 (PE/PB/ROE)、新闻聚合
-- **相关性矩阵** — 多市场交叉相关性 (Pearson/Spearman)，AI 分析 + 保存到会话
+### Factors & Data
+- **Alpha Zoo** — 450+ quantitative factors (Alpha101 / GTJA191 / Qlib158 / Academic), user-defined promotion
+- **Multi-Source Data** — CN/HK/US/Crypto/Futures/Forex/Indices/Commodities, 13 loaders with auto fallback
+- **Non-OHLCV Data** — Market sentiment (VIX/DXY/Yield Curve), fundamentals (PE/PB/ROE), news aggregation
+- **Correlation Matrix** — Cross-market correlation (Pearson/Spearman), AI analysis + save to session
 
-### 平台能力
-- **用户系统** — JWT 登录/注册，独立 LLM/数据源/Skill 配置，PBKDF2 密码哈希，管理员面板
-- **PostgreSQL 持久化** — 会话历史、回测结果、策略/指标云端同步，全文搜索，自动增量迁移
-- **暗色模式** — 亮/暗主题切换，4 级表面层级 CSS 变量
-- **红涨绿跌** — `html[lang="zh"]` 自动切换中国行情颜色惯例
-- **中英双语** — 全站 i18n 覆盖，自动检测浏览器语言
-- **圆角卡片 UI** — 页面分隔采用 `rounded-2xl` 圆角卡片 + 间距布局，视觉柔和现代
-- **11 个 LLM 供应商** — OpenAI / OpenRouter / DeepSeek / Moonshot / MiniMax / 智谱 / 通义千问 / Gemini / Groq / Ollama
+### Platform
+- **User System** — JWT login/register, per-user LLM/Data Source/Skill config, PBKDF2 hashing, admin panel
+- **PostgreSQL Persistence** — Session history, backtest results, strategy/indicator cloud sync, full-text search, auto migration
+- **Dark Mode** — Light/dark themes, 4-level surface system (CSS variables)
+- **Red-Up/Green-Down** — Chinese market color convention auto-switched per locale
+- **i18n** — 150+ translation keys (Chinese / English), auto-detect browser language
+- **Card UI** — Rounded card-based layout (`rounded-2xl` + gap spacing), soft modern aesthetic
+- **11 LLM Providers** — OpenAI / OpenRouter / DeepSeek / Moonshot / MiniMax / Zhipu / Qwen / Gemini / Groq / Ollama
 
 </td></tr>
 </table>
 
-## 技术栈
+## Tech Stack
 
-| 层级 | 技术 |
-|------|------|
-| **后端** | Python 3.11+ · FastAPI · LangChain · Pandas · NumPy · SciPy · PostgreSQL · DuckDB · Pydantic |
-| **前端** | React 19 · TypeScript · Tailwind CSS · ECharts · Monaco Editor · Zustand · Vite |
-| **数据源** | Tushare · AKShare · yfinance · OKX · CCXT · Tencent · Twelve Data · Finnhub · CoinGecko · Futu · Global Indices · Commodities · Tiingo |
-| **MCP** | FastMCP · 22 工具暴露 |
-| **部署** | Docker · Docker Compose |
+| Layer | Stack |
+|-------|-------|
+| **Backend** | Python 3.11+ · FastAPI · LangChain · Pandas · NumPy · SciPy · PostgreSQL · DuckDB · Pydantic |
+| **Frontend** | React 19 · TypeScript · Tailwind CSS · ECharts · Monaco Editor · Zustand · Vite |
+| **Data** | Tushare · AKShare · yfinance · OKX · CCXT · Tencent · Twelve Data · Finnhub · CoinGecko · Futu · Global Indices · Commodities · Tiingo |
+| **MCP** | FastMCP · 22 tools exposed |
+| **Deploy** | Docker · Docker Compose |
 
-## 快速开始
+## Quick Start
 
 ```bash
 git clone https://github.com/SZWzz/AStockPursue.git
 cd AStockPursue
-bash setup.sh                    # 可选择自动部署 PostgreSQL
-docker compose up -d --build     # 启动服务
+bash setup.sh                     # optionally auto-deploy PostgreSQL
+docker compose up -d --build      # start services
 ```
 
-> 如需自动部署 PostgreSQL：`docker compose --profile pg up -d --build`
+> To include auto-deployed PostgreSQL: `docker compose --profile pg up -d --build`
 
-访问 `http://localhost:8899`，`admin` / `admin123` 登录，在设置中配置 LLM 和数据源即可。
+Visit `http://localhost:8899`, login with `admin` / `admin123`, configure LLM and data sources in Settings.
 
-## 项目结构
+## Project Structure
 
 ```
 AStockPursue/
-├── agent/                     # Python 后端
-│   ├── api_server.py          #   FastAPI 主入口 (v1 API)
-│   ├── mcp_server.py          #   MCP Server (22 工具)
-│   ├── backtest/              #   多市场回测引擎 + 加载器注册表
-│   ├── papertrade/            #   模拟盘引擎 + 调度器 + 风控
+├── agent/                     # Python backend
+│   ├── api_server.py          #   FastAPI main entry (v1 API)
+│   ├── mcp_server.py          #   MCP Server (22 tools)
+│   ├── backtest/              #   Multi-market backtest engine + loader registry
+│   ├── papertrade/            #   Paper trading engine + scheduler + risk
 │   ├── src/
 │   │   ├── agent/             #   SkillsLoader + ContextBuilder
-│   │   ├── api/               #   FastAPI 路由 (12 模块)
-│   │   ├── auth/              #   JWT 认证 + 用户配置加密存储
-│   │   ├── db/                #   PG 连接池 + AES 加密 + 自动迁移
-│   │   ├── factors/           #   Alpha 因子注册表 + zoo (4 系列)
-│   │   ├── lab/               #   策略/指标实验室 (编译器/仓库/沙箱/质量分析)
-│   │   ├── session/           #   会话管理 (PG + 文件双存储)
-│   │   ├── skills/            #   87 个技能包 (SKILL.md)
-│   │   ├── swarm/             #   多智能体协作
-│   │   ├── tools/             #   MCP 工具实现
-│   │   └── trading/           #   统一交易引擎 (on_bar 管道)
-│   └── migrations/            #   数据库迁移 (增量)
-├── frontend/                  # React 前端
+│   │   ├── api/               #   FastAPI routes (12 modules)
+│   │   ├── auth/              #   JWT auth + per-user encrypted config
+│   │   ├── db/                #   PG pool + AES encryption + auto migrate
+│   │   ├── factors/           #   Alpha factor registry + zoo (4 families)
+│   │   ├── lab/               #   Strategy/Indicator lab (compiler/repo/sandbox/quality)
+│   │   ├── session/           #   Session management (PG + file dual store)
+│   │   ├── skills/            #   89 skill packs (SKILL.md)
+│   │   ├── swarm/             #   Multi-agent collaboration
+│   │   ├── tools/             #   MCP tool implementations
+│   │   └── trading/           #   Unified trading engine (on_bar pipeline)
+│   └── migrations/            #   DB migrations (incremental)
+├── frontend/                  # React frontend
 │   └── src/
-│       ├── pages/             #   页面 (Agent/PTP/IndicatorLab/StrategyLab/AlphaZoo/Settings...)
-│       ├── components/        #   组件 (chat/indicator-lab/paper-trading/charts/layout)
-│       ├── stores/            #   Zustand 状态管理
-│       ├── hooks/             #   自定义 Hooks (SSE/暗色模式/回测)
-│       └── lib/               #   工具 + i18n (150+ 键) + API 客户端
-├── setup.sh                   # 一键初始化
-├── docker-compose.yml         # 部署配置 (含 PG profile)
-├── CHANGELOG.md               # 变更日志
-└── README.md
+│       ├── pages/             #   Pages (Agent/PTP/IndicatorLab/StrategyLab/AlphaZoo/Settings...)
+│       ├── components/        #   Components (chat/indicator-lab/paper-trading/charts/layout)
+│       ├── stores/            #   Zustand state management
+│       ├── hooks/             #   Custom hooks (SSE/dark mode/backtest)
+│       └── lib/               #   Utils + i18n (150+ keys) + API client
+├── setup.sh                   # One-click init
+├── docker-compose.yml         # Deploy config (with PG profile)
+├── CHANGELOG.md               # Changelog
+├── README.md                  # English docs
+└── README_zh.md               # 中文文档
 ```
 
 ## License
 
-MIT License. 基于 [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS) 开发。
+MIT License. Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS).
 
-策略模板 `agent/src/lab/templates.json` 源自 [QuantDinger](https://github.com/QuantDinger/QuantDinger) (Apache License 2.0)。
+Strategy templates in `agent/src/lab/templates.json` originate from [QuantDinger](https://github.com/QuantDinger/QuantDinger) (Apache License 2.0).
