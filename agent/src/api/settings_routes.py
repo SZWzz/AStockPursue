@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from src.auth.dependencies import require_auth as _require_auth
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Security, UploadFile, status
 from pydantic import BaseModel, Field
 
@@ -536,311 +537,309 @@ def _write_skill_config(user_id: int, updates: dict) -> None:
 # ============================================================================
 
 
-def create_router(require_auth) -> APIRouter:
-    router = APIRouter()
+router = APIRouter()
 
-    # ------------------------------------------------------------------------
-    # LLM settings
-    # ------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+# LLM settings
+# ------------------------------------------------------------------------
 
-    @router.get(
-        "/settings/llm",
-        response_model=LLMSettingsResponse,
-    )
-    async def get_llm_settings(auth: dict = Depends(require_auth)):
-        """Return per-user LLM settings from the database (with .env fallback)."""
-        user_id = auth["user_id"]
-        db_config = _read_user_llm_config(user_id) if user_id > 0 else {}
-        return _build_llm_settings_response(db_config=db_config)
+@router.get(
+    "/settings/llm",
+    response_model=LLMSettingsResponse,
+)
+async def get_llm_settings(auth: dict = Depends(_require_auth)):
+    """Return per-user LLM settings from the database (with .env fallback)."""
+    user_id = auth["user_id"]
+    db_config = _read_user_llm_config(user_id) if user_id > 0 else {}
+    return _build_llm_settings_response(db_config=db_config)
 
-    @router.put("/settings/llm", response_model=LLMSettingsResponse)
-    async def update_llm_settings(payload: UpdateLLMSettingsRequest, auth: dict = Depends(require_auth)):
-        """Persist per-user LLM settings to the database (API key encrypted)."""
-        user_id = auth["user_id"]
-        provider_name = payload.provider.strip().lower()
-        provider = LLM_PROVIDER_BY_NAME.get(provider_name)
-        if provider is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported LLM provider")
+@router.put("/settings/llm", response_model=LLMSettingsResponse)
+async def update_llm_settings(payload: UpdateLLMSettingsRequest, auth: dict = Depends(_require_auth)):
+    """Persist per-user LLM settings to the database (API key encrypted)."""
+    user_id = auth["user_id"]
+    provider_name = payload.provider.strip().lower()
+    provider = LLM_PROVIDER_BY_NAME.get(provider_name)
+    if provider is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported LLM provider")
 
-        model_name = payload.model_name.strip()
-        if not model_name:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model name is required")
+    model_name = payload.model_name.strip()
+    if not model_name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Model name is required")
 
-        if payload.temperature < 0 or payload.temperature > 2:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Temperature must be between 0 and 2")
+    if payload.temperature < 0 or payload.temperature > 2:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Temperature must be between 0 and 2")
 
-        reasoning_effort = (payload.reasoning_effort or "").strip().lower()
-        if reasoning_effort not in LLM_REASONING_EFFORTS:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reasoning effort must be low, medium, high, or max")
+    reasoning_effort = (payload.reasoning_effort or "").strip().lower()
+    if reasoning_effort not in LLM_REASONING_EFFORTS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reasoning effort must be low, medium, high, or max")
 
-        base_url = (payload.base_url if payload.base_url is not None else provider.default_base_url).strip()
-        if provider.auth_type == "oauth":
-            try:
-                from src.providers.openai_codex import validate_codex_base_url
-                base_url = validate_codex_base_url(base_url)
-            except ValueError as exc:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-        # Build DB config dict
-        db_updates: dict = {
-            "provider": provider.name,
-            "model": model_name,
-            "base_url": base_url,
-            "temperature": payload.temperature,
-            "timeout_seconds": payload.timeout_seconds,
-            "max_retries": payload.max_retries,
-            "reasoning_effort": reasoning_effort,
-        }
-
-        if provider.api_key_env:
-            if payload.clear_api_key:
-                db_updates["api_key"] = ""
-            elif payload.api_key is not None and payload.api_key.strip():
-                db_updates["api_key"] = payload.api_key.strip()
-        elif payload.clear_api_key:
-            db_updates["api_key"] = ""
-
-        if user_id > 0:
-            _write_user_llm_config(user_id, db_updates)
-
-        # Apply to runtime env
-        _apply_llm_config_to_env(db_updates)
-
-        return _build_llm_settings_response(db_config=db_updates)
-
-    # ------------------------------------------------------------------------
-    # Data source settings
-    # ------------------------------------------------------------------------
-
-    @router.get(
-        "/settings/data-sources",
-        response_model=DataSourceSettingsResponse,
-    )
-    async def get_data_source_settings(auth: dict = Depends(require_auth)):
-        """Return per-user data source credentials from the database."""
-        user_id = auth["user_id"]
-        ds_config = _read_user_ds_config(user_id) if user_id > 0 else {}
-        return _build_data_source_settings_response(
-            token=ds_config.get("tushare_token", ""),
-            okx_api_key=ds_config.get("okx_api_key", ""),
-            okx_secret_key=ds_config.get("okx_secret_key", ""),
-            okx_passphrase=ds_config.get("okx_passphrase", ""),
-            twelvedata_api_key=ds_config.get("twelvedata_api_key", ""),
-            finnhub_api_key=ds_config.get("finnhub_api_key", ""),
-            tiingo_api_key=ds_config.get("tiingo_api_key", ""),
-        )
-
-    @router.put(
-        "/settings/data-sources",
-        response_model=DataSourceSettingsResponse,
-    )
-    async def update_data_source_settings(payload: UpdateDataSourceSettingsRequest, auth: dict = Depends(require_auth)):
-        """Persist per-user data source credentials to the database (encrypted)."""
-        user_id = auth["user_id"]
-
-        # Read existing DB config
-        ds_config = _read_user_ds_config(user_id) if user_id > 0 else {}
-        db_updates: dict = {}
-
-        # --- Tushare ---
-        if payload.clear_tushare_token:
-            db_updates["tushare_token"] = ""
-        elif payload.tushare_token is not None and payload.tushare_token.strip():
-            db_updates["tushare_token"] = payload.tushare_token.strip()
-
-        # --- OKX ---
-        if payload.clear_okx:
-            db_updates["okx_api_key"] = ""
-            db_updates["okx_secret_key"] = ""
-            db_updates["okx_passphrase"] = ""
-        else:
-            if payload.okx_api_key is not None:
-                db_updates["okx_api_key"] = payload.okx_api_key.strip()
-            if payload.okx_secret_key is not None:
-                db_updates["okx_secret_key"] = payload.okx_secret_key.strip()
-            if payload.okx_passphrase is not None:
-                db_updates["okx_passphrase"] = payload.okx_passphrase.strip()
-
-        # --- Twelve Data ---
-        if payload.clear_twelvedata:
-            db_updates["twelvedata_api_key"] = ""
-        elif payload.twelvedata_api_key is not None and payload.twelvedata_api_key.strip():
-            db_updates["twelvedata_api_key"] = payload.twelvedata_api_key.strip()
-
-        # --- Finnhub ---
-        if payload.clear_finnhub:
-            db_updates["finnhub_api_key"] = ""
-        elif payload.finnhub_api_key is not None and payload.finnhub_api_key.strip():
-            db_updates["finnhub_api_key"] = payload.finnhub_api_key.strip()
-
-        # --- Tiingo ---
-        if payload.clear_tiingo:
-            db_updates["tiingo_api_key"] = ""
-        elif payload.tiingo_api_key is not None and payload.tiingo_api_key.strip():
-            db_updates["tiingo_api_key"] = payload.tiingo_api_key.strip()
-
-        if db_updates and user_id > 0:
-            _write_user_ds_config(user_id, db_updates)
-
-        # Apply to runtime env
-        ds_config = _read_user_ds_config(user_id) if user_id > 0 else {}
-        token = ds_config.get("tushare_token", "")
-        okx_key = ds_config.get("okx_api_key", "")
-        okx_secret = ds_config.get("okx_secret_key", "")
-        okx_pass = ds_config.get("okx_passphrase", "")
-        td_key = ds_config.get("twelvedata_api_key", "")
-        fh_key = ds_config.get("finnhub_api_key", "")
-        ti_key = ds_config.get("tiingo_api_key", "")
-
-        if token and _is_configured_secret(token, TUSHARE_TOKEN_PLACEHOLDERS):
-            os.environ["TUSHARE_TOKEN"] = token
-        else:
-            os.environ.pop("TUSHARE_TOKEN", None)
-
-        if okx_key:
-            os.environ["OKX_API_KEY"] = okx_key
-            os.environ["OKX_SECRET_KEY"] = okx_secret
-            os.environ["OKX_PASSPHRASE"] = okx_pass
-        else:
-            os.environ.pop("OKX_API_KEY", None)
-            os.environ.pop("OKX_SECRET_KEY", None)
-            os.environ.pop("OKX_PASSPHRASE", None)
-
-        if td_key:
-            os.environ["TWELVE_DATA_API_KEY"] = td_key
-        else:
-            os.environ.pop("TWELVE_DATA_API_KEY", None)
-
-        if fh_key:
-            os.environ["FINNHUB_API_KEY"] = fh_key
-        else:
-            os.environ.pop("FINNHUB_API_KEY", None)
-
-        if ti_key:
-            os.environ["TIINGO_API_KEY"] = ti_key
-        else:
-            os.environ.pop("TIINGO_API_KEY", None)
-
-        return _build_data_source_settings_response(
-            token=token,
-            okx_api_key=okx_key,
-            okx_secret_key=okx_secret,
-            okx_passphrase=okx_pass,
-            twelvedata_api_key=td_key,
-            finnhub_api_key=fh_key,
-            tiingo_api_key=ti_key,
-        )
-
-    # ------------------------------------------------------------------------
-    # Skill settings
-    # ------------------------------------------------------------------------
-
-    @router.get("/settings/skills")
-    async def get_skill_settings(auth: dict = Security(require_auth)):
-        user_id = int(auth["user_id"])
-        from src.agent.skills import SkillsLoader
-        disabled = set(_read_skill_config(user_id).get("disabled_skills", []))
-        loader = SkillsLoader(user_id=user_id, disabled_skills=disabled)
-        skills_data = []
-        for s in loader.skills:
-            skills_data.append({
-                "name": s.name,
-                "description": s.description,
-                "category": s.category,
-                "enabled": s.name not in disabled,
-                "source": s.source,
-            })
-        return {"skills": skills_data, "total": len(skills_data),
-                "enabled_count": sum(1 for s in skills_data if s["enabled"])}
-
-    @router.put("/settings/skills")
-    async def update_skill_settings(payload: dict, auth: dict = Security(require_auth)):
-        user_id = int(auth["user_id"])
-        _write_skill_config(user_id, {"disabled_skills": payload.get("disabled_skills", [])})
-        return {"ok": True}
-
-    @router.post("/settings/skills/import")
-    async def import_skill(file: UploadFile, auth: dict = Security(require_auth)):
-        user_id = int(auth["user_id"])
-        import zipfile, tempfile
-        if not file.filename or not file.filename.endswith(".zip"):
-            raise HTTPException(status_code=400, detail="Only .zip files are supported")
+    base_url = (payload.base_url if payload.base_url is not None else provider.default_base_url).strip()
+    if provider.auth_type == "oauth":
         try:
-            with tempfile.TemporaryDirectory() as tmp:
-                zip_path = Path(tmp) / "upload.zip"
-                zip_path.write_bytes(await file.read())
-                with zipfile.ZipFile(zip_path) as zf:
-                    members = [n for n in zf.namelist() if not n.startswith("__MACOSX") and not n.endswith("/")]
-                    if not any("SKILL.md" in m for m in members):
-                        raise HTTPException(status_code=400, detail="ZIP must contain SKILL.md")
-                    usd = Path.home() / ".AStockPursue" / "skills" / str(user_id)
-                    # Find skill name from SKILL.md
-                    skill_name = None
-                    for m in members:
-                        if m.endswith("SKILL.md"):
-                            zf.extract(m, tmp)
-                            from src.agent.frontmatter import parse_frontmatter
-                            meta, _ = parse_frontmatter((Path(tmp) / m).read_text(encoding="utf-8"))
-                            skill_name = meta.get("name") or Path(m).parent.name
-                            break
-                    if not skill_name:
-                        raise HTTPException(status_code=400, detail="SKILL.md must have a 'name' in frontmatter")
-                    dest = usd / skill_name
-                    dest.mkdir(parents=True, exist_ok=True)
-                    for m in members:
-                        zf.extract(m, str(dest))
-                    return {"ok": True, "name": skill_name}
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Import failed: {e}")
+            from src.providers.openai_codex import validate_codex_base_url
+            base_url = validate_codex_base_url(base_url)
+        except ValueError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
-    @router.delete("/settings/skills/{name}")
-    async def delete_user_skill(name: str, auth: dict = Security(require_auth)):
-        user_id = int(auth["user_id"])
-        usd = Path.home() / ".AStockPursue" / "skills" / str(user_id)
-        target = usd / name
-        if not target.exists():
-            raise HTTPException(status_code=404, detail="Skill not found")
-        import shutil
-        shutil.rmtree(target)
-        return {"ok": True}
+    # Build DB config dict
+    db_updates: dict = {
+        "provider": provider.name,
+        "model": model_name,
+        "base_url": base_url,
+        "temperature": payload.temperature,
+        "timeout_seconds": payload.timeout_seconds,
+        "max_retries": payload.max_retries,
+        "reasoning_effort": reasoning_effort,
+    }
 
-    # ------------------------------------------------------------------------
-    # MCP settings
-    # ------------------------------------------------------------------------
+    if provider.api_key_env:
+        if payload.clear_api_key:
+            db_updates["api_key"] = ""
+        elif payload.api_key is not None and payload.api_key.strip():
+            db_updates["api_key"] = payload.api_key.strip()
+    elif payload.clear_api_key:
+        db_updates["api_key"] = ""
 
-    @router.get("/settings/mcp")
-    async def get_mcp_settings(auth: dict = Security(require_auth)):
-        if auth.get("role") != "admin":
-            raise HTTPException(status_code=403, detail="Admin only")
-        import os as _os
-        config_path = Path.home() / ".AStockPursue" / "mcp_config.json"
-        config = {}
-        if config_path.exists():
-            try:
-                config = json.loads(config_path.read_text())
-            except Exception:
-                pass
-        return {
-            "service_name": "AStockPursue",
-            "transport": config.get("transport", "stdio"),
-            "sse_port": config.get("sse_port", 8900),
-            "shell_tools_enabled": _os.getenv("ASTOCKPURSUE_ENABLE_SHELL_TOOLS", "") in ("1", "true"),
-            "config_path": str(config_path),
-            "install_cmd": f"python {Path(__file__).resolve().parent / 'mcp_server.py'}",
-        }
+    if user_id > 0:
+        _write_user_llm_config(user_id, db_updates)
 
-    @router.put("/settings/mcp")
-    async def update_mcp_settings(payload: dict, auth: dict = Security(require_auth)):
-        if auth.get("role") != "admin":
-            raise HTTPException(status_code=403, detail="Admin only")
-        config_path = Path.home() / ".AStockPursue" / "mcp_config.json"
-        config_path.parent.mkdir(parents=True, exist_ok=True)
-        config_path.write_text(json.dumps(payload, indent=2))
-        os.chmod(config_path, 0o600)
-        if "shell_tools_enabled" in payload:
-            os.environ["ASTOCKPURSUE_ENABLE_SHELL_TOOLS"] = "1" if payload["shell_tools_enabled"] else "0"
-        return {"ok": True}
+    # Apply to runtime env
+    _apply_llm_config_to_env(db_updates)
 
-    return router
+    return _build_llm_settings_response(db_config=db_updates)
+
+# ------------------------------------------------------------------------
+# Data source settings
+# ------------------------------------------------------------------------
+
+@router.get(
+    "/settings/data-sources",
+    response_model=DataSourceSettingsResponse,
+)
+async def get_data_source_settings(auth: dict = Depends(_require_auth)):
+    """Return per-user data source credentials from the database."""
+    user_id = auth["user_id"]
+    ds_config = _read_user_ds_config(user_id) if user_id > 0 else {}
+    return _build_data_source_settings_response(
+        token=ds_config.get("tushare_token", ""),
+        okx_api_key=ds_config.get("okx_api_key", ""),
+        okx_secret_key=ds_config.get("okx_secret_key", ""),
+        okx_passphrase=ds_config.get("okx_passphrase", ""),
+        twelvedata_api_key=ds_config.get("twelvedata_api_key", ""),
+        finnhub_api_key=ds_config.get("finnhub_api_key", ""),
+        tiingo_api_key=ds_config.get("tiingo_api_key", ""),
+    )
+
+@router.put(
+    "/settings/data-sources",
+    response_model=DataSourceSettingsResponse,
+)
+async def update_data_source_settings(payload: UpdateDataSourceSettingsRequest, auth: dict = Depends(_require_auth)):
+    """Persist per-user data source credentials to the database (encrypted)."""
+    user_id = auth["user_id"]
+
+    # Read existing DB config
+    ds_config = _read_user_ds_config(user_id) if user_id > 0 else {}
+    db_updates: dict = {}
+
+    # --- Tushare ---
+    if payload.clear_tushare_token:
+        db_updates["tushare_token"] = ""
+    elif payload.tushare_token is not None and payload.tushare_token.strip():
+        db_updates["tushare_token"] = payload.tushare_token.strip()
+
+    # --- OKX ---
+    if payload.clear_okx:
+        db_updates["okx_api_key"] = ""
+        db_updates["okx_secret_key"] = ""
+        db_updates["okx_passphrase"] = ""
+    else:
+        if payload.okx_api_key is not None:
+            db_updates["okx_api_key"] = payload.okx_api_key.strip()
+        if payload.okx_secret_key is not None:
+            db_updates["okx_secret_key"] = payload.okx_secret_key.strip()
+        if payload.okx_passphrase is not None:
+            db_updates["okx_passphrase"] = payload.okx_passphrase.strip()
+
+    # --- Twelve Data ---
+    if payload.clear_twelvedata:
+        db_updates["twelvedata_api_key"] = ""
+    elif payload.twelvedata_api_key is not None and payload.twelvedata_api_key.strip():
+        db_updates["twelvedata_api_key"] = payload.twelvedata_api_key.strip()
+
+    # --- Finnhub ---
+    if payload.clear_finnhub:
+        db_updates["finnhub_api_key"] = ""
+    elif payload.finnhub_api_key is not None and payload.finnhub_api_key.strip():
+        db_updates["finnhub_api_key"] = payload.finnhub_api_key.strip()
+
+    # --- Tiingo ---
+    if payload.clear_tiingo:
+        db_updates["tiingo_api_key"] = ""
+    elif payload.tiingo_api_key is not None and payload.tiingo_api_key.strip():
+        db_updates["tiingo_api_key"] = payload.tiingo_api_key.strip()
+
+    if db_updates and user_id > 0:
+        _write_user_ds_config(user_id, db_updates)
+
+    # Apply to runtime env
+    ds_config = _read_user_ds_config(user_id) if user_id > 0 else {}
+    token = ds_config.get("tushare_token", "")
+    okx_key = ds_config.get("okx_api_key", "")
+    okx_secret = ds_config.get("okx_secret_key", "")
+    okx_pass = ds_config.get("okx_passphrase", "")
+    td_key = ds_config.get("twelvedata_api_key", "")
+    fh_key = ds_config.get("finnhub_api_key", "")
+    ti_key = ds_config.get("tiingo_api_key", "")
+
+    if token and _is_configured_secret(token, TUSHARE_TOKEN_PLACEHOLDERS):
+        os.environ["TUSHARE_TOKEN"] = token
+    else:
+        os.environ.pop("TUSHARE_TOKEN", None)
+
+    if okx_key:
+        os.environ["OKX_API_KEY"] = okx_key
+        os.environ["OKX_SECRET_KEY"] = okx_secret
+        os.environ["OKX_PASSPHRASE"] = okx_pass
+    else:
+        os.environ.pop("OKX_API_KEY", None)
+        os.environ.pop("OKX_SECRET_KEY", None)
+        os.environ.pop("OKX_PASSPHRASE", None)
+
+    if td_key:
+        os.environ["TWELVE_DATA_API_KEY"] = td_key
+    else:
+        os.environ.pop("TWELVE_DATA_API_KEY", None)
+
+    if fh_key:
+        os.environ["FINNHUB_API_KEY"] = fh_key
+    else:
+        os.environ.pop("FINNHUB_API_KEY", None)
+
+    if ti_key:
+        os.environ["TIINGO_API_KEY"] = ti_key
+    else:
+        os.environ.pop("TIINGO_API_KEY", None)
+
+    return _build_data_source_settings_response(
+        token=token,
+        okx_api_key=okx_key,
+        okx_secret_key=okx_secret,
+        okx_passphrase=okx_pass,
+        twelvedata_api_key=td_key,
+        finnhub_api_key=fh_key,
+        tiingo_api_key=ti_key,
+    )
+
+# ------------------------------------------------------------------------
+# Skill settings
+# ------------------------------------------------------------------------
+
+@router.get("/settings/skills")
+async def get_skill_settings(auth: dict = Security(_require_auth)):
+    user_id = int(auth["user_id"])
+    from src.agent.skills import SkillsLoader
+    disabled = set(_read_skill_config(user_id).get("disabled_skills", []))
+    loader = SkillsLoader(user_id=user_id, disabled_skills=disabled)
+    skills_data = []
+    for s in loader.skills:
+        skills_data.append({
+            "name": s.name,
+            "description": s.description,
+            "category": s.category,
+            "enabled": s.name not in disabled,
+            "source": s.source,
+        })
+    return {"skills": skills_data, "total": len(skills_data),
+            "enabled_count": sum(1 for s in skills_data if s["enabled"])}
+
+@router.put("/settings/skills")
+async def update_skill_settings(payload: dict, auth: dict = Security(_require_auth)):
+    user_id = int(auth["user_id"])
+    _write_skill_config(user_id, {"disabled_skills": payload.get("disabled_skills", [])})
+    return {"ok": True}
+
+@router.post("/settings/skills/import")
+async def import_skill(file: UploadFile, auth: dict = Security(_require_auth)):
+    user_id = int(auth["user_id"])
+    import zipfile, tempfile
+    if not file.filename or not file.filename.endswith(".zip"):
+        raise HTTPException(status_code=400, detail="Only .zip files are supported")
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            zip_path = Path(tmp) / "upload.zip"
+            zip_path.write_bytes(await file.read())
+            with zipfile.ZipFile(zip_path) as zf:
+                members = [n for n in zf.namelist() if not n.startswith("__MACOSX") and not n.endswith("/")]
+                if not any("SKILL.md" in m for m in members):
+                    raise HTTPException(status_code=400, detail="ZIP must contain SKILL.md")
+                usd = Path.home() / ".AStockPursue" / "skills" / str(user_id)
+                # Find skill name from SKILL.md
+                skill_name = None
+                for m in members:
+                    if m.endswith("SKILL.md"):
+                        zf.extract(m, tmp)
+                        from src.agent.frontmatter import parse_frontmatter
+                        meta, _ = parse_frontmatter((Path(tmp) / m).read_text(encoding="utf-8"))
+                        skill_name = meta.get("name") or Path(m).parent.name
+                        break
+                if not skill_name:
+                    raise HTTPException(status_code=400, detail="SKILL.md must have a 'name' in frontmatter")
+                dest = usd / skill_name
+                dest.mkdir(parents=True, exist_ok=True)
+                for m in members:
+                    zf.extract(m, str(dest))
+                return {"ok": True, "name": skill_name}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Import failed: {e}")
+
+@router.delete("/settings/skills/{name}")
+async def delete_user_skill(name: str, auth: dict = Security(_require_auth)):
+    user_id = int(auth["user_id"])
+    usd = Path.home() / ".AStockPursue" / "skills" / str(user_id)
+    target = usd / name
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="Skill not found")
+    import shutil
+    shutil.rmtree(target)
+    return {"ok": True}
+
+# ------------------------------------------------------------------------
+# MCP settings
+# ------------------------------------------------------------------------
+
+@router.get("/settings/mcp")
+async def get_mcp_settings(auth: dict = Security(_require_auth)):
+    if auth.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    import os as _os
+    config_path = Path.home() / ".AStockPursue" / "mcp_config.json"
+    config = {}
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text())
+        except Exception:
+            pass
+    return {
+        "service_name": "AStockPursue",
+        "transport": config.get("transport", "stdio"),
+        "sse_port": config.get("sse_port", 8900),
+        "shell_tools_enabled": _os.getenv("ASTOCKPURSUE_ENABLE_SHELL_TOOLS", "") in ("1", "true"),
+        "config_path": str(config_path),
+        "install_cmd": f"python {Path(__file__).resolve().parent / 'mcp_server.py'}",
+    }
+
+@router.put("/settings/mcp")
+async def update_mcp_settings(payload: dict, auth: dict = Security(_require_auth)):
+    if auth.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin only")
+    config_path = Path.home() / ".AStockPursue" / "mcp_config.json"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(json.dumps(payload, indent=2))
+    os.chmod(config_path, 0o600)
+    if "shell_tools_enabled" in payload:
+        os.environ["ASTOCKPURSUE_ENABLE_SHELL_TOOLS"] = "1" if payload["shell_tools_enabled"] else "0"
+    return {"ok": True}
+

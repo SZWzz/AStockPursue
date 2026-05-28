@@ -256,9 +256,9 @@ v1 = APIRouter(prefix=API_PREFIX)
 # Route registration
 # ---------------------------------------------------------------------------
 
-# --- Already-extracted route modules (use APIRouter directly) ---
-from src.api.alpha_routes import register_alpha_routes  # noqa: E402
-register_alpha_routes(v1)
+# --- Route modules (module-level APIRouter, auth via include_router) ---
+from src.api.alpha_routes import create_alpha_router  # noqa: E402
+v1.include_router(create_alpha_router(require_auth, require_auth))
 
 from src.api.indicator_lab_routes import router as indicator_lab_router  # noqa: E402
 v1.include_router(indicator_lab_router, dependencies=[Depends(require_auth)])
@@ -272,16 +272,16 @@ v1.include_router(stock_router, dependencies=[Depends(require_auth)])
 from src.api.paper_trading_routes import router as paper_trading_router  # noqa: E402
 v1.include_router(paper_trading_router, dependencies=[Depends(require_auth)])
 
-# --- New route modules (use create_router factory) ---
-from src.api.runs_routes import create_router as create_runs_router  # noqa: E402
-v1.include_router(create_runs_router(require_auth), dependencies=[Depends(require_auth)])
+from src.api.runs_routes import router as runs_router  # noqa: E402
+v1.include_router(runs_router, dependencies=[Depends(require_auth)])
 
-from src.api.sessions_routes import create_router as create_sessions_router  # noqa: E402
-v1.include_router(create_sessions_router(require_auth), dependencies=[Depends(require_auth)])
+from src.api.sessions_routes import router as sessions_router  # noqa: E402
+v1.include_router(sessions_router, dependencies=[Depends(require_auth)])
 
-from src.api.settings_routes import create_router as create_settings_router  # noqa: E402
-v1.include_router(create_settings_router(require_auth), dependencies=[Depends(require_auth)])
+from src.api.settings_routes import router as settings_router  # noqa: E402
+v1.include_router(settings_router, dependencies=[Depends(require_auth)])
 
+# Auth & system routes have mixed public/protected/admin patterns — keep factory
 from src.api.auth_routes import create_router as create_auth_router  # noqa: E402
 v1.include_router(create_auth_router(require_auth))
 

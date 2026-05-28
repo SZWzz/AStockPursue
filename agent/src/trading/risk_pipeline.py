@@ -8,19 +8,33 @@ limits and per-position size limits.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 
 
-@dataclass
-class RiskConfig:
-    """Risk management parameters."""
+@dataclass(frozen=True)
+class RiskConfigFields:
+    """Canonical field definitions shared between paper-trade and trading.
+
+    When adding/changing a field, update here FIRST — both ``RiskConfig``
+    and ``papertrade.models.RiskConfig`` derive from this.
+    """
 
     stop_loss_pct: float = 5.0
     take_profit_pct: float = 10.0
     trailing_stop_pct: float = 0.0
     max_daily_loss_pct: float = 3.0
     max_position_pct: float = 30.0
-    use_intraday_stop: bool = True  # check bar high/low, not just close
+    use_intraday_stop: bool = True
+
+
+class RiskConfig:
+    """Risk management parameters (populated from ``RiskConfigFields`` defaults)."""
+
+    def __init__(self, **kwargs) -> None:
+        defaults = RiskConfigFields()
+        for f in fields(RiskConfigFields):
+            val = kwargs.get(f.name, getattr(defaults, f.name))
+            setattr(self, f.name, val)
 
 
 class RiskPipeline:

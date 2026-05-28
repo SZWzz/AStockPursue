@@ -362,6 +362,8 @@ class AgentLoop:
         Returns:
             Execution result dict.
         """
+        logger.info("AgentLoop.run() START — session=%s user_msg_len=%d", session_id, len(user_message))
+
         # Reset per-run state (safe for reuse across multiple run() calls)
         self._cancelled = False
         self._called_ok = set()
@@ -517,6 +519,8 @@ class AgentLoop:
         }
         if final_reason is not None:
             result["reason"] = final_reason
+        logger.info("AgentLoop.run() END — session=%s status=%s iterations=%d",
+                     session_id, result.get("status", "?"), result.get("iterations", 0))
         return result
 
     # -- Tool execution with read/write batching --------------------------------

@@ -109,25 +109,27 @@ class BarResult:
 class RiskConfig(BaseModel):
     """Risk management parameters for a paper trading run.
 
-    .. note::
-
-        Field set must stay in sync with ``src.trading.risk_pipeline.RiskConfig``.
-        When adding/changing a field here, update the trading config too, and
-        vice versa.
+    Field definitions are derived from ``src.trading.risk_pipeline.RiskConfigFields``
+    so that the paper-trade and trading configs never diverge.
     """
 
-    stop_loss_pct: float = Field(default=5.0, ge=0.0, le=100.0,
+    stop_loss_pct: float = Field(default_factory=lambda: _risk_fields().stop_loss_pct, ge=0.0, le=100.0,
                                   description="Stop-loss threshold (%)")
-    take_profit_pct: float = Field(default=10.0, ge=0.0, le=1000.0,
+    take_profit_pct: float = Field(default_factory=lambda: _risk_fields().take_profit_pct, ge=0.0, le=1000.0,
                                     description="Take-profit threshold (%)")
-    trailing_stop_pct: float = Field(default=0.0, ge=0.0, le=100.0,
+    trailing_stop_pct: float = Field(default_factory=lambda: _risk_fields().trailing_stop_pct, ge=0.0, le=100.0,
                                       description="Trailing-stop distance (%). 0 = disabled")
-    max_daily_loss_pct: float = Field(default=3.0, ge=0.0, le=100.0,
+    max_daily_loss_pct: float = Field(default_factory=lambda: _risk_fields().max_daily_loss_pct, ge=0.0, le=100.0,
                                        description="Max daily loss as % of initial capital")
-    max_position_pct: float = Field(default=30.0, ge=0.0, le=100.0,
+    max_position_pct: float = Field(default_factory=lambda: _risk_fields().max_position_pct, ge=0.0, le=100.0,
                                      description="Max single-position notional as % of equity")
-    use_intraday_stop: bool = Field(default=True,
+    use_intraday_stop: bool = Field(default_factory=lambda: _risk_fields().use_intraday_stop,
                                      description="Check bar high/low, not just close")
+
+
+def _risk_fields():
+    from src.trading.risk_pipeline import RiskConfigFields
+    return RiskConfigFields()
 
 
 class CreateRunRequest(BaseModel):

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Loader2, TrendingUp, Library, List, Plus, Check, Save, Rocket } from "lucide-react";
-import { usePaperTradingStore } from "@/stores/paperTradingStore";
+import { usePaperTradingRunStore } from "@/stores/paperTradingRunStore";
+import { usePaperTradingLiveStore } from "@/stores/paperTradingLiveStore";
 import { useI18n } from "@/lib/i18n";
 import { authHeaders } from "@/lib/apiAuth";
 import { api, type TradeMarker } from "@/lib/api";
@@ -55,9 +56,8 @@ class SignalEngine:
 
 export default function PaperTrading() {
   const { t } = useI18n();
-  const fetchRuns = usePaperTradingStore((s) => s.fetchRuns);
-  const disconnectSSE = usePaperTradingStore((s) => s.disconnectSSE);
-  const store = usePaperTradingStore();
+  const fetchRuns = usePaperTradingRunStore((s) => s.fetchRuns);
+  const disconnectSSE = usePaperTradingLiveStore((s) => s.disconnectSSE);
   const [leftTab, setLeftTab] = useState<LeftTab>("library");
   const [librarySource, setLibrarySource] = useState<LibrarySource>("strategy-lab");
   const [strategies, setStrategies] = useState<StrategyItem[]>([]);
@@ -92,12 +92,14 @@ export default function PaperTrading() {
     fetchOHLCV,
   } = useBacktest();
 
-  const selectedRun = store.activeRunDetail?.run;
-  const sseConnected = store.sseStatus === "connected";
+  const runStore = usePaperTradingRunStore();
+  const liveStore = usePaperTradingLiveStore();
+  const selectedRun = runStore.activeRunDetail?.run;
+  const sseConnected = liveStore.sseStatus === "connected";
 
   // K-line data from paper-trading engine (real bars, live-updated via SSE)
   const runChartData = useMemo(() => {
-    const ohlcv = store.ohlcvData;
+    const ohlcv = liveStore.ohlcvData;
     if (!ohlcv || Object.keys(ohlcv).length === 0) return [];
     // Pick the first symbol's bars — they all share the same timeline
     const firstCode = Object.keys(ohlcv)[0];
@@ -109,7 +111,7 @@ export default function PaperTrading() {
       close: b.close,
       volume: b.volume,
     }));
-  }, [store.ohlcvData]);
+  }, [liveStore.ohlcvData]);
 
   useEffect(() => {
     fetchRuns();
@@ -189,7 +191,9 @@ export default function PaperTrading() {
   // ── OHLCV fetch for preview ─────────────────────────────────────────────
 
   const handlePreviewFetch = useCallback((symbol: string) => {
-    if (symbol) fetchOHLCV(symbol, "2026-01-01", "2026-05-24", "auto", "1D");
+    const today = new Date().toISOString().slice(0, 10);
+    const oneYearAgo = new Date(Date.now() - 365 * 86400000).toISOString().slice(0, 10);
+    if (symbol) fetchOHLCV(symbol, oneYearAgo, today, "auto", "1D");
   }, [fetchOHLCV]);
 
   // ── Shared quick-backtest logic ─────────────────────────────────────────
@@ -200,7 +204,7 @@ export default function PaperTrading() {
     try {
       const res = await fetch("/v1/strategy-lab/backtest", {
         method: "POST", headers: { "Content-Type": "application/json", ...authHeaders() },
-        body: JSON.stringify({ code: btCode, codes: syms, start_date: "2024-01-01", end_date: "2026-05-24", source: "auto", interval: "1D", initial_cash: initialCapital }),
+        body: JSON.stringify({ code: btCode, codes: syms, start_date: "2023-01-01", end_date: new Date().toISOString().slice(0, 10), source: "auto", interval: "1D", initial_cash: initialCapital }),
       });
       const d = await res.json();
       if (d.success && d.run_id) {
@@ -215,7 +219,7 @@ export default function PaperTrading() {
   // ── Clone ──────────────────────────────────────────────────────────────
 
   const handleClone = async (runId: string) => {
-    const meta = store.runs.find(r => r.id === runId);
+    const meta = runStore.runs.find(r => r.id === runId);
     if (!meta) return;
     setRunName(meta.run_name + " (副本)");
     setMarket(meta.market);
@@ -266,11 +270,11 @@ export default function PaperTrading() {
         strategy_code: code,
         risk_config: riskConfig,
       };
-      const runId = await store.createRun(req);
+      const runId = await runStore.createRun(req);
       setShowDeploy(false);
       setLeftTab("runs");
       if (autoStart && runId) {
-        setTimeout(() => store.startRun(runId), 500);
+        setTimeout(() => runStore.startRun(runId), 500);
       }
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : t.ptCreateFailed);
@@ -300,14 +304,14 @@ export default function PaperTrading() {
   // ── Select run (with SSE management) ────────────────────────────────────
 
   const handleSelectRun = (id: string) => {
-    if (store.activeRunId && store.activeRunId !== id) {
+    if (runStore.activeRunId && runStore.activeRunId !== id) {
       disconnectSSE();
     }
-    store.selectRun(id);
-    store.fetchEquity(id);
-    store.fetchTrades(id);
-    const run = store.runs.find(r => r.id === id);
-    if (run?.status === "running") store.connectSSE(id);
+    runStore.selectRun(id);
+    liveStore.fetchEquity(id);
+    liveStore.fetchTrades(id);
+    const run = runStore.runs.find(r => r.id === id);
+    if (run?.status === "running") liveStore.connectSSE(id);
   };
 
   const labelClass = "text-[11px] font-medium text-muted-foreground";
@@ -442,22 +446,22 @@ export default function PaperTrading() {
               </div>
             ) : (
               <div className="space-y-2">
-                {store.runsLoading ? (
+                {runStore.runsLoading ? (
                   <div className="text-center text-muted-foreground py-8 text-xs">{t.ptLoading}</div>
-                ) : store.runs.length === 0 ? (
+                ) : runStore.runs.length === 0 ? (
                   <div className="text-center text-muted-foreground py-8 text-xs">{t.ptNoRuns}<br /><span className="text-[10px]">{t.ptNoRunsHint}</span></div>
                 ) : (
-                  store.runs.map((run) => (
+                  runStore.runs.map((run) => (
                     <PaperTradingCard
                       key={run.id}
                       run={run}
-                      isActive={store.activeRunId === run.id}
+                      isActive={runStore.activeRunId === run.id}
                       onSelect={handleSelectRun}
-                      onStart={async (id) => { try { await store.startRun(id); } catch (e) { alert(e instanceof Error ? e.message : String(e)); } }}
-                      onStop={(id) => store.stopRun(id)}
-                      onPause={(id) => store.pauseRun(id)}
-                      onResume={(id) => store.resumeRun(id)}
-                      onDelete={(id) => store.deleteRun(id)}
+                      onStart={async (id) => { try { await runStore.startRun(id); } catch (e) { alert(e instanceof Error ? e.message : String(e)); } }}
+                      onStop={(id) => runStore.stopRun(id)}
+                      onPause={(id) => runStore.pauseRun(id)}
+                      onResume={(id) => runStore.resumeRun(id)}
+                      onDelete={(id) => runStore.deleteRun(id)}
                       onClone={handleClone}
                     />
                   ))
@@ -536,19 +540,19 @@ export default function PaperTrading() {
                 <div>
                   <h2 className="text-sm font-bold">{selectedRun.run_name}</h2>
                   <p className="text-[10px] text-muted-foreground">
-                    {selectedRun.market} &middot; {sseConnected ? t.ptSseConnected : store.sseStatus === "reconnecting" ? `重连中 (第${store.reconnectCount}次, ${Math.ceil(store.reconnectDelayMs / 1000)}s后)` : selectedRun.status}
-                    {store.activeRunDetail?.data_source && <> &middot; {store.activeRunDetail.data_source}</>}
+                    {selectedRun.market} &middot; {sseConnected ? t.ptSseConnected : liveStore.sseStatus === "reconnecting" ? `重连中 (第${liveStore.reconnectCount}次, ${Math.ceil(liveStore.reconnectDelayMs / 1000)}s后)` : selectedRun.status}
+                    {runStore.activeRunDetail?.data_source && <> &middot; {runStore.activeRunDetail.data_source}</>}
                   </p>
                 </div>
                 <button className="px-2 py-1 text-[10px] rounded border hover:bg-muted" onClick={() => {
-                  if (selectedRun?.id) store.fetchBars(selectedRun.id);
+                  if (selectedRun?.id) liveStore.fetchBars(selectedRun.id);
                 }}>刷新K线</button>
               </div>
 
               {/* Return stats cards */}
               <div className="grid grid-cols-4 gap-1.5 shrink-0">
                 {(() => {
-                  const eq = store.equity;
+                  const eq = liveStore.equity;
                   const dailyReturn = eq.length >= 2 ? ((eq[eq.length - 1].equity - eq[eq.length - 2].equity) / eq[eq.length - 2].equity * 100) : null;
                   let maxDD = 0, peak = eq.length > 0 ? eq[0].equity : 0;
                   for (const p of eq) { if (p.equity > peak) peak = p.equity; const dd = (peak - p.equity) / peak * 100; if (dd > maxDD) maxDD = dd; }
@@ -572,8 +576,8 @@ export default function PaperTrading() {
               {/* K-line chart with trade markers — live from paper-trading engine */}
               <div className="min-h-[320px] shrink-0">
                 {runChartData.length > 0 ? (
-                  <CandlestickChart data={runChartData} markers={store.tradeMarkers} height={320} />
-                ) : store.detailLoading ? (
+                  <CandlestickChart data={runChartData} markers={liveStore.tradeMarkers} height={320} />
+                ) : runStore.detailLoading ? (
                   <div className="flex items-center justify-center h-36 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mr-1" />Loading...</div>
                 ) : (
                   <div className="flex items-center justify-center h-36 text-xs text-muted-foreground">暂无 K 线数据，等待交易日刷新...</div>
@@ -582,7 +586,7 @@ export default function PaperTrading() {
 
               {/* Equity chart */}
               <div className="min-h-[200px] shrink-0">
-                <EquityChart data={store.equity} minHeight={180} />
+                <EquityChart data={liveStore.equity} minHeight={180} />
               </div>
 
               {/* Tabs: positions / trades / log / stats / risk */}
@@ -593,12 +597,12 @@ export default function PaperTrading() {
                   </button>
                 ))}
               </div>
-              {detailTab === "positions" && <PositionTable positions={store.activeRunDetail?.positions || store.positions || []} />}
-              {detailTab === "trades" && <TradeHistoryTable trades={store.recentTrades.length > 0 ? store.recentTrades : (store.activeRunDetail?.recent_trades || [])} />}
+              {detailTab === "positions" && <PositionTable positions={runStore.activeRunDetail?.positions || liveStore.positions || []} />}
+              {detailTab === "trades" && <TradeHistoryTable trades={liveStore.recentTrades.length > 0 ? liveStore.recentTrades : (runStore.activeRunDetail?.recent_trades || [])} />}
               {detailTab === "log" && (
                 <div className="space-y-1 max-h-48 overflow-auto text-[10px]">
-                  {store.signalLog.length === 0 && store.recentTrades.length === 0 && <div className="text-muted-foreground text-center py-4">暂无日志，等待信号触发...</div>}
-                  {store.signalLog.slice(-20).reverse().map((s, i) => (
+                  {liveStore.signalLog.length === 0 && liveStore.recentTrades.length === 0 && <div className="text-muted-foreground text-center py-4">暂无日志，等待信号触发...</div>}
+                  {liveStore.signalLog.slice(-20).reverse().map((s, i) => (
                     <div key={i} className="flex gap-2 py-0.5 border-b border-border/30">
                       <span className="text-muted-foreground font-mono w-16 shrink-0">{s.timestamp?.slice(0, 16) || ""}</span>
                       <span className="font-mono">{s.symbol}</span>
@@ -606,7 +610,7 @@ export default function PaperTrading() {
                       <span className="text-muted-foreground">{s.reason}</span>
                     </div>
                   ))}
-                  {store.recentTrades.slice(-10).reverse().map((t, i) => (
+                  {liveStore.recentTrades.slice(-10).reverse().map((t, i) => (
                     <div key={`t${i}`} className="flex gap-2 py-0.5 border-b border-border/30 bg-muted/20">
                       <span className="text-muted-foreground font-mono w-16 shrink-0">{t.exit_time?.slice(0, 16) || ""}</span>
                       <span className="font-mono">{t.symbol}</span>
@@ -619,10 +623,10 @@ export default function PaperTrading() {
               )}
               {detailTab === "stats" && (
                 <div className="space-y-3 text-[11px]">
-                  <MonthlyReturnHeatmap equity={store.equity} />
+                  <MonthlyReturnHeatmap equity={liveStore.equity} />
                   {(() => {
-                    const signals = store.signalLog;
-                    const trades = store.recentTrades;
+                    const signals = liveStore.signalLog;
+                    const trades = liveStore.recentTrades;
                     const longSig = signals.filter(s => s.direction > 0).length;
                     const shortSig = signals.filter(s => s.direction < 0).length;
                     const winTrades = trades.filter(t => t.pnl > 0).length;

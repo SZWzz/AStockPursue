@@ -38,7 +38,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, field_validator
 
@@ -262,22 +262,24 @@ def _run_bench_blocking(job_id: str, zoo: str, universe: str, period: str, top: 
 AuthDep = Callable[..., Awaitable[Any] | Any]
 
 
-def register_alpha_routes(
-    app: FastAPI,
+def create_alpha_router(
     require_auth: AuthDep | None = None,
     require_event_stream_auth: AuthDep | None = None,
-) -> None:
-    """Mount the alpha routes onto ``app``.
+) -> APIRouter:
+    """Create an APIRouter with all alpha-related routes.
 
     Args:
-        app: The host FastAPI app.
         require_auth: Header-auth dependency for JSON endpoints.
         require_event_stream_auth: Query-param-auth dependency for SSE endpoints.
 
+    Returns:
+        Configured APIRouter instance (prefix = ``/alpha``).
+
     For backwards compatibility, when the dependency callables are not passed
     explicitly we resolve them from the host ``api_server`` module via
-    ``sys.modules``. Prefer the explicit form in new call sites.
+    ``sys.modules``.
     """
+    router = APIRouter(prefix="/alpha")
     if require_auth is None or require_event_stream_auth is None:
         import sys as _sys
 
@@ -296,7 +298,7 @@ def register_alpha_routes(
     # GET /alpha/list
     # -----------------------------------------------------------------------
 
-    @app.get("/alpha/list", dependencies=[Depends(require_auth)])
+    @router.get("/list", dependencies=[Depends(require_auth)])
     async def list_alphas(
         zoo: str | None = Query(None, max_length=64),
         theme: str | None = Query(None, max_length=64),
@@ -381,7 +383,7 @@ def register_alpha_routes(
     # GET /alpha/{alpha_id}
     # -----------------------------------------------------------------------
 
-    @app.get("/alpha/{alpha_id}", dependencies=[Depends(require_auth)])
+    @router.get("/{alpha_id}", dependencies=[Depends(require_auth)])
     async def get_alpha(alpha_id: str) -> dict[str, Any]:
         """Return alpha metadata + the source code of its zoo .py file."""
         if not _ALPHA_ID_RE.fullmatch(alpha_id or ""):
@@ -436,7 +438,7 @@ def register_alpha_routes(
     # POST /alpha/bench
     # -----------------------------------------------------------------------
 
-    @app.post(
+    @router.post(
         "/alpha/bench",
         status_code=202,
         dependencies=[Depends(require_auth)],
@@ -513,7 +515,7 @@ def register_alpha_routes(
     # GET /alpha/bench/{job_id}/stream
     # -----------------------------------------------------------------------
 
-    @app.get(
+    @router.get(
         "/alpha/bench/{job_id}/stream",
         dependencies=[Depends(require_event_stream_auth)],
     )
@@ -589,7 +591,7 @@ def register_alpha_routes(
     # GET /alpha/bench/history
     # -----------------------------------------------------------------------
 
-    @app.get("/alpha/bench/history", dependencies=[Depends(require_auth)])
+    @router.get("/bench/history", dependencies=[Depends(require_auth)])
     async def list_bench_history(
         limit: int = Query(20, ge=1, le=100),
         offset: int = Query(0, ge=0),
@@ -605,7 +607,7 @@ def register_alpha_routes(
     # GET /alpha/bench/history/{run_id}
     # -----------------------------------------------------------------------
 
-    @app.get("/alpha/bench/history/{run_id}", dependencies=[Depends(require_auth)])
+    @router.get("/bench/history/{run_id}", dependencies=[Depends(require_auth)])
     async def get_bench_history_detail(run_id: str) -> dict[str, Any]:
         """Return full detail for a saved bench run."""
         if not _JOB_ID_RE.fullmatch(run_id or ""):
@@ -620,7 +622,7 @@ def register_alpha_routes(
     # DELETE /alpha/bench/history/{run_id}
     # -----------------------------------------------------------------------
 
-    @app.delete("/alpha/bench/history/{run_id}", dependencies=[Depends(require_auth)])
+    @router.delete("/alpha/bench/history/{run_id}", dependencies=[Depends(require_auth)])
     async def delete_bench_history(run_id: str) -> dict[str, Any]:
         """Delete a saved bench run."""
         if not _JOB_ID_RE.fullmatch(run_id or ""):
@@ -635,7 +637,7 @@ def register_alpha_routes(
     # POST /alpha/bench/{job_id}/cancel
     # -----------------------------------------------------------------------
 
-    @app.post("/alpha/bench/{job_id}/cancel", dependencies=[Depends(require_auth)])
+    @router.post("/alpha/bench/{job_id}/cancel", dependencies=[Depends(require_auth)])
     async def cancel_bench(job_id: str) -> dict[str, Any]:
         """Cancel a running or queued bench job."""
         if not _JOB_ID_RE.fullmatch(job_id or ""):
@@ -648,6 +650,9 @@ def register_alpha_routes(
                 raise HTTPException(status_code=400, detail="job already finished")
             job["_cancelled"] = True
         return {"status": "ok", "job_id": job_id}
+
+
+    return router
 
 
 # ---------------------------------------------------------------------------
