@@ -1,5 +1,44 @@
 # Changelog
 
+## 2026.5.28
+
+### Fixed
+
+- **会话页切回 loading 卡死** — `Agent.tsx` 的 `loadSessionMessages()` 内两个 gen-check 提前 return 未重置 `sessionLoading`，切走再切回时 loading 永远卡在 true。`try/catch` 改为 `try/finally`，`finally` 中只在 gen 匹配时重置
+- **Docker build 失败 (README_EN.md not found)** — `Dockerfile:36` + `.dockerignore` 仍引用已删除的 `README_EN.md`，改为 `README_zh.md`
+
+### Changed
+
+- **硬编码日期 → 动态计算** — `PaperTrading.tsx` 中 `"2026-01-01"` / `"2026-05-24"` 等 3 处改为 `new Date()` 动态计算
+- **AgentLoop 增加 session 日志** — `loop.py` 在 `run()` 入口和出口各加一行 `logger.info`，打印 `session_id` / `status` / `iterations`
+- **RiskConfig 统一定义** — 新增 `RiskConfigFields` frozen dataclass（`src/trading/risk_pipeline.py`），`papertrade/models.py` 的 Pydantic RiskConfig 字段默认值从 `RiskConfigFields` 派生，两处不再分裂
+- **API 路由注册标准化** — `runs_routes` / `sessions_routes` / `settings_routes` / `alpha_routes` 从 `create_router(require_auth)` 工厂函数改为 module-level `router = APIRouter(...)`，`api_server.py` 统一 `v1.include_router(xxx_router)` 模式（auth/system 因混合权限保留工厂）
+- **paperTradingStore 拆分** — 320 行单 store 拆为 `paperTradingRunStore`（run CRUD + detail）+ `paperTradingLiveStore`（SSE + ohlcvData + equity + markers + signalLog），`PaperTrading.tsx` 双 store 订阅
+- **README 默认英文** — `README.md` 改为英文 + `[中文文档](README_zh.md)` 跳转；`README_en.md` 删除
+
+### Added
+
+- **引擎完善（停牌/跳空/退市/夜盘）**
+  - 停牌检测：连续 2+ bar close 不变且 volume=0 → 标记停牌 → 强制平仓 → `exit_reason="suspended"`
+  - 跳空止损/止盈：`RiskPipeline.check_gap()` 检测 prev_close→bar_open 穿透止损/止盈价 → `exit_reason="gap_stop"/"gap_target"`
+  - 退市强制平仓：`BacktestDriver` 检测 code 数据提前终止 → `engine.force_close_symbol(c, "delisted")`
+  - 夜盘 session：45 个期货品种交易时段配置 + `bar_in_trading_session()` + 分钟级 bar 自动过滤非交易时段
+- **费用模型全面修复**
+  - 中国期货平今仓：IF/IC/IH 15× 费率，黄金白银平今仓免费，螺纹热卷 1.5×
+  - 全球期货保证金：`_MARGIN_PER_CONTRACT` 表接入 `_calc_margin()`
+  - 港股费率修正：拆分 HKEX trading fee + SFC/FRC levy，新增最低佣金配置
+  - 美股 SEC Section 31 费：卖单 $0.000008/notional
+  - 币圈动态资金费率：均值回归随机游走，opt-in via `dynamic_funding: true`
+  - 中国期货交割费：18 个品种每吨费率 + `get_delivery_fee()`
+  - Tushare 复权修复：`daily(adj="qfq")`
+- **集成测试** — `test_backtest_integration.py` 7 tests：A 股 buy-and-hold PnL、期货佣金+平今仓、港股多组件费率、美股 SEC 费、币圈动态资金费率
+- **前端 smoke test** — `paperTrading.test.ts`：验证 `getSSEUrl` 包含正确 BASE prefix
+- **AI Skill 新增 & 更新**
+  - 新 skill：`paper-trading-guide`（模拟盘操作指南）、`paper-trading-diagnose`（模拟盘问题诊断）
+  - 更新：`strategy-generate` config 模板补 slippage/benchmark；`backtest-diagnose` 补 survivorship 警告 + benchmark 参考；`execution-model` 补 config-based slippage 说明
+- **SSE 重连抖动** — `calcReconnectDelay` 新增 ±25% jitter，前端状态栏显示「重连中 (第N次, Xs后)」
+- **pyproject.toml 更新** — version→2026.5.27，description 扩展，keywords +3，classifiers +Python 3.13，urls +Changelog
+
 ## 2026.5.27
 
 ### Fixed
