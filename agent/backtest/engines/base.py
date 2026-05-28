@@ -359,6 +359,15 @@ class BaseEngine(ABC):
         pnl = self._calc_pnl(symbol, pos.direction, pos.size, pos.entry_price, exit_price)
         margin = self._calc_margin(symbol, pos.size, pos.entry_price, pos.leverage)
         pnl_pct = pnl / margin * 100 if margin > 1e-9 else 0.0
+
+        # Pass entry_time for 平今仓 detection
+        if hasattr(self, "_active_entry_time"):
+            self._active_entry_time = pos.entry_time
+        if hasattr(self, "_active_bar_date"):
+            try:
+                self._active_bar_date = exit_time.date() if hasattr(exit_time, "date") else str(exit_time)[:10]
+            except Exception:
+                pass
         exit_comm = self.calc_commission(pos.size, exit_price, pos.direction, is_open=False)
 
         self.capital += margin + pnl - exit_comm

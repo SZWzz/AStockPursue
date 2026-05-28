@@ -152,7 +152,6 @@ export function Agent() {
         if (m.role === "user") {
           agentMsgs.push({ id: m.message_id, type: "user", content: m.content, timestamp: ts });
         } else if (runId) {
-          // Show text answer first (if non-empty), then chart card
           if (m.content && m.content !== t.agentStrategyCompleted) {
             agentMsgs.push({ id: m.message_id + "_ans", type: "answer", content: m.content, timestamp: ts });
           }
@@ -163,11 +162,13 @@ export function Agent() {
       }
       if (genRef.current !== gen) return;
       act().loadHistory(agentMsgs);
-      act().setSessionLoading(false);
       act().cacheSession(sid, agentMsgs);
       setTimeout(() => forceScrollToBottom(), 50);
-    } catch {
-      act().setSessionLoading(false);
+    } finally {
+      // Always reset loading, even on early gen-check returns
+      if (genRef.current === gen) {
+        act().setSessionLoading(false);
+      }
     }
   }, [forceScrollToBottom]);
 

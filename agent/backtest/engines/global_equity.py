@@ -41,10 +41,12 @@ class GlobalEquityEngine(BaseEngine):
         self.slippage_us: float = config.get("slippage_us", 0.0005)
         # HK defaults
         self.slippage_hk: float = config.get("slippage_hk", 0.001)
-        self.hk_stamp_tax: float = config.get("hk_stamp_tax", 0.001)
-        self.hk_commission: float = config.get("hk_commission", 0.00015)
-        self.hk_levy: float = config.get("hk_levy", 0.0000565)
-        self.hk_settlement: float = config.get("hk_settlement", 0.00002)
+        self.hk_stamp_tax: float = config.get("hk_stamp_tax", 0.001)     # 0.1% bilateral
+        self.hk_commission: float = config.get("hk_commission", 0.00015)  # 0.015% broker
+        self.hk_trading_fee: float = config.get("hk_trading_fee", 0.0000565)  # HKEX 0.00565%
+        self.hk_sfc_levy: float = config.get("hk_sfc_levy", 0.0000285)       # SFC 0.0027% + FRC 0.00015%
+        self.hk_settlement: float = config.get("hk_settlement", 0.00002)     # CCASS 0.002%
+        self.hk_min_commission: float = config.get("hk_min_commission", 0.0) # HK$100 for traditional brokers
 
     def can_execute(self, symbol: str, direction: int, bar: pd.Series) -> bool:
         """US/HK: T+0, both directions allowed."""
@@ -57,19 +59,23 @@ class GlobalEquityEngine(BaseEngine):
         return round(max(raw_size, 0.0), 2)
 
     def calc_commission(self, size: float, price: float, _direction: int, is_open: bool) -> float:
-        """US: zero commission. HK: stamp tax + levies.
+        """US: zero commission (+ SEC fee on sells). HK: full fee breakdown.
 
-        ``_direction`` is unused — reserved for future short-borrow fees
-        (US Reg-T margin, HK SBL costs).
+        ``_direction`` is unused — reserved for future short-borrow fees.
         """
         if self.market == "hk":
             notional = size * price
-            comm = notional * self.hk_commission       # broker commission
-            comm += notional * self.hk_stamp_tax       # stamp tax bilateral
-            comm += notional * self.hk_levy            # SFC + FRC levies
-            comm += notional * self.hk_settlement      # CCASS settlement
+            comm = notional * self.hk_commission        # broker commission
+            comm += notional * self.hk_stamp_tax        # stamp duty (0.1% bilateral)
+            comm += notional * self.hk_trading_fee      # HKEX trading fee
+            comm += notional * self.hk_sfc_levy         # SFC + FRC levy
+            comm += notional * self.hk_settlement       # CCASS settlement
+            if self.hk_min_commission > 0:
+                comm = max(comm, self.hk_min_commission)
             return comm
-        # US: zero commission (SEC fee negligible)
+        # US: zero base commission; SEC Section 31 fee on sells only (~$8 per $1M)
+        if not is_open:
+            return size * price * 0.00000008  # SEC fee on sell
         return 0.0
 
     def apply_slippage(self, price: float, direction: int) -> float:

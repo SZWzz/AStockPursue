@@ -100,8 +100,11 @@ class TestCommission:
 
     def test_us_zero_both_sides(self) -> None:
         engine = _us_engine()
-        assert engine.calc_commission(100.0, 180.0, 1, is_open=True) == 0.0
-        assert engine.calc_commission(100.0, 180.0, 1, is_open=False) == 0.0
+        assert engine.calc_commission(100.0, 180.0, 1, is_open=True) == 0.0  # buy: zero
+        # sell: SEC Section 31 fee ~0.0008% of notional
+        comm_sell = engine.calc_commission(100.0, 180.0, 1, is_open=False)
+        assert comm_sell > 0  # SEC fee on sell
+        assert comm_sell < 0.1  # negligible for 100 shares
 
     def test_hk_has_commission(self) -> None:
         engine = _hk_engine()
@@ -122,12 +125,13 @@ class TestCommission:
         size, price = 1000, 350.0
         notional = size * price  # 350,000
         comm = engine.calc_commission(size, price, 1, is_open=True)
-        # Expected components:
+        # Expected: broker + stamp + HKEX trading fee + SFC/FRC levy + CCASS settlement
         expected = (
-            notional * engine.hk_commission      # broker ~¥52.5
-            + notional * engine.hk_stamp_tax     # stamp ~¥350
-            + notional * engine.hk_levy          # SFC+FRC ~¥19.8
-            + notional * engine.hk_settlement    # CCASS ~¥7
+            notional * engine.hk_commission       # broker ~¥52.5
+            + notional * engine.hk_stamp_tax      # stamp ~¥350
+            + notional * engine.hk_trading_fee    # HKEX ~¥19.77
+            + notional * engine.hk_sfc_levy       # SFC+FRC ~¥9.98
+            + notional * engine.hk_settlement     # CCASS ~¥7
         )
         assert comm == pytest.approx(expected, abs=0.01)
 

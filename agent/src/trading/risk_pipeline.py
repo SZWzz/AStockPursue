@@ -134,6 +134,40 @@ class RiskPipeline:
 
         return None, None
 
+    # ── Gap detection (bar-to-bar) ──────────────────────────────────
+
+    def check_gap(
+        self,
+        symbol: str,
+        direction: int,
+        entry_price: float,
+        prev_close: float,
+        bar_open: float,
+    ) -> tuple[str | None, float | None]:
+        """Check whether the overnight gap penetrates stop-loss or take-profit.
+
+        Called before processing a new bar.  If the gap from ``prev_close``
+        to ``bar_open`` crosses the stop or target level, return the exit
+        reason and execution price (at open).  Priority: stop > target.
+
+        Returns ``(reason, exec_price)`` or ``(None, None)``.
+        """
+        if entry_price <= 0 or prev_close <= 0 or bar_open <= 0:
+            return None, None
+
+        stop_p = entry_price * (1.0 + direction * self._stop_loss_pct)
+        target_p = entry_price * (1.0 + direction * self._take_profit_pct)
+
+        stop_gapped = (direction == 1 and bar_open <= stop_p) or (direction == -1 and bar_open >= stop_p)
+        target_gapped = (direction == 1 and bar_open >= target_p) or (direction == -1 and bar_open <= target_p)
+
+        if stop_gapped:
+            return "gap_stop", bar_open
+        if target_gapped:
+            return "gap_target", bar_open
+
+        return None, None
+
     # ── Daily loss ──────────────────────────────────────────────────
 
     def check_daily_loss(self) -> bool:

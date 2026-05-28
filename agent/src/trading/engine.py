@@ -90,6 +90,10 @@ class TradingEngine:
         # Batch-mode data accumulation (for incremental generate())
         self._data_map: dict[str, pd.DataFrame] = {}
 
+        # Suspension detection
+        self._suspended: dict[str, bool] = {}       # code → currently suspended
+        self._consecutive_flat: dict[str, int] = {}  # code → consecutive flat bars
+
         # Tick-mode state
         self._tick_state: dict[str, Any] | None = None
 
@@ -218,17 +222,75 @@ class TradingEngine:
             else str(timestamp)[:10]
         )
 
-        # 0. Run per-bar market hooks (funding fees, liquidation checks, etc.)
+        # 0. Gap + suspension detection
+        suspension_trades: list[Any] = []
+        gap_trades: list[Any] = []
+
+        # 0a. Gap detection: check each open position for overnight gaps
+        if self._risk is not None:
+            for sym, pos in list(self._market.positions.items()):
+                if sym not in bar:
+                    continue
+                row = bar[sym]
+                bar_open = float(row.get("open", 0))
+                prev_close = self._last_bar_prices.get(sym, bar_open)
+                reason, exec_price = self._risk.check_gap(
+                    sym, pos.direction, pos.entry_price, prev_close, bar_open,
+                )
+                if reason:
+                    trade = self._market._close_position(sym, exec_price, self._last_bar_time, reason=reason)
+                    if trade:
+                        gap_trades.append(trade)
+                        logger.info("Gap exit: %s %s at %.2f (prev_close=%.2f, open=%.2f)",
+                                    sym, reason, exec_price, prev_close, bar_open)
+
+        # 0b. Suspension detection
+        for c in self.codes:
+            if c not in bar:
+                continue
+            row = bar[c]
+            close_val = float(row.get("close", 0))
+            vol_val = float(row.get("volume", 0))
+
+            # Detect suspension: close unchanged AND zero volume for ≥2 bars
+            prev_close = self._last_bar_prices.get(c)
+            is_flat = (prev_close is not None and abs(close_val - prev_close) < 1e-9 and vol_val < 1e-6)
+            if is_flat:
+                self._consecutive_flat[c] = self._consecutive_flat.get(c, 0) + 1
+            else:
+                self._consecutive_flat[c] = 0
+
+            if self._consecutive_flat.get(c, 0) >= 2 and not self._suspended.get(c):
+                self._suspended[c] = True
+                logger.warning("Symbol %s appears suspended (flat close + zero vol ×%d bars) — force-closing",
+                               c, self._consecutive_flat[c])
+                pos = self._market.positions.get(c)
+                if pos is not None:
+                    exit_price = float(row.get("open", close_val))
+                    trade = self._market._close_position(c, exit_price, timestamp, reason="suspended")
+                    if trade:
+                        suspension_trades.append(trade)
+
+            # Resume from suspension
+            if not is_flat and self._suspended.get(c):
+                self._suspended[c] = False
+                self._consecutive_flat[c] = 0
+                logger.info("Symbol %s resumed from suspension", c)
+
+        # 0.5 Run per-bar market hooks (funding fees, liquidation checks, etc.)
         #    These operate directly on self._market.positions / self._market.capital.
         for c in self.codes:
             if c in bar:
                 self._market.on_bar(c, bar[c], timestamp)
 
-        # 1. Generate signals (or use precomputed)
+        # 1. Generate signals (or use precomputed).  Suspended symbols are filtered
+        #    so the strategy never sees them and cannot generate trades on halted stock.
+        active_bar = {c: s for c, s in bar.items() if not self._suspended.get(c)}
+        active_codes = [c for c in self.codes if c in active_bar]
         if precomputed_weights is not None:
-            weights = precomputed_weights
+            weights = {c: w for c, w in precomputed_weights.items() if c in active_codes}
         else:
-            weights = self._generate_signals(bar)
+            weights = self._generate_signals(active_bar) if active_bar else {}
 
         # 1.5 Online optimizer (Phase 2)
         if self._optimizer is not None and weights:
@@ -247,7 +309,7 @@ class TradingEngine:
         else:
             signal_trades = self._process_signals(weights, bar, timestamp)
 
-        all_trades = forced_trades + signal_trades
+        all_trades = suspension_trades + gap_trades + forced_trades + signal_trades
         signals = self._weights_to_signal_dicts(weights, timestamp)
 
         # 4. Record equity snapshot
@@ -290,17 +352,19 @@ class TradingEngine:
 
     # ── Force-close all ─────────────────────────────────────────────
 
+    def force_close_symbol(self, symbol: str, reason: str = "manual") -> TradeRecord | None:
+        """Close a single position at the last known price."""
+        pos = self._market.positions.get(symbol)
+        if pos is None:
+            return None
+        price = self._last_bar_prices.get(symbol, pos.entry_price)
+        return self._close_position(symbol, price, self._last_bar_time or pd.Timestamp.now(), reason)
+
     def force_close_all(self, reason: str = "end_of_run") -> list[TradeRecord]:
         """Close all open positions at the last known bar prices."""
         closed: list[TradeRecord] = []
         for symbol in list(self._market.positions.keys()):
-            pos = self._market.positions[symbol]
-            price = pos.entry_price
-            if symbol in self._last_bar_prices:
-                price = self._last_bar_prices[symbol]
-            trade = self._close_position(
-                symbol, price, self._last_bar_time or pd.Timestamp.now(), reason
-            )
+            trade = self.force_close_symbol(symbol, reason)
             if trade:
                 closed.append(trade)
         if self._sm:
@@ -512,6 +576,15 @@ class TradingEngine:
         pnl = self._market._calc_pnl(symbol, pos.direction, pos.size, pos.entry_price, exit_price)
         margin = self._market._calc_margin(symbol, pos.size, pos.entry_price, pos.leverage)
         pnl_pct = (pnl / margin * 100.0) if margin > 1e-9 else 0.0
+
+        # Pass entry_time for 平今仓 (close-today) detection in futures engines
+        if hasattr(self._market, "_active_entry_time"):
+            self._market._active_entry_time = pos.entry_time
+        if hasattr(self._market, "_active_bar_date"):
+            try:
+                self._market._active_bar_date = timestamp.date() if hasattr(timestamp, "date") else str(timestamp)[:10]
+            except Exception:
+                pass
         commission = self._market.calc_commission(pos.size, exit_price, pos.direction, is_open=False)
 
         self._market.capital += margin + pnl - commission

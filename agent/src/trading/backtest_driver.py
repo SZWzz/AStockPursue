@@ -165,8 +165,24 @@ class BacktestDriver:
                 except Exception:
                     pass
 
+            # Session filter: skip bars outside trading hours (China futures night session)
+            if self._should_filter_session(config):
+                bar = self._filter_bar_by_session(bar, ts)
+
             if bar:
                 engine.on_bar(bar, ts, precomputed_weights=weights)
+
+            # Delisting detection: if this is the LAST bar for a code with an
+            # open position, force-close it now.  (Codes whose data ends before
+            # the global end_date are treated as delisted.)
+            for c in list(engine.positions.keys()):
+                df = data_map.get(c)
+                if df is not None and len(df) > 0:
+                    last_ts = df.index[-1]
+                    if ts >= last_ts:
+                        trade = engine.force_close_symbol(c, "delisted")
+                        if trade:
+                            logger.info("Delisting close: %s at %s (last bar)", c, ts)
 
         # Force-close remaining positions at end
         if len(dates) > 0:
@@ -284,8 +300,20 @@ class BacktestDriver:
                 if ts in data_map[c].index:
                     bar[c] = data_map[c].loc[ts]
 
+            # Session filter: skip bars outside trading hours
+            if self._should_filter_session(config):
+                bar = self._filter_bar_by_session(bar, ts)
+
             if bar:
                 engine.on_bar(bar, ts)  # full pipeline: signal → execute
+
+            # Delisting detection for simulation mode
+            for c in list(engine.positions.keys()):
+                df = data_map.get(c)
+                if df is not None and len(df) > 0:
+                    last_ts = df.index[-1]
+                    if ts >= last_ts:
+                        engine.force_close_symbol(c, "delisted")
 
         engine.force_close_all("end_of_backtest")
 
@@ -310,6 +338,25 @@ class BacktestDriver:
         return m
 
     # ── Helpers ──────────────────────────────────────────────────────
+
+    @staticmethod
+    def _should_filter_session(config: dict) -> bool:
+        """Return True if this backtest should filter bars by trading session."""
+        interval = config.get("interval", "1D")
+        if interval in ("1D", "1W", "4W"):
+            return False  # daily+ bars span the full session
+        source = config.get("source", "")
+        engine = config.get("engine", "daily")
+        return "futures" in str(engine).lower()
+
+    @staticmethod
+    def _filter_bar_by_session(bar: dict, ts: pd.Timestamp) -> dict:
+        """Remove codes whose trading session does not include this timestamp."""
+        try:
+            from backtest.engines.china_futures import bar_in_trading_session
+        except ImportError:
+            return bar
+        return {c: s for c, s in bar.items() if bar_in_trading_session(c, ts)}
 
     @staticmethod
     def _build_equity_series(engine: Any, dates: pd.DatetimeIndex) -> pd.Series:

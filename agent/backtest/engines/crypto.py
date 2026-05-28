@@ -38,6 +38,10 @@ class CryptoEngine(BaseEngine):
         self.slippage_rate: float = config.get("slippage", 0.0005)
         self.funding_rate: float = config.get("funding_rate", 0.0001)
         self._funding_applied: set = set()   # (symbol, date, hour) — per-slot dedup
+        self._funding_rate_state: float = self.funding_rate  # current dynamic rate
+        self._funding_last_update: str = ""  # date of last update
+        self._funding_rng = None  # lazy numpy RNG
+        self._dynamic_funding: bool = config.get("dynamic_funding", False)
         self._funding_daily_done: set = set()  # (symbol, date) — daily fallback dedup
 
     def can_execute(self, symbol: str, direction: int, bar: pd.Series) -> bool:
@@ -57,15 +61,38 @@ class CryptoEngine(BaseEngine):
         rate = self.taker_rate if is_open else self.maker_rate
         return size * price * rate
 
+    def get_dynamic_funding_rate(self, date_str: str) -> float:
+        """Simulated dynamic funding rate with mean-reverting random walk.
+
+        Updates once per day.  Rate bounded between -0.3% and +0.3%,
+        reverting toward the configured base rate (default 0.01%).
+        """
+        if date_str == self._funding_last_update:
+            return self._funding_rate_state
+        if self._funding_rng is None:
+            import numpy as np
+            self._funding_rng = np.random.default_rng(42)
+        mean = self.funding_rate
+        current = self._funding_rate_state
+        reversion = 0.1 * (mean - current)
+        noise = self._funding_rng.normal(0, 0.0002)
+        new_rate = current + reversion + noise
+        new_rate = max(-0.003, min(0.003, new_rate))
+        self._funding_rate_state = new_rate
+        self._funding_last_update = date_str
+        return new_rate
+
     def apply_slippage(self, price: float, direction: int) -> float:
         """Slippage: unfavourable direction."""
         return price * (1 + direction * self.slippage_rate)
 
     def on_bar(self, symbol: str, bar: pd.Series, timestamp: pd.Timestamp) -> None:
         """Crypto per-bar hooks: funding fee + liquidation check."""
+        date_str = str(timestamp.date()) if hasattr(timestamp, "date") else str(timestamp)[:10]
+        rate = self.get_dynamic_funding_rate(date_str) if self._dynamic_funding else self.funding_rate
         fee = calc_crypto_funding_fee(
             symbol, bar, timestamp, self.positions,
-            self.funding_rate, self._funding_applied, self._funding_daily_done,
+            rate, self._funding_applied, self._funding_daily_done,
         )
         self.capital -= fee
 

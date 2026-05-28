@@ -66,7 +66,7 @@ class DataLoader:
 
         for code in codes:
             try:
-                df = self.api.daily(ts_code=code, start_date=sd, end_date=ed)
+                df = self.api.daily(ts_code=code, start_date=sd, end_date=ed, adj="qfq")
                 if df is None or df.empty:
                     continue
                 df = df.sort_values("trade_date")

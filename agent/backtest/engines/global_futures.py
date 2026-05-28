@@ -47,7 +47,9 @@ _MULTIPLIER: dict[str, float] = {
 }
 
 # ── Margin per contract (approximate USD, initial margin) ──
-# Reference table — future use for margin-call checks. Not yet consumed.
+# Used by _calc_margin() — if a symbol's product is found here,
+# the exchange-set initial margin overrides the leverage-based calculation.
+# All values are full initial margin (not intraday reduced).
 
 _MARGIN_PER_CONTRACT: dict[str, float] = {
     # Equity index
@@ -143,6 +145,14 @@ class GlobalFuturesEngine(FuturesBaseEngine):
         super().__init__(config)
         self.slippage_rate: float = config.get("slippage", 0.0003)
         self._comm_override = config.get("commission_per_contract")
+
+    def _calc_margin(self, symbol: str, size: float, price: float, leverage: float) -> float:
+        """Use exchange-set initial margin when available, else leverage-based."""
+        product = _extract_product(symbol)
+        margin_per = _MARGIN_PER_CONTRACT.get(product)
+        if margin_per is not None:
+            return size * margin_per  # exchange margin per contract
+        return super()._calc_margin(symbol, size, price, leverage)
 
     def can_execute(self, symbol: str, direction: int, bar: pd.Series) -> bool:
         """Global futures: T+0, both directions, limit checks for equity index.
