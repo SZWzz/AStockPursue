@@ -33,7 +33,7 @@ ARG PYPI_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple
 RUN pip install --no-cache-dir -r agent/requirements.txt -i ${PYPI_MIRROR}
 
 # Copy project
-COPY pyproject.toml LICENSE NOTICE SECURITY.md README.md README_EN.md ./
+COPY pyproject.toml LICENSE NOTICE SECURITY.md README.md README_zh.md ./
 COPY agent/ agent/
 
 # Copy built frontend
