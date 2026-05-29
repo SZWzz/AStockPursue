@@ -8,6 +8,7 @@ services:
       - agent/.env
     environment:
       ASTOCKPURSUE_TRUST_DOCKER_LOOPBACK: 1
+      ASTOCKPURSUE_ALLOWED_RUN_ROOTS: "/opt/data,/root/.AStockPursue/workspace"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
