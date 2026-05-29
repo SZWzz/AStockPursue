@@ -1,9 +1,9 @@
 #!/bin/sh
 set -e
 
-# ── MCP Server (SSE transport, port 8900) ──────────────────────────
+# ── MCP Server (Streamable HTTP, port 8900) ──────────────────────────
 echo "[start] Launching MCP server on :8900 ..."
-AStockPursue-mcp --transport sse --port 8900 --host 0.0.0.0 &
+AStockPursue-mcp --transport streamable-http --port 8900 --host 0.0.0.0 --path /mcp &
 MCP_PID=$!
 echo "[start] MCP server PID: $MCP_PID"
 

@@ -832,9 +832,14 @@ def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="AStockPursue MCP Server")
-    parser.add_argument("--transport", choices=["stdio", "sse"], default="stdio", help="MCP transport (default: stdio)")
-    parser.add_argument("--port", type=int, default=8900, help="SSE port (only used with --transport sse)")
-    parser.add_argument("--host", default="127.0.0.1", help="SSE bind address (only used with --transport sse)")
+    parser.add_argument("--transport", choices=["stdio", "sse", "streamable-http"], default="stdio",
+                        help="MCP transport (default: stdio)")
+    parser.add_argument("--port", type=int, default=8900,
+                        help="HTTP port (only used with --transport sse / streamable-http)")
+    parser.add_argument("--host", default="127.0.0.1",
+                        help="HTTP bind address (only used with --transport sse / streamable-http)")
+    parser.add_argument("--path", default="/mcp",
+                        help="HTTP endpoint path (only used with --transport streamable-http)")
     args = parser.parse_args()
     _include_shell_tools = True if args.transport == "stdio" else _env_shell_tools_enabled()
     _registry = None
@@ -842,6 +847,8 @@ def main():
 
     if args.transport == "sse":
         mcp.run(transport="sse", port=args.port, host=args.host)
+    elif args.transport == "streamable-http":
+        mcp.run(transport="streamable-http", port=args.port, host=args.host, path=args.path)
     else:
         mcp.run()
 
