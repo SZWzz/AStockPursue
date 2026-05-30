@@ -35,6 +35,18 @@ interface TradingState {
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 
+/** Return the most recent *potential* trading day as "YYYY-MM-DD".
+ *  We use a simple weekday heuristic (Mon–Fri) so the default picker
+ *  value is reasonable even on weekends.  The backend will further
+ *  auto-adjust for holidays and return ``adjustedDate``. */
+const lastTradingDayStr = () => {
+  const d = new Date();
+  // Saturday → Friday, Sunday → Friday
+  if (d.getDay() === 6) d.setDate(d.getDate() - 1);
+  else if (d.getDay() === 0) d.setDate(d.getDate() - 2);
+  return d.toISOString().slice(0, 10);
+};
+
 export const useTradingStore = create<TradingState>((set, get) => ({
   selectedSymbol: "",
   chartMode: "kline",
@@ -42,7 +54,7 @@ export const useTradingStore = create<TradingState>((set, get) => ({
   klineLoading: false,
   minuteData: [],
   minuteLoading: false,
-  minuteDate: todayStr(),
+  minuteDate: lastTradingDayStr(),
   minutePreClose: null,
   orders: [],
   ordersLoading: false,
@@ -97,11 +109,16 @@ export const useTradingStore = create<TradingState>((set, get) => ({
     set({ minuteLoading: true });
     try {
       const data = await api.getMinuteLine(symbol, date);
-      set({
+      const updates: Partial<TradingState> = {
         minuteData: data.available ? data.minutes : [],
         minutePreClose: data.preClose ?? null,
         minuteLoading: false,
-      });
+      };
+      // Sync the picker to the backend-adjusted date (holiday fallback)
+      if (data.adjustedDate) {
+        updates.minuteDate = data.adjustedDate;
+      }
+      set(updates);
     } catch {
       set({ minuteLoading: false, minuteData: [], minutePreClose: null });
     }

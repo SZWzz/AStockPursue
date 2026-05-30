@@ -397,6 +397,7 @@ export interface MinuteBar {
 export interface MinuteLineData {
   symbol: string;
   date: string;
+  adjustedDate?: string | null;
   available: boolean;
   reason?: string;
   preClose?: number;

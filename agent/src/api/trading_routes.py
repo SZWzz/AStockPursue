@@ -582,14 +582,27 @@ async def get_news(
     articles: list[dict] = []
     source = ""
 
+    # 1) Try DuckDuckGo search via NewsFetcher (free, no API key)
     try:
         from backtest.loaders.news import NewsFetcher
         fetcher = NewsFetcher()
-        if hasattr(fetcher, "fetch"):
-            articles = fetcher.fetch(upper, limit=limit)
+        raw = fetcher.fetch_stock_news(upper, max_results=limit)
+        for r in raw:
+            articles.append({
+                "title": r.get("title", ""),
+                "url": r.get("url", ""),
+                "source": r.get("source", "web_search"),
+                "summary": r.get("snippet", "")[:200],
+                "published_at": "",
+            })
+        if articles:
+            source = "web_search"
     except ImportError:
         pass
+    except Exception as e:
+        logger.debug("NewsFetcher failed for %s: %s", upper, e)
 
+    # 2) Fallback: Finnhub API (requires FINNHUB_API_KEY)
     if not articles:
         try:
             key = os.getenv("FINNHUB_API_KEY") or os.getenv("FINNHUB_KEY")

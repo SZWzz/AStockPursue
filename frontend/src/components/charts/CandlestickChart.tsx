@@ -255,12 +255,12 @@ export function CandlestickChart({ data, markers, indicators, height = 500 }: Pr
   }, [data, markers, baseData, indicatorCache, extraIndicators, sub, range, overlays, dark]);
 
   if (data.length === 0) {
-    return <div className="text-muted-foreground text-sm p-4">No price data</div>;
+    return <div className="border rounded-xl bg-card text-muted-foreground text-sm p-4 flex items-center justify-center" style={{ height: typeof height === 'number' ? height : 400 }}>No price data</div>;
   }
 
   return (
-    <div>
-      <div className="flex items-center gap-2 mb-1 flex-wrap">
+    <div className="border rounded-xl bg-card overflow-hidden flex flex-col">
+      <div className="flex items-center gap-2 px-2 py-1 flex-wrap shrink-0">
         {/* Time range */}
         <div className="flex gap-0.5">
           {(["1M", "3M", "6M", "1Y", "ALL"] as const).map((r) => (
@@ -309,7 +309,7 @@ export function CandlestickChart({ data, markers, indicators, height = 500 }: Pr
           ))}
         </div>
       </div>
-      <div ref={containerRef} style={{ height }} />
+      <div ref={containerRef} className="flex-1 min-h-0" />
     </div>
   );
 }

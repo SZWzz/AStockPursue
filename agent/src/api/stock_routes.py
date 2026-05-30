@@ -191,8 +191,10 @@ async def get_minute_line(
 ):
     """Fetch 分时图 minute-line data for an A-share stock on a single trading day.
 
-    Returns per-minute price, volume, and amount. Non-trading days return
-    ``available: false``.
+    Returns per-minute price, volume, and amount.  When *date* falls on a
+    weekend or holiday the endpoint automatically walks backwards to find the
+    most recent trading day and returns ``adjustedDate`` in the response so the
+    frontend can update its picker.
     """
     user_id = user["user_id"]
     try:
@@ -216,50 +218,65 @@ async def get_minute_line(
             "minutes": [],
         }
 
-    # Check if date is a weekend
-    ts = pd.Timestamp(date)
-    if ts.dayofweek >= 5:
+    from backtest.loaders.mootdx_loader import DataLoader
+    loader = DataLoader()
+    if not loader.is_available():
         return {
             "symbol": upper,
             "date": date,
             "available": False,
-            "reason": "周末休市",
+            "reason": "MooTDX 数据源不可用（请安装 mootdx 包）",
             "minutes": [],
         }
 
-    try:
-        from backtest.loaders.mootdx_loader import DataLoader
-
-        loader = DataLoader()
-        if not loader.is_available():
-            return {
-                "symbol": upper,
-                "date": date,
-                "available": False,
-                "reason": "MooTDX 数据源不可用（请安装 mootdx 包）",
-                "minutes": [],
-            }
-
-        df = loader.fetch_minute_line(upper, date)
-    except Exception as e:
-        logger.warning("minute-line fetch failed for %s on %s: %s", upper, date, e)
-        raise HTTPException(status_code=500, detail=f"分时数据获取失败: {e}")
+    # Auto-walk backwards to find the last trading day.
+    # Weekends are skipped directly; holidays return empty data so we keep trying.
+    original_date = date
+    df = None
+    for _ in range(14):  # cover up to ~2 weeks (Spring Festival / Golden Week)
+        ts = pd.Timestamp(date)
+        if ts.dayofweek >= 5:
+            date = (ts - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+            continue
+        try:
+            df = loader.fetch_minute_line(upper, date)
+        except Exception as e:
+            logger.warning("minute-line fetch failed for %s on %s: %s", upper, date, e)
+            raise HTTPException(status_code=500, detail=f"分时数据获取失败: {e}")
+        if df is not None and not df.empty:
+            break
+        date = (ts - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
 
     if df is None or df.empty:
         return {
             "symbol": upper,
-            "date": date,
+            "date": original_date,
             "available": False,
             "reason": "非交易日或无分时数据（TDX 仅保留最近 5-10 个交易日）",
             "minutes": [],
         }
 
-    # Compute pre-close from first price (or try to get from OHLCV)
+    # Compute pre-close from yesterday's OHLCV close (more accurate
+    # than the 9:30 opening price).  Walk back over weekends/holidays.
     pre_close = None
     try:
-        pre_close = round(float(df["price"].iloc[0]), 2)
+        prev = pd.Timestamp(date) - pd.Timedelta(days=1)
+        for _ in range(10):
+            if prev.dayofweek < 5:
+                ohlcv = loader.fetch([upper], prev.strftime("%Y-%m-%d"), prev.strftime("%Y-%m-%d"), interval="1D")
+                if upper in ohlcv and ohlcv[upper] is not None and not ohlcv[upper].empty:
+                    pre_close = round(float(ohlcv[upper]["close"].iloc[-1]), 2)
+                    break
+            prev = prev - pd.Timedelta(days=1)
     except Exception:
         pass
+
+    # Fallback: use the first 9:30 bar price
+    if pre_close is None:
+        try:
+            pre_close = round(float(df["price"].iloc[0]), 2)
+        except Exception:
+            pass
 
     minutes = []
     for idx, row in df.iterrows():
@@ -272,7 +289,8 @@ async def get_minute_line(
 
     return {
         "symbol": upper,
-        "date": date,
+        "date": original_date,
+        "adjustedDate": date if date != original_date else None,
         "available": True,
         "preClose": pre_close,
         "minutes": minutes,

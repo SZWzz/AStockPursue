@@ -82,9 +82,9 @@ export function Trading() {
         {/* Right area — chart + tabs */}
         <div className="flex-1 flex flex-col min-w-0">
           {/* Chart area */}
-          <div className="flex-1 min-h-0 overflow-auto p-2">
+          <div className="flex-1 flex flex-col min-h-0 p-2">
             {/* Chart mode toggle */}
-            <div className="flex items-center gap-1 mb-2">
+            <div className="flex items-center gap-1 mb-2 shrink-0">
               <button
                 onClick={() => setChartMode("kline")}
                 className={cn(
@@ -120,25 +120,25 @@ export function Trading() {
               )}
             </div>
 
-            {/* Chart */}
+            {/* Chart — fills remaining vertical space */}
+            <div className="flex-1 min-h-0">
             {!selectedSymbol ? (
-              <div className="flex items-center justify-center h-[400px] border rounded-xl bg-muted/10 text-muted-foreground text-sm">
+              <div className="flex items-center justify-center h-full border rounded-xl bg-muted/10 text-muted-foreground text-sm">
                 {t.tradingNoSymbol || "请从左侧自选股选择一个标的"}
               </div>
             ) : chartMode === "kline" ? (
               klineLoading ? (
-                <div className="flex items-center justify-center h-[400px] border rounded-xl bg-muted/10 text-muted-foreground text-sm">
+                <div className="flex items-center justify-center h-full border rounded-xl bg-muted/10 text-muted-foreground text-sm">
                   加载K线数据...
                 </div>
               ) : (
                 <CandlestickChart
                   data={klineData}
-                  height={400}
                 />
               )
             ) : (
               minuteLoading ? (
-                <div className="flex items-center justify-center h-[400px] border rounded-xl bg-muted/10 text-muted-foreground text-sm">
+                <div className="flex items-center justify-center h-full border rounded-xl bg-muted/10 text-muted-foreground text-sm">
                   加载分时数据...
                 </div>
               ) : (
@@ -146,10 +146,10 @@ export function Trading() {
                   data={minuteData}
                   preClose={minutePreClose}
                   symbol={selectedSymbol}
-                  height={400}
                 />
               )
             )}
+            </div>
           </div>
 
           {/* Tab bar + panels */}

@@ -62,15 +62,17 @@ export function MinuteLineChart({ data, preClose, symbol, height = 500 }: Props)
           formatter: (params: { data?: number; axisValue?: string; seriesName?: string }[]) => {
             if (!params || params.length === 0) return "";
             const t = params[0]?.axisValue ?? "";
+            const hoveredPrice = params[0]?.data;  // price at the hovered minute
             let html = `<div style="font-weight:600;margin-bottom:4px">${symbol ? symbol + " " : ""}${t}</div>`;
             for (const p of params) {
               if (!p || p.data == null) continue;
               const val = p.seriesName === "成交量" ? abbreviateNum(p.data) : p.data.toFixed(2);
               html += `<div style="display:flex;justify-content:space-between;gap:24px"><span>${p.seriesName}</span><span style="font-weight:500">${val}</span></div>`;
             }
-            if (pc) {
-              const chg = ((prices[prices.length - 1] - pc) / pc * 100).toFixed(2);
-              html += `<div style="display:flex;justify-content:space-between;gap:24px;margin-top:4px;color:${isUp ? theme.upColor : theme.downColor}"><span>涨跌幅</span><span style="font-weight:500">${chg}%</span></div>`;
+            if (pc && hoveredPrice != null) {
+              const chg = ((hoveredPrice - pc) / pc * 100).toFixed(2);
+              const pointUp = hoveredPrice >= pc;
+              html += `<div style="display:flex;justify-content:space-between;gap:24px;margin-top:4px;color:${pointUp ? theme.upColor : theme.downColor}"><span>涨跌幅</span><span style="font-weight:500">${Number(chg) >= 0 ? '+' : ''}${chg}%</span></div>`;
             }
             return html;
           },
