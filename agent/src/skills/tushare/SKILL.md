@@ -1,6 +1,6 @@
 ---
 name: tushare
-description: tushare是一个财经数据接口包，拥有丰富的数据内容，如股票、基金、期货、数字货币等行情数据，公司财务、基金经理等基本面数据。该模块通过标准化API方式统一了数据资产的对外服务方式，以帮助有需要的技术用户更实时、简洁、轻量的使用相关数据。
+description: tushare — A-share financial data (OHLCV + fundamentals). Requires TUSHARE_TOKEN (registration + points). For free OHLCV without auth, prefer mootdx/eastmoney/tencent/baidu. Use tushare primarily for fundamentals (financial statements, ST status, etc.) where it has no free alternative.
 category: data-source
 ---
 # Tushare

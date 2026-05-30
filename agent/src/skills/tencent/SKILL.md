@@ -1,6 +1,6 @@
 ---
 name: tencent
-description: Tencent Finance real-time quotes and K-line data for A-shares and HK stocks. Free, no API key, millisecond-level real-time data. Stable alternative when Tushare/AKShare/yfinance are rate-limited.
+description: Tencent Finance real-time quotes and K-line data for A-shares and HK stocks. Free, no API key, millisecond-level real-time data. #4 fallback in the A-share chain (after mootdx/eastmoney, before baidu/futu/twelvedata/akshare).
 category: data-source
 ---
 # Tencent Finance
@@ -12,7 +12,7 @@ Tencent Finance provides free, real-time stock quotes and historical K-line data
 - **Real-time quotes**: `qt.gtimg.cn` — millisecond-level price updates
 - **K-line data**: `web.ifzq.gtimg.cn/appstock/app/fqkline/get` — daily/weekly/monthly
 
-The project has a built-in Tencent DataLoader (`backtest/loaders/tencent.py`). When backtesting, set `source: "tencent"` or rely on `source: "auto"` (Tencent is the #2 fallback for A-shares after Tushare, #3 for HK stocks after yfinance/Futu).
+The project has a built-in Tencent DataLoader (`backtest/loaders/tencent.py`). When backtesting, set `source: "tencent"` or rely on `source: "auto"` (Tencent is the #4 fallback for A-shares after mootdx/tushare/eastmoney, #3 for HK stocks after yfinance/Futu).
 
 ## Quick Start
 

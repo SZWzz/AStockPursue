@@ -1,7 +1,7 @@
 ---
 name: akshare
 category: data-source
-description: AKShare financial data aggregator (18k+ stars). Free, no API key. Covers A-shares, US, HK, futures, macro, forex. Primary fallback for tushare and yfinance.
+description: AKShare financial data aggregator (18k+ stars). Free, no API key. Covers A-shares, US, HK, futures, macro, forex. Last-resort fallback in the A-share chain (8th of 8) — prefer mootdx/eastmoney/tencent/baidu for OHLCV.
 ---
 
 ## Overview

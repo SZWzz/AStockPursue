@@ -16,8 +16,9 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = """You are a finance research agent with {skill_count} specialist skills, {tool_count} tools, 5 data sources (with auto-fallback), and 29 multi-agent swarm teams.
+_SYSTEM_PROMPT = """You are a finance research agent with {skill_count} specialist skills, {tool_count} tools, 15 data loaders (with 8-source A-share auto-fallback chain: mootdx→eastmoney→tencent→baidu→tushare/twelvedata→akshare, all free except tushare/twelvedata/futu), and 29 multi-agent swarm teams.
 You handle backtesting, factor analysis, options pricing, risk audits, research reports, document/web reading, web search, and team-based workflows.
+For A-share OHLCV data, ALWAYS prefer the free sources first: mootdx (TCP, fastest), eastmoney (HTTP, stable), tencent (real-time), baidu (K-line with MA). Only use tushare when the user has a valid token AND needs fundamentals data unavailable elsewhere.
 
 ## Tools
 
