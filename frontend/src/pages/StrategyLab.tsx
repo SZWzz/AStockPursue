@@ -15,7 +15,7 @@ import { AiChatPanel } from "@/components/indicator-lab/AiChatPanel";
 import { VisualBuilder } from "@/components/indicator-lab/VisualBuilder";
 import { TemplateBrowser, type TemplateItem } from "@/components/indicator-lab/TemplateBrowser";
 import { StrategyVerifyPanel } from "@/components/indicator-lab/StrategyVerifyPanel";
-import { OptimizationPanel } from "@/components/trading/OptimizationPanel";
+import { StrategyOptimizePanel } from "@/components/indicator-lab/StrategyOptimizePanel";
 import type { QualityHint } from "@/components/indicator-lab/types";
 import { useBacktest } from "@/hooks/useBacktest";
 
@@ -1215,12 +1215,12 @@ export function StrategyLab() {
 
           {/* ── Optimize tab ──────────────────────────────────────────────── */}
           {sidePanel === "optimize" && (
-            <div className="space-y-3">
-              <p className="text-xs text-muted-foreground">
-                对策略参数进行网格搜索、随机搜索或贝叶斯优化，找到最优参数组合。
-              </p>
-              <OptimizationPanel symbol={chartSymbols.split(/[,;\s]+/).filter(Boolean)[0]?.trim() || ""} />
-            </div>
+            <StrategyOptimizePanel
+              verifyResult={verifyResult}
+              codes={chartSymbols}
+              strategyCode={code}
+              onSymbolsChange={setChartSymbols}
+            />
           )}
 
         </div>
