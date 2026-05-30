@@ -4,11 +4,10 @@ Persists rate-limit state in the database so a server restart does not reset
 brute-force counters. Falls back to in-memory if the DB is unavailable.
 """
 
-import os
-
 from __future__ import annotations
 
 import logging
+import os
 import time
 from collections import defaultdict
 from typing import Dict, List
