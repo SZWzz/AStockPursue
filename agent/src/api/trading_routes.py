@@ -352,7 +352,14 @@ _OPTIMIZE_JOBS: dict[str, dict] = {}
 
 @router.post("/optimize/run")
 async def start_optimize(request: Request, user: dict = Depends(require_auth)):
-    """Start a parameter optimisation job."""
+    """Start a parameter optimisation job.
+
+    Body:
+        method: "grid" | "random" | "bayesian"
+        params: {param_name: [value1, value2, ...]}  — search space
+        codes: [symbol, ...]
+        strategy_code: optional — strategy to inject params into
+    """
     user_id = _get_user_id(user)
     try:
         body = await request.json()
@@ -363,6 +370,7 @@ async def start_optimize(request: Request, user: dict = Depends(require_auth)):
     method = body.get("method", "grid")
     params = body.get("params", {})
     codes = body.get("codes", [])
+    strategy_code = body.get("strategy_code", "")
 
     _OPTIMIZE_JOBS[job_id] = {
         "job_id": job_id,
@@ -370,6 +378,7 @@ async def start_optimize(request: Request, user: dict = Depends(require_auth)):
         "method": method,
         "params": params,
         "codes": codes,
+        "strategy_code": strategy_code,
         "status": "queued",
         "progress": 0,
         "result": None,
@@ -381,29 +390,103 @@ async def start_optimize(request: Request, user: dict = Depends(require_auth)):
     return {"ok": True, "job_id": job_id}
 
 
+def _build_param_combinations(params: dict) -> list[dict]:
+    """Build all grid-search combinations from {name: [values]}."""
+    if not params:
+        return [{}]
+    import itertools
+    keys = list(params.keys())
+    values = [params[k] for k in keys]
+    combinations = []
+    for combo in itertools.product(*values):
+        combinations.append(dict(zip(keys, combo)))
+    return combinations
+
+
+def _inject_params(strategy_code: str, params: dict) -> str:
+    """Inject parameter values into strategy code by replacing top-level assignments."""
+    import re
+    code = strategy_code
+    for name, value in params.items():
+        val_str = str(value) if not isinstance(value, float) else f"{value:.4f}"
+        # Replace module-level assignments like `NAME = old_value`
+        code = re.sub(
+            rf"^({name}\s*=\s*)(.+)$",
+            rf"\g<1>{val_str}",
+            code,
+            flags=re.MULTILINE,
+        )
+    return code
+
+
 async def _run_optimize(job_id: str) -> None:
-    """Background optimisation worker."""
+    """Background optimisation worker — grid search over parameter space."""
     job = _OPTIMIZE_JOBS.get(job_id)
     if not job:
         return
     job["status"] = "running"
 
     try:
-        total_steps = 10
-        for i in range(total_steps):
-            await asyncio.sleep(0.5)
-            job["progress"] = int((i + 1) / total_steps * 100)
+        param_space = job.get("params", {})
+        codes = job.get("codes", [])
+        strategy_code = job.get("strategy_code", "")
+
+        combinations = _build_param_combinations(param_space)
+        total = len(combinations)
+
+        if total == 0:
+            job["status"] = "failed"
+            job["error"] = "No parameter combinations to test"
+            return
+
+        best_score = float("-inf")
+        best_params: dict = {}
+        best_metrics: dict = {}
+
+        for idx, combo in enumerate(combinations):
+            # Inject params into strategy code
+            test_code = _inject_params(strategy_code, combo) if strategy_code else ""
+
+            # Run backtest
+            score = 0.0
+            metrics: dict = {}
+            try:
+                from src.lab.strategy_backtest_bridge import run_strategy_backtest
+
+                result = run_strategy_backtest(
+                    code=test_code or strategy_code,
+                    codes=codes,
+                    start_date="2023-01-01",
+                    end_date="2025-12-31",
+                    initial_cash=100_000,
+                )
+                if result.get("success"):
+                    m = result.get("metrics", {})
+                    score = float(m.get("sharpe", 0)) or float(m.get("total_return", 0))
+                    metrics = {k: v for k, v in m.items() if isinstance(v, (int, float))}
+            except Exception as e:
+                logger.debug("Optimize iteration %d/%d failed: %s", idx + 1, total, e)
+
+            if score > best_score:
+                best_score = score
+                best_params = combo
+                best_metrics = metrics
+
+            # Progress update every combination
+            progress = int((idx + 1) / total * 100)
+            job["progress"] = progress
             await job["queue"].put({
-                "job_id": job_id, "progress": job["progress"], "status": "running",
+                "job_id": job_id, "progress": progress, "status": "running",
+                "iter": idx + 1, "total": total,
             })
+            # Yield to event loop
+            await asyncio.sleep(0)
 
         job["result"] = {
-            "best_params": job["params"],
-            "best_score": 1.5,
-            "iterations": total_steps,
-            "sharpe": 1.85,
-            "total_return": 12.5,
-            "max_drawdown": -8.3,
+            "best_params": best_params,
+            "best_score": round(best_score, 4),
+            "iterations": total,
+            **best_metrics,
         }
         job["status"] = "completed"
         await job["queue"].put({
