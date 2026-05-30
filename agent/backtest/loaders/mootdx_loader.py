@@ -100,19 +100,18 @@ class DataLoader:
             from mootdx.quotes import Quotes
             from mootdx import config
 
-            # On first boot the server-list config file may not exist yet,
-            # or BESTIP may be populated with empty strings (which won't
-            # fall back to the SERVER defaults because the key *exists*).
-            # Force a synchronous bestip refresh when BESTIP looks empty.
             config.setup()
+
+            # bestip(sync=True) probes every server and can hang for
+            # minutes when the Docker network can't reach some IPs.
+            # Populate BESTIP directly from the pre-configured SERVER
+            # list so Quotes.factory() finds a usable address.
             bestip_hq = config.get('BESTIP', {}).get('HQ', '')
             if not bestip_hq:
-                try:
-                    from mootdx.server import bestip
-                    bestip(console=False, limit=5, sync=True)
-                    config.setup()
-                except Exception:
-                    pass
+                server_list = config.get('SERVER', {}).get('HQ', [])
+                if server_list:
+                    # server_list entries: [name, ip, port]
+                    config.set('BESTIP', {'HQ': server_list[0][1:]})
 
             self._client = Quotes.factory(market="std")
 
