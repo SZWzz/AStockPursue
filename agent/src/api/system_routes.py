@@ -257,6 +257,40 @@ def create_router(require_auth) -> APIRouter:
     # Watchlist API
     # ========================================================================
 
+    def _resolve_stock_name(code: str) -> str:
+        """Try to resolve a stock's display name via Tencent quote API.
+
+        Returns the resolved name on success, or *code* on failure.
+        """
+        try:
+            from backtest.loaders.tencent import _is_cn, _is_hk, normalize_cn_code, normalize_hk_code
+
+            tc = ""
+            if _is_cn(code):
+                tc = normalize_cn_code(code)
+            elif _is_hk(code):
+                tc = normalize_hk_code(code)
+            else:
+                return code
+
+            import requests
+            resp = requests.get(
+                f"https://qt.gtimg.cn/q={tc}",
+                timeout=5,
+                headers={"Referer": "https://qt.gtimg.cn/"},
+            )
+            resp.encoding = "gbk"
+            text = (resp.text or "").strip()
+            if "~" in text and "v_" in text:
+                s = text.index('="') + 2
+                e = text.rindex('"')
+                parts = text[s:e].split("~")
+                if len(parts) > 1 and parts[1].strip():
+                    return parts[1].strip()
+        except Exception:
+            pass
+        return code
+
     @router.get("/api/watchlist")
     async def get_watchlist(auth: dict = Security(require_auth)):
         """Get the current user's watchlist."""
@@ -284,6 +318,11 @@ def create_router(require_auth) -> APIRouter:
             name = body.get("name", "").strip()
             if not symbol:
                 raise HTTPException(status_code=400, detail="symbol required")
+
+            # Auto-resolve stock name via Tencent quote API if not provided
+            if not name:
+                name = _resolve_stock_name(symbol)
+
             from src.db.pool import get_connection
 
             with get_connection() as conn:
@@ -293,7 +332,7 @@ def create_router(require_auth) -> APIRouter:
                         (user_id, symbol, name or symbol),
                     )
                     row = cur.fetchone()
-            return {"ok": True, "id": row[0]}
+            return {"ok": True, "id": row[0], "name": name}
         except HTTPException:
             raise
         except Exception as e:
