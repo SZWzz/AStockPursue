@@ -168,11 +168,15 @@ export function Agent() {
       act().loadHistory(agentMsgs);
       act().cacheSession(sid, agentMsgs);
       setTimeout(() => forceScrollToBottom(), 50);
-    } finally {
-      // Always reset loading, even on early gen-check returns
+    } catch {
+      // API call failed or message processing threw — show empty state
       if (genRef.current === gen) {
-        act().setSessionLoading(false);
+        act().loadHistory([]);
       }
+    } finally {
+      // Always reset loading regardless of gen match — stale loaders must
+      // not leave the UI stuck in loading state forever.
+      act().setSessionLoading(false);
     }
   }, [forceScrollToBottom]);
 
