@@ -355,13 +355,32 @@ def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None
             elif name == "eastmoney":   eastmoney_ok = avail
             elif name == "baidu":       baidu_ok = avail
 
-            # Build dynamic loader entry for frontend
+            # Build dynamic loader entry for frontend (with health + store info)
+            health_info = {}
+            try:
+                from backtest.loaders.health import get_health_tracker
+                health_info = get_health_tracker().get_stats(name)
+            except Exception:
+                pass
+
+            store_info = {}
+            try:
+                from backtest.loaders.store import get_store_info
+                store_info = get_store_info(name, "1D")  # approximate
+            except Exception:
+                pass
+
             all_loaders.append({
                 "name": name,
                 "display": getattr(cls, "name", name),
                 "markets": sorted(getattr(cls, "markets", set())),
                 "available": avail,
                 "requires_auth": getattr(cls, "requires_auth", False),
+                "health": {
+                    "score": health_info.get("score"),
+                    "avg_latency_ms": health_info.get("avg_latency_ms"),
+                    "consecutive_failures": health_info.get("consecutive_failures", 0),
+                },
             })
     except Exception:
         pass

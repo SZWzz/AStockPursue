@@ -37,6 +37,9 @@ const PaperTrading = lazy(() =>
 const UserManagement = lazy(() =>
   import("@/pages/admin/UserManagement").then((m) => ({ default: m.UserManagement })),
 );
+const DataSourceStatus = lazy(() =>
+  import("@/pages/DataSourceStatus").then((m) => ({ default: m.DataSourceStatus })),
+);
 
 function PageLoader() {
   return (
@@ -71,6 +74,7 @@ export const router = createBrowserRouter([
       { path: "/indicator-lab", element: wrap(IndicatorLab) },
       { path: "/strategy-lab", element: wrap(StrategyLab) },
       { path: "/paper-trading", element: wrap(PaperTrading) },
+      { path: "/data-sources", element: wrap(DataSourceStatus) },
       { path: "/admin/users", element: wrap(UserManagement) },
     ],
   },

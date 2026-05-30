@@ -397,3 +397,153 @@ if __name__ == "__main__":
     import sys
 
     main(_parse_run_dir(sys.argv))
+
+
+# ─── Extended Monte Carlo Simulations ─────────────────────────────────────────
+
+
+def return_bootstrap_simulation(
+    equity_curve: pd.Series,
+    n_simulations: int = 500,
+    horizon_days: int = 252,
+    seed: int = 42,
+    bars_per_year: int = 252,
+) -> dict:
+    """Parametric bootstrap: resample daily returns to simulate N equity paths.
+
+    Generates synthetic equity curves by drawing daily returns with replacement,
+    then computes the distribution of Sharpe, max drawdown, and final return.
+
+    Args:
+        equity_curve: Historical equity time series.
+        n_simulations: Number of synthetic paths to generate.
+        horizon_days: Length of each simulated path in trading days.
+        seed: Random seed.
+        bars_per_year: Annualisation factor.
+
+    Returns:
+        {sharpe_p5, sharpe_p95, sharpe_median, max_dd_p5, max_dd_p95,
+         max_dd_median, ruin_prob (equity < 50% initial), return_distribution}.
+    """
+    returns = equity_curve.pct_change().dropna().values
+    if len(returns) < 10:
+        return {"error": "need at least 10 return observations"}
+
+    rng = np.random.default_rng(seed)
+    sharpes, max_dds, final_returns = [], [], []
+    ruin_count = 0
+
+    for _ in range(n_simulations):
+        sample = rng.choice(returns, size=horizon_days, replace=True)
+        path = np.cumprod(1 + sample)
+        eq = np.insert(path, 0, 1.0)
+
+        # Sharpe
+        r = np.diff(eq) / eq[:-1]
+        std = r.std()
+        sharpe = float(r.mean() / (std + 1e-10) * np.sqrt(bars_per_year))
+        sharpes.append(sharpe)
+
+        # Max DD
+        peak = np.maximum.accumulate(eq)
+        dd = (eq - peak) / np.where(peak > 0, peak, 1.0)
+        max_dds.append(float(dd.min()))
+
+        # Final return
+        final_returns.append(float(eq[-1] - 1))
+
+        # Ruin
+        if eq[-1] < 0.5:
+            ruin_count += 1
+
+    s = np.array(sharpes)
+    d = np.array(max_dds)
+    f = np.array(final_returns)
+
+    return {
+        "n_simulations": n_simulations,
+        "horizon_days": horizon_days,
+        "sharpe_p5": round(float(np.percentile(s, 5)), 4),
+        "sharpe_median": round(float(np.median(s)), 4),
+        "sharpe_p95": round(float(np.percentile(s, 95)), 4),
+        "sharpe_mean": round(float(s.mean()), 4),
+        "sharpe_std": round(float(s.std()), 4),
+        "max_dd_p5": round(float(np.percentile(d, 5)), 4),
+        "max_dd_median": round(float(np.median(d)), 4),
+        "max_dd_p95": round(float(np.percentile(d, 95)), 4),
+        "return_p5": round(float(np.percentile(f, 5)), 4),
+        "return_median": round(float(np.median(f)), 4),
+        "return_p95": round(float(np.percentile(f, 95)), 4),
+        "ruin_probability": round(ruin_count / n_simulations, 4),
+        "prob_positive_return": round(float(np.mean(f > 0)), 4),
+    }
+
+
+def noise_injection_simulation(
+    equity_curve: pd.Series,
+    n_simulations: int = 500,
+    noise_std_mult: float = 2.0,
+    seed: int = 42,
+    bars_per_year: int = 252,
+) -> dict:
+    """Inject Gaussian noise into historical returns to simulate different regimes.
+
+    Simulates "what if volatility were X times higher" by adding scaled Gaussian
+    noise to each daily return.
+
+    Args:
+        equity_curve: Historical equity time series.
+        n_simulations: Number of synthetic paths.
+        noise_std_mult: Multiplier for noise standard deviation relative to return std.
+        seed: Random seed.
+        bars_per_year: Annualisation factor.
+
+    Returns:
+        Same structure as ``return_bootstrap_simulation``.
+    """
+    returns = equity_curve.pct_change().dropna().values
+    if len(returns) < 10:
+        return {"error": "need at least 10 return observations"}
+
+    base_std = float(np.std(returns))
+    noise_std = base_std * noise_std_mult
+    rng = np.random.default_rng(seed)
+
+    sharpes, max_dds, final_returns = [], [], []
+    ruin_count = 0
+    n = len(returns)
+
+    for _ in range(n_simulations):
+        noise = rng.normal(0, noise_std, size=n)
+        noisy = returns + noise
+        path = np.cumprod(1 + noisy)
+        eq = np.insert(path, 0, 1.0)
+
+        r = np.diff(eq) / eq[:-1]
+        std = r.std()
+        sharpe = float(r.mean() / (std + 1e-10) * np.sqrt(bars_per_year))
+        sharpes.append(sharpe)
+
+        peak = np.maximum.accumulate(eq)
+        dd = (eq - peak) / np.where(peak > 0, peak, 1.0)
+        max_dds.append(float(dd.min()))
+        final_returns.append(float(eq[-1] - 1))
+        if eq[-1] < 0.5:
+            ruin_count += 1
+
+    s, d, f = np.array(sharpes), np.array(max_dds), np.array(final_returns)
+
+    return {
+        "noise_std_multiplier": noise_std_mult,
+        "n_simulations": n_simulations,
+        "sharpe_p5": round(float(np.percentile(s, 5)), 4),
+        "sharpe_median": round(float(np.median(s)), 4),
+        "sharpe_p95": round(float(np.percentile(s, 95)), 4),
+        "max_dd_p5": round(float(np.percentile(d, 5)), 4),
+        "max_dd_median": round(float(np.median(d)), 4),
+        "max_dd_p95": round(float(np.percentile(d, 95)), 4),
+        "return_p5": round(float(np.percentile(f, 5)), 4),
+        "return_median": round(float(np.median(f)), 4),
+        "return_p95": round(float(np.percentile(f, 95)), 4),
+        "ruin_probability": round(ruin_count / n_simulations, 4),
+    }

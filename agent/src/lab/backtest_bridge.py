@@ -118,7 +118,8 @@ def fetch_ohlcv(
         cached = query_cache(symbol, interval, start_date, end_date)
         if cached is not None and len(cached) >= 5:
             logger.debug("OHLCV cache hit for %s/%s (%d bars)", symbol, interval, len(cached))
-            return {symbol: cached}
+            from backtest.loaders.base import FetchResult
+            return FetchResult({symbol: cached}, meta={"source": "pg_cache", "fetch_time": time.time(), "data_start": str(cached.index[0].date()) if len(cached) else "", "data_end": str(cached.index[-1].date()) if len(cached) else "", "n_bars": len(cached)})
 
     # ── 2. Walk the fallback chain ──────────────────────────────────────
     if source == "auto":
@@ -143,13 +144,21 @@ def fetch_ohlcv(
 
             for attempt in range(max_retries):
                 try:
+                    t0 = time.time()
                     data = loader.fetch(
                         codes=[symbol],
                         start_date=start_date,
                         end_date=end_date,
                         interval=interval,
                     )
+                    latency = time.time() - t0
                     if data and symbol in data and len(data[symbol]) >= 5:
+                        # Record health
+                        try:
+                            from backtest.loaders.health import get_health_tracker
+                            get_health_tracker().record_success(name, latency)
+                        except Exception:
+                            pass
                         # Write back to cache
                         if _cache_available:
                             try:
@@ -157,7 +166,17 @@ def fetch_ohlcv(
                                 logger.debug("Cached %d bars for %s/%s", n, symbol, interval)
                             except Exception:
                                 pass
-                        return data
+                        # Wrap with provenance metadata
+                        df = data[symbol]
+                        from backtest.loaders.base import FetchResult
+                        return FetchResult({symbol: df}, meta={
+                            "source": name,
+                            "fetch_time": time.time(),
+                            "fetch_latency_s": round(latency, 3),
+                            "data_start": str(df.index[0].date()) if len(df) else "",
+                            "data_end": str(df.index[-1].date()) if len(df) else "",
+                            "n_bars": len(df),
+                        })
                     tried.append(f"{name} (fetched {len(data.get(symbol, [])) if data else 0} rows)")
                     break  # empty data, don't retry
                 except Exception as e:
@@ -174,6 +193,11 @@ def fetch_ohlcv(
             last_error = e
             tried.append(f"{name} ({e})")
             logger.warning(f"Loader {name} failed for {symbol}: {e}")
+            try:
+                from backtest.loaders.health import get_health_tracker
+                get_health_tracker().record_failure(name)
+            except Exception:
+                pass
             continue
 
     # When specific source fails, try auto fallback chain

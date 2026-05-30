@@ -671,13 +671,23 @@ def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
                     logger.info("Runtime fallback: %s -> %s for %s", src_name, fb_name, market)
                     break
 
-        # ── Write back to cache ────────────────────────────────────────
+        # ── Write back to cache + Parquet store ────────────────────────
         if _cache_ok:
             for code, df in result.items():
                 try:
                     write_cache(code, interval, df)
                 except Exception:
                     pass
+        # Also write to Parquet store for cold storage
+        try:
+            from backtest.loaders.store import update_store
+            for code, df in result.items():
+                try:
+                    update_store(code, interval, df)
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
         merged.update(result)
 

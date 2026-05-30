@@ -183,6 +183,29 @@ def fetch_concurrent(
     return merged
 
 
+# ── FetchResult — dict-like wrapper with provenance metadata ──────────────────
+
+class FetchResult(dict):
+    """Dict-like container for ``{code: DataFrame}`` with provenance metadata.
+
+    Backward-compatible with plain ``dict`` — callers that expect a bare dict
+    can iterate, index, and ``.get()`` as usual.  The ``.meta`` attribute
+    carries diagnostics::
+
+        >>> result = FetchResult({"600519.SH": df}, meta={"source": "mootdx"})
+        >>> result["600519.SH"]   # works like dict
+        >>> result.meta["source"] # "mootdx"
+    """
+
+    def __init__(self, *args, meta: dict | None = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.meta: dict = meta or {}
+
+    def __repr__(self) -> str:
+        data_repr = super().__repr__()
+        return f"FetchResult({data_repr}, meta={self.meta!r})"
+
+
 @runtime_checkable
 class DataLoaderProtocol(Protocol):
     """Interface that every data source loader must satisfy."""
