@@ -107,6 +107,9 @@ def write_cache(code: str, interval: str, df: pd.DataFrame) -> int:
     if df is None or df.empty:
         return 0
 
+    # Deduplicate columns (some loaders produce duplicate 'volume' etc.)
+    df = df.loc[:, ~df.columns.duplicated()]
+
     # Ensure we have the expected columns
     required = {"open", "high", "low", "close", "volume"}
     if not required.issubset(df.columns):
