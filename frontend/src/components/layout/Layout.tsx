@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, BookOpen, Bot, Database, GitCompare, Moon, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users } from "lucide-react";
+import { BarChart3, BookOpen, Bot, Database, GitCompare, Moon, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useDarkMode } from "@/hooks/useDarkMode";
@@ -54,6 +54,13 @@ export function Layout() {
 
   const isAgentPage = pathname === "/";
   useEffect(() => { loadSessions(); }, [isAgentPage, activeSessionId]);
+
+  const [sessionFilter, setSessionFilter] = useState("");
+  const filteredSessions = useMemo(() => {
+    if (!sessionFilter.trim()) return sessions;
+    const q = sessionFilter.toLowerCase();
+    return sessions.filter(s => (s.title || s.session_id).toLowerCase().includes(q));
+  }, [sessions, sessionFilter]);
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
@@ -152,6 +159,19 @@ export function Layout() {
               </Link>
             </div>
 
+            <div className="px-3 pb-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground/60 pointer-events-none" />
+                <input
+                  type="text"
+                  value={sessionFilter}
+                  onChange={(e) => setSessionFilter(e.target.value)}
+                  placeholder={t.filterSessions}
+                  className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-border/60 bg-muted/30 focus:bg-background focus:border-primary/50 outline-none transition-colors placeholder:text-muted-foreground/50"
+                />
+              </div>
+            </div>
+
             <div className="px-3 pb-3 space-y-0.5 overflow-auto flex-1">
               {sessionsLoading ? (
                 <div className="space-y-1.5 px-1 py-1">
@@ -159,13 +179,13 @@ export function Layout() {
                     <div key={i} className="h-8 rounded-lg bg-muted/50 animate-pulse" />
                   ))}
                 </div>
-              ) : sessions.length === 0 ? (
+              ) : filteredSessions.length === 0 ? (
                 <div className="empty-state py-8">
                   <MessageSquare className="empty-state-icon h-8 w-8" />
-                  <p className="empty-state-text">{t.noSessions}</p>
+                  <p className="empty-state-text">{sessionFilter.trim() ? (lang === "zh" ? "无匹配会话" : "No matching sessions") : t.noSessions}</p>
                 </div>
               ) : null}
-              {sessions.map((s) => {
+              {filteredSessions.map((s) => {
                 const isActive = s.session_id === activeSessionId;
                 const isDeleting = deleteTarget === s.session_id;
                 const isRenaming = renameTarget === s.session_id;

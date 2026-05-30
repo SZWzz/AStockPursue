@@ -8,6 +8,7 @@ from datetime import date as date_type
 from pathlib import Path
 
 import pandas as pd
+import requests
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.auth.dependencies import require_auth
@@ -102,7 +103,7 @@ async def search_stocks(q: str = Query("", max_length=64)):
                     tc = normalize_hk_code(code)
                 else:
                     continue
-                resp = __import__("requests").get(f"https://qt.gtimg.cn/q={tc}", timeout=5, headers={"Referer": "https://qt.gtimg.cn/"})
+                resp = requests.get(f"https://qt.gtimg.cn/q={tc}", timeout=5, headers={"Referer": "https://qt.gtimg.cn/"})
                 resp.encoding = "gbk"
                 text = (resp.text or "").strip()
                 if "~" in text and "v_" in text:

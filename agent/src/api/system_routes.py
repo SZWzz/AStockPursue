@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import signal
 import time
 import uuid
@@ -28,7 +29,7 @@ from src.api.common import (
     _BLOCKED_UPLOAD_NAMES,
 )
 
-_SHADOW_ID_RE = __import__("re").compile(r"^shadow_[0-9a-f]{8}$")
+_SHADOW_ID_RE = re.compile(r"^shadow_[0-9a-f]{8}$")
 
 # ---------------------------------------------------------------------------
 # Swarm lazy-init singleton

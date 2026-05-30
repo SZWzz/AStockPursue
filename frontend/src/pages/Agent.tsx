@@ -514,7 +514,7 @@ export function Agent() {
       {/* Left: Chat area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
       <div ref={listRef} className="flex-1 overflow-auto scroll-smooth relative">
-        <div className="max-w-3xl mx-auto space-y-5 px-6 pt-8">
+        <div role="log" aria-live="polite" className="max-w-3xl mx-auto space-y-5 px-6 pt-8">
           {sessionLoading && (
             <div className="space-y-5 py-4">
               {[1, 2, 3].map(i => (

@@ -16,6 +16,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -34,7 +35,7 @@ router = APIRouter(prefix="/strategy-lab", tags=["strategy-lab"])
 
 _repo: Any = None
 _repo_kind: str = ""
-_repo_lock = __import__("threading").Lock()
+_repo_lock = threading.Lock()
 
 
 def _get_repo():

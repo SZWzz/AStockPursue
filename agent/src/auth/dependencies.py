@@ -42,11 +42,13 @@ async def require_auth(
     """
     api_key = os.getenv("API_AUTH_KEY", "")
 
-    token = (cred.credentials if cred and cred.credentials else "") or (jwt or "")
+    # Only accept ?jwt= on SSE endpoints (EventSource can't set headers).
+    # Reject it on regular REST routes to prevent token leakage via
+    # query params in proxy logs, browser history, and Referer headers.
+    is_sse = "/stream" in str(request.url.path) or "text/event-stream" in (request.headers.get("accept") or "")
+    token = (cred.credentials if cred and cred.credentials else "") or (jwt if is_sse else "")
 
     if token:
-        # Try JWT first
-        payload = verify_token(token)
         if payload:
             _load_data_source_tokens(payload.get("user_id", 1))
             return payload

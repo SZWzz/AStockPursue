@@ -3,6 +3,8 @@ import { Code, FlaskConical, Play, Save, ChevronDown, Trash2, Plus, Clock, Libra
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { authHeaders } from "@/lib/apiAuth";
+import { request } from "@/lib/api";
+import { createApiFetch } from "@/lib/apiFetch";
 import { CodeEditor } from "@/components/indicator-lab/CodeEditor";
 import { QualityHints } from "@/components/indicator-lab/QualityHints";
 import { ParamPanel } from "@/components/indicator-lab/ParamPanel";
@@ -21,16 +23,7 @@ import type {
 import { useBacktest } from "@/hooks/useBacktest";
 
 const API_BASE = "/v1/indicator-lab";
-
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = { "Content-Type": "application/json", ...authHeaders() as Record<string, string> };
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers: { ...headers, ...(options?.headers as Record<string, string> || {}) } });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+const apiFetch = createApiFetch(API_BASE);
 
 // ── Built-in indicators ───────────────────────────────────────────────────
 
@@ -626,9 +619,8 @@ export function IndicatorLab() {
   const handleRunBacktest = useCallback(async () => {
     if (!chartSymbol) return;
     await runBacktest(async () => {
-      const res = await fetch("/v1/indicator-lab/backtest", {
+      const data = await request<{ success: boolean; run_id?: string; error?: string }>("/indicator-lab/backtest", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           code,
           symbol: chartSymbol,
@@ -643,7 +635,6 @@ export function IndicatorLab() {
           benchmark: "auto",
         }),
       });
-      const data = await res.json();
       if (!data.success || !data.run_id) throw new Error(data.error || "Backtest failed");
       return data.run_id;
     });

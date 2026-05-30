@@ -40,6 +40,7 @@ export function CandlestickChart({ data, markers, indicators, height = 500 }: Pr
   const [overlays, setOverlays] = useState<Set<Overlay>>(new Set(["ma5", "ma20"]));
   const [showMenu, setShowMenu] = useState(false);
   const { dark } = useDarkMode();
+  const dataState = data.length === 0 ? "empty" : "nonempty";
 
   const toggleOverlay = useCallback((id: Overlay) => {
     setOverlays(prev => {
@@ -94,7 +95,7 @@ export function CandlestickChart({ data, markers, indicators, height = 500 }: Pr
     const ro = new ResizeObserver(() => chart.resize());
     ro.observe(containerRef.current);
     return () => { ro.disconnect(); chart.dispose(); chartRef.current = null; };
-  }, [data.length === 0, dark]); // only re-init when going empty↔non-empty or theme changes
+  }, [dataState, dark]); // only re-init when going empty↔non-empty or theme changes
 
   // Update chart options — setOption on existing instance, no dispose
   useEffect(() => {

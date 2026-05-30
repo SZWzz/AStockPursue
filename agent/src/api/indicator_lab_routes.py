@@ -18,6 +18,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import threading
 import traceback
 from datetime import datetime, timedelta
 from typing import Any
@@ -42,7 +43,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/indicator-lab", tags=["indicator-lab"])
 
 _repo: IndicatorRepository | None = None
-_repo_lock = __import__("threading").Lock()
+_repo_lock = threading.Lock()
 
 
 def _get_repo() -> IndicatorRepository:

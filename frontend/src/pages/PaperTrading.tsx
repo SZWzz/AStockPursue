@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { Loader2, TrendingUp, Library, List, Plus, Check, Save, Rocket } from "lucide-react";
+import { toast } from "sonner";
 import { usePaperTradingRunStore } from "@/stores/paperTradingRunStore";
 import { usePaperTradingLiveStore } from "@/stores/paperTradingLiveStore";
 import { useI18n } from "@/lib/i18n";
@@ -256,7 +257,7 @@ export default function PaperTrading() {
       });
       const vData = await vRes.json();
       if (!vData.success) {
-        alert(t.ptStrategyVerifyFail.replace("{error}", vData.error));
+        toast.error(t.ptStrategyVerifyFail.replace("{error}", vData.error));
         setCreating(false);
         return;
       }
@@ -277,7 +278,7 @@ export default function PaperTrading() {
         setTimeout(() => runStore.startRun(runId), 500);
       }
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : t.ptCreateFailed);
+      toast.error(e instanceof Error ? e.message : t.ptCreateFailed);
     } finally {
       setCreating(false);
     }
@@ -295,7 +296,7 @@ export default function PaperTrading() {
         body: JSON.stringify(riskConfig),
       });
     } catch (e) {
-      alert(String(e));
+      toast.error(String(e));
     } finally {
       setRiskSaving(false);
     }
@@ -457,7 +458,7 @@ export default function PaperTrading() {
                       run={run}
                       isActive={runStore.activeRunId === run.id}
                       onSelect={handleSelectRun}
-                      onStart={async (id) => { try { await runStore.startRun(id); } catch (e) { alert(e instanceof Error ? e.message : String(e)); } }}
+                      onStart={async (id) => { try { await runStore.startRun(id); } catch (e) { toast.error(e instanceof Error ? e.message : String(e)); } }}
                       onStop={(id) => runStore.stopRun(id)}
                       onPause={(id) => runStore.pauseRun(id)}
                       onResume={(id) => runStore.resumeRun(id)}
@@ -606,17 +607,17 @@ export default function PaperTrading() {
                     <div key={i} className="flex gap-2 py-0.5 border-b border-border/30">
                       <span className="text-muted-foreground font-mono w-16 shrink-0">{s.timestamp?.slice(0, 16) || ""}</span>
                       <span className="font-mono">{s.symbol}</span>
-                      <span className={s.direction > 0 ? "text-up" : "text-down"}>{s.direction > 0 ? "{t.ptLong}" : "{t.ptShort}"}</span>
+                      <span className={s.direction > 0 ? "text-up" : "text-down"}>{s.direction > 0 ? t.ptLong : t.ptShort}</span>
                       <span className="text-muted-foreground">{s.reason}</span>
                     </div>
                   ))}
-                  {liveStore.recentTrades.slice(-10).reverse().map((t, i) => (
+                  {liveStore.recentTrades.slice(-10).reverse().map((tr, i) => (
                     <div key={`t${i}`} className="flex gap-2 py-0.5 border-b border-border/30 bg-muted/20">
-                      <span className="text-muted-foreground font-mono w-16 shrink-0">{t.exit_time?.slice(0, 16) || ""}</span>
-                      <span className="font-mono">{t.symbol}</span>
-                      <span className={t.direction > 0 ? "text-up" : "text-down"}>{t.direction > 0 ? "{t.ptLong}" : "{t.ptShort}"}</span>
-                      <span className="font-mono font-medium">{t.pnl >= 0 ? "+" : ""}{t.pnl.toFixed(2)}</span>
-                      <span className="text-muted-foreground">{t.exit_reason}</span>
+                      <span className="text-muted-foreground font-mono w-16 shrink-0">{tr.exit_time?.slice(0, 16) || ""}</span>
+                      <span className="font-mono">{tr.symbol}</span>
+                      <span className={tr.direction > 0 ? "text-up" : "text-down"}>{tr.direction > 0 ? t.ptLong : t.ptShort}</span>
+                      <span className="font-mono font-medium">{tr.pnl >= 0 ? "+" : ""}{tr.pnl.toFixed(2)}</span>
+                      <span className="text-muted-foreground">{tr.exit_reason}</span>
                     </div>
                   ))}
                 </div>

@@ -191,8 +191,8 @@ function McpSection() {
   useEffect(() => { api.getMcpSettings().then(d => { setMcp(d); setShellTools(d.shell_tools_enabled as boolean); }).catch(() => {}); }, []);
 
   const saveMcp = async () => {
-    try { await api.updateMcpSettings({ shell_tools_enabled: shellTools }); alert("MCP 设置已保存"); }
-    catch { alert("保存失败"); }
+    try { await api.updateMcpSettings({ shell_tools_enabled: shellTools }); toast.success("MCP 设置已保存"); }
+    catch { toast.error("保存失败"); }
   };
 
   if (!mcp) return null;

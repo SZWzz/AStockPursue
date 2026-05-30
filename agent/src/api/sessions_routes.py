@@ -102,7 +102,7 @@ async def list_sessions(limit: int = Query(50, ge=1, le=200)):
     ]
 
 @router.get("/sessions/{session_id}", response_model=SessionResponse)
-async def get_session(session_id: str):
+async def get_session(session_id: str, auth: dict = Depends(_require_auth)):
     validate_path_param(session_id, "session_id")
     svc = _get_session_service()
     if not svc:
@@ -117,7 +117,7 @@ async def get_session(session_id: str):
     )
 
 @router.delete("/sessions/{session_id}")
-async def delete_session(session_id: str):
+async def delete_session(session_id: str, auth: dict = Depends(_require_auth)):
     validate_path_param(session_id, "session_id")
     svc = _get_session_service()
     if not svc:
@@ -143,7 +143,7 @@ async def update_session(session_id: str, req: UpdateSessionRequest):
     return {"status": "updated", "session_id": session_id}
 
 @router.post("/sessions/{session_id}/messages")
-async def send_message(session_id: str, payload: SendMessageRequest, http_request: Request):
+async def send_message(session_id: str, payload: SendMessageRequest, http_request: Request, auth: dict = Depends(_require_auth)):
     validate_path_param(session_id, "session_id")
     svc = _get_session_service()
     if not svc:
@@ -169,7 +169,7 @@ async def cancel_session(session_id: str):
     return {"status": "cancelled"}
 
 @router.get("/sessions/{session_id}/messages", response_model=List[MessageResponse])
-async def get_messages(session_id: str, limit: int = Query(100, ge=1, le=1000)):
+async def get_messages(session_id: str, limit: int = Query(100, ge=1, le=1000), auth: dict = Depends(_require_auth)):
     validate_path_param(session_id, "session_id")
     svc = _get_session_service()
     if not svc:

@@ -6,6 +6,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { authHeaders } from "@/lib/apiAuth";
+import { request } from "@/lib/api";
+import { createApiFetch } from "@/lib/apiFetch";
 import { CodeEditor } from "@/components/indicator-lab/CodeEditor";
 import { ChartPanel } from "@/components/indicator-lab/ChartPanel";
 import { AiChatPanel } from "@/components/indicator-lab/AiChatPanel";
@@ -16,22 +18,7 @@ import type { QualityHint } from "@/components/indicator-lab/types";
 import { useBacktest } from "@/hooks/useBacktest";
 
 const API_BASE = "/v1/strategy-lab";
-
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-    ...(authHeaders() as Record<string, string>),
-  };
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: { ...headers, ...((options?.headers as Record<string, string>) || {}) },
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.detail || `HTTP ${res.status}`);
-  }
-  return res.json();
-}
+const apiFetch = createApiFetch(API_BASE);
 
 const DEFAULT_CODE = `"""
 多因子信号引擎 — 由策略实验室生成。
@@ -841,9 +828,8 @@ export function StrategyLab() {
     if (!codes.length) return;
 
     await runBacktest(async () => {
-      const res = await fetch(`${API_BASE}/backtest`, {
+      const data = await request<{ success: boolean; run_id?: string; error?: string }>("/strategy-lab/backtest", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeaders() },
         body: JSON.stringify({
           code,
           codes,
@@ -857,12 +843,6 @@ export function StrategyLab() {
           benchmark: "auto",
         }),
       });
-      if (!res.ok) {
-        let detail = `HTTP ${res.status}`;
-        try { const b = await res.json(); detail = b.detail || detail; } catch {}
-        throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
-      }
-      const data = await res.json();
       if (!data.success || !data.run_id) throw new Error(data.error || "Backtest failed");
       return data.run_id;
     });
