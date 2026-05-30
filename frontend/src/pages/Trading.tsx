@@ -29,39 +29,44 @@ export function Trading() {
   const [news, setNews] = useState<{ title: string; url: string; source: string; summary: string; published_at: string }[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
 
+  // Extract stable action references from zustand store
+  const { fetchIndices, fetchOrders, selectSymbol, selectedSymbol, chartMode, minuteDate, minutePreClose,
+    klineData, klineLoading, minuteData, minuteLoading, orders, ordersLoading, indices,
+    setChartMode, setMinuteDate } = store;
+
   // Load indices on mount
   useEffect(() => {
-    store.fetchIndices();
-    store.fetchOrders();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchIndices();
+    fetchOrders();
+  }, [fetchIndices, fetchOrders]);
 
   const handleSelectSymbol = useCallback((symbol: string) => {
-    store.selectSymbol(symbol);
-  }, [store]);
+    selectSymbol(symbol);
+  }, [selectSymbol]);
 
   const loadNews = useCallback(async () => {
-    if (!store.selectedSymbol) return;
+    if (!selectedSymbol) return;
     setNewsLoading(true);
     try {
       const { api } = await import("@/lib/api");
-      const data = await api.getNews(store.selectedSymbol);
+      const data = await api.getNews(selectedSymbol);
       setNews(data.articles || []);
     } catch { /* ignore */ }
     setNewsLoading(false);
-  }, [store.selectedSymbol]);
+  }, [selectedSymbol]);
 
   useEffect(() => {
-    if (tab === "news" && store.selectedSymbol) {
+    if (tab === "news" && selectedSymbol) {
       loadNews();
     }
-  }, [tab, store.selectedSymbol, loadNews]);
+  }, [tab, selectedSymbol, loadNews]);
 
   return (
     <div className="flex flex-col h-full">
       {/* Index ticker bar */}
       <IndexTickerBar
-        indices={store.indices}
-        onRefresh={store.fetchIndices}
+        indices={indices}
+        onRefresh={fetchIndices}
       />
 
       {/* Main content grid */}
@@ -69,7 +74,7 @@ export function Trading() {
         {/* Left sidebar — search + watchlist */}
         <div className="w-56 shrink-0 border-r flex flex-col bg-muted/10">
           <TradingWatchlist
-            selectedSymbol={store.selectedSymbol}
+            selectedSymbol={selectedSymbol}
             onSelect={handleSelectSymbol}
           />
         </div>
@@ -81,66 +86,66 @@ export function Trading() {
             {/* Chart mode toggle */}
             <div className="flex items-center gap-1 mb-2">
               <button
-                onClick={() => store.setChartMode("kline")}
+                onClick={() => setChartMode("kline")}
                 className={cn(
                   "px-3 py-1 text-xs rounded transition",
-                  store.chartMode === "kline" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"
+                  chartMode === "kline" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"
                 )}
               >
                 {t.tradingKline || "K线"}
               </button>
               <button
-                onClick={() => store.setChartMode("minute")}
+                onClick={() => setChartMode("minute")}
                 className={cn(
                   "px-3 py-1 text-xs rounded transition",
-                  store.chartMode === "minute" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"
+                  chartMode === "minute" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"
                 )}
               >
                 {t.tradingMinuteLine || "分时"}
               </button>
 
               {/* Date picker for minute mode */}
-              {store.chartMode === "minute" && (
+              {chartMode === "minute" && (
                 <input
                   type="date"
-                  value={store.minuteDate}
-                  onChange={(e) => store.setMinuteDate(e.target.value)}
+                  value={minuteDate}
+                  onChange={(e) => setMinuteDate(e.target.value)}
                   className="ml-2 text-xs rounded border px-2 py-1 bg-background"
                   title={t.tradingSelectDate || "选择日期"}
                 />
               )}
 
-              {store.selectedSymbol && (
-                <span className="ml-auto text-xs font-mono text-muted-foreground">{store.selectedSymbol}</span>
+              {selectedSymbol && (
+                <span className="ml-auto text-xs font-mono text-muted-foreground">{selectedSymbol}</span>
               )}
             </div>
 
             {/* Chart */}
-            {!store.selectedSymbol ? (
+            {!selectedSymbol ? (
               <div className="flex items-center justify-center h-[400px] border rounded-xl bg-muted/10 text-muted-foreground text-sm">
                 {t.tradingNoSymbol || "请从左侧自选股选择一个标的"}
               </div>
-            ) : store.chartMode === "kline" ? (
-              store.klineLoading ? (
+            ) : chartMode === "kline" ? (
+              klineLoading ? (
                 <div className="flex items-center justify-center h-[400px] border rounded-xl bg-muted/10 text-muted-foreground text-sm">
                   加载K线数据...
                 </div>
               ) : (
                 <CandlestickChart
-                  data={store.klineData}
+                  data={klineData}
                   height={400}
                 />
               )
             ) : (
-              store.minuteLoading ? (
+              minuteLoading ? (
                 <div className="flex items-center justify-center h-[400px] border rounded-xl bg-muted/10 text-muted-foreground text-sm">
                   加载分时数据...
                 </div>
               ) : (
                 <MinuteLineChart
-                  data={store.minuteData}
-                  preClose={store.minutePreClose}
-                  symbol={store.selectedSymbol}
+                  data={minuteData}
+                  preClose={minutePreClose}
+                  symbol={selectedSymbol}
                   height={400}
                 />
               )
@@ -167,7 +172,7 @@ export function Trading() {
             <div className="overflow-auto" style={{ height: "calc(100% - 35px)" }}>
               {tab === "news" && (
                 <div className="p-3 space-y-2">
-                  {!store.selectedSymbol ? (
+                  {!selectedSymbol ? (
                     <div className="text-center text-xs text-muted-foreground py-8">请先选择标的</div>
                   ) : newsLoading ? (
                     <div className="text-center py-4 text-xs text-muted-foreground">加载中...</div>
@@ -194,15 +199,15 @@ export function Trading() {
               )}
               {tab === "orders" && (
                 <OrderPanel
-                  symbol={store.selectedSymbol}
-                  orders={store.orders}
-                  loading={store.ordersLoading}
-                  onRefresh={() => store.fetchOrders()}
+                  symbol={selectedSymbol}
+                  orders={orders}
+                  loading={ordersLoading}
+                  onRefresh={fetchOrders}
                 />
               )}
               {tab === "broker" && <BrokerPanel />}
               {tab === "notify" && <NotifyConfigPanel />}
-              {tab === "optimize" && <OptimizationPanel symbol={store.selectedSymbol} />}
+              {tab === "optimize" && <OptimizationPanel symbol={selectedSymbol} />}
             </div>
           </div>
         </div>

@@ -24,7 +24,7 @@ export function OrderPanel({ symbol, orders, loading, onRefresh }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  useEffect(() => { onRefresh(); }, [onRefresh]);
+  useEffect(() => { onRefresh(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async () => {
     if (!symbol) { setMsg("请先选择标的"); return; }
