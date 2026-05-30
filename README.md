@@ -5,6 +5,8 @@
   <img src="https://img.shields.io/badge/PostgreSQL-14+-4169E1?style=flat&logo=postgresql&logoColor=white" alt="PostgreSQL">
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="License">
   <img src="https://img.shields.io/badge/Factors-450+-orange?style=flat" alt="Alpha Factors">
+  <img src="https://img.shields.io/badge/Data_Loaders-23-blue?style=flat" alt="Data Loaders">
+  <img src="https://img.shields.io/badge/Version-2026.5.30-blueviolet?style=flat" alt="Version">
 </p>
 
 <h1 align="center">AStockPursue</h1>
@@ -39,8 +41,9 @@ Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT Licen
 
 ### Factors & Data
 - **Alpha Zoo** — 450+ quantitative factors (Alpha101 / GTJA191 / Qlib158 / Academic), user-defined promotion
-- **Multi-Source Data** — CN/HK/US/Crypto/Futures/Forex/Indices/Commodities, 13 loaders with auto fallback
-- **Non-OHLCV Data** — Market sentiment (VIX/DXY/Yield Curve), fundamentals (PE/PB/ROE), news aggregation
+- **Multi-Source Data** — CN/HK/US/Crypto/Futures/Forex/Indices/Commodities, 23 loaders with 8-source A-share chain (`mootdx→tushare→eastmoney→tencent→futu→baidu→twelvedata→akshare`)
+- **PG Cache + Parquet Store** — 3-tier data access (cache → store → API), incremental updates, health-aware auto routing
+- **Non-OHLCV Data** — Dragon Tiger Board / lockup expiry / margin trading / block trades / fund flow / hot stocks + theme attribution / northbound capital / market sentiment / fundamentals / news
 - **Correlation Matrix** — Cross-market correlation (Pearson/Spearman), AI analysis + save to session
 
 ### Platform
@@ -61,8 +64,10 @@ Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT Licen
 |-------|-------|
 | **Backend** | Python 3.11+ · FastAPI · LangChain · Pandas · NumPy · SciPy · PostgreSQL · DuckDB · Pydantic |
 | **Frontend** | React 19 · TypeScript · Tailwind CSS · ECharts · Monaco Editor · Zustand · Vite |
-| **Data** | Tushare · AKShare · yfinance · OKX · CCXT · Tencent · Twelve Data · Finnhub · CoinGecko · Futu · Global Indices · Commodities · Tiingo |
-| **MCP** | FastMCP · 22 tools exposed |
+| **Data** | Tushare · MooTDX · EastMoney · AKShare · Baidu · Tencent · yfinance · OKX · CCXT · Twelve Data · Finnhub · CoinGecko · Futu · Global Indices · Commodities · THS · Northbound · Tiingo |
+| **Trading** | OMS (6-state order lifecycle) · Futu Broker · Risk Pipeline · WebSocket Feed · Notify (Webhook/Email) |
+| **Optimize** | Grid/Random/Bayesian Search · Walk-Forward · Monte Carlo · Black-Litterman · Portfolio VaR/CVaR · Stress Test |
+| **MCP** | FastMCP · 31 tools exposed |
 | **Deploy** | Docker · Docker Compose |
 
 ## Quick Start
@@ -84,8 +89,15 @@ Visit `http://localhost:8899`, login with `admin` / `admin123`, configure LLM an
 AStockPursue/
 ├── agent/                     # Python backend
 │   ├── api_server.py          #   FastAPI main entry (v1 API)
-│   ├── mcp_server.py          #   MCP Server (22 tools)
-│   ├── backtest/              #   Multi-market backtest engine + loader registry
+│   ├── mcp_server.py          #   MCP Server (31 tools)
+│   ├── backtest/              #   Multi-market backtest engine + 23 loaders + DataStore
+│   │   ├── loaders/            #     23 data sources (mootdx/eastmoney/tushare/...)
+│   │   ├── optimizers/         #     5 portfolio optimizers (MV/RP/MD/EV/BL)
+│   │   ├── data_store.py       #     Unified DataStore (cache → store → API)
+│   │   ├── portfolio_risk.py   #     VaR/CVaR/Kelly/concentration
+│   │   ├── stress_test.py      #     6 preset + custom scenarios
+│   │   └── report.py           #     PDF report generator
+│   ├── papertrade/            #   Paper trading engine + scheduler + risk
 │   ├── papertrade/            #   Paper trading engine + scheduler + risk
 │   ├── src/
 │   │   ├── agent/             #   SkillsLoader + ContextBuilder
@@ -98,7 +110,9 @@ AStockPursue/
 │   │   ├── skills/            #   89 skill packs (SKILL.md)
 │   │   ├── swarm/             #   Multi-agent collaboration
 │   │   ├── tools/             #   MCP tool implementations
-│   │   └── trading/           #   Unified trading engine (on_bar pipeline)
+│   │   ├── notify/            #   Alert engine (webhook/email, 5 alert types)
+│   │   ├── optimize/          #   Param optimization (grid/random/bayesian + walk-forward)
+│   │   └── trading/           #   Unified engine (OMS + brokers/WS feed/risk pipeline)
 │   └── migrations/            #   DB migrations (incremental)
 ├── frontend/                  # React frontend
 │   └── src/

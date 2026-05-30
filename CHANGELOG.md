@@ -1,6 +1,55 @@
 # Changelog
 
-## 2026.5.28
+## 2026.5.30
+
+### Added
+
+- **A 股数据源扩展（4 个新加载器）**
+  - `mootdx` — TCP 直连通达信，免费 K 线（日/周/月/1m~60m）+ 五档盘口 + 逐笔成交，不封 IP
+  - `eastmoney` — 东财 push2 HTTP K 线，免费日线 + 分钟级，国内最稳定免费 HTTP K 线源
+  - `baidu` — 百度股市通 K 线（自带 MA5/MA10/MA20）+ 概念/行业/地域三维板块分类
+  - `ths_eps` — 同花顺一致预期 EPS（直连 basic.10jqka.com.cn），用于 PEG/PE 消化计算
+- **A 股回退链扩展** — 从 4 源 (`tushare→tencent→twelvedata→akshare`) 扩展为 8 源 (`mootdx→tushare→eastmoney→tencent→futu→baidu→twelvedata→akshare`)
+- **PG OHLCV 缓存层** — `cache.py` + `migrations/003_ohlcv_cache.sql`，按 `(code, interval, bar_date)` 缓存 K 线，自动回写
+- **并发数据获取** — `fetch_concurrent()` ThreadPoolExecutor，20 只股票 3-5x 加速
+- **Tencent 2000-bar 截断警告** — 超出上限时 `warnings.warn()` 告知用户
+
+- **订单管理系统 (OMS)** — `src/trading/oms.py`，6 状态订单生命周期 (PENDING→SUBMITTED→PARTIAL→FILLED/CANCELLED/REJECTED)，PG 持久化，回调钩子
+- **富途券商接入** — `src/trading/brokers/futu_broker.py`，下单/撤单/查单/查持仓/查账户，通过 FutuOpenD
+- **告警通知系统** — `src/notify/`，Webhook（企业微信/钉钉/Discord/Slack）+ SMTP 邮件，止损/止盈/日亏损/回撤/异常 5 类告警
+- **WebSocket 实时行情** — `src/trading/ws_feed.py`，OKX + 东财 push2 WebSocket，替代 REST 轮询
+
+- **信号层/资金面数据源（4 个模块）**
+  - `eastmoney_datacenter.py` — 东财统一 API，龙虎榜/解禁/融资融券/大宗交易/股东户数/分红/行业排名
+  - `fund_flow.py` — 分钟级 + 120 日日级资金流（主力/大单/中单/小单/超大单）
+  - `ths_hot.py` — 同花顺当日强势股 + 题材归因 reason tags + 词频趋势
+  - `northbound.py` — 沪深股通分钟流向 + 本地 CSV 自缓存历史
+- **回测引擎基于市场选择** — `_create_market_engine` 从硬编码源名改为基于 `markets` 属性动态选择，新 A 股 loader 不再错误路由到 CryptoEngine
+- **`_VALID_SOURCES` 动态校验** — 从 `LOADER_REGISTRY` 动态获取，不再硬编码
+
+- **参数优化引擎** — `src/optimize/`，Grid / Random / Bayesian 三种搜索模式，SSE 流式进度
+- **Walk-Forward 分析** — `src/optimize/walk_forward.py`，N 窗口滚动优化 + IS/OOS 一致性 + 参数稳定性
+- **蒙特卡洛扩展** — `validation.py` 新增 Bootstrap 模拟 + 噪声注入模拟，尾部风险分布
+- **数据溯源追踪** — `FetchResult` dict 子类，携带 `meta={source, fetch_time, latency, n_bars}`
+- **Parquet 本地存储** — `store.py`，按 code/interval 存 Parquet，增量更新，PG 热缓存 + Parquet 冷存储
+- **加载器健康度感知** — `health.py`，成功率/延迟/连续失败追踪，`health_aware_resolve()` 智能选择最快健康 loader
+- **统一 DataStore API** — `data_store.py`，`get_ohlcv()` 一行走 PG→Parquet→API 三级回退 + 自动回写
+
+- **投资组合风险度量** — `portfolio_risk.py`，VaR（历史+参数法）/CVaR/Kelly 公式/回撤熔断/行业集中度
+- **Black-Litterman 模型** — `optimizers/black_litterman.py`，贝叶斯融合均衡收益 + 主观观点 → 均值-方差优化
+- **压力测试** — `stress_test.py`，6 种预设场景（2008/2015/2020/2024/flash/stagflation）+ 自定义场景
+- **PDF 报告导出** — `report.py`，HTML→PDF（weasyprint），含指标卡片/交易明细/风险度量
+
+- **数据源状态面板** — 新建 `/data-sources` 页面 + 路由 + 导航入口，实时显示所有 loader 可用状态 + 健康度
+- **前端修复** — `/compare` 加入侧边栏导航，DataSourceStatus API 挂接，清理死代码引用
+
+### Changed
+
+- **A 股回退链重排** — Futu 从缺失加入链中，mootdx 置顶（免费分钟级+不封IP），eastmoney/baidu 插入
+- **`_create_market_engine` 重构** — 源名硬编码 → 市场类型动态选择，新增任何 A 股 loader 无需改引擎逻辑
+- **`backtest_tool.py` / `benchmark.py` / `metrics.py` / `settings_routes.py` / `ui_services.py`** — 从硬编码源名改为 `LOADER_REGISTRY` 动态查询
+- **`fetch_ohlcv` / `_fetch_auto` 集成缓存 + 溯源** — 先查 PG 缓存 → API 获取 → 自动回写 PG + Parquet + 记录 health
+- **设置页数据源状态** — loader 条目新增 `health` 字段（score/latency/failures），动态遍历 `LOADER_REGISTRY`
 
 ### Fixed
 
