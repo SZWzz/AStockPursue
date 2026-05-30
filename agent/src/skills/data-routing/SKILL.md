@@ -10,11 +10,17 @@ description: Data source selection decision tree. Load this skill BEFORE any bac
 
 | Source | Markets | Auth Required | Network | Skill |
 |--------|---------|---------------|---------|-------|
+| mootdx | A-shares | No | Unrestricted (TCP) | mootdx |
 | tushare | A-shares, funds, futures, macro | Yes (`TUSHARE_TOKEN`) | China network | tushare |
+| eastmoney | A-shares | No | Unrestricted | eastmoney |
 | tencent | A-shares, HK stocks | No | Unrestricted | tencent |
+| futu | A-shares, HK stocks | Yes (FutuOpenD) | Local FutuOpenD | — |
+| baidu | A-shares | No | Unrestricted | baidu |
 | akshare | A-shares, US, HK, futures, macro, forex | No | Unrestricted | akshare |
 | yfinance | US stocks, HK stocks, ETFs, indices | No | Needs Yahoo Finance access | yfinance |
-| okx | Crypto (OKX exchange) | No | Needs okx.com access | okx-market |
+| finnhub | US stocks | Yes (`FINNHUB_API_KEY`) | Unrestricted | — |
+| tiingo | US stocks | Yes (`TIINGO_API_KEY`) | Unrestricted | — |
+| okx | Crypto (OKX exchange) | No (optional key) | Needs okx.com access | okx-market |
 | ccxt | Crypto (100+ exchanges) | No | Needs exchange access | ccxt |
 | coingecko | Crypto (market cap, trending) | No | Unrestricted | coingecko |
 | twelvedata | Global (all markets) | Yes (`TWELVE_DATA_API_KEY`) | Unrestricted | twelvedata |
@@ -42,7 +48,7 @@ You do NOT need to specify a concrete data source in config.json unless the user
 1. Identify the market type from the user's request
 2. Pick the source by priority:
 
-**A-shares**: tushare (if TUSHARE_TOKEN is set) > tencent (fast, free) > twelvedata (if key set) > akshare (free fallback)
+**A-shares**: mootdx (TCP, free, fastest) > eastmoney (HTTP K-line, stable) > tencent (real-time, free) > baidu (K-line + sector) > tushare (if TUSHARE_TOKEN is set) > twelvedata (if key set) > akshare (free fallback)
 
 **US stocks**: yfinance > twelvedata (if key set) > finnhub (if key set) > akshare
 
@@ -91,9 +97,10 @@ Use the `financial_news` Agent tool or `NewsFetcher` class:
 
 ### Availability Check
 
+- **mootdx / eastmoney / baidu / tencent / coingecko**: free, no auth, internet required
 - **tushare**: check if `TUSHARE_TOKEN` environment variable exists
-- **twelvedata**: check if `TWELVE_DATA_API_KEY` environment variable exists
-- **tencent / coingecko / sentiment**: free, no auth, internet required
+- **twelvedata / finnhub / tiingo**: check if respective API key environment variable exists
+- **futu**: requires FutuOpenD running locally (gateway to Futu broker)
 - **yfinance / okx / ccxt / akshare**: free but may have network restrictions
 - If the user reports "connection timeout" or "cannot access", switch to the same-market fallback
 
@@ -115,7 +122,7 @@ Use the `financial_news` Agent tool or `NewsFetcher` class:
 The backtest runner implements automatic fallback at the market level:
 
 ```
-A_share:   tushare → tencent → twelvedata → akshare
+A_share:   mootdx → tushare → eastmoney → tencent → futu → baidu → twelvedata → akshare
 US_equity: yfinance → twelvedata → finnhub → akshare
 HK_equity: yfinance → futu → tencent → twelvedata → akshare
 Crypto:    okx → ccxt → coingecko
