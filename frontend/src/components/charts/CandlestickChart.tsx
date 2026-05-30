@@ -259,7 +259,7 @@ export function CandlestickChart({ data, markers, indicators, height = 500 }: Pr
   }
 
   return (
-    <div className="border rounded-xl bg-card overflow-hidden flex flex-col">
+    <div className="border rounded-xl bg-card overflow-hidden flex flex-col h-full">
       <div className="flex items-center gap-2 px-2 py-1 flex-wrap shrink-0">
         {/* Time range */}
         <div className="flex gap-0.5">
@@ -309,7 +309,7 @@ export function CandlestickChart({ data, markers, indicators, height = 500 }: Pr
           ))}
         </div>
       </div>
-      <div ref={containerRef} className="flex-1 min-h-0" />
+      <div ref={containerRef} className="flex-1" style={{ minHeight: 200 }} />
     </div>
   );
 }

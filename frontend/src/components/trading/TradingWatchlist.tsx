@@ -133,8 +133,10 @@ export function TradingWatchlist({ selectedSymbol, onSelect }: Props) {
                 )}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-xs font-medium truncate">{item.name || item.symbol}</div>
-                  <div className="text-[10px] text-muted-foreground font-mono">{item.symbol}</div>
+                  <div className="text-sm font-semibold truncate">{item.name && item.name !== item.symbol ? item.name : item.symbol}</div>
+                  {item.name && item.name !== item.symbol && (
+                    <div className="text-[10px] text-muted-foreground font-mono">{item.symbol}</div>
+                  )}
                 </div>
                 <div className="text-right shrink-0">
                   <div className={cn(
