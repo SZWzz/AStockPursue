@@ -79,8 +79,8 @@ export function MinuteLineChart({ data, preClose, symbol, height = 500 }: Props)
         },
         axisPointer: { link: [{ xAxisIndex: "all" }] },
         grid: [
-          { left: 8, right: 8, top: 16, height: "62%", containLabel: false },
-          { left: 8, right: 8, top: "78%", height: "16%", containLabel: false },
+          { left: 52, right: 8, top: 16, height: "62%", containLabel: false },
+          { left: 52, right: 8, top: "78%", height: "16%", containLabel: false },
         ],
         xAxis: [
           {
@@ -161,7 +161,7 @@ export function MinuteLineChart({ data, preClose, symbol, height = 500 }: Props)
               color: (params: { dataIndex: number }) => {
                 const p = prices[params.dataIndex];
                 const prev = params.dataIndex > 0 ? prices[params.dataIndex - 1] : pc;
-                return p >= (prev ?? p) ? theme.upColor + "66" : theme.downColor + "66";
+                return p >= (prev ?? p) ? theme.upColor + "99" : theme.downColor + "99";
               },
               borderRadius: [1, 1, 0, 0],
             },
@@ -198,14 +198,14 @@ export function MinuteLineChart({ data, preClose, symbol, height = 500 }: Props)
   }
 
   return (
-    <div className="border rounded-xl bg-card overflow-hidden">
+    <div className="border rounded-xl bg-card overflow-hidden flex flex-col h-full">
       {/* Header */}
       {preClose && data.length > 0 && (() => {
         const last = data[data.length - 1].price;
         const chg = ((last - preClose) / preClose * 100);
         const isUp = chg >= 0;
         return (
-          <div className="flex items-center gap-3 px-3 py-2 border-b text-xs">
+          <div className="flex items-center gap-3 px-3 py-2 border-b text-xs shrink-0">
             {symbol && <span className="font-mono font-medium">{symbol}</span>}
             <span className={cn("font-mono text-sm font-bold", isUp ? "text-up" : "text-down")}>
               {last.toFixed(2)}
@@ -217,7 +217,7 @@ export function MinuteLineChart({ data, preClose, symbol, height = 500 }: Props)
           </div>
         );
       })()}
-      <div ref={containerRef} style={{ height: height - (preClose ? 36 : 0) }} />
+      <div ref={containerRef} className="flex-1" style={{ minHeight: 200 }} />
     </div>
   );
 }
