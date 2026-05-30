@@ -789,6 +789,26 @@ const en = {
   ptDailyReturn: "当日收益", ptCumulativeReturn: "累计收益",
   ptAnnualReturn: "年化收益", ptMaxDrawdown: "最大回撤",
   ptTabLog: "日志", ptTabStats: "统计", ptReturnShort: "收益",
+  // Trading Dashboard
+  trading: "Trading",
+  tradingSearchStock: "Search stocks...",
+  tradingMinuteLine: "Minute", tradingKline: "K-line",
+  tradingPreClose: "Prev Close", tradingAvgPrice: "VWAP",
+  tradingSelectDate: "Select date",
+  tradingOrderPanel: "Orders", tradingOrderActive: "Active", tradingOrderHistory: "History",
+  tradingOrderSideBuy: "Buy", tradingOrderSideSell: "Sell",
+  tradingOrderTypeMarket: "Market", tradingOrderTypeLimit: "Limit",
+  tradingBroker: "Broker", tradingBrokerConnected: "Futu Connected",
+  tradingBrokerDisconnected: "Futu Disconnected",
+  tradingBrokerAccount: "Account", tradingBrokerPositions: "Positions",
+  tradingNotify: "Notify", tradingNotifyEnabled: "Enable Notifications",
+  tradingNotifyChannel: "Add Channel", tradingNotifyTest: "Test",
+  tradingOptimize: "Optimize", tradingOptimizeRun: "Run Optimize",
+  tradingOptimizeMethodGrid: "Grid", tradingOptimizeMethodRandom: "Random",
+  tradingOptimizeMethodBayesian: "Bayesian", tradingOptimizeResult: "Optimize Result",
+  tradingIndices: "Indices", tradingEditIndices: "Edit Indices",
+  tradingNews: "News", tradingNoSymbol: "Select a stock from the watchlist",
+  tradingCancelOrder: "Cancel",
 } as const;
 
 const zh: Messages = {
@@ -1580,6 +1600,26 @@ const zh: Messages = {
   ptDailyReturn: "Daily Return", ptCumulativeReturn: "Cumulative Return",
   ptAnnualReturn: "Annual Return", ptMaxDrawdown: "Max Drawdown",
   ptTabLog: "Log", ptTabStats: "Stats", ptReturnShort: "Return",
+  // Trading Dashboard
+  trading: "交易",
+  tradingSearchStock: "搜索股票代码或名称…",
+  tradingMinuteLine: "分时", tradingKline: "K线",
+  tradingPreClose: "昨收", tradingAvgPrice: "均价",
+  tradingSelectDate: "选择日期",
+  tradingOrderPanel: "下单", tradingOrderActive: "活跃订单", tradingOrderHistory: "历史订单",
+  tradingOrderSideBuy: "买入", tradingOrderSideSell: "卖出",
+  tradingOrderTypeMarket: "市价", tradingOrderTypeLimit: "限价",
+  tradingBroker: "券商", tradingBrokerConnected: "富途已连接",
+  tradingBrokerDisconnected: "富途未连接",
+  tradingBrokerAccount: "账户", tradingBrokerPositions: "持仓",
+  tradingNotify: "通知", tradingNotifyEnabled: "启用通知",
+  tradingNotifyChannel: "添加渠道", tradingNotifyTest: "测试",
+  tradingOptimize: "优化", tradingOptimizeRun: "运行优化",
+  tradingOptimizeMethodGrid: "网格搜索", tradingOptimizeMethodRandom: "随机搜索",
+  tradingOptimizeMethodBayesian: "贝叶斯优化", tradingOptimizeResult: "优化结果",
+  tradingIndices: "指数", tradingEditIndices: "编辑指数",
+  tradingNews: "资讯", tradingNoSymbol: "请从左侧自选股选择一个标的",
+  tradingCancelOrder: "撤单",
 };
 
 type Messages = Record<keyof typeof en, string>;

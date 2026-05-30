@@ -23,7 +23,7 @@ agents:
 
       Use load_skill to access data query methods; prioritize using tools to obtain the latest data to support the analysis.
     tools: [bash, read_file, write_file, load_skill, read_url]
-    skills: [tushare, okx-market, yfinance, web-reader, global-macro]
+    skills: [mootdx, eastmoney, tencent, tushare, okx-market, yfinance, web-reader, global-macro]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -48,7 +48,7 @@ agents:
 
       Use the factor_analysis tool for factor-based analysis to support judgments.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
-    skills: [tushare, yfinance, fundamental-filter, multi-factor, us-etf-flow, sector-rotation]
+    skills: [mootdx, tushare, yfinance, fundamental-filter, multi-factor, us-etf-flow, sector-rotation]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1
@@ -74,7 +74,7 @@ agents:
       Always use load_skill("strategy-generate") for strategy writing standards.
       Use the backtest tool to validate the historical performance of stock selection logic.
     tools: [bash, read_file, write_file, load_skill, backtest, factor_analysis]
-    skills: [tushare, yfinance, strategy-generate, technical-basic, multi-factor, earnings-revision]
+    skills: [mootdx, tushare, yfinance, strategy-generate, technical-basic, multi-factor, earnings-revision]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1

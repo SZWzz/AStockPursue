@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026.5.30 (Dashboard)
+
+### Added
+
+- **交易 Dashboard** (`/trading`) — 全新的交易统一界面，左侧搜索+自选股 + 右侧 K 线/分时图 + 底部多功能面板
+  - **股票搜索框**：自选股顶部嵌入 `StockInput` 组件，支持代码/名称/拼音搜索，选中即加入自选股，10s 自动刷新实时价格
+  - **分时图** (`MinuteLineChart`)：基于 MooTDX 分时数据的 ECharts 组件，价格折线+渐变填充+成交量柱+昨收虚线+十字光标 tooltip，支持午休遮罩区域
+  - **K 线/分时一键切换**：图表区模式切换，分时模式下显示日期选择器
+  - **12 个 API 端点**：`GET /stock/minute-line`（分时图数据）+ 11 个 trading 端点（OMS 下单/券商状态/通知配置/参数优化 SSE/WS行情/指数配置/研报资讯）
+- **多用户数据隔离** — 3 层安全加固
+  - **订单 PostgreSQL 持久化**：`vt_trading_orders` 表，参数化 SQL，`WHERE user_id=%s` 全量过滤，服务重启不丢失
+  - **券商上下文隔离**：`OpenSecTradeContext` 按 `user_id` 缓存，不同用户可连接不同 FutuOpenD 实例
+  - **WS 订阅隔离**：每个用户独立 `set[str]` 订阅列表，互不干扰
+  - 通知/指数/优化任务均按用户 JSON 文件或 job ownership 校验隔离
+- **DB 迁移** — `migrations/004_trading_orders.sql`，`run_trading_migration()` 启动时自动建表
+
+### Changed
+
+- **i18n 扩展** — 新增 ~27 个 trading 相关翻译键（中英双语），覆盖搜索/图表/下单/券商/通知/优化全界面
+- **导航扩展** — 侧边栏新增「交易」导航入口（BarChart3 图标），路由 `/trading` 懒加载
+- **API 类型扩展** — `types/api.ts` 新增 12 个 TS 接口（MinuteBar/MinuteLineData/TradingOrder/BrokerStatus/NotifyConfig 等）
+- **API 客户端扩展** — `lib/api.ts` 新增 15 个 API 方法（getMinuteLine/listOrders/getBrokerStatus 等）
+
 ## 2026.5.30
 
 ### Added

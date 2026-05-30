@@ -143,6 +143,8 @@ async def _run_startup_preflight() -> None:
         run_paper_trading_migration()
         from papertrade.repository import PaperTradeRepository
         PaperTradeRepository().mark_stopped_on_startup()
+        from src.db.pool import run_trading_migration
+        run_trading_migration()
     except Exception as e:
         console.print(f"[yellow]PG init skipped:[/yellow] {e}")
 
@@ -287,6 +289,9 @@ v1.include_router(create_auth_router(require_auth))
 
 from src.api.system_routes import create_router as create_system_router  # noqa: E402
 v1.include_router(create_system_router(require_auth))
+
+from src.api.trading_routes import router as trading_router  # noqa: E402
+v1.include_router(trading_router, dependencies=[Depends(require_auth)])
 
 app.include_router(v1)
 

@@ -24,7 +24,7 @@ agents:
       Use load_skill for Tushare data patterns, Northbound flow analysis, and fundamental screening.
       Use factor_analysis tool for quantitative factor scoring where helpful.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
-    skills: [tushare, technical-basic, fundamental-filter, hk-connect-flow, sector-rotation, multi-factor]
+    skills: [mootdx, tushare, technical-basic, fundamental-filter, hk-connect-flow, sector-rotation, multi-factor]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1

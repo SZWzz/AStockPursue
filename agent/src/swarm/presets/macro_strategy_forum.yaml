@@ -99,7 +99,7 @@ agents:
 
       Prefer fresh macro data via Tushare patterns; every judgment needs a data hook.
     tools: [bash, read_file, write_file, load_skill, read_url]
-    skills: [macro-analysis, tushare]
+    skills: [mootdx, macro-analysis, tushare]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1

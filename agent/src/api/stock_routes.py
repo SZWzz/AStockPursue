@@ -1,11 +1,13 @@
-"""Stock symbol search / autocomplete API."""
+"""Stock symbol search / autocomplete API avec minute-line data."""
 
 from __future__ import annotations
 
 import json
 import logging
+from datetime import date as date_type
 from pathlib import Path
 
+import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from src.auth.dependencies import require_auth
@@ -179,3 +181,99 @@ async def get_ohlcv(
         for idx, row in df.iterrows()
     ]
     return {"symbol": symbol, "bars": bars, "source": source}
+
+
+@router.get("/minute-line")
+async def get_minute_line(
+    symbol: str = Query(..., description="A-share symbol e.g. 600519.SH"),
+    date: str = Query("", description="Trading date YYYY-MM-DD, defaults to today"),
+    user: dict = Depends(require_auth),
+):
+    """Fetch 分时图 minute-line data for an A-share stock on a single trading day.
+
+    Returns per-minute price, volume, and amount. Non-trading days return
+    ``available: false``.
+    """
+    user_id = user["user_id"]
+    try:
+        from src.auth.user_config import load_user_config
+        load_user_config(user_id)
+    except Exception:
+        pass
+
+    # Resolve date
+    if not date:
+        date = pd.Timestamp.now().strftime("%Y-%m-%d")
+
+    # Validate symbol is A-share
+    upper = symbol.strip().upper()
+    if not (upper.endswith(".SH") or upper.endswith(".SZ") or upper.endswith(".BJ")):
+        return {
+            "symbol": upper,
+            "date": date,
+            "available": False,
+            "reason": "分时图目前仅支持 A 股（.SH / .SZ / .BJ）",
+            "minutes": [],
+        }
+
+    # Check if date is a weekend
+    ts = pd.Timestamp(date)
+    if ts.dayofweek >= 5:
+        return {
+            "symbol": upper,
+            "date": date,
+            "available": False,
+            "reason": "周末休市",
+            "minutes": [],
+        }
+
+    try:
+        from backtest.loaders.mootdx_loader import DataLoader
+
+        loader = DataLoader()
+        if not loader.is_available():
+            return {
+                "symbol": upper,
+                "date": date,
+                "available": False,
+                "reason": "MooTDX 数据源不可用（请安装 mootdx 包）",
+                "minutes": [],
+            }
+
+        df = loader.fetch_minute_line(upper, date)
+    except Exception as e:
+        logger.warning("minute-line fetch failed for %s on %s: %s", upper, date, e)
+        raise HTTPException(status_code=500, detail=f"分时数据获取失败: {e}")
+
+    if df is None or df.empty:
+        return {
+            "symbol": upper,
+            "date": date,
+            "available": False,
+            "reason": "非交易日或无分时数据（TDX 仅保留最近 5-10 个交易日）",
+            "minutes": [],
+        }
+
+    # Compute pre-close from first price (or try to get from OHLCV)
+    pre_close = None
+    try:
+        pre_close = round(float(df["price"].iloc[0]), 2)
+    except Exception:
+        pass
+
+    minutes = []
+    for idx, row in df.iterrows():
+        minutes.append({
+            "time": str(idx).split(" ")[-1][:5] if " " in str(idx) else str(idx)[:5],
+            "price": round(float(row["price"]), 2),
+            "volume": int(row.get("volume", 0)),
+            "amount": round(float(row.get("amount", 0)), 2),
+        })
+
+    return {
+        "symbol": upper,
+        "date": date,
+        "available": True,
+        "preClose": pre_close,
+        "minutes": minutes,
+    }

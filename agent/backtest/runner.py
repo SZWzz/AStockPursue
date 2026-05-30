@@ -46,7 +46,7 @@ logger = logging.getLogger(__name__)
 
 _VALID_INTERVALS = {"1m", "5m", "15m", "30m", "1H", "4H", "1D"}
 _VALID_ENGINES = {"daily", "options"}
-_VALID_SOURCES = {"tushare", "okx", "yfinance", "akshare", "ccxt", "auto"}
+_VALID_SOURCES = {"mootdx", "eastmoney", "tencent", "baidu", "tushare", "okx", "yfinance", "akshare", "ccxt", "twelvedata", "finnhub", "futu", "coingecko", "global_indices", "commodities", "auto"}
 
 
 class BacktestConfigSchema(BaseModel):
@@ -260,12 +260,12 @@ def _validate_signal_engine_source(file_path: Path) -> None:
 
 # Back-compat: market type -> legacy source name (for engine selection & metrics)
 _MARKET_TO_SOURCE = {
-    "a_share": "tushare",
+    "a_share": "mootdx",
     "us_equity": "yfinance",
     "hk_equity": "yfinance",
     "crypto": "okx",
-    "futures": "tushare",
-    "fund": "tushare",
+    "futures": "mootdx",
+    "fund": "mootdx",
     "macro": "akshare",
     "forex": "akshare",
 }
@@ -278,10 +278,10 @@ def _detect_source(code: str) -> str:
         code: Ticker / symbol string.
 
     Returns:
-        Source name (tushare/okx/yfinance/akshare).
+        Source name (mootdx/yfinance/okx/ccxt/...).
     """
     market = _detect_market(code)
-    return _MARKET_TO_SOURCE.get(market, "tushare")
+    return _MARKET_TO_SOURCE.get(market, "mootdx")
 
 
 def _group_codes_by_market(codes: List[str]) -> Dict[str, List[str]]:
@@ -320,7 +320,7 @@ def _get_loader(source: str):
     """Return a DataLoader class for a source name, with fallback.
 
     Args:
-        source: Source name (tushare/okx/yfinance/akshare/ccxt).
+        source: Source name (mootdx/eastmoney/tencent/baidu/tushare/yfinance/akshare/okx/ccxt/...).
 
     Returns:
         DataLoader class.
@@ -632,7 +632,7 @@ def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
         try:
             loader = resolve_loader(market)
         except NoAvailableSourceError as exc:
-            legacy_src = _MARKET_TO_SOURCE.get(market, "tushare")
+            legacy_src = _MARKET_TO_SOURCE.get(market, "mootdx")
             logger.warning("Fallback chain failed for %s: %s — trying %s", market, exc, legacy_src)
             try:
                 LoaderCls = _get_loader(legacy_src)

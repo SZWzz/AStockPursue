@@ -66,7 +66,7 @@ agents:
       Use load_skill("etf-analysis") for ETF research methodology; load_skill("fund-analysis") for fund product evaluation; load_skill("tushare") for A-share ETF data.
       Use the factor_analysis tool for ETF tracking error and factor exposure analysis.
     tools: [bash, read_file, write_file, load_skill, factor_analysis]
-    skills: [etf-analysis, fund-analysis, tushare]
+    skills: [etf-analysis, fund-analysis, mootdx, tushare]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1

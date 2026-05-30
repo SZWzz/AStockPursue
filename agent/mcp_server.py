@@ -148,12 +148,24 @@ def backtest(run_dir: str) -> str:
     - code/signal_engine.py: strategy signal generation code
 
     Supported data sources (set in config.json "source" field):
-    - "yfinance": HK/US equities (free, no API key needed)
+    - "mootdx": China A-shares via TDX TCP (free, fastest, no API key) — RECOMMENDED for A-shares
+    - "eastmoney": China A-shares via HTTP K-line (free, stable, no API key)
+    - "tencent": China A-shares, HK stocks (free, real-time, no API key)
+    - "baidu": China A-shares (free, K-line with MA, no API key)
+    - "tushare": China A-shares, funds, futures, macro (requires TUSHARE_TOKEN)
+    - "yfinance": US stocks, HK stocks, ETFs, indices (free)
+    - "akshare": A-shares, US, HK, futures, forex, macro (free)
     - "okx": cryptocurrency (free, no API key needed)
-    - "tushare": China A-shares (requires TUSHARE_TOKEN env var)
-    - "akshare": A-shares, US, HK, futures, forex (free, no API key)
     - "ccxt": crypto from 100+ exchanges (free, no API key)
-    - "auto": auto-detect based on symbol format (with fallback)
+    - "twelvedata": global all-markets (requires TWELVE_DATA_API_KEY)
+    - "finnhub": US stocks (requires FINNHUB_API_KEY)
+    - "futu": A-shares, HK stocks (requires FutuOpenD running locally)
+    - "coingecko": crypto market cap & trending (free, no API key)
+    - "global_indices": global stock indices via yfinance (free)
+    - "commodities": metals, energy, agricultural via yfinance (free)
+    - "auto": auto-detect based on symbol format with market-level fallback chains
+
+    The auto source routes A-shares through: mootdx → tushare → eastmoney → tencent → futu → baidu → twelvedata → akshare.
 
     Returns metrics (Sharpe, return, drawdown, etc.) and artifact paths.
 
@@ -191,7 +203,7 @@ def factor_analysis(
         factor_name: Factor column name in daily_basic data (e.g. "pe_ttm", "pb", "turnover_rate").
         start_date: Start date (YYYY-MM-DD).
         end_date: End date (YYYY-MM-DD).
-        source: Data source ("tushare", "yfinance", "auto").
+        source: Data source ("mootdx", "tushare", "yfinance", "akshare", "auto").
         top_n: Number of top-ranked stocks per period.
         bottom_n: Number of bottom-ranked stocks per period.
     """
@@ -442,7 +454,7 @@ def run_swarm(preset_name: str, variables: dict[str, str]) -> str:
 DEFAULT_MAX_ROWS = 250
 
 _SOURCE_PATTERNS = [
-    (re.compile(r"^\d{6}\.(SZ|SH|BJ)$", re.I), "tushare"),
+    (re.compile(r"^\d{6}\.(SZ|SH|BJ)$", re.I), "mootdx"),  # A-shares: mootdx is free, fastest, no auth
     (re.compile(r"^[A-Z]+\.US$", re.I), "yfinance"),
     (re.compile(r"^\d{3,5}\.HK$", re.I), "yfinance"),
     (re.compile(r"^[A-Z]+-USDT$", re.I), "okx"),
@@ -454,7 +466,7 @@ def _detect_source(code: str) -> str:
     for pattern, source in _SOURCE_PATTERNS:
         if pattern.match(code):
             return source
-    return "tushare"
+    return "mootdx"
 
 
 def _get_loader(source: str):
@@ -506,18 +518,28 @@ def get_market_data(
     """Fetch OHLCV market data for stocks, crypto, or mixed symbols.
 
     Supported sources:
-    - "yfinance": HK/US equities (free, e.g. AAPL.US, 700.HK)
-    - "okx": cryptocurrency (free, e.g. BTC-USDT, ETH-USDT)
+    - "mootdx": China A-shares via TDX TCP (free, fastest, no API key, e.g. 000001.SZ, 600519.SH) — RECOMMENDED for A-shares
+    - "eastmoney": China A-shares via HTTP K-line (free, stable, no API key)
+    - "tencent": China A-shares, HK stocks (free, real-time, no API key)
+    - "baidu": China A-shares (free, K-line with MA, no API key)
     - "tushare": China A-shares (requires TUSHARE_TOKEN, e.g. 000001.SZ)
+    - "yfinance": HK/US equities (free, e.g. AAPL.US, 700.HK)
     - "akshare": A-shares, US, HK, futures, forex (free, e.g. 000001.SZ, AAPL.US)
+    - "okx": cryptocurrency (free, e.g. BTC-USDT, ETH-USDT)
     - "ccxt": crypto from 100+ exchanges (free, e.g. BTC/USDT)
-    - "auto": auto-detect based on symbol format (with fallback)
+    - "twelvedata": global all-markets (requires TWELVE_DATA_API_KEY)
+    - "finnhub": US stocks (requires FINNHUB_API_KEY)
+    - "futu": A-shares, HK stocks (requires FutuOpenD running locally)
+    - "coingecko": crypto market cap & trending (free)
+    - "global_indices": global stock indices via yfinance (free)
+    - "commodities": metals, energy, agricultural via yfinance (free)
+    - "auto": auto-detect based on symbol format with market-level fallback chains
 
     Args:
         codes: List of symbols (e.g. ["AAPL.US", "BTC-USDT", "000001.SZ"]).
         start_date: Start date (YYYY-MM-DD).
         end_date: End date (YYYY-MM-DD).
-        source: Data source ("auto", "yfinance", "okx", "tushare", "akshare", "ccxt").
+        source: Data source ("auto", "mootdx", "eastmoney", "tencent", "baidu", "tushare", "yfinance", "akshare", "okx", "ccxt", "twelvedata", "finnhub", "futu", "coingecko", "global_indices", "commodities").
         interval: Bar size (1m/5m/15m/30m/1H/4H/1D, default "1D").
         max_rows: Per-symbol row cap (default 250) so the response stays
             within the MCP token budget. A symbol exceeding it returns an

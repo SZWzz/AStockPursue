@@ -88,7 +88,7 @@ agents:
 
       Use load_skill("tushare"), load_skill("sentiment-analysis").
     tools: [bash, read_file, write_file, load_skill]
-    skills: [tushare, sentiment-analysis]
+    skills: [mootdx, tushare, sentiment-analysis]
     max_iterations: 50
     timeout_seconds: 1800
     max_retries: 1

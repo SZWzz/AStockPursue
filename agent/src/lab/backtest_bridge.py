@@ -88,7 +88,7 @@ def fetch_ohlcv(
         symbol: e.g. "BTC/USDT", "AAPL", "600519.SH"
         start_date: ISO date string.
         end_date: ISO date string.
-        source: "auto", "yfinance", "okx", "tushare", "akshare", "ccxt".
+        source: "auto", "mootdx", "eastmoney", "tencent", "baidu", "tushare", "yfinance", "okx", "akshare", "ccxt", "twelvedata", "finnhub", "futu", "coingecko", "global_indices", "commodities".
         interval: "1D", "1H", "4H" etc.
 
     Returns:

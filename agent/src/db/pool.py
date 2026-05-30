@@ -218,7 +218,9 @@ def _ensure_admin_user() -> None:
 
 
 _PAPER_TRADING_MIGRATION_PATH = _MIGRATIONS_PATH.parent / "002_paper_trading.sql"
+_TRADING_MIGRATION_PATH = _MIGRATIONS_PATH.parent / "004_trading_orders.sql"
 _paper_migration_applied = False
+_trading_migration_applied = False
 
 
 def init_database() -> None:
@@ -284,4 +286,32 @@ def run_paper_trading_migration() -> None:
             _paper_migration_applied = True
     except Exception as e:
         logger.error("Paper trading migration failed: %s", e)
+        raise
+
+
+def run_trading_migration() -> None:
+    """Execute trading-orders migration (idempotent, safe to call repeatedly)."""
+    global _trading_migration_applied
+    if _trading_migration_applied:
+        return
+
+    skip = os.getenv("SKIP_AUTO_MIGRATE", "").lower() in ("1", "true", "yes")
+    if skip:
+        return
+
+    if not _TRADING_MIGRATION_PATH.exists():
+        logger.warning("Trading orders migration not found: %s", _TRADING_MIGRATION_PATH)
+        return
+
+    init_pool()
+
+    try:
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                sql_text = _TRADING_MIGRATION_PATH.read_text(encoding="utf-8")
+                cur.execute(sql_text)
+            logger.info("Trading orders migration completed")
+            _trading_migration_applied = True
+    except Exception as e:
+        logger.error("Trading orders migration failed: %s", e)
         raise

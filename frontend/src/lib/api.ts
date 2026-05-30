@@ -12,13 +12,23 @@ import type {
   AlphaSummary,
   ArtifactInfo,
   BacktestMetrics,
+  BrokerAccount,
+  BrokerStatus,
+  CreateOrderRequest,
   DataSourceLoaderStatus,
   DataSourceSettings,
   EquityPoint,
+  IndexItem,
   IndicatorPoint,
   LLMProviderOption,
   LLMSettings,
   MessageItem,
+  MinuteLineData,
+  NewsItem,
+  NotifyConfig,
+  OptimizeProgress,
+  OptimizeResult,
+  OptimizeRunRequest,
   PineScriptResult,
   PriceBar,
   RunCard,
@@ -29,10 +39,12 @@ import type {
   SwarmPreset,
   SwarmRunSummary,
   TradeMarker,
+  TradingOrder,
   UpdateDataSourceSettingsRequest,
   UpdateLLMSettingsRequest,
   UploadResult,
   ValidationData,
+  WSFeedStatus,
 } from "@/types/api";
 
 export type {
@@ -48,12 +60,22 @@ export type {
   AlphaSummary,
   ArtifactInfo,
   BacktestMetrics,
+  BrokerAccount,
+  BrokerStatus,
+  CreateOrderRequest,
   DataSourceSettings,
   EquityPoint,
+  IndexItem,
   IndicatorPoint,
   LLMProviderOption,
   LLMSettings,
   MessageItem,
+  MinuteLineData,
+  NewsItem,
+  NotifyConfig,
+  OptimizeProgress,
+  OptimizeResult,
+  OptimizeRunRequest,
   PineScriptResult,
   PriceBar,
   RunCard,
@@ -64,10 +86,12 @@ export type {
   SwarmPreset,
   SwarmRunSummary,
   TradeMarker,
+  TradingOrder,
   UpdateDataSourceSettingsRequest,
   UpdateLLMSettingsRequest,
   UploadResult,
   ValidationData,
+  WSFeedStatus,
 };
 
 const BASE = "/v1";
@@ -265,4 +289,44 @@ export const api = {
   deleteSkill: (name: string) => request<{ ok: boolean }>(`/settings/skills/${encodeURIComponent(name)}`, { method: "DELETE" }),
   getMcpSettings: () => request<{ service_name: string; transport: string; sse_port: number; shell_tools_enabled: boolean; config_path: string; install_cmd: string }>("/settings/mcp"),
   updateMcpSettings: (payload: Record<string, unknown>) => request<{ ok: boolean }>("/settings/mcp", { method: "PUT", body: JSON.stringify(payload) }),
+
+  // Stock minuteline (分时图)
+  getMinuteLine: (symbol: string, date?: string) => {
+    const params = new URLSearchParams({ symbol });
+    if (date) params.set("date", date);
+    return request<MinuteLineData>(`/stock/minute-line?${params}`);
+  },
+
+  // --- Trading Dashboard ---
+
+  // Orders
+  listOrders: (status = "") => request<{ orders: TradingOrder[] }>(`/trading/orders${status ? `?status=${status}` : ""}`),
+  createOrder: (body: CreateOrderRequest) => request<{ ok: boolean; order: TradingOrder }>("/trading/orders", { method: "POST", body: JSON.stringify(body) }),
+  cancelOrder: (orderId: number) => request<{ ok: boolean; order: TradingOrder }>(`/trading/orders/${orderId}/cancel`, { method: "POST" }),
+
+  // Broker
+  getBrokerStatus: () => request<BrokerStatus>("/trading/broker/status"),
+  getBrokerAccount: () => request<BrokerAccount>("/trading/broker/account"),
+  getBrokerPositions: () => request<{ positions: Record<string, unknown>[]; error?: string }>("/trading/broker/positions"),
+
+  // Notify
+  getNotifyConfig: () => request<NotifyConfig>("/trading/notify/config"),
+  updateNotifyConfig: (config: NotifyConfig) => request<{ ok: boolean; config: NotifyConfig }>("/trading/notify/config", { method: "PUT", body: JSON.stringify(config) }),
+  testNotify: (channel: string, target: string) => request<{ ok: boolean; message?: string; error?: string }>("/trading/notify/test", { method: "POST", body: JSON.stringify({ channel, target }) }),
+
+  // Optimize
+  startOptimize: (body: OptimizeRunRequest) => request<{ ok: boolean; job_id: string }>("/trading/optimize/run", { method: "POST", body: JSON.stringify(body) }),
+  optimizeStreamUrl: (jobId: string) => withAuthQuery(`${BASE}/trading/optimize/${encodeURIComponent(jobId)}/stream`),
+  getOptimizeResult: (jobId: string) => request<OptimizeResult>(`/trading/optimize/${encodeURIComponent(jobId)}/result`),
+
+  // WS Feed
+  getWSFeedStatus: () => request<WSFeedStatus>("/trading/ws-feed/status"),
+  subscribeWSFeed: (symbols: string[]) => request<{ ok: boolean; symbols: string[] }>("/trading/ws-feed/subscribe", { method: "POST", body: JSON.stringify({ symbols }) }),
+
+  // Indices
+  getIndices: () => request<{ indices: IndexItem[] }>("/trading/indices"),
+  saveIndicesConfig: (indices: IndexItem[]) => request<{ ok: boolean }>("/trading/indices/config", { method: "POST", body: JSON.stringify({ indices }) }),
+
+  // News
+  getNews: (symbol: string, limit = 20) => request<{ symbol: string; articles: NewsItem[]; source: string }>(`/trading/news/${encodeURIComponent(symbol)}?limit=${limit}`),
 };

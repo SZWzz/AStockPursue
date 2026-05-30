@@ -384,3 +384,127 @@ export interface BenchHistoryDetail extends BenchHistoryItem {
   dead_examples: AlphaBenchTopRow[];
   meta: Record<string, unknown>;
 }
+
+// --- Minute-line (分时图) types ---
+
+export interface MinuteBar {
+  time: string;
+  price: number;
+  volume: number;
+  amount: number;
+}
+
+export interface MinuteLineData {
+  symbol: string;
+  date: string;
+  available: boolean;
+  reason?: string;
+  preClose?: number;
+  minutes: MinuteBar[];
+}
+
+// --- Trading Dashboard types ---
+
+export interface TradingOrder {
+  id: number;
+  user_id: number;
+  symbol: string;
+  side: "buy" | "sell";
+  order_type: "market" | "limit";
+  qty: number;
+  price: number;
+  status: "active" | "filled" | "cancelled";
+  created_at: string;
+  filled_qty: number;
+  avg_price: number;
+}
+
+export interface CreateOrderRequest {
+  symbol: string;
+  side: "buy" | "sell";
+  order_type: "market" | "limit";
+  qty: number;
+  price?: number;
+}
+
+export interface BrokerStatus {
+  connected: boolean;
+  host: string;
+  port: number;
+  error?: string;
+}
+
+export interface BrokerAccount {
+  available: boolean;
+  account?: Record<string, unknown>;
+  error?: string;
+}
+
+export interface BrokerPosition {
+  code?: string;
+  name?: string;
+  qty?: number;
+  cost_price?: number;
+  current_price?: number;
+  market_value?: number;
+  pnl?: number;
+  [key: string]: unknown;
+}
+
+export interface NotifyConfig {
+  enabled?: boolean;
+  channels?: NotifyChannel[];
+}
+
+export interface NotifyChannel {
+  type: string;
+  target: string;
+  enabled: boolean;
+}
+
+export interface OptimizeRunRequest {
+  method: "grid" | "random" | "bayesian";
+  params: Record<string, unknown>;
+  codes: string[];
+  strategy_code?: string;
+}
+
+export interface OptimizeProgress {
+  job_id: string;
+  progress: number;
+  status: string;
+  error?: string;
+}
+
+export interface OptimizeResult {
+  job_id: string;
+  status: string;
+  result?: {
+    best_params: Record<string, unknown>;
+    best_score: number;
+    iterations: number;
+    sharpe: number;
+    total_return: number;
+    max_drawdown: number;
+  } | null;
+}
+
+export interface IndexItem {
+  code: string;
+  name: string;
+  price: number;
+  change_pct: number;
+}
+
+export interface NewsItem {
+  title: string;
+  url: string;
+  source: string;
+  summary: string;
+  published_at: string;
+}
+
+export interface WSFeedStatus {
+  available: boolean;
+  error?: string;
+}

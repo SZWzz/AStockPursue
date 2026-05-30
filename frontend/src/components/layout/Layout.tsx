@@ -18,6 +18,7 @@ const NAV = [
   { to: "/indicator-lab", icon: FlaskConical, key: "indicatorLab" as const, label: null },
   { to: "/strategy-lab", icon: Target, key: "strategyLab" as const, label: null },
   { to: "/paper-trading", icon: TrendingUp, key: "paperTrading" as const, label: null },
+  { to: "/trading", icon: BarChart3, key: "trading" as const, label: null },
   { to: "/compare", icon: GitCompare, key: "compare" as const, label: null },
   { to: "/correlation", icon: BarChart3, key: "correlation" as const, label: null },
   { to: "/data-sources", icon: Database, key: "dataSources" as const, label: null },

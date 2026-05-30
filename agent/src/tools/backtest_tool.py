@@ -36,7 +36,7 @@ def run_backtest(run_dir: str) -> str:
         return json.dumps({"status": "error", "error": f"config.json parse error: {e}"}, ensure_ascii=False)
 
     if "source" not in config:
-        return json.dumps({"status": "error", "error": "config.json missing 'source' field (tushare/okx/yfinance)"}, ensure_ascii=False)
+        return json.dumps({"status": "error", "error": "config.json missing 'source' field (mootdx/eastmoney/tencent/baidu/tushare/yfinance/akshare/okx/ccxt/auto/...)"}, ensure_ascii=False)
 
     from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
     _ensure_registered()
