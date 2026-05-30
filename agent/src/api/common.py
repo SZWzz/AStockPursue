@@ -10,9 +10,10 @@ import os
 import re
 from datetime import datetime
 
-logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import HTTPException, Request, status
 from pydantic import BaseModel, Field

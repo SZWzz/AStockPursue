@@ -9,16 +9,16 @@ This module centralizes the data shaping needed by the frontend workbench:
 - (LocalApiManager removed – dead code)
 """
 
-import logging
-logger = logging.getLogger(__name__)
-
 from __future__ import annotations
 
 import csv
+import logging
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_ANALYSIS_PERIODS = [5, 20]
 
