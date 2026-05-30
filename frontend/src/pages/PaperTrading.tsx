@@ -256,7 +256,7 @@ export default function PaperTrading() {
       });
       const vData = await vRes.json();
       if (!vData.success) {
-        alert(`策略验证失败:\n${vData.error}`);
+        alert(t.ptStrategyVerifyFail.replace("{error}", vData.error));
         setCreating(false);
         return;
       }
@@ -337,7 +337,7 @@ export default function PaperTrading() {
             {selectedStrategy && (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary/5 border border-primary/20 text-sm">
                 <Check className="h-4 w-4 text-primary shrink-0" />
-                <span className="text-muted-foreground">已选策略：</span>
+                <span className="text-muted-foreground">{t.ptSelectedStrategy}：</span>
                 <span className="font-medium truncate">{selectedStrategy.name}</span>
                 <span className="text-muted-foreground text-xs font-mono">({selectedStrategy.id.slice(0, 12)})</span>
               </div>
@@ -374,7 +374,7 @@ export default function PaperTrading() {
             </div>
             <label className="flex items-center gap-2 text-xs cursor-pointer">
               <input type="checkbox" checked={autoStart} onChange={(e) => setAutoStart(e.target.checked)} className="rounded" />
-              部署后自动启动
+              {t.ptAutoStart}
             </label>
             <div className="flex gap-2 justify-end">
               <button className="px-4 py-1.5 border rounded-md text-sm" onClick={() => setShowDeploy(false)}>{t.ptCancel}</button>
@@ -437,7 +437,7 @@ export default function PaperTrading() {
                           className="mt-1.5 w-full flex items-center justify-center gap-1 py-1 text-[10px] rounded bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                           onClick={(e) => { e.stopPropagation(); handleQuickDeploy(s); }}
                         >
-                          <Rocket className="h-3 w-3" />快速部署
+                          <Rocket className="h-3 w-3" />{t.ptQuickDeploy}
                         </button>
                       </div>
                     );
@@ -483,10 +483,10 @@ export default function PaperTrading() {
         <div className="flex-1 flex flex-col min-w-0 min-w-[380px] border rounded-lg bg-card overflow-auto">
           {!selectedRun ? (
             <div className="flex flex-col h-full p-3 space-y-3">
-              <div className="text-xs font-medium text-muted-foreground">K 线预览</div>
+              <div className="text-xs font-medium text-muted-foreground">{t.ptKlinePreview}</div>
               <div className="flex gap-2 items-end flex-wrap">
                 <div className="flex-1 min-w-[100px]">
-                  <label className="text-[10px] text-muted-foreground">标的代码</label>
+                  <label className="text-[10px] text-muted-foreground">{t.ptSymbolCode}</label>
                   <StockInput
                     value={previewSymbol}
                     onChange={(v) => { setPreviewSymbol(v); if (v) handlePreviewFetch(v); }}
@@ -494,7 +494,7 @@ export default function PaperTrading() {
                   />
                 </div>
                 <button className="px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:opacity-90" onClick={() => handlePreviewFetch(previewSymbol || "600519.SH")}>
-                  {chartLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : "加载"}
+                  {chartLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : t.ptLoad}
                 </button>
                 <button className="px-3 py-1.5 text-xs rounded-md border hover:bg-muted" onClick={async () => {
                   try {
@@ -502,23 +502,23 @@ export default function PaperTrading() {
                     await runQuickBacktest(code, previewSymbol);
                   } catch (e) { setChartError(String(e)); }
                   finally { setChartLoading(false); }
-                }}>快速回测</button>
+                }}>{t.ptQuickBacktest}</button>
               </div>
               {btMetrics && Object.keys(btMetrics).length > 0 && (
                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] shrink-0">
-                  {btMetrics.total_return != null && <span>收益 <span className={`font-mono font-medium ${btMetrics.total_return >= 0 ? "text-up" : "text-down"}`}>{(btMetrics.total_return * 100).toFixed(2)}%</span></span>}
-                  {btMetrics.annual_return != null && <span>年化 <span className="font-mono font-medium">{(btMetrics.annual_return * 100).toFixed(2)}%</span></span>}
-                  {btMetrics.sharpe != null && <span>夏普 <span className="font-mono font-medium">{btMetrics.sharpe.toFixed(2)}</span></span>}
-                  {btMetrics.max_drawdown != null && <span>回撤 <span className="font-mono font-medium text-down">{(btMetrics.max_drawdown * 100).toFixed(2)}%</span></span>}
-                  {btMetrics.win_rate != null && <span>胜率 <span className="font-mono font-medium">{(btMetrics.win_rate * 100).toFixed(2)}%</span></span>}
-                  {btMetrics.trade_count != null && <span>交易 <span className="font-mono font-medium">{btMetrics.trade_count}</span></span>}
+                  {btMetrics.total_return != null && <span>{t.ptReturnShort} <span className={`font-mono font-medium ${btMetrics.total_return >= 0 ? "text-up" : "text-down"}`}>{(btMetrics.total_return * 100).toFixed(2)}%</span></span>}
+                  {btMetrics.annual_return != null && <span>{t.ptAnnualLabel} <span className="font-mono font-medium">{(btMetrics.annual_return * 100).toFixed(2)}%</span></span>}
+                  {btMetrics.sharpe != null && <span>{t.ptSharpeLabel} <span className="font-mono font-medium">{btMetrics.sharpe.toFixed(2)}</span></span>}
+                  {btMetrics.max_drawdown != null && <span>{t.ptDrawdownLabel} <span className="font-mono font-medium text-down">{(btMetrics.max_drawdown * 100).toFixed(2)}%</span></span>}
+                  {btMetrics.win_rate != null && <span>{t.ptWinRateLabel} <span className="font-mono font-medium">{(btMetrics.win_rate * 100).toFixed(2)}%</span></span>}
+                  {btMetrics.trade_count != null && <span>{t.ptTradeCountLabel} <span className="font-mono font-medium">{btMetrics.trade_count}</span></span>}
                 </div>
               )}
               {priceData.length > 0 ? (
                 <div className="relative">
                   {chartLoading && (
                     <div className="absolute top-1 right-2 z-10 flex items-center gap-1 text-[10px] text-muted-foreground bg-card/80 px-1.5 py-0.5 rounded">
-                      <Loader2 className="h-3 w-3 animate-spin" />更新中
+                      <Loader2 className="h-3 w-3 animate-spin" />{t.ptUpdating}
                     </div>
                   )}
                   <CandlestickChart data={priceData} markers={btTradeMarkers} height={320} />
@@ -528,7 +528,7 @@ export default function PaperTrading() {
               ) : (
                 <div className="flex flex-col items-center justify-center flex-1 text-sm text-muted-foreground gap-2">
                   <TrendingUp className="h-8 w-8 opacity-30" />
-                  <span>输入标的代码后点击「加载」查看 K 线</span>
+                  <span>输入{t.ptSymbolCode}后点击「加载」查看 K 线</span>
                 </div>
               )}
               {chartError && <div className="text-xs text-danger">{chartError}</div>}
@@ -540,13 +540,13 @@ export default function PaperTrading() {
                 <div>
                   <h2 className="text-sm font-bold">{selectedRun.run_name}</h2>
                   <p className="text-[10px] text-muted-foreground">
-                    {selectedRun.market} &middot; {sseConnected ? t.ptSseConnected : liveStore.sseStatus === "reconnecting" ? `重连中 (第${liveStore.reconnectCount}次, ${Math.ceil(liveStore.reconnectDelayMs / 1000)}s后)` : selectedRun.status}
+                    {selectedRun.market} &middot; {sseConnected ? t.ptSseConnected : liveStore.sseStatus === "reconnecting" ? t.ptReconnecting.replace("{n}", String(liveStore.reconnectCount)).replace("{s}", String(Math.ceil(liveStore.reconnectDelayMs / 1000))) : selectedRun.status}
                     {runStore.activeRunDetail?.data_source && <> &middot; {runStore.activeRunDetail.data_source}</>}
                   </p>
                 </div>
                 <button className="px-2 py-1 text-[10px] rounded border hover:bg-muted" onClick={() => {
                   if (selectedRun?.id) liveStore.fetchBars(selectedRun.id);
-                }}>刷新K线</button>
+                }}>{t.ptRefreshKline}</button>
               </div>
 
               {/* Return stats cards */}
@@ -559,10 +559,10 @@ export default function PaperTrading() {
                   const days = eq.length >= 2 ? (new Date(eq[eq.length - 1].point_time).getTime() - new Date(eq[0].point_time).getTime()) / 86400000 || 1 : 0;
                   const annReturn = days > 0 ? (Math.pow(1 + selectedRun.total_return_pct / 100, 365 / days) - 1) * 100 : null;
                   const items: [string, number | null, (v: number) => string][] = [
-                    ["当日收益", dailyReturn, (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`],
-                    ["累计收益", selectedRun.total_return_pct, (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`],
-                    ["年化收益", annReturn, (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`],
-                    ["最大回撤", maxDD, (v) => `${v.toFixed(2)}%`],
+                    [t.ptDailyReturn, dailyReturn, (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`],
+                    [t.ptCumulativeReturn, selectedRun.total_return_pct, (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`],
+                    [t.ptAnnualReturn, annReturn, (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`],
+                    [t.ptMaxDrawdown, maxDD, (v) => `${v.toFixed(2)}%`],
                   ];
                   return items.map(([label, value, fmt]) => value != null ? (
                     <div key={label} className="rounded-md bg-muted/30 p-2 text-center">
@@ -580,7 +580,7 @@ export default function PaperTrading() {
                 ) : runStore.detailLoading ? (
                   <div className="flex items-center justify-center h-36 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin mr-1" />Loading...</div>
                 ) : (
-                  <div className="flex items-center justify-center h-36 text-xs text-muted-foreground">暂无 K 线数据，等待交易日刷新...</div>
+                  <div className="flex items-center justify-center h-36 text-xs text-muted-foreground">{t.ptNoKline}</div>
                 )}
               </div>
 
@@ -593,7 +593,7 @@ export default function PaperTrading() {
               <div className="flex gap-1 border-b pb-1 overflow-x-auto">
                 {(["positions", "trades", "log", "stats", "risk"] as const).map((val) => (
                   <button key={val} className={`px-2 py-1 text-[10px] whitespace-nowrap border-b-2 transition-colors ${detailTab === val ? "border-blue-500 text-blue-600 font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`} onClick={() => setDetailTab(val)}>
-                    {{ positions: "持仓", trades: "成交", log: "日志", stats: "统计", risk: "风控" }[val]}
+                    {{ positions: t.ptPositions, trades: t.ptTrades, log: t.ptTabLog, stats: t.ptTabStats, risk: t.ptRiskConfig }[val]}
                   </button>
                 ))}
               </div>
@@ -601,12 +601,12 @@ export default function PaperTrading() {
               {detailTab === "trades" && <TradeHistoryTable trades={liveStore.recentTrades.length > 0 ? liveStore.recentTrades : (runStore.activeRunDetail?.recent_trades || [])} />}
               {detailTab === "log" && (
                 <div className="space-y-1 max-h-48 overflow-auto text-[10px]">
-                  {liveStore.signalLog.length === 0 && liveStore.recentTrades.length === 0 && <div className="text-muted-foreground text-center py-4">暂无日志，等待信号触发...</div>}
+                  {liveStore.signalLog.length === 0 && liveStore.recentTrades.length === 0 && <div className="text-muted-foreground text-center py-4">{t.ptNoLog}</div>}
                   {liveStore.signalLog.slice(-20).reverse().map((s, i) => (
                     <div key={i} className="flex gap-2 py-0.5 border-b border-border/30">
                       <span className="text-muted-foreground font-mono w-16 shrink-0">{s.timestamp?.slice(0, 16) || ""}</span>
                       <span className="font-mono">{s.symbol}</span>
-                      <span className={s.direction > 0 ? "text-up" : "text-down"}>{s.direction > 0 ? "做多" : "做空"}</span>
+                      <span className={s.direction > 0 ? "text-up" : "text-down"}>{s.direction > 0 ? "{t.ptLong}" : "{t.ptShort}"}</span>
                       <span className="text-muted-foreground">{s.reason}</span>
                     </div>
                   ))}
@@ -614,7 +614,7 @@ export default function PaperTrading() {
                     <div key={`t${i}`} className="flex gap-2 py-0.5 border-b border-border/30 bg-muted/20">
                       <span className="text-muted-foreground font-mono w-16 shrink-0">{t.exit_time?.slice(0, 16) || ""}</span>
                       <span className="font-mono">{t.symbol}</span>
-                      <span className={t.direction > 0 ? "text-up" : "text-down"}>{t.direction > 0 ? "平多" : "平空"}</span>
+                      <span className={t.direction > 0 ? "text-up" : "text-down"}>{t.direction > 0 ? "{t.ptLong}" : "{t.ptShort}"}</span>
                       <span className="font-mono font-medium">{t.pnl >= 0 ? "+" : ""}{t.pnl.toFixed(2)}</span>
                       <span className="text-muted-foreground">{t.exit_reason}</span>
                     </div>
@@ -633,7 +633,7 @@ export default function PaperTrading() {
                     const totalTrades = trades.length || 1;
                     return (
                       <div className="grid grid-cols-2 gap-2">
-                        {[["做多信号", longSig], ["做空信号", shortSig], ["胜率", `${(winTrades / totalTrades * 100).toFixed(1)}%`], ["总交易", trades.length], ["持仓中", (selectedRun?.open_positions || 0)], ["当前权益", selectedRun?.current_equity.toFixed(0) || "0"]].map(([l, v]) => (
+                        {[[t.ptLongSignal, longSig], [t.ptShortSignal, shortSig], [t.ptWinRate, `${(winTrades / totalTrades * 100).toFixed(1)}%`], [t.ptTotalTrades, trades.length], [t.ptOpenPositions, (selectedRun?.open_positions || 0)], [t.ptCurrentEquity, selectedRun?.current_equity.toFixed(0) || "0"]].map(([l, v]) => (
                           <div key={l as string} className="rounded bg-muted/20 p-2"><div className="text-muted-foreground text-[10px]">{l as string}</div><div className="font-mono font-medium">{String(v)}</div></div>
                         ))}
                       </div>
@@ -650,7 +650,7 @@ export default function PaperTrading() {
                     disabled={riskSaving || selectedRun.status === "running"}
                   >
                     {riskSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3" />}
-                    保存风控配置
+                    {t.ptSaveRiskConfig}
                   </button>
                 </div>
               )}

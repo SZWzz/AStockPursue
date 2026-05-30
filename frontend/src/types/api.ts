@@ -103,6 +103,15 @@ export interface UpdateDataSourceSettingsRequest {
   clear_tiingo?: boolean;
 }
 
+export interface DataSourceLoaderStatus {
+  name: string;
+  display: string;
+  markets: string[];
+  available: boolean;
+  requires_auth: boolean;
+  health?: { score?: number; avg_latency_ms?: number; consecutive_failures?: number };
+}
+
 // --- Run / chart types ---
 
 export interface RunListItem {

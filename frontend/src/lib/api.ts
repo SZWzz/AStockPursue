@@ -12,6 +12,7 @@ import type {
   AlphaSummary,
   ArtifactInfo,
   BacktestMetrics,
+  DataSourceLoaderStatus,
   DataSourceSettings,
   EquityPoint,
   IndicatorPoint,
@@ -199,7 +200,7 @@ export const api = {
       body: JSON.stringify(settings),
     }),
   getDataSourceSettings: () => request<DataSourceSettings>("/settings/data-sources"),
-  getDataSourceStatus: () => request<any>("/settings/data-source-status"),
+  getDataSourceStatus: () => request<{loaders: DataSourceLoaderStatus[]}>("/settings/data-source-status"),
   updateDataSourceSettings: (settings: UpdateDataSourceSettingsRequest) =>
     request<DataSourceSettings>("/settings/data-sources", {
       method: "PUT",

@@ -1,14 +1,7 @@
 import { useEffect, useState } from "react";
 import { Activity, CheckCircle, XCircle, AlertTriangle, RefreshCw, Database, Zap } from "lucide-react";
 import { api } from "@/lib/api";
-
-interface LoaderStatus {
-  name: string;
-  display: string;
-  market: string;
-  available: boolean;
-  requires_auth: boolean;
-}
+import type { DataSourceLoaderStatus } from "@/types/api";
 
 const MARKET_LABELS: Record<string, string> = {
   a_share: "A股",
@@ -24,14 +17,14 @@ const MARKET_LABELS: Record<string, string> = {
 };
 
 export default function DataSourceStatus() {
-  const [sources, setSources] = useState<LoaderStatus[]>([]);
+  const [sources, setSources] = useState<DataSourceLoaderStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastCheck, setLastCheck] = useState("");
 
   const fetchStatus = async () => {
     setLoading(true);
     try {
-      const res = await (api as any).getDataSourceStatus?.();
+      const res = await api.getDataSourceStatus();
       if (res?.loaders) {
         setSources(res.loaders);
       } else if (Array.isArray(res)) {
@@ -47,9 +40,9 @@ export default function DataSourceStatus() {
 
   useEffect(() => { fetchStatus(); }, []);
 
-  const grouped: Record<string, LoaderStatus[]> = {};
+  const grouped: Record<string, DataSourceLoaderStatus[]> = {};
   for (const s of sources) {
-    const m = s.market || "other";
+    const m = s.markets?.[0] || "other";
     if (!grouped[m]) grouped[m] = [];
     grouped[m].push(s);
   }
