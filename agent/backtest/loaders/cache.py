@@ -198,3 +198,96 @@ def cleanup_expired_cache(retention_days: int = 7) -> int:
     except Exception:
         logger.debug("Cache cleanup failed", exc_info=True)
         return 0
+
+
+# ── Minute-line cache ───────────────────────────────────────────────────────
+
+
+def query_minute_cache(code: str, trade_date: str) -> pd.DataFrame | None:
+    """Return cached minute bars for *code* on *trade_date*, or None."""
+    try:
+        with _get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT bar_time, price, volume, amount
+                    FROM minute_line_cache
+                    WHERE code = %s AND trade_date = %s
+                    ORDER BY bar_time ASC
+                    """,
+                    (code, trade_date),
+                )
+                rows = cur.fetchall()
+    except Exception:
+        logger.debug("Minute cache query failed for %s/%s", code, trade_date, exc_info=True)
+        return None
+
+    if not rows:
+        return None
+
+    df = pd.DataFrame(rows, columns=["time", "price", "volume", "amount"])
+    df["time"] = pd.to_datetime(trade_date + " " + df["time"])
+    df = df.set_index("time")
+    return df
+
+
+def write_minute_cache(code: str, trade_date: str, df: pd.DataFrame) -> int:
+    """Write minute bars into the cache (INSERT ... ON CONFLICT DO NOTHING).
+
+    *df* must have a datetime index and columns [price, volume].
+    *amount* is optional and defaults to 0.
+    """
+    if df is None or df.empty:
+        return 0
+
+    if "price" not in df.columns:
+        return 0
+
+    rows: list[tuple] = []
+    for idx, row in df.iterrows():
+        ts = idx if isinstance(idx, (datetime, pd.Timestamp)) else pd.Timestamp(idx)
+        bar_time = ts.strftime("%H:%M")
+        vol = float(row.get("volume", 0) or 0)
+        amt = float(row.get("amount", 0) or 0)
+        rows.append((code, trade_date, bar_time, float(row["price"]), vol, amt))
+
+    if not rows:
+        return 0
+
+    try:
+        with _get_connection() as conn:
+            with conn.cursor() as cur:
+                from psycopg2.extras import execute_values
+                execute_values(
+                    cur,
+                    """
+                    INSERT INTO minute_line_cache (code, trade_date, bar_time, price, volume, amount)
+                    VALUES %s
+                    ON CONFLICT (code, trade_date, bar_time) DO NOTHING
+                    """,
+                    rows,
+                    page_size=240,
+                )
+                return cur.rowcount
+    except Exception:
+        logger.debug("Minute cache write failed for %s/%s", code, trade_date, exc_info=True)
+        return 0
+
+
+def query_preclose_cache(code: str, trade_date: str) -> float | None:
+    """Return the previous trading day's close from ohlcv_cache, or None."""
+    try:
+        with _get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT close FROM ohlcv_cache
+                    WHERE code = %s AND interval = '1D' AND bar_date < %s
+                    ORDER BY bar_date DESC LIMIT 1
+                    """,
+                    (code, trade_date),
+                )
+                row = cur.fetchone()
+                return float(row[0]) if row else None
+    except Exception:
+        return None

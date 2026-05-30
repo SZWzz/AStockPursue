@@ -141,9 +141,10 @@ async def get_ohlcv(
     end_date: str = Query("2025-12-31", description="End date YYYY-MM-DD"),
     source: str = Query("auto", description="Data source: auto, tushare, yfinance, okx, akshare, etc."),
     interval: str = Query("1D", description="Bar interval: 1D, 1H, 4H, etc."),
+    refresh: bool = Query(False, description="Bypass cache and force re-fetch"),
     user: dict = Depends(require_auth),
 ):
-    """Fetch OHLCV price bars for a symbol."""
+    """Fetch OHLCV price bars for a symbol.  Uses PostgreSQL cache for 1D bars."""
     user_id = user["user_id"]
     try:
         from src.auth.user_config import load_user_config
@@ -151,24 +152,50 @@ async def get_ohlcv(
     except Exception:
         pass
 
-    try:
-        from src.lab.backtest_bridge import fetch_ohlcv
+    # ── Try cache first (1D only) ──────────────────────────────────────────
+    cached_source = ""
+    if not refresh and interval == "1D" and source in ("auto", "mootdx", "tushare", ""):
+        try:
+            from backtest.loaders.cache import query_cache, write_cache
+            df = query_cache(symbol, interval, start_date, end_date)
+            if df is not None and not df.empty:
+                cached_source = "cache"
+        except Exception:
+            df = None
+    else:
+        df = None
 
-        data_map = fetch_ohlcv(
-            symbol=symbol,
-            start_date=start_date,
-            end_date=end_date,
-            source=source,
-            interval=interval,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Data fetch failed: {e}")
+    # ── Fetch from source (with cache backfill) ────────────────────────────
+    if df is None or df.empty:
+        try:
+            from src.lab.backtest_bridge import fetch_ohlcv
 
-    if not data_map or symbol not in data_map or data_map[symbol].empty:
-        return {"symbol": symbol, "bars": [], "source": source}
+            data_map = fetch_ohlcv(
+                symbol=symbol,
+                start_date=start_date,
+                end_date=end_date,
+                source=source,
+                interval=interval,
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Data fetch failed: {e}")
 
-    import pandas as pd
-    df: pd.DataFrame = data_map[symbol]
+        if not data_map or symbol not in data_map or data_map[symbol].empty:
+            return {"symbol": symbol, "bars": [], "source": source}
+
+        import pandas as pd
+        df = data_map[symbol]
+
+        # Write to cache for future requests
+        if interval == "1D" and not refresh:
+            try:
+                write_cache(symbol, interval, df)
+            except Exception:
+                pass
+
+    if df.empty:
+        return {"symbol": symbol, "bars": [], "source": cached_source or source}
+
     bars = [
         {
             "time": str(idx),
@@ -180,13 +207,14 @@ async def get_ohlcv(
         }
         for idx, row in df.iterrows()
     ]
-    return {"symbol": symbol, "bars": bars, "source": source}
+    return {"symbol": symbol, "bars": bars, "source": cached_source or source}
 
 
 @router.get("/minute-line")
 async def get_minute_line(
     symbol: str = Query(..., description="A-share symbol e.g. 600519.SH"),
     date: str = Query("", description="Trading date YYYY-MM-DD, defaults to today"),
+    refresh: bool = Query(False, description="Bypass cache and force re-fetch from TDX"),
     user: dict = Depends(require_auth),
 ):
     """Fetch 分时图 minute-line data for an A-share stock on a single trading day.
@@ -195,6 +223,8 @@ async def get_minute_line(
     weekend or holiday the endpoint automatically walks backwards to find the
     most recent trading day and returns ``adjustedDate`` in the response so the
     frontend can update its picker.
+
+    Uses PostgreSQL cache (minute_line_cache) to avoid repeated TDX fetches.
     """
     user_id = user["user_id"]
     try:
@@ -218,60 +248,90 @@ async def get_minute_line(
             "minutes": [],
         }
 
+    # ── Try cache first ────────────────────────────────────────────────────
+    from backtest.loaders.cache import query_minute_cache, write_minute_cache, query_preclose_cache
     from backtest.loaders.mootdx_loader import DataLoader
-    loader = DataLoader()
-    if not loader.is_available():
-        return {
-            "symbol": upper,
-            "date": date,
-            "available": False,
-            "reason": "MooTDX 数据源不可用（请安装 mootdx 包）",
-            "minutes": [],
-        }
 
-    # Auto-walk backwards to find the last trading day.
-    # Weekends are skipped directly; holidays return empty data so we keep trying.
     original_date = date
     df = None
-    for _ in range(14):  # cover up to ~2 weeks (Spring Festival / Golden Week)
-        ts = pd.Timestamp(date)
-        if ts.dayofweek >= 5:
-            date = (ts - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-            continue
-        try:
-            df = loader.fetch_minute_line(upper, date)
-        except Exception as e:
-            logger.warning("minute-line fetch failed for %s on %s: %s", upper, date, e)
-            raise HTTPException(status_code=500, detail=f"分时数据获取失败: {e}")
-        if df is not None and not df.empty:
-            break
-        date = (ts - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
-
-    if df is None or df.empty:
-        return {
-            "symbol": upper,
-            "date": original_date,
-            "available": False,
-            "reason": "非交易日或无分时数据（TDX 仅保留最近 5-10 个交易日）",
-            "minutes": [],
-        }
-
-    # Compute pre-close from yesterday's OHLCV close (more accurate
-    # than the 9:30 opening price).  Walk back over weekends/holidays.
     pre_close = None
-    try:
-        prev = pd.Timestamp(date) - pd.Timedelta(days=1)
-        for _ in range(10):
-            if prev.dayofweek < 5:
-                ohlcv = loader.fetch([upper], prev.strftime("%Y-%m-%d"), prev.strftime("%Y-%m-%d"), interval="1D")
-                if upper in ohlcv and ohlcv[upper] is not None and not ohlcv[upper].empty:
-                    pre_close = round(float(ohlcv[upper]["close"].iloc[-1]), 2)
-                    break
-            prev = prev - pd.Timedelta(days=1)
-    except Exception:
-        pass
 
-    # Fallback: use the first 9:30 bar price
+    if not refresh:
+        # Check cache for each candidate date (walking back over weekends)
+        for _ in range(14):
+            ts = pd.Timestamp(date)
+            if ts.dayofweek >= 5:
+                date = (ts - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+                continue
+            df = query_minute_cache(upper, date)
+            if df is not None and not df.empty:
+                break
+            date = (ts - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+        if df is not None:
+            pre_close = query_preclose_cache(upper, date)
+
+    # ── Cache miss — fetch from TDX ────────────────────────────────────────
+    if df is None or df.empty:
+        loader = DataLoader()
+        if not loader.is_available():
+            return {
+                "symbol": upper,
+                "date": original_date,
+                "available": False,
+                "reason": "MooTDX 数据源不可用（请安装 mootdx 包）",
+                "minutes": [],
+            }
+
+        # Reset date walk
+        date = original_date
+        df = None
+        for _ in range(14):
+            ts = pd.Timestamp(date)
+            if ts.dayofweek >= 5:
+                date = (ts - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+                continue
+            try:
+                df = loader.fetch_minute_line(upper, date)
+            except Exception as e:
+                logger.warning("minute-line fetch failed for %s on %s: %s", upper, date, e)
+                raise HTTPException(status_code=500, detail=f"分时数据获取失败: {e}")
+            if df is not None and not df.empty:
+                break
+            date = (ts - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+
+        if df is None or df.empty:
+            return {
+                "symbol": upper,
+                "date": original_date,
+                "available": False,
+                "reason": "非交易日或无分时数据（TDX 仅保留最近 5-10 个交易日）",
+                "minutes": [],
+            }
+
+        # Write to cache
+        try:
+            write_minute_cache(upper, date, df)
+        except Exception:
+            pass
+
+        # Compute preClose (ohlcv_cache first, then TDX, then fallback)
+        if pre_close is None:
+            pre_close = query_preclose_cache(upper, date)
+        if pre_close is None:
+            try:
+                prev = pd.Timestamp(date) - pd.Timedelta(days=1)
+                for _ in range(10):
+                    if prev.dayofweek < 5:
+                        ohlcv = loader.fetch([upper], prev.strftime("%Y-%m-%d"), prev.strftime("%Y-%m-%d"), interval="1D")
+                        if upper in ohlcv and ohlcv[upper] is not None and not ohlcv[upper].empty:
+                            pre_close = round(float(ohlcv[upper]["close"].iloc[-1]), 2)
+                            break
+                    prev = prev - pd.Timedelta(days=1)
+            except Exception:
+                pass
+
+    # Fallback preClose
     if pre_close is None:
         try:
             pre_close = round(float(df["price"].iloc[0]), 2)
