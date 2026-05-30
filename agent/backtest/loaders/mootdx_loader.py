@@ -238,6 +238,10 @@ class DataLoader:
                 col_map[c] = "amount"
         df = df.rename(columns=col_map)
 
+        # mootdx's to_data() creates a 'volume' column from 'vol', and our
+        # normalisation also renames 'vol'→'volume', which can produce duplicates.
+        df = df.loc[:, ~df.columns.duplicated()]
+
         # Ensure we have at least price.
         if "price" not in df.columns:
             logger.warning("mootdx minute data missing 'price' column for %s", symbol)
@@ -247,14 +251,16 @@ class DataLoader:
         # A-share trading hours: morning 9:30–11:30 (120 bars), afternoon 13:00–15:00 (120 bars).
         if "time" not in df.columns:
             times: list[str] = []
-            morning_start = pd.Timestamp("09:30")
-            afternoon_start = pd.Timestamp("13:00")
+            morning = f"{target_date}T09:30:00"
+            afternoon = f"{target_date}T13:00:00"
+            morning_start = pd.Timestamp(morning)
+            afternoon_start = pd.Timestamp(afternoon)
             for i in range(len(df)):
                 if i < 120:
                     t = morning_start + pd.Timedelta(minutes=i)
                 else:
                     t = afternoon_start + pd.Timedelta(minutes=i - 120)
-                times.append(t.strftime("%H:%M"))
+                times.append(t.strftime("%Y-%m-%d %H:%M:%S"))
             df["time"] = times
 
         df["time"] = pd.to_datetime(df["time"])
