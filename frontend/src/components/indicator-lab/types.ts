@@ -1,3 +1,5 @@
+import type { EquityPoint } from "@/types/api";
+
 export interface QualityHint {
   severity: "error" | "warn" | "info";
   code: string;
@@ -54,12 +56,6 @@ export interface BacktestMetrics {
   win_rate: number;
   trade_count: number;
   profit_factor: number;
-}
-
-export interface EquityPoint {
-  time: string;
-  equity: number;
-  drawdown: number;
 }
 
 export interface TradeRecord {

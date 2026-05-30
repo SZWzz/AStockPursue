@@ -297,9 +297,9 @@ def create_router(require_auth) -> APIRouter:
         """Get the current user's watchlist."""
         user_id = auth["user_id"]
         try:
-            from src.db.pool import get_connection
+            from src.db.async_pool import async_get_connection
 
-            with get_connection() as conn:
+            async with async_get_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
                         "SELECT id, symbol, name, market, sort_order FROM vt_watchlist WHERE user_id=%s ORDER BY sort_order, created_at",
@@ -324,9 +324,9 @@ def create_router(require_auth) -> APIRouter:
             if not name:
                 name = _resolve_stock_name(symbol)
 
-            from src.db.pool import get_connection
+            from src.db.async_pool import async_get_connection
 
-            with get_connection() as conn:
+            async with async_get_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
                         "INSERT INTO vt_watchlist (user_id, symbol, name) VALUES (%s, %s, %s) ON CONFLICT (user_id, symbol) DO UPDATE SET name=EXCLUDED.name RETURNING id",
@@ -344,9 +344,9 @@ def create_router(require_auth) -> APIRouter:
         """Remove a symbol from the watchlist."""
         user_id = auth["user_id"]
         try:
-            from src.db.pool import get_connection
+            from src.db.async_pool import async_get_connection
 
-            with get_connection() as conn:
+            async with async_get_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
                         "DELETE FROM vt_watchlist WHERE user_id=%s AND symbol=%s",
@@ -367,9 +367,9 @@ def create_router(require_auth) -> APIRouter:
         except Exception:
             pass
         try:
-            from src.db.pool import get_connection
+            from src.db.async_pool import async_get_connection
 
-            with get_connection() as conn:
+            async with async_get_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute("SELECT symbol, name FROM vt_watchlist WHERE user_id=%s ORDER BY sort_order, created_at", (user_id,))
                     rows = cur.fetchall()

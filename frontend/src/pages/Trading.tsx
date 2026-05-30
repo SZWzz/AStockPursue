@@ -3,6 +3,7 @@ import { TrendingUp, Newspaper, ListOrdered, Building2, Bell, FlaskConical, Refr
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useTradingStore } from "@/stores/tradingStore";
+import { Skeleton } from "@/components/common/Skeleton";
 import { CandlestickChart } from "@/components/charts/CandlestickChart";
 import { MinuteLineChart } from "@/components/trading/MinuteLineChart";
 import { TradingWatchlist } from "@/components/trading/TradingWatchlist";
@@ -133,9 +134,7 @@ export function Trading() {
               </div>
             ) : chartMode === "kline" ? (
               klineLoading ? (
-                <div className="flex items-center justify-center h-full border rounded-xl bg-muted/10 text-muted-foreground text-sm">
-                  加载K线数据...
-                </div>
+                <Skeleton className="h-full w-full rounded-xl" />
               ) : (
                 <CandlestickChart
                   data={klineData}
@@ -143,9 +142,7 @@ export function Trading() {
               )
             ) : (
               minuteLoading ? (
-                <div className="flex items-center justify-center h-full border rounded-xl bg-muted/10 text-muted-foreground text-sm">
-                  加载分时数据...
-                </div>
+                <Skeleton className="h-full w-full rounded-xl" />
               ) : (
                 <MinuteLineChart
                   data={minuteData}

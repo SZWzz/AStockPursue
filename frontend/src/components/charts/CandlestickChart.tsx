@@ -311,6 +311,32 @@ export function CandlestickChart({ data, markers, indicators, height = 500 }: Pr
         </div>
       </div>
       <div ref={containerRef} className="flex-1" style={{ minHeight: 200 }} />
+
+      {/* Accessible fallback table for screen readers */}
+      <table className="sr-only" aria-label="OHLCV chart data">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Open</th>
+            <th>High</th>
+            <th>Low</th>
+            <th>Close</th>
+            <th>Volume</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((d, i) => (
+            <tr key={i}>
+              <td>{d.time}</td>
+              <td>{d.open?.toFixed(2)}</td>
+              <td>{d.high?.toFixed(2)}</td>
+              <td>{d.low?.toFixed(2)}</td>
+              <td>{d.close?.toFixed(2)}</td>
+              <td>{d.volume}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

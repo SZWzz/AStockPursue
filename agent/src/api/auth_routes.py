@@ -23,6 +23,19 @@ class RegisterRequest(BaseModel):
     email: str | None = None
 
 
+class ForgotPasswordRequest(BaseModel):
+    username: str = Field(..., min_length=1, max_length=50)
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(..., min_length=64, max_length=64, description="64-char hex reset token")
+    new_password: str = Field(..., min_length=8, max_length=128, description="Minimum 8 characters")
+
+
+_RESET_TOKEN_BYTES = 32  # 64-char hex string
+_RESET_TOKEN_MINUTES = 15
+
+
 def create_router(require_auth) -> APIRouter:
     router = APIRouter()
 
@@ -34,10 +47,10 @@ def create_router(require_auth) -> APIRouter:
     async def login(request: LoginRequest):
         """Login and get a JWT token."""
         from src.auth.jwt import create_token, verify_password
-        from src.db.pool import get_connection
+        from src.db.async_pool import async_get_connection
 
         try:
-            with get_connection() as conn:
+            async with async_get_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
                         "SELECT id, username, password_hash, role, token_version FROM vt_users WHERE username = %s",
@@ -73,6 +86,95 @@ def create_router(require_auth) -> APIRouter:
                     )
                     user_id = cur.fetchone()[0]
             return {"user_id": user_id, "username": request.username}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=safe_error(e))
+
+    @router.post("/api/auth/forgot-password", dependencies=[Depends(check_rate_limit)])
+    async def forgot_password(request: ForgotPasswordRequest):
+        """Request a password reset token (dev mode: returned directly, no email)."""
+        import hashlib
+        import secrets
+        from datetime import datetime, timedelta, timezone
+
+        from src.db.pool import get_connection
+
+        try:
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT id FROM vt_users WHERE username = %s",
+                        (request.username,),
+                    )
+                    row = cur.fetchone()
+                    if not row:
+                        # Don't reveal whether the user exists
+                        return {"ok": True, "message": "If the account exists, a reset token has been generated."}
+
+                    user_id = row[0]
+                    raw_token = secrets.token_hex(_RESET_TOKEN_BYTES)
+                    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+                    expires_at = datetime.now(timezone.utc) + timedelta(minutes=_RESET_TOKEN_MINUTES)
+
+                    cur.execute(
+                        "INSERT INTO vt_password_resets (user_id, token_hash, expires_at) VALUES (%s, %s, %s)",
+                        (user_id, token_hash, expires_at),
+                    )
+
+            return {
+                "ok": True,
+                "token": raw_token,
+                "expires_in_minutes": _RESET_TOKEN_MINUTES,
+                "message": "Use this token to reset your password. (Dev mode — token returned directly.)",
+            }
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=safe_error(e))
+
+    @router.post("/api/auth/reset-password", dependencies=[Depends(check_rate_limit)])
+    async def reset_password(request: ResetPasswordRequest):
+        """Reset password using a reset token."""
+        import hashlib
+        from datetime import datetime, timezone
+
+        from src.auth.jwt import hash_password
+        from src.db.pool import get_connection
+
+        try:
+            token_hash = hashlib.sha256(request.token.encode()).hexdigest()
+
+            with get_connection() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(
+                        "SELECT id, user_id, used, expires_at FROM vt_password_resets WHERE token_hash = %s",
+                        (token_hash,),
+                    )
+                    row = cur.fetchone()
+                    if not row:
+                        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
+
+                    reset_id, user_id, used, expires_at = row
+                    if used:
+                        raise HTTPException(status_code=400, detail="This reset token has already been used")
+                    if expires_at < datetime.now(timezone.utc):
+                        raise HTTPException(status_code=400, detail="Reset token has expired")
+
+                    # Update password and invalidate other sessions (bump token_version)
+                    new_hash = hash_password(request.new_password)
+                    cur.execute(
+                        "UPDATE vt_users SET password_hash = %s, token_version = token_version + 1, updated_at = now() WHERE id = %s",
+                        (new_hash, user_id),
+                    )
+
+                    # Mark token as used
+                    cur.execute(
+                        "UPDATE vt_password_resets SET used = TRUE WHERE id = %s",
+                        (reset_id,),
+                    )
+
+            return {"ok": True, "message": "Password has been reset successfully. Please log in with your new password."}
         except HTTPException:
             raise
         except Exception as e:

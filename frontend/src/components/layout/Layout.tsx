@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, BookOpen, Bot, Database, GitCompare, Moon, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users } from "lucide-react";
+import { BarChart3, BookOpen, Bot, Database, GitCompare, Menu, Moon, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useDarkMode } from "@/hooks/useDarkMode";
@@ -38,6 +38,7 @@ export function Layout() {
   const user = useAuthStore(s => s.user);
   const logout = useAuthStore(s => s.logout);
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("qa-sidebar") === "collapsed");
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const activeSessionId = searchParams.get("session");
 
@@ -87,9 +88,11 @@ export function Layout() {
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
       <aside className={cn(
-        "border border-border rounded-r-2xl bg-card/90 backdrop-blur-sm flex flex-col shrink-0 transition-all duration-200 shadow-sm my-3 ml-3",
-        collapsed ? "w-14" : "w-64"
-      )}>
+        "border border-border rounded-r-2xl bg-card/90 backdrop-blur-sm flex-col shrink-0 transition-all duration-200 shadow-sm",
+        mobileOpen
+          ? "fixed inset-y-3 left-3 z-50 flex w-64 my-3 ml-3 overflow-auto"
+          : cn("hidden md:flex my-3 ml-3", collapsed ? "md:w-14" : "md:w-64")
+      )} onClick={() => setMobileOpen(false)}>
         {/* Brand */}
         <Link to="/" className={cn(
           "flex items-center font-bold tracking-tight border-b border-border/50",
@@ -100,6 +103,15 @@ export function Layout() {
           </div>
           {!collapsed && <span className="text-base">AStockPursue</span>}
         </Link>
+
+        {/* Mobile close button */}
+        <button
+          className="md:hidden absolute top-3 right-3 p-1.5 rounded-lg hover:bg-muted transition-colors"
+          onClick={() => setMobileOpen(false)}
+          aria-label="Close menu"
+        >
+          <X className="h-5 w-5" />
+        </button>
 
         {/* Nav */}
         <nav className={cn("py-2", collapsed ? "px-2" : "px-3")}>
@@ -320,6 +332,23 @@ export function Layout() {
           )}
         </div>
       </aside>
+
+      {/* Mobile backdrop */}
+      {mobileOpen && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/50"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
+      {/* Mobile hamburger */}
+      <button
+        className="md:hidden fixed top-4 left-4 z-30 p-2 rounded-lg bg-card border border-border shadow-sm hover:bg-muted transition-colors"
+        onClick={() => setMobileOpen(true)}
+        aria-label="Open menu"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">

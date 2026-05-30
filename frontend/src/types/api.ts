@@ -150,8 +150,8 @@ export interface TradeMarker {
 
 export interface EquityPoint {
   time: string;
-  equity: string | number;
-  drawdown: string | number;
+  equity: number;
+  drawdown: number;
 }
 
 export interface ValidationData {
