@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+# pip --user installs into ~/.local/bin, which is not on PATH for sh
+export PATH="$HOME/.local/bin:$PATH"
+
 # ── MCP Server (Streamable HTTP, port 8900) ──────────────────────────
 echo "[start] Launching MCP server on :8900 ..."
 AStockPursue-mcp --transport streamable-http --port 8900 --host 0.0.0.0 --path /mcp &

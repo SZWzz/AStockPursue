@@ -32,6 +32,11 @@ COPY agent/requirements.txt agent/requirements.txt
 ARG PYPI_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple
 RUN pip install --no-cache-dir -r agent/requirements.txt -i ${PYPI_MIRROR}
 
+# mootdx (A-share TDX data) conflicts with project's httpx>=0.28 via its httpx<0.26 pin.
+# Install with --no-deps so it reuses the project's httpx; mootdx works fine with newer httpx.
+# tdxpy is mootdx's core TDX protocol dependency — install it explicitly.
+RUN pip install --no-cache-dir --no-deps mootdx tdxpy -i ${PYPI_MIRROR}
+
 # Copy project
 COPY pyproject.toml LICENSE NOTICE SECURITY.md README.md README_zh.md ./
 COPY agent/ agent/

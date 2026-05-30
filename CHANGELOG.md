@@ -104,6 +104,13 @@
 - **SSE 重连抖动** — `calcReconnectDelay` 新增 ±25% jitter，前端状态栏显示「重连中 (第N次, Xs后)」
 - **pyproject.toml 更新** — version→2026.5.27，description 扩展，keywords +3，classifiers +Python 3.13，urls +Changelog
 
+### Fixed
+
+- **Docker 容器启动失败** — `start.sh` 找不到 `AStockPursue` / `AStockPursue-mcp` 命令。`pip install --user` 把 CLI 入口装到了 `~/.local/bin/`，但 `sh` 的 `PATH` 不含该目录。在 `start.sh` 顶部补 `export PATH="$HOME/.local/bin:$PATH"`。
+- **Settings 页面卡死 / 数据源状态为空** — 前端请求 `/v1/settings/data-source-status`，但后端未定义该路由。请求落到 SPA fallback 返回 `index.html`（200 OK），前端 JSON 解析失败显示"暂无数据源信息"。新增 `GET /settings/data-source-status` 路由，返回所有已注册 loader 的可用状态。
+- **Settings API 阻塞事件循环导致服务器 hung** — `is_available()` 同步网络调用（mootdx/tushare 等）在 `async def` handler 内直接执行，uvicorn 单 worker 被阻塞。改为 `asyncio.to_thread()` 将 loader 检查移到线程池，每个 loader 独立 `ThreadPoolExecutor(max_workers=1)` + `shutdown(wait=False)` + 2s 超时，避免 hung 线程拖死整个请求。
+- **mootdx 不可用** — `mootdx` 依赖 `httpx<0.26`，与项目 `httpx>=0.28` 冲突，`pip install` 自动解析失败导致包未安装。Dockerfile 中改为 `pip install --no-deps mootdx tdxpy`，复用项目已有新版 httpx（仅基础 HTTP 功能，完全兼容）。
+
 ## 2026.5.27
 
 ### Fixed
