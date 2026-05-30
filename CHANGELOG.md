@@ -56,6 +56,22 @@
 - **会话页切回 loading 卡死** — `Agent.tsx` 的 `loadSessionMessages()` 内两个 gen-check 提前 return 未重置 `sessionLoading`，切走再切回时 loading 永远卡在 true。`try/catch` 改为 `try/finally`，`finally` 中只在 gen 匹配时重置
 - **Docker build 失败 (README_EN.md not found)** — `Dockerfile:36` + `.dockerignore` 仍引用已删除的 `README_EN.md`，改为 `README_zh.md`
 
+### Security
+
+- **强制改密** — `ADMIN_PASSWORD` 未配置时自动生成 16 位随机密码并打印到控制台，不再使用硬编码 `admin123`
+- **API 异常屏蔽** — 新增 `safe_error()` 函数，25 处 `HTTPException(detail=str(e))` 替换为通用消息，`ASTOCKPURSUE_DEBUG_ERRORS=1` 恢复详细错误
+- **补漏认证** — `/swarm/presets` 端点加 `dependencies=[Depends(require_auth)]`
+
+### Quality
+
+- **静默吞错修复** — 9 处 `except Exception: pass` 全部加上 `logger.debug(..., exc_info=True)`（`dependencies.py`/`skills.py`/`common.py`/`ui_services.py`）
+- **Watchlist N+1 修复** — `GET /api/watchlist/prices` 从逐 symbol 调 API 改为 `DataStore.get_multi_ohlcv()` 批量获取
+- **配置外部化** — `rate_limit` max/window + `MAX_UPLOAD_SIZE` 改为 env var
+- **缓存 TTL** — `ohlcv_cache` 新增 `cleanup_expired_cache(retention_days=7)` 自动清理
+- **前端 i18n** — PaperTrading.tsx 40+ 硬编码中文字符串全部改为 i18n keys，新增 `pt*` 系列 30 个翻译键
+- **前端类型修复** — 新增 `DataSourceLoaderStatus` 接口，移除 `(api as any)` 逃生舱，`market→markets[0]`
+- **404 页面** — 新增 `NotFound.tsx` + catch-all 路由
+
 ### Changed
 
 - **硬编码日期 → 动态计算** — `PaperTrading.tsx` 中 `"2026-01-01"` / `"2026-05-24"` 等 3 处改为 `new Date()` 动态计算
