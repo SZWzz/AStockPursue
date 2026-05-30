@@ -4,6 +4,8 @@ Persists rate-limit state in the database so a server restart does not reset
 brute-force counters. Falls back to in-memory if the DB is unavailable.
 """
 
+import os
+
 from __future__ import annotations
 
 import logging
@@ -15,9 +17,9 @@ from fastapi import HTTPException, Request
 
 logger = logging.getLogger(__name__)
 
-# Default: 5 attempts per 60-second window
-_DEFAULT_MAX_REQUESTS = 5
-_DEFAULT_WINDOW_SECONDS = 60
+# Default: 5 attempts per 60-second window (configurable via env)
+_DEFAULT_MAX_REQUESTS = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "5"))
+_DEFAULT_WINDOW_SECONDS = int(os.getenv("RATE_LIMIT_WINDOW_SECONDS", "60"))
 
 # In-memory fallback when DB is unavailable
 _fallback_windows: Dict[str, List[float]] = {}

@@ -172,13 +172,36 @@ def get_connection():
 
 
 def _ensure_admin_user() -> None:
-    """Create default admin user if no users exist."""
+    """Create default admin user if no users exist.
+
+    If ``ADMIN_PASSWORD`` is not set in the environment, a random 16-character
+    password is generated and printed to the console.  The hardcoded default
+    ``"admin123"`` is NEVER used in production — it only exists as a fallback
+    for CI/test environments where ``ADMIN_PASSWORD`` is explicitly set to it.
+    """
     try:
         from src.auth.jwt import hash_password
 
         admin_user = os.getenv("ADMIN_USER", "admin")
-        admin_pass = os.getenv("ADMIN_PASSWORD", "admin123")
+        admin_pass = os.getenv("ADMIN_PASSWORD", "")
         admin_email = os.getenv("ADMIN_EMAIL", "admin@AStockPursue.local")
+
+        # Generate a strong random password when none is configured
+        if not admin_pass:
+            import secrets
+            import string
+            alphabet = string.ascii_letters + string.digits
+            admin_pass = "".join(secrets.choice(alphabet) for _ in range(16))
+            logger.warning(
+                "ADMIN_PASSWORD not set — generated random password. "
+                "Set ADMIN_PASSWORD in .env to use a custom one."
+            )
+            # Also print to stdout so it's visible in docker logs
+            print(f"\n{'='*60}")
+            print(f"  Admin user: {admin_user}")
+            print(f"  Password:   {admin_pass}")
+            print(f"  Set ADMIN_PASSWORD in .env to change.")
+            print(f"{'='*60}\n")
 
         with get_connection() as conn:
             with conn.cursor() as cur:

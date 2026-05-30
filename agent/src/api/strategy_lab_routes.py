@@ -20,6 +20,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+
+from src.api.common import safe_error
 from pydantic import BaseModel, Field
 
 from src.auth.dependencies import require_auth
@@ -191,7 +193,7 @@ async def save_strategy(req: StrategySaveRequest):
             }
     except Exception as e:
         logger.exception("Failed to save strategy")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error(e))
 
 
 @router.post("/delete/{strategy_id}")
@@ -769,4 +771,4 @@ async def compile_strategy(req: CompileRequest):
         return {"code": code, "name": req.name}
     except Exception as e:
         logger.exception("compile failed")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error(e))

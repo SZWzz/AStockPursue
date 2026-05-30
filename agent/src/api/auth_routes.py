@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, Security, status
 from pydantic import BaseModel, Field
 
+from src.api.common import safe_error
 from src.auth.rate_limit import check_rate_limit
 
 
@@ -52,7 +53,7 @@ def create_router(require_auth) -> APIRouter:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=safe_error(e))
 
     @router.post("/api/auth/register", dependencies=[Depends(check_rate_limit)])
     async def register(request: RegisterRequest):
@@ -75,7 +76,7 @@ def create_router(require_auth) -> APIRouter:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=safe_error(e))
 
     # ========================================================================
     # Authenticated auth routes
@@ -105,7 +106,7 @@ def create_router(require_auth) -> APIRouter:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=safe_error(e))
 
     @router.post("/api/auth/change-username")
     async def change_username(request: Request, auth: dict = Security(require_auth)):
@@ -127,7 +128,7 @@ def create_router(require_auth) -> APIRouter:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=safe_error(e))
 
     @router.get("/api/auth/me")
     async def get_current_user(auth: dict = Security(require_auth)):
@@ -170,7 +171,7 @@ def create_router(require_auth) -> APIRouter:
                     )
             return {"ok": True}
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=safe_error(e))
 
     @router.get("/api/auth/llm-config")
     async def get_user_llm_config(auth: dict = Security(require_auth)):
@@ -231,7 +232,7 @@ def create_router(require_auth) -> APIRouter:
                     )
             return {"ok": True}
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=safe_error(e))
 
     # ========================================================================
     # Admin routes
@@ -273,7 +274,7 @@ def create_router(require_auth) -> APIRouter:
                     cur.execute("DELETE FROM vt_users WHERE id=%s", (user_id,))
             return {"ok": True}
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=safe_error(e))
 
     # ========================================================================
     # SSE token endpoint (short-lived JWT for EventSource query param)

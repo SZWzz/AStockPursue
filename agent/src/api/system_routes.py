@@ -16,6 +16,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from fastapi.responses import FileResponse, StreamingResponse
 
 from src.api.common import (
+    safe_error,
     validate_path_param,
     UPLOADS_DIR,
     RUNS_DIR,
@@ -296,7 +297,7 @@ def create_router(require_auth) -> APIRouter:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=safe_error(e))
 
     @router.delete("/api/watchlist/{symbol}")
     async def remove_watchlist(symbol: str, auth: dict = Security(require_auth)):
@@ -313,7 +314,7 @@ def create_router(require_auth) -> APIRouter:
                     )
             return {"ok": True}
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=safe_error(e))
 
     @router.get("/api/watchlist/prices")
     async def get_watchlist_prices(auth: dict = Security(require_auth)):
@@ -340,51 +341,38 @@ def create_router(require_auth) -> APIRouter:
             names = {r[0]: r[1] for r in rows}
             prices = {}
 
-            for sym in symbols:
-                upper = sym.upper()
-                # A-share: try tushare first
-                if upper.endswith((".SH", ".SZ", ".BJ")):
-                    try:
-                        from backtest.loaders.tushare import DataLoader as TushareLoader
-                        import pandas as pd
+            # Batch-fetch through DataStore instead of N+1 per-symbol calls
+            import pandas as pd
+            today = pd.Timestamp.now().strftime("%Y-%m-%d")
+            start = (pd.Timestamp.now() - pd.Timedelta(days=30)).strftime("%Y-%m-%d")
 
-                        loader = TushareLoader()
-                        if hasattr(loader, "is_available") and loader.is_available():
-                            today = pd.Timestamp.now().strftime("%Y-%m-%d")
-                            start = (pd.Timestamp.now() - pd.Timedelta(days=30)).strftime("%Y-%m-%d")
-                            data = loader.fetch([sym], start, today, interval="1D")
-                            if sym in data and not data[sym].empty:
-                                df = data[sym]
-                                current = float(df["close"].iloc[-1])
-                                prev_close = float(df["close"].iloc[-2]) if len(df) >= 2 else current
-                                change_pct = (current - prev_close) / prev_close * 100 if prev_close else 0
-                                prices[sym] = {"price": round(current, 2), "change_pct": round(change_pct, 2), "name": names.get(sym, sym)}
-                                continue
-                    except Exception:
-                        pass
-                    # Fallback: try akshare
-                    try:
-                        from backtest.loaders.akshare_loader import DataLoader as AKLoader
-                        import pandas as pd
+            # Separate A-share symbols for batch fetching
+            cn_symbols = [s for s in symbols if s.upper().endswith((".SH", ".SZ", ".BJ"))]
+            other_symbols = [s for s in symbols if s not in cn_symbols]
 
-                        loader = AKLoader()
-                        today = pd.Timestamp.now().strftime("%Y-%m-%d")
-                        start = (pd.Timestamp.now() - pd.Timedelta(days=30)).strftime("%Y-%m-%d")
-                        data = loader.fetch([sym], start, today, interval="1D")
-                        if sym in data and not data[sym].empty:
-                            df = data[sym]
+            # Batch-fetch A-shares via DataStore (single call per loader)
+            if cn_symbols:
+                try:
+                    from backtest.data_store import get_data_store
+                    store = get_data_store()
+                    data_map = store.get_multi_ohlcv(cn_symbols, start, today, interval="1D")
+                    for sym in cn_symbols:
+                        df = data_map.get(sym)
+                        if df is not None and len(df) >= 2:
                             current = float(df["close"].iloc[-1])
-                            prev_close = float(df["close"].iloc[-2]) if len(df) >= 2 else current
+                            prev_close = float(df["close"].iloc[-2])
                             change_pct = (current - prev_close) / prev_close * 100 if prev_close else 0
                             prices[sym] = {"price": round(current, 2), "change_pct": round(change_pct, 2), "name": names.get(sym, sym)}
-                            continue
-                    except Exception:
-                        pass
+                        else:
+                            prices[sym] = {"price": 0, "change_pct": 0, "name": names.get(sym, sym), "error": "no data"}
+                except Exception:
+                    for sym in cn_symbols:
+                        prices.setdefault(sym, {"price": 0, "change_pct": 0, "name": names.get(sym, sym), "error": "batch fetch failed"})
 
-                # Fallback: yfinance (for US/HK/crypto)
+            # Other markets: try yfinance (for US/HK/crypto)
+            for sym in other_symbols:
                 try:
                     import yfinance as yf
-
                     ticker = yf.Ticker(sym)
                     info = ticker.fast_info if hasattr(ticker, "fast_info") else ticker.info
                     prev_close = getattr(info, "previous_close", None) or getattr(info, "regularMarketPreviousClose", None) or 0
@@ -429,7 +417,7 @@ def create_router(require_auth) -> APIRouter:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=safe_error(e))
 
     @router.delete("/api/backtest-history/{run_id}", dependencies=[Depends(require_auth)])
     async def delete_backtest_history(run_id: str):
@@ -443,13 +431,13 @@ def create_router(require_auth) -> APIRouter:
         except HTTPException:
             raise
         except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+            raise HTTPException(status_code=500, detail=safe_error(e))
 
     # ========================================================================
     # Swarm API
     # ========================================================================
 
-    @router.get("/swarm/presets")
+    @router.get("/swarm/presets", dependencies=[Depends(require_auth)])
     async def list_swarm_presets():
         """List Swarm YAML presets."""
         from src.swarm.presets import list_presets
@@ -470,9 +458,9 @@ def create_router(require_auth) -> APIRouter:
             )
             return {"id": run.id, "status": run.status.value, "preset_name": run.preset_name}
         except FileNotFoundError as e:
-            raise HTTPException(status_code=404, detail=str(e))
+            raise HTTPException(status_code=404, detail=safe_error(e))
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            raise HTTPException(status_code=400, detail=safe_error(e))
 
     @router.get("/swarm/runs", dependencies=[Depends(require_auth)])
     async def list_swarm_runs(limit: int = Query(20, ge=1, le=100)):

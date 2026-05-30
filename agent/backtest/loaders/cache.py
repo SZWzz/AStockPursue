@@ -169,3 +169,32 @@ def init_cache_table() -> None:
         logger.info("ohlcv_cache table ready")
     except Exception:
         logger.warning("Failed to initialise ohlcv_cache table", exc_info=True)
+
+
+# ── Cleanup ────────────────────────────────────────────────────────────────────
+
+def cleanup_expired_cache(retention_days: int = 7) -> int:
+    """Delete cache entries older than *retention_days*.
+
+    Called periodically (e.g. via a scheduler or on startup) to prevent
+    unbounded growth of the ``ohlcv_cache`` table.
+
+    Returns the number of rows deleted.
+    """
+    try:
+        with _get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    DELETE FROM ohlcv_cache
+                    WHERE updated_at < NOW() - INTERVAL '%s days'
+                    """,
+                    (str(retention_days),),
+                )
+                deleted = cur.rowcount
+                if deleted:
+                    logger.info("Cleaned up %d expired cache rows (>%d days)", deleted, retention_days)
+                return deleted
+    except Exception:
+        logger.debug("Cache cleanup failed", exc_info=True)
+        return 0

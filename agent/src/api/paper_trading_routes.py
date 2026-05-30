@@ -14,6 +14,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 
+from src.api.common import safe_error
+
 from papertrade.models import (
     CreateRunRequest,
     EquityPoint,
@@ -231,12 +233,12 @@ async def start_run(
     try:
         await sched.start(run_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=safe_error(e))
     except RuntimeError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=409, detail=safe_error(e))
     except Exception as e:
         logger.exception("Failed to start run %s", run_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error(e))
     return {"message": "Run started", "run_id": run_id}
 
 
@@ -255,7 +257,7 @@ async def stop_run(
         await sched.stop(run_id, close_positions=close_positions)
     except Exception as e:
         logger.exception("Failed to stop run %s", run_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error(e))
     return {"message": "Run stopped", "run_id": run_id}
 
 
@@ -273,7 +275,7 @@ async def pause_run(
         await sched.pause(run_id)
     except Exception as e:
         logger.exception("Failed to pause run %s", run_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error(e))
     return {"message": "Run paused", "run_id": run_id}
 
 
@@ -290,12 +292,12 @@ async def resume_run(
     try:
         await sched.resume(run_id)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=safe_error(e))
     except RuntimeError as e:
-        raise HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=409, detail=safe_error(e))
     except Exception as e:
         logger.exception("Failed to resume run %s", run_id)
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error(e))
     return {"message": "Run resumed", "run_id": run_id}
 
 

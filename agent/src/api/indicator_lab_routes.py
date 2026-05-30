@@ -26,6 +26,8 @@ import numpy as np
 import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
+
+from src.api.common import safe_error
 from pydantic import BaseModel, Field
 
 from src.auth.dependencies import require_auth
@@ -289,7 +291,7 @@ async def save_indicator(req: SaveRequest):
         }
     except Exception as e:
         logger.exception("Failed to save indicator")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error(e))
 
 
 @router.post("/delete/{indicator_id}")
@@ -361,7 +363,7 @@ async def compile_strategy(req: CompileRequest):
         return {"code": code}
     except Exception as e:
         logger.exception("Strategy compilation failed")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error(e))
 
 
 # ── Template routes ────────────────────────────────────────────────────────

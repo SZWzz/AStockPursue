@@ -51,6 +51,7 @@ class Skill:
         try:
             return path.read_text(encoding="utf-8")
         except Exception:
+            logger.debug("Failed to read skill: %s", path, exc_info=True)
             return None
 
 
@@ -72,6 +73,7 @@ def _load_skill_dir(dir_path: Path) -> Optional[Skill]:
     try:
         text = skill_file.read_text(encoding="utf-8")
     except Exception:
+        logger.debug("Failed to read skill file: %s", skill_file, exc_info=True)
         return None
 
     meta, body = _parse_frontmatter(text)

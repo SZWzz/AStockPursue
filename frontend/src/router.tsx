@@ -40,6 +40,9 @@ const UserManagement = lazy(() =>
 const DataSourceStatus = lazy(() =>
   import("@/pages/DataSourceStatus").then((m) => ({ default: m.DataSourceStatus })),
 );
+const NotFound = lazy(() =>
+  import("@/pages/NotFound").then((m) => ({ default: m.default })),
+);
 
 function PageLoader() {
   return (
@@ -76,6 +79,7 @@ export const router = createBrowserRouter([
       { path: "/paper-trading", element: wrap(PaperTrading) },
       { path: "/data-sources", element: wrap(DataSourceStatus) },
       { path: "/admin/users", element: wrap(UserManagement) },
+      { path: "*", element: wrap(NotFound) },
     ],
   },
 ]);

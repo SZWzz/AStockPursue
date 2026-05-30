@@ -5,9 +5,12 @@ from __future__ import annotations
 import csv
 import ipaddress
 import json
+import logging
 import os
 import re
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -28,10 +31,26 @@ ENV_EXAMPLE_PATH = AGENT_DIR / ".env.example"
 LLM_PROVIDER_CONFIG_PATH = AGENT_DIR / "src" / "providers" / "llm_providers.json"
 
 # ---------------------------------------------------------------------------
+# Error helper — prevents internal details leaking to API clients
+# ---------------------------------------------------------------------------
+
+def safe_error(e: Exception, prefix: str = "Internal error") -> str:
+    """Return a safe error message for API responses.
+
+    In production, returns a generic message to avoid leaking file paths,
+    stack traces, or database details.  Set ``ASTOCKPURSUE_DEBUG_ERRORS=1``
+    to see the full exception string during development.
+    """
+    if os.getenv("ASTOCKPURSUE_DEBUG_ERRORS", "").lower() in ("1", "true", "yes"):
+        return f"{prefix}: {e}"
+    return f"{prefix}. Set ASTOCKPURSUE_DEBUG_ERRORS=1 for details."
+
+
+# ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
-MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB
+MAX_UPLOAD_SIZE = int(os.getenv("MAX_UPLOAD_SIZE_MB", "50")) * 1024 * 1024
 _UPLOAD_CHUNK_SIZE = 1024 * 1024  # 1 MB
 
 _SHELL_TOOLS_ENV = "ASTOCKPURSUE_ENABLE_SHELL_TOOLS"
@@ -152,7 +171,7 @@ def load_json_file(path: Path) -> Optional[Dict[str, Any]]:
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
-        pass
+        logger.debug("Failed to load JSON: %s", path, exc_info=True)
     return None
 
 
@@ -167,6 +186,7 @@ def load_csv_to_dict(path: Path, limit: Optional[int] = None) -> List[Dict[str, 
             rows = rows[:limit]
         return rows
     except Exception:
+        logger.debug("Failed to load CSV: %s", path, exc_info=True)
         return []
 
 

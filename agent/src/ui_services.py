@@ -9,6 +9,9 @@ This module centralizes the data shaping needed by the frontend workbench:
 - (LocalApiManager removed – dead code)
 """
 
+import logging
+logger = logging.getLogger(__name__)
+
 from __future__ import annotations
 
 import csv
@@ -58,6 +61,7 @@ def load_json_file(path: Path) -> Optional[Dict[str, Any]]:
         if path.exists():
             return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
+        logger.debug("Failed to load JSON: %s", path, exc_info=True)
         return None
     return None
 
@@ -78,6 +82,7 @@ def load_csv_records(path: Path) -> List[Dict[str, Any]]:
         with path.open("r", encoding="utf-8", newline="") as handle:
             return [dict(row) for row in csv.DictReader(handle)]
     except Exception:
+        logger.debug("Failed to load CSV: %s", path, exc_info=True)
         return []
 
 
@@ -419,12 +424,12 @@ def reconstruct_price_series(run_dir: Path) -> List[Dict[str, Any]]:
 
         _ensure_dotenv()
     except Exception:
-        pass
+        logger.debug("_ensure_dotenv failed", exc_info=True)
     try:
         from src.auth.user_config import load_user_config
         load_user_config(1)
     except Exception:
-        pass
+        logger.debug("load_user_config failed", exc_info=True)
     fetch_start_date = _compute_fetch_start_date(run_dir, start_date)
 
     try:

@@ -20,7 +20,8 @@ def _load_data_source_tokens(user_id: int) -> None:
         from src.auth.user_config import load_user_config
         load_user_config(user_id)
     except Exception:
-        pass
+        import logging
+        logging.getLogger(__name__).debug("_load_data_source_tokens failed for user %s", user_id, exc_info=True)
 
 
 async def require_auth(
