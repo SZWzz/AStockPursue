@@ -161,7 +161,8 @@ export function MinuteLineChart({ data, preClose, symbol, height = 500 }: Props)
               color: (params: { dataIndex: number }) => {
                 const p = prices[params.dataIndex];
                 const prev = params.dataIndex > 0 ? prices[params.dataIndex - 1] : pc;
-                return p >= (prev ?? p) ? theme.upColor + "99" : theme.downColor + "99";
+                // Solid up/down colors — no opacity blending into background
+                return p >= (prev ?? p) ? theme.upColor : theme.downColor;
               },
               borderRadius: [1, 1, 0, 0],
             },

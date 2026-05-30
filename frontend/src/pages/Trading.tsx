@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState } from "react";
-import { TrendingUp, Newspaper, ListOrdered, Building2, Bell, FlaskConical, RefreshCw } from "lucide-react";
+import { TrendingUp, Newspaper, ListOrdered, Building2, Bell, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useTradingStore } from "@/stores/tradingStore";
@@ -11,16 +11,14 @@ import { IndexTickerBar } from "@/components/trading/IndexTickerBar";
 import { OrderPanel } from "@/components/trading/OrderPanel";
 import { BrokerPanel } from "@/components/trading/BrokerPanel";
 import { NotifyConfigPanel } from "@/components/trading/NotifyConfigPanel";
-import { OptimizationPanel } from "@/components/trading/OptimizationPanel";
 
-type Tab = "news" | "orders" | "broker" | "notify" | "optimize";
+type Tab = "news" | "orders" | "broker" | "notify";
 
 const TABS: { id: Tab; labelKey: string; icon: typeof TrendingUp }[] = [
   { id: "news", labelKey: "tradingNews", icon: Newspaper },
   { id: "orders", labelKey: "tradingOrderPanel", icon: ListOrdered },
   { id: "broker", labelKey: "tradingBroker", icon: Building2 },
   { id: "notify", labelKey: "tradingNotify", icon: Bell },
-  { id: "optimize", labelKey: "tradingOptimize", icon: FlaskConical },
 ];
 
 export function Trading() {
@@ -234,7 +232,6 @@ export function Trading() {
               )}
               {tab === "broker" && <BrokerPanel />}
               {tab === "notify" && <NotifyConfigPanel />}
-              {tab === "optimize" && <OptimizationPanel symbol={selectedSymbol} />}
             </div>
           </div>
         </div>
