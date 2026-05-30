@@ -57,44 +57,80 @@ jobs:
           cd agent
           case "$GROUP" in
             engines)
-              pytest tests/test_*_engine.py tests/test_backtest_integration.py \
-                     tests/test_metrics.py tests/backtest/ -q --tb=short \
-                     --timeout=60 -n auto --dist worksteal
+              pytest tests/test_china_a_engine.py tests/test_china_futures_engine.py \
+                     tests/test_crypto_engine.py tests/test_global_equity_engine.py \
+                     tests/test_global_futures_engine.py tests/test_forex_engine.py \
+                     tests/test_base_engine.py tests/test_engine_robustness.py \
+                     tests/test_backtest_integration.py tests/test_backtest_runner_security.py \
+                     tests/test_metrics.py tests/test_models.py tests/test_market_detection.py \
+                     tests/test_validation.py tests/test_validation_cli.py \
+                     tests/test_loader_retry_helpers.py tests/test_akshare_loader.py \
+                     tests/test_futu_loader.py tests/test_get_market_data_size.py \
+                     tests/test_get_market_data_unresolved.py tests/test_ccxt_loader_bounded.py \
+                     tests/test_okx_loader_bounded.py tests/test_run_card.py \
+                     tests/test_registry.py tests/test_vnpy_export.py \
+                     tests/test_options_pricing_degenerate.py \
+                     -q --tb=short --timeout=60 -n auto --dist worksteal
               ;;
             trading)
               pytest tests/test_trading_engine.py tests/test_risk_pipeline.py \
-                     tests/test_live_driver.py tests/test_papertrade*.py \
-                     tests/papertrade/ -q --tb=short --timeout=60 -n auto --dist worksteal
+                     tests/test_live_driver.py tests/test_risk_parity.py \
+                     -q --tb=short --timeout=60 -n auto --dist worksteal
               ;;
             core)
               pytest tests/ \
                      --ignore=tests/e2e_backtest \
                      --ignore=tests/test_e2e_harness_v2.py \
-                     --ignore=tests/test_*_engine.py \
+                     --ignore=tests/test_china_a_engine.py \
+                     --ignore=tests/test_china_futures_engine.py \
+                     --ignore=tests/test_crypto_engine.py \
+                     --ignore=tests/test_global_equity_engine.py \
+                     --ignore=tests/test_global_futures_engine.py \
+                     --ignore=tests/test_forex_engine.py \
+                     --ignore=tests/test_base_engine.py \
+                     --ignore=tests/test_engine_robustness.py \
                      --ignore=tests/test_backtest_integration.py \
+                     --ignore=tests/test_backtest_runner_security.py \
                      --ignore=tests/test_metrics.py \
-                     --ignore=tests/backtest/ \
+                     --ignore=tests/test_models.py \
+                     --ignore=tests/test_market_detection.py \
+                     --ignore=tests/test_validation.py \
+                     --ignore=tests/test_validation_cli.py \
+                     --ignore=tests/test_loader_retry_helpers.py \
+                     --ignore=tests/test_akshare_loader.py \
+                     --ignore=tests/test_futu_loader.py \
+                     --ignore=tests/test_get_market_data_size.py \
+                     --ignore=tests/test_get_market_data_unresolved.py \
+                     --ignore=tests/test_ccxt_loader_bounded.py \
+                     --ignore=tests/test_okx_loader_bounded.py \
+                     --ignore=tests/test_run_card.py \
+                     --ignore=tests/test_registry.py \
+                     --ignore=tests/test_vnpy_export.py \
+                     --ignore=tests/test_options_pricing_degenerate.py \
                      --ignore=tests/test_trading_engine.py \
                      --ignore=tests/test_risk_pipeline.py \
                      --ignore=tests/test_live_driver.py \
-                     --ignore=tests/test_papertrade*.py \
-                     --ignore=tests/papertrade/ \
-                     --ignore=tests/swarm/ \
-                     --ignore=tests/test_swarm*.py \
+                     --ignore=tests/test_risk_parity.py \
+                     --ignore=tests/test_swarm_*.py \
                      --ignore=tests/test_persistent_memory.py \
-                     --ignore=tests/test_shadow_account.py \
-                     --ignore=tests/test_provider*.py \
-                     --ignore=tests/test_llm*.py \
+                     --ignore=tests/test_shadow_*.py \
+                     --ignore=tests/test_llm.py \
                      --ignore=tests/test_compact*.py \
-                     --ignore=tests/providers/ \
+                     --ignore=tests/test_openai_codex.py \
+                     --ignore=tests/test_kimi_reasoning_content.py \
+                     --ignore=tests/test_progress.py \
+                     --ignore=tests/test_remember_tool.py \
+                     --ignore=tests/test_session_search.py \
+                     --ignore=tests/test_session_service_mcp.py \
                      -q --tb=short --timeout=60 -n auto --dist worksteal
               ;;
             swarm)
-              pytest tests/swarm/ tests/test_swarm*.py \
-                     tests/test_persistent_memory.py \
-                     tests/test_shadow_account.py \
-                     tests/test_provider*.py tests/test_llm*.py \
-                     tests/test_compact*.py tests/providers/ \
+              pytest tests/test_swarm_*.py tests/test_persistent_memory.py \
+                     tests/test_shadow_*.py tests/test_llm.py \
+                     tests/test_compact*.py tests/test_openai_codex.py \
+                     tests/test_kimi_reasoning_content.py \
+                     tests/test_progress.py tests/test_remember_tool.py \
+                     tests/test_session_search.py tests/test_session_service_mcp.py \
                      -q --tb=short --timeout=60 -n auto --dist worksteal
               ;;
           esac
