@@ -130,6 +130,10 @@ export function Agent() {
       act().setSseStatus(s);
       if (s === "reconnecting" && prevSseStatusRef.current === "connected") toast.warning(t.reconnecting);
       else if (s === "connected" && prevSseStatusRef.current === "reconnecting") toast.success(t.connected);
+      else if (s === "disconnected" && prevSseStatusRef.current === "reconnecting") {
+        // Gave up after max retries — session likely deleted or server unreachable
+        toast.error(t.sessionGone || "会话已失效，请新建对话");
+      }
       prevSseStatusRef.current = s;
     });
   }, [onStatusChange, t]);

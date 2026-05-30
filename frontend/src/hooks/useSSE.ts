@@ -90,6 +90,14 @@ export function useSSE(config?: SSEConfig) {
       source.close();
       sourceRef.current = null;
       retryCountRef.current += 1;
+
+      // After 5 failed attempts, give up and stop reconnecting.
+      // The session may no longer exist (404) or the server is unreachable.
+      if (retryCountRef.current > 5) {
+        setStatus("disconnected");
+        return;
+      }
+
       setStatus("reconnecting");
       handlersRef.current["reconnect"]?.({ attempt: retryCountRef.current, delayMs: 0 });
 
