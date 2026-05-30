@@ -100,12 +100,13 @@ class DataLoader:
             from mootdx.quotes import Quotes
             from mootdx import config
 
-            # On first boot the server-list config file may not exist yet.
-            # config.setup() fires an *async* bestip download — if we race
-            # ahead and create the client immediately the server list is empty
-            # and Quotes.factory() raises "not enough values to unpack".
-            # Force a synchronous bestip refresh so the config is populated.
-            if not config.setup():
+            # On first boot the server-list config file may not exist yet,
+            # or BESTIP may be populated with empty strings (which won't
+            # fall back to the SERVER defaults because the key *exists*).
+            # Force a synchronous bestip refresh when BESTIP looks empty.
+            config.setup()
+            bestip_hq = config.get('BESTIP', {}).get('HQ', '')
+            if not bestip_hq:
                 try:
                     from mootdx.server import bestip
                     bestip(console=False, limit=5, sync=True)
