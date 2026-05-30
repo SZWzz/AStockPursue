@@ -126,14 +126,17 @@ def fake_akshare(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     forex = SimpleNamespace(cons=forex_cons)
 
     fake = SimpleNamespace(
-        forex=forex,
-        fund_etf_hist_sina=MagicMock(return_value=_stub_etf_response()),
         forex_hist_em=MagicMock(return_value=_stub_forex_response()),
+        fund_etf_hist_sina=MagicMock(return_value=_stub_etf_response()),
         stock_zh_a_hist=MagicMock(return_value=_stub_a_share_response()),
         stock_us_hist=MagicMock(return_value=pd.DataFrame()),
         stock_hk_hist=MagicMock(return_value=pd.DataFrame()),
     )
     monkeypatch.setitem(sys.modules, "akshare", fake)
+    # from akshare.forex.cons import symbol_market_map needs real
+    # sys.modules entries — attribute lookup on SimpleNamespace won't work
+    monkeypatch.setitem(sys.modules, "akshare.forex", forex)
+    monkeypatch.setitem(sys.modules, "akshare.forex.cons", forex_cons)
     return fake
 
 

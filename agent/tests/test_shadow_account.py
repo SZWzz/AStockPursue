@@ -506,7 +506,7 @@ def test_extract_shadow_strategy_tool(
     # Allow both tmp_path and the journal's parent directory
     monkeypatch.setenv(
         "ASTOCKPURSUE_ALLOWED_FILE_ROOTS",
-        f"{tmp_path};{profitable_journal.parent}",
+        f"{tmp_path},{profitable_journal.parent}",
     )
     tool = ExtractShadowStrategyTool()
     out = json.loads(tool.execute(journal_path=str(profitable_journal)))
