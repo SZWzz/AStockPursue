@@ -7,27 +7,28 @@ from src.trading.live_driver import LiveDriver, interval_to_seconds
 
 class TestIntervalToSeconds:
     def test_standard_intervals(self):
+        """Polling is de-coupled from bar interval — all return short periods."""
         assert interval_to_seconds("1m") == 60.0
-        assert interval_to_seconds("5m") == 300.0
-        assert interval_to_seconds("15m") == 900.0
-        assert interval_to_seconds("30m") == 1800.0
-        assert interval_to_seconds("1h") == 3600.0
-        assert interval_to_seconds("4h") == 14400.0
-        assert interval_to_seconds("1d") == 86400.0
-        assert interval_to_seconds("1w") == 604800.0
+        assert interval_to_seconds("5m") == 60.0     # was 300, now 60
+        assert interval_to_seconds("15m") == 60.0    # was 900, now 60
+        assert interval_to_seconds("30m") == 60.0    # was 1800, now 60
+        assert interval_to_seconds("1h") == 60.0     # was 3600, now 60
+        assert interval_to_seconds("4h") == 60.0     # was 14400, now 60
+        assert interval_to_seconds("1d") == 300.0    # was 86400, now 300 (5 min)
+        assert interval_to_seconds("1w") == 300.0    # was 604800, now 300 (5 min)
 
     def test_aliases(self):
         assert interval_to_seconds("1min") == 60.0
-        assert interval_to_seconds("daily") == 86400.0
-        assert interval_to_seconds("weekly") == 604800.0
+        assert interval_to_seconds("daily") == 300.0   # was 86400, now 300
+        assert interval_to_seconds("weekly") == 300.0  # was 604800, now 300
 
     def test_numeric_parse(self):
+        # Numeric fallback: strip unit × 60 → still works for custom intervals
         assert interval_to_seconds("10m") == 600.0
-        # "120min" → replace "min"→"120"×60 = 7200; current impl: replace order gives 3600 fallback
-        assert interval_to_seconds("120min") in (7200.0, 3600.0)
+        assert interval_to_seconds("120min") == 7200.0
 
     def test_unknown_fallback(self):
-        assert interval_to_seconds("???") == 3600.0  # defaults to 1h
+        assert interval_to_seconds("???") == 60.0  # was 3600, now defaults to 60s
 
 
 class MockLoader:

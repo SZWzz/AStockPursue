@@ -22,28 +22,30 @@ logger = logging.getLogger(__name__)
 
 
 def interval_to_seconds(interval: str) -> float:
-    """Convert a bar interval string to polling seconds."""
+    """Convert a bar interval string to polling seconds.
+
+    The polling interval is decoupled from the bar interval so that daily /
+    weekly runs check for new data frequently instead of once per bar period.
+    This prevents missing bars when the data source updates with a delay
+    (e.g. akshare publishing daily close data hours after market close).
+    """
     interval = interval.lower().strip()
-    if interval in ("1m", "1min"):
+    # Intraday intervals: poll every 60 s — fast enough to catch new bars,
+    # slow enough to avoid hammering the data source.
+    if interval in ("1m", "1min", "5m", "5min",
+                    "15m", "15min", "30m", "30min",
+                    "1h", "1hour", "60min", "4h", "4hour"):
         return 60.0
-    if interval in ("5m", "5min"):
-        return 300.0
-    if interval in ("15m", "15min"):
-        return 900.0
-    if interval in ("30m", "30min"):
-        return 1800.0
-    if interval in ("1h", "1hour", "60min"):
-        return 3600.0
-    if interval in ("4h", "4hour"):
-        return 14400.0
-    if interval in ("1d", "1day", "daily"):
-        return 86400.0
-    if interval in ("1w", "1week", "weekly"):
-        return 604800.0
+    # Daily / weekly: poll every 5 min.  Previously 86 400 s (24 h) and
+    # 604 800 s (7 d) respectively — a single miss meant waiting a full cycle.
+    if interval in ("1d", "1day", "daily", "1w", "1week", "weekly"):
+        return 300.0  # 5 minutes
+    # Unknown string → try numeric parse, otherwise default to 60 s.
     try:
-        return float(interval.replace("m", "").replace("min", "")) * 60.0
+        # Replace "min" before "m" so "120min" → "120", not "120in"
+        return float(interval.replace("min", "").replace("m", "")) * 60.0
     except ValueError:
-        return 3600.0
+        return 60.0
 
 
 class LiveDriver:
@@ -61,7 +63,7 @@ class LiveDriver:
         *,
         on_bar_result: callable = None,  # async (run_id, result) -> None
         on_error: callable = None,  # async (run_id, error_msg) -> None
-        on_heartbeat: callable = None,  # async (run_id) -> None
+        on_heartbeat: callable = None,  # async (run_id, info: dict | None = None) -> None
         max_consecutive_errors: int = 5,
     ) -> None:
         self._engine = engine
@@ -125,7 +127,13 @@ class LiveDriver:
                     consecutive_errors = 0
                 else:
                     if self._on_heartbeat:
-                        await self._on_heartbeat(run_id)
+                        next_poll = (datetime.now() + timedelta(seconds=self._poll_seconds)).isoformat()
+                        await self._on_heartbeat(run_id, {
+                            "last_bar_time": str(last_ts) if last_ts else None,
+                            "next_poll": next_poll,
+                            "poll_seconds": self._poll_seconds,
+                            "codes_checked": len(self._codes),
+                        })
 
             except asyncio.CancelledError:
                 raise

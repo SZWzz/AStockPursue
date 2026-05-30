@@ -103,7 +103,12 @@ class PaperTradingScheduler:
                 interval=interval,
                 on_bar_result=lambda rid, result: self._on_bar_result(rid, result),
                 on_error=lambda rid, msg: self._on_loop_error(rid, msg),
-                on_heartbeat=lambda rid: self._push_event(rid, "heartbeat", {"timestamp": datetime.now().isoformat()}),
+                on_heartbeat=lambda rid, info=None: self._push_event(
+                    rid, "heartbeat", {
+                        "timestamp": datetime.now().isoformat(),
+                        **(info or {}),
+                    },
+                ),
             )
             self._drivers[run_id] = driver
 
@@ -207,7 +212,12 @@ class PaperTradingScheduler:
             interval=interval,
             on_bar_result=lambda rid, result: self._on_bar_result(rid, result),
             on_error=lambda rid, msg: self._on_loop_error(rid, msg),
-            on_heartbeat=lambda rid: self._push_event(rid, "heartbeat", {"timestamp": datetime.now().isoformat()}),
+            on_heartbeat=lambda rid, info=None: self._push_event(
+                rid, "heartbeat", {
+                    "timestamp": datetime.now().isoformat(),
+                    **(info or {}),
+                },
+            ),
         )
         self._drivers[run_id] = driver
 
