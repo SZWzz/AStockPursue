@@ -7,23 +7,18 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  # ── Syntax check (fast, blocks nothing) ───────────────────────────────
+  syntax:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    timeout-minutes: 2
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
           cache: pip
-
-      - name: Install dependencies
-        run: |
-          pip install -e ".[dev]"
-          pip install pytest-xdist pytest-timeout
-
+      - name: Install deps
+        run: pip install -e ".[dev]"
       - name: Syntax check
         run: |
           cd agent
@@ -34,19 +29,90 @@ jobs:
           python -m py_compile src/tools/__init__.py
           python -m py_compile backtest/runner.py
 
-      - name: Run tests
-        # test_e2e_harness_v2.py is gated by ASTOCKPURSUE_RUN_LIVE_E2E
-        # (real-LLM only); list --ignore here so CI's intent is explicit and
-        # the suite never silently switches state on env presence.
-        run: pytest --ignore=agent/tests/e2e_backtest --ignore=agent/tests/test_e2e_harness_v2.py --tb=short -q -n auto --timeout=60 --dist worksteal
+  # ── Backend tests (matrix by group → 4 parallel runners) ──────────────
+  test:
+    needs: syntax
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      matrix:
+        group:
+          - engines      # backtest engines + metrics + validation
+          - trading      # trading engine + risk + live driver + paper trade
+          - core         # auth, db, api, security, sandbox, skills, config
+          - swarm        # swarm, memory, shadow, providers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Install deps
+        run: |
+          pip install -e ".[dev]"
+          pip install pytest-xdist pytest-timeout
+      - name: Run ${{ matrix.group }} tests
+        run: |
+          cd agent
+          case "$GROUP" in
+            engines)
+              pytest tests/test_*_engine.py tests/test_backtest_integration.py \
+                     tests/test_metrics.py tests/backtest/ -q --tb=short \
+                     --timeout=60 -n auto --dist worksteal
+              ;;
+            trading)
+              pytest tests/test_trading_engine.py tests/test_risk_pipeline.py \
+                     tests/test_live_driver.py tests/test_papertrade*.py \
+                     tests/papertrade/ -q --tb=short --timeout=60 -n auto --dist worksteal
+              ;;
+            core)
+              pytest tests/ \
+                     --ignore=tests/e2e_backtest \
+                     --ignore=tests/test_e2e_harness_v2.py \
+                     --ignore=tests/test_*_engine.py \
+                     --ignore=tests/test_backtest_integration.py \
+                     --ignore=tests/test_metrics.py \
+                     --ignore=tests/backtest/ \
+                     --ignore=tests/test_trading_engine.py \
+                     --ignore=tests/test_risk_pipeline.py \
+                     --ignore=tests/test_live_driver.py \
+                     --ignore=tests/test_papertrade*.py \
+                     --ignore=tests/papertrade/ \
+                     --ignore=tests/swarm/ \
+                     --ignore=tests/test_swarm*.py \
+                     --ignore=tests/test_persistent_memory.py \
+                     --ignore=tests/test_shadow_account.py \
+                     --ignore=tests/test_provider*.py \
+                     --ignore=tests/test_llm*.py \
+                     --ignore=tests/test_compact*.py \
+                     --ignore=tests/providers/ \
+                     -q --tb=short --timeout=60 -n auto --dist worksteal
+              ;;
+            swarm)
+              pytest tests/swarm/ tests/test_swarm*.py \
+                     tests/test_persistent_memory.py \
+                     tests/test_shadow_account.py \
+                     tests/test_provider*.py tests/test_llm*.py \
+                     tests/test_compact*.py tests/providers/ \
+                     -q --tb=short --timeout=60 -n auto --dist worksteal
+              ;;
+          esac
+        env:
+          GROUP: ${{ matrix.group }}
 
+  # ── Frontend build (parallel with tests, independent) ─────────────────
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-
-      - name: Frontend build
+      - name: Install & build
         run: |
           cd frontend
           npm ci
