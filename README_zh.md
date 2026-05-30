@@ -5,6 +5,8 @@
   <img src="https://img.shields.io/badge/PostgreSQL-14+-4169E1?style=flat&logo=postgresql&logoColor=white" alt="PostgreSQL">
   <img src="https://img.shields.io/badge/License-MIT-green?style=flat" alt="License">
   <img src="https://img.shields.io/badge/Factors-450+-orange?style=flat" alt="Alpha Factors">
+  <img src="https://img.shields.io/badge/Data_Loaders-23-blue?style=flat" alt="数据加载器">
+  <img src="https://img.shields.io/badge/Version-2026.5.30-blueviolet?style=flat" alt="版本">
 </p>
 
 <h1 align="center">AStockPursue</h1>
@@ -28,7 +30,7 @@
 ### AI 智能体
 - **AI 对话** — 自然语言驱动策略生成、回测、分析，SSE 实时流式输出，89 个技能包覆盖量化全领域
 - **AI 代码生成** — 代码编辑器下方可折叠对话面板，输入需求直接生成代码并写入编辑器，自动保存同步列表
-- **MCP Server** — 22 个 MCP 工具暴露给 Claude Desktop / Cursor，管理员设置面板
+- **MCP Server** — 31 个 MCP 工具暴露给 Claude Desktop / Cursor，管理员设置面板
 
 ### 策略 & 指标开发
 - **策略实验室** — SignalEngine 合约编辑器，K 线实时回测含基准对比（β / 信息比率 / 超额收益），可配置滑点，10 个策略模板，回测历史记录
@@ -39,8 +41,9 @@
 
 ### 因子 & 数据
 - **Alpha 因子库** — 450+ 量化因子 (Alpha101 / GTJA191 / Qlib158 / Academic)，支持用户自定义提升
-- **多数据源** — A股/港股/美股/加密货币/期货/外汇/指数/大宗商品，13 个数据源自动 fallback，Tencent 免费 A 股行情
-- **非 OHLCV 数据** — 市场情绪 (VIX/DXY/Yield Curve)、基本面 (PE/PB/ROE)、新闻聚合
+- **多数据源** — A股/港股/美股/加密货币/期货/外汇/指数/大宗商品，23 个数据源，A 股 8 源回退链 (`mootdx→tushare→eastmoney→tencent→futu→baidu→twelvedata→akshare`)
+- **PG 缓存 + Parquet 存储** — 三级数据访问 (缓存 → 本地存储 → API)，增量更新，健康度感知自动路由
+- **非 OHLCV 数据** — 龙虎榜 / 限售解禁 / 融资融券 / 大宗交易 / 资金流 / 强势股题材归因 / 北向资金 / 市场情绪 / 基本面 / 新闻聚合
 - **相关性矩阵** — 多市场交叉相关性 (Pearson/Spearman)，AI 分析 + 保存到会话
 
 ### 平台能力
@@ -61,8 +64,10 @@
 |------|------|
 | **后端** | Python 3.11+ · FastAPI · LangChain · Pandas · NumPy · SciPy · PostgreSQL · DuckDB · Pydantic |
 | **前端** | React 19 · TypeScript · Tailwind CSS · ECharts · Monaco Editor · Zustand · Vite |
-| **数据源** | Tushare · AKShare · yfinance · OKX · CCXT · Tencent · Twelve Data · Finnhub · CoinGecko · Futu · Global Indices · Commodities · Tiingo |
-| **MCP** | FastMCP · 22 工具暴露 |
+| **数据源** | Tushare · MooTDX · EastMoney · AKShare · Baidu · Tencent · yfinance · OKX · CCXT · Twelve Data · Finnhub · CoinGecko · Futu · Global Indices · Commodities · THS · Northbound · Tiingo |
+| **交易** | OMS（6 状态订单生命周期）· 富途券商 · 风控管道 · WebSocket 行情 · 告警通知（Webhook/邮件） |
+| **优化** | 网格/随机/贝叶斯搜索 · Walk-Forward · 蒙特卡洛 · Black-Litterman · VaR/CVaR · 压力测试 |
+| **MCP** | FastMCP · 31 工具暴露 |
 | **部署** | Docker · Docker Compose |
 
 ## 快速开始
@@ -84,8 +89,14 @@ docker compose up -d --build     # 启动服务
 AStockPursue/
 ├── agent/                     # Python 后端
 │   ├── api_server.py          #   FastAPI 主入口 (v1 API)
-│   ├── mcp_server.py          #   MCP Server (22 工具)
-│   ├── backtest/              #   多市场回测引擎 + 加载器注册表
+│   ├── mcp_server.py          #   MCP Server (31 工具)
+│   ├── backtest/              #   多市场回测引擎 + 23 加载器 + DataStore
+│   │   ├── loaders/            #     23 个数据源 (mootdx/eastmoney/tushare/...)
+│   │   ├── optimizers/         #     5 个投资组合优化器 (MV/RP/MD/EV/BL)
+│   │   ├── data_store.py       #     统一数据中心 (缓存 → 存储 → API)
+│   │   ├── portfolio_risk.py   #     VaR/CVaR/Kelly/集中度
+│   │   ├── stress_test.py      #     6 种预设 + 自定义压力场景
+│   │   └── report.py           #     PDF 报告生成
 │   ├── papertrade/            #   模拟盘引擎 + 调度器 + 风控
 │   ├── src/
 │   │   ├── agent/             #   SkillsLoader + ContextBuilder
@@ -98,7 +109,9 @@ AStockPursue/
 │   │   ├── skills/            #   89 个技能包 (SKILL.md)
 │   │   ├── swarm/             #   多智能体协作
 │   │   ├── tools/             #   MCP 工具实现
-│   │   └── trading/           #   统一交易引擎 (on_bar 管道)
+│   │   ├── notify/            #   告警引擎 (webhook/邮件, 5 类告警)
+│   │   ├── optimize/          #   参数优化 (网格/随机/贝叶斯 + 滚动优化)
+│   │   └── trading/           #   统一引擎 (OMS + 券商/WS 行情/风控管道)
 │   └── migrations/            #   数据库迁移 (增量)
 ├── frontend/                  # React 前端
 │   └── src/
