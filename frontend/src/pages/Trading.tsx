@@ -74,9 +74,9 @@ export function Trading() {
       />
 
       {/* Main content grid */}
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0 gap-2 p-2">
         {/* Left sidebar — search + watchlist */}
-        <div className="w-56 shrink-0 border-r flex flex-col bg-muted/10">
+        <div className="w-56 shrink-0 flex flex-col rounded-xl border bg-card overflow-hidden">
           <TradingWatchlist
             selectedSymbol={selectedSymbol}
             onSelect={handleSelectSymbol}
@@ -84,9 +84,9 @@ export function Trading() {
         </div>
 
         {/* Right area — chart + tabs */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-w-0 gap-2">
           {/* Chart area */}
-          <div className="flex-1 flex flex-col min-h-0 p-2">
+          <div className="flex-1 flex flex-col min-h-0">
             {/* Chart mode toggle */}
             <div className="flex items-center gap-1 mb-2 shrink-0">
               <button
@@ -152,9 +152,9 @@ export function Trading() {
             </div>
           </div>
 
-          {/* Tab bar + panels */}
-          <div className="border-t shrink-0" style={{ height: "40%" }}>
-            <div className="flex border-b">
+          {/* Tab bar + panels — rounded card */}
+          <div className="shrink-0 rounded-xl border bg-card overflow-hidden" style={{ height: "40%" }}>
+            <div className="flex border-b bg-muted/30">
               {TABS.map(({ id, labelKey, icon: Icon }) => (
                 <button
                   key={id}

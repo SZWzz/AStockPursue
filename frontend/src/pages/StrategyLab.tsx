@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react
 import {
   Code, Save, Trash2, Plus, Target, Play, CheckSquare,
   Square, Layers, Clock, X, ChevronsRight, ChevronsLeft,
+  FlaskConical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
@@ -14,6 +15,7 @@ import { AiChatPanel } from "@/components/indicator-lab/AiChatPanel";
 import { VisualBuilder } from "@/components/indicator-lab/VisualBuilder";
 import { TemplateBrowser, type TemplateItem } from "@/components/indicator-lab/TemplateBrowser";
 import { StrategyVerifyPanel } from "@/components/indicator-lab/StrategyVerifyPanel";
+import { OptimizationPanel } from "@/components/trading/OptimizationPanel";
 import type { QualityHint } from "@/components/indicator-lab/types";
 import { useBacktest } from "@/hooks/useBacktest";
 
@@ -578,7 +580,7 @@ function loadBacktestHistory(): BacktestHistoryEntry[] {
 
 // ── Page Component ────────────────────────────────────────────────────────────
 
-type SidePanelTab = "list" | "templates" | "history";
+type SidePanelTab = "list" | "templates" | "history" | "optimize";
 
 export function StrategyLab() {
   const { t } = useI18n();
@@ -1080,6 +1082,7 @@ export function StrategyLab() {
             ["list", t.indicatorLabList, Code],
             ["templates", t.strategyLabTemplates, Layers],
             ["history", t.strategyLabHistory, Clock],
+            ["optimize", t.tradingOptimize || "优化", FlaskConical],
           ] as const).map(([key, label, Icon]) => (
             <button
               key={key}
@@ -1207,6 +1210,16 @@ export function StrategyLab() {
                   </div>
                 ))
               )}
+            </div>
+          )}
+
+          {/* ── Optimize tab ──────────────────────────────────────────────── */}
+          {sidePanel === "optimize" && (
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                对策略参数进行网格搜索、随机搜索或贝叶斯优化，找到最优参数组合。
+              </p>
+              <OptimizationPanel symbol={chartSymbols.split(/[,;\s]+/).filter(Boolean)[0]?.trim() || ""} />
             </div>
           )}
 

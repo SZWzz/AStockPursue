@@ -38,9 +38,9 @@ export interface ChartPanelProps {
   onSlippageModeChange: (m: "fixed" | "volume") => void;
 }
 
-const labelClass = "text-[11px] font-medium text-muted-foreground whitespace-nowrap";
+const labelClass = "text-[10px] font-medium text-muted-foreground whitespace-nowrap";
 const inputClass =
-  "w-full text-xs rounded-md border border-border bg-background px-2 py-1.5 focus:outline-none focus:border-primary/50 transition-all duration-150";
+  "w-full text-xs rounded border border-border bg-background px-1.5 py-1 focus:outline-none focus:border-primary/50 transition-all duration-150";
 
 export function ChartPanel({
   symbol,
@@ -94,11 +94,11 @@ export function ChartPanel({
   return (
     <div className="flex flex-col h-full min-h-0">
       {/* Control bar */}
-      <div className="shrink-0 px-3 py-2 border-b space-y-2">
+      <div className="shrink-0 px-2 py-1.5 border-b space-y-1">
         {title && (
           <div className="text-xs font-semibold truncate" title={title}>{title}</div>
         )}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <div className="flex-[2] min-w-[200px]">
             <label className={labelClass}>{t.indicatorLabSymbol}</label>
             <StockInput

@@ -24,19 +24,35 @@ interface Props {
   onSelect: (symbol: string) => void;
 }
 
+// Module-level watchlist cache — survives page navigations (lazy-loaded routes)
+let _watchlistCache: { symbols: WatchlistItem[]; ts: number } | null = null;
+const CACHE_TTL_MS = 30_000;
+
 export function TradingWatchlist({ selectedSymbol, onSelect }: Props) {
   const { t } = useI18n();
-  const [symbols, setSymbols] = useState<WatchlistItem[]>([]);
+  const [symbols, setSymbols] = useState<WatchlistItem[]>(() => {
+    if (_watchlistCache && Date.now() - _watchlistCache.ts < CACHE_TTL_MS) {
+      return _watchlistCache.symbols;
+    }
+    return [];
+  });
   const [prices, setPrices] = useState<Record<string, PriceInfo>>({});
   const [stockInput, setStockInput] = useState("");
   const [adding, setAdding] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const loadWatchlist = useCallback(async () => {
+    // Skip if cache is fresh
+    if (_watchlistCache && Date.now() - _watchlistCache.ts < CACHE_TTL_MS) {
+      setSymbols(_watchlistCache.symbols);
+      return;
+    }
     try {
       const res = await fetch("/v1/api/watchlist", { headers: authHeaders() });
       const data = await res.json();
-      setSymbols(data.symbols || []);
+      const list = data.symbols || [];
+      _watchlistCache = { symbols: list, ts: Date.now() };
+      setSymbols(list);
     } catch { /* ignore */ }
   }, []);
 
@@ -72,6 +88,7 @@ export function TradingWatchlist({ selectedSymbol, onSelect }: Props) {
       });
       if (res.ok) {
         setStockInput("");
+        _watchlistCache = null; // invalidate cache so added stock shows
         await loadWatchlist();
         setTimeout(() => loadPrices(), 500);
       }
@@ -81,6 +98,7 @@ export function TradingWatchlist({ selectedSymbol, onSelect }: Props) {
 
   const removeSymbol = async (symbol: string) => {
     await fetch(`/v1/api/watchlist/${symbol}`, { method: "DELETE", headers: authHeaders() });
+    _watchlistCache = null;
     loadWatchlist();
   };
 
