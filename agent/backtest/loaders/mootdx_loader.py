@@ -212,7 +212,8 @@ class DataLoader:
             if target_date == today:
                 raw = self._client.minute(symbol=symbol)
             else:
-                raw = self._client.minutes(symbol=symbol, date=str(target_date))
+                # TDX protocol requires YYYYMMDD format (no hyphens)
+                raw = self._client.minutes(symbol=symbol, date=target_date.strftime("%Y%m%d"))
         except Exception:
             logger.debug("mootdx minute(s) call failed for %s on %s", symbol, date)
             return None
@@ -237,13 +238,24 @@ class DataLoader:
                 col_map[c] = "amount"
         df = df.rename(columns=col_map)
 
-        # Ensure we have at least time + price.
-        if "time" not in df.columns:
-            logger.warning("mootdx minute data missing 'time' column for %s", symbol)
-            return None
+        # Ensure we have at least price.
         if "price" not in df.columns:
             logger.warning("mootdx minute data missing 'price' column for %s", symbol)
             return None
+
+        # Generate time column from row index when the TDX response omits it.
+        # A-share trading hours: morning 9:30–11:30 (120 bars), afternoon 13:00–15:00 (120 bars).
+        if "time" not in df.columns:
+            times: list[str] = []
+            morning_start = pd.Timestamp("09:30")
+            afternoon_start = pd.Timestamp("13:00")
+            for i in range(len(df)):
+                if i < 120:
+                    t = morning_start + pd.Timedelta(minutes=i)
+                else:
+                    t = afternoon_start + pd.Timedelta(minutes=i - 120)
+                times.append(t.strftime("%H:%M"))
+            df["time"] = times
 
         df["time"] = pd.to_datetime(df["time"])
         df = df.set_index("time").sort_index()
