@@ -24,7 +24,7 @@ from tests.mcp_http_test_helpers import (
 
 _FIXTURE_SERVER = Path(__file__).resolve().parent / "fixtures" / "fake_mcp_sse_server.py"
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.slow]
 
 
 def _sse_url(port: int) -> str:

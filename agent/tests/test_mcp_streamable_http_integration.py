@@ -28,7 +28,7 @@ _FIXTURE_SERVER = Path(__file__).resolve().parent / "fixtures" / "fake_mcp_strea
 
 HTTP_PATH = "/mcp"
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.slow]
 
 
 def _http_url(port: int) -> str:

@@ -71,9 +71,10 @@ def _make_tonghuashun_rows(trades: list[tuple[str, str, str, float, float]]) -> 
 
 # ---------------- Fixtures ----------------
 
-@pytest.fixture
-def profitable_journal(tmp_path: Path) -> Path:
+@pytest.fixture(scope="module")
+def profitable_journal(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """15 roundtrips across 5 symbols, all profitable (2% gain each)."""
+    tmp_path = tmp_path_factory.mktemp("shadow")
     trades: list[tuple[str, str, str, float, float]] = []
     symbols = ["600519", "000001", "300750", "600036", "000858"]
     start_day = 1
@@ -86,9 +87,10 @@ def profitable_journal(tmp_path: Path) -> Path:
     return _write_journal(tmp_path / "journal_profitable.csv", _make_tonghuashun_rows(trades))
 
 
-@pytest.fixture
-def insufficient_journal(tmp_path: Path) -> Path:
+@pytest.fixture(scope="module")
+def insufficient_journal(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Only 2 profitable roundtrips — below MIN_PROFITABLE_ROUNDTRIPS."""
+    tmp_path = tmp_path_factory.mktemp("shadow")
     trades = [
         ("2026-01-02 10:30:00", "600519", "buy", 100.0, 10.0),
         ("2026-01-04 14:15:00", "600519", "sell", 100.0, 10.5),
@@ -98,9 +100,10 @@ def insufficient_journal(tmp_path: Path) -> Path:
     return _write_journal(tmp_path / "journal_few.csv", _make_tonghuashun_rows(trades))
 
 
-@pytest.fixture
-def no_roundtrips_journal(tmp_path: Path) -> Path:
+@pytest.fixture(scope="module")
+def no_roundtrips_journal(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Only buys, no sells — zero roundtrips."""
+    tmp_path = tmp_path_factory.mktemp("shadow")
     trades = [
         ("2026-01-02 10:30:00", "600519", "buy", 100.0, 10.0),
         ("2026-01-04 10:30:00", "000001", "buy", 50.0, 20.0),

@@ -114,6 +114,7 @@ def _extract_tool_result(resp: dict) -> dict:
 
 
 @pytest.mark.integration
+@pytest.mark.slow
 def test_mcp_server_happy_path() -> None:
     """End-to-end smoke check for ``AStockPursue-mcp``.
 
