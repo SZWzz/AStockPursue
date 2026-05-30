@@ -33,11 +33,21 @@ const DEFAULT_CODE = `"""
 
 data_map 的键为标的代码，值为 OHLCV DataFrame，包含以下列：
 open, high, low, close, volume。索引为 DatetimeIndex，名称为 "trade_date"。
+
+可优化参数（在类外部定义，Verify 后可在优化面板调整）：
+  LOOKBACK = 5            # 回看天数
+  MOMENTUM_THRESHOLD = 0  # 动量阈值
+  POSITION_SIZE = 0.5     # 仓位大小
 """
 
 import pandas as pd
 import numpy as np
 from typing import Dict
+
+# 可优化参数 — 修改这些值后点 Verify，再在优化面板中搜索最优值
+LOOKBACK = 5
+MOMENTUM_THRESHOLD = 0
+POSITION_SIZE = 0.5
 
 
 class SignalEngine:
@@ -47,14 +57,14 @@ class SignalEngine:
         signal_map: Dict[str, pd.Series] = {}
 
         for code, df in data_map.items():
-            if len(df) < 20:
+            if len(df) < LOOKBACK:
                 continue
-            returns = df["close"].pct_change(5).iloc[-1]
+            returns = df["close"].pct_change(LOOKBACK).iloc[-1]
             signal = pd.Series(0.0, index=df.index)
-            if returns > 0:
-                signal.iloc[-1] = 0.5   # 做多 50%
+            if returns > MOMENTUM_THRESHOLD:
+                signal.iloc[-1] = POSITION_SIZE
             else:
-                signal.iloc[-1] = -0.5  # 做空 50%
+                signal.iloc[-1] = -POSITION_SIZE
             signal_map[code] = signal
 
         return signal_map
