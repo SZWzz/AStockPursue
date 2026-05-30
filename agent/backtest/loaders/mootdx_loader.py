@@ -98,6 +98,20 @@ class DataLoader:
     def _ensure_client(self) -> None:
         if self._client is None:
             from mootdx.quotes import Quotes
+            from mootdx import config
+
+            # On first boot the server-list config file may not exist yet.
+            # config.setup() fires an *async* bestip download — if we race
+            # ahead and create the client immediately the server list is empty
+            # and Quotes.factory() raises "not enough values to unpack".
+            # Force a synchronous bestip refresh so the config is populated.
+            if not config.setup():
+                try:
+                    from mootdx.server import bestip
+                    bestip(console=False, limit=5, sync=True)
+                    config.setup()
+                except Exception:
+                    pass
 
             self._client = Quotes.factory(market="std")
 
