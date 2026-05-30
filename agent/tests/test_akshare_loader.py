@@ -115,7 +115,18 @@ def _stub_a_share_response() -> pd.DataFrame:
 @pytest.fixture
 def fake_akshare(monkeypatch: pytest.MonkeyPatch) -> SimpleNamespace:
     """Install a stub `akshare` module with mocked endpoints."""
+    # _is_forex() needs akshare.forex.cons.symbol_market_map
+    forex_cons = SimpleNamespace()
+    forex_cons.symbol_market_map = {
+        "EURUSD": "欧元兑美元", "GBPUSD": "英镑兑美元",
+        "USDJPY": "美元兑日元", "AUDUSD": "澳元兑美元",
+        "USDCAD": "美元兑加元", "USDCHF": "美元兑瑞郎",
+        "NZDUSD": "纽元兑美元",
+    }
+    forex = SimpleNamespace(cons=forex_cons)
+
     fake = SimpleNamespace(
+        forex=forex,
         fund_etf_hist_sina=MagicMock(return_value=_stub_etf_response()),
         forex_hist_em=MagicMock(return_value=_stub_forex_response()),
         stock_zh_a_hist=MagicMock(return_value=_stub_a_share_response()),
