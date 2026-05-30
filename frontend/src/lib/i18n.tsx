@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 
 const en = {
   home: "Home", agent: "Agent", runs: "Runs", settings: "Settings", alphaZoo: "Alpha Zoo",
-  docs: "Documentation",
+  docs: "Documentation", compare: "Compare", dataSources: "Data Sources",
   paperTrading: "Paper Trading",
   ptTitle: "Paper Trading", ptNewStrategy: "+ New Strategy", ptCancel: "Cancel",
   ptCreateSave: "Create & Save", ptCreating: "Creating...", ptLoading: "Loading...",
@@ -792,7 +792,7 @@ const en = {
 
 const zh: Messages = {
   home: "首页", agent: "智能体", runs: "运行", settings: "设置", alphaZoo: "Alpha 库",
-  docs: "文档中心",
+  docs: "文档中心", compare: "对比", dataSources: "数据源",
   paperTrading: "模拟盘",
   ptTitle: "模拟盘", ptNewStrategy: "+ 新建策略", ptCancel: "取消",
   ptCreateSave: "创建并保存", ptCreating: "创建中...", ptLoading: "加载中...",

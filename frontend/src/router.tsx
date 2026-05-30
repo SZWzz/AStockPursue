@@ -38,7 +38,7 @@ const UserManagement = lazy(() =>
   import("@/pages/admin/UserManagement").then((m) => ({ default: m.UserManagement })),
 );
 const DataSourceStatus = lazy(() =>
-  import("@/pages/DataSourceStatus").then((m) => ({ default: m.DataSourceStatus })),
+  import("@/pages/DataSourceStatus").then((m) => ({ default: m.default })),
 );
 const NotFound = lazy(() =>
   import("@/pages/NotFound").then((m) => ({ default: m.default })),
