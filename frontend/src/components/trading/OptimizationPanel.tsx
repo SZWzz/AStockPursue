@@ -12,7 +12,6 @@ interface Props {
 export function OptimizationPanel({ symbol }: Props) {
   const { t } = useI18n();
   const [method, setMethod] = useState("grid");
-  const [jobId, setJobId] = useState<string | null>(null);
   const [progress, setProgress] = useState<OptimizeProgress | null>(null);
   const [result, setResult] = useState<Record<string, unknown> | null>(null);
   const [running, setRunning] = useState(false);
@@ -42,11 +41,11 @@ export function OptimizationPanel({ symbol }: Props) {
         params: { symbol, period: "30" },
         codes: [symbol],
       });
-      setJobId(res.job_id);
+      const jId = res.job_id;
 
       // Connect SSE
       try {
-        const url = await api.optimizeStreamUrl(res.job_id);
+        const url = await api.optimizeStreamUrl(jId);
         const es = new EventSource(url);
         eventSourceRef.current = es;
         es.onmessage = (e) => {
@@ -58,7 +57,7 @@ export function OptimizationPanel({ symbol }: Props) {
               eventSourceRef.current = null;
               setRunning(false);
               if (p.status === "completed") {
-                api.getOptimizeResult(res.job_id).then((r) => setResult(r.result ?? null));
+                api.getOptimizeResult(jId).then((r) => setResult(r.result ?? null));
               }
             }
           } catch { /* ignore */ }
