@@ -49,6 +49,8 @@ async def require_auth(
     token = (cred.credentials if cred and cred.credentials else "") or (jwt if is_sse else "")
 
     if token:
+        # Try JWT first
+        payload = verify_token(token)
         if payload:
             _load_data_source_tokens(payload.get("user_id", 1))
             return payload
