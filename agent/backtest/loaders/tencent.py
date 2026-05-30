@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import re
+import warnings
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -131,17 +132,32 @@ class DataLoader:
             try:
                 if _is_cn(code):
                     tc = normalize_cn_code(code)
-                    df = self._fetch_kline(tc, period, adj, count=2000)
+                    df_raw = self._fetch_kline(tc, period, adj, count=2000)
                 elif _is_hk(code):
                     tc = normalize_hk_code(code)
-                    df = self._fetch_kline(tc, period, adj, count=2000)
+                    df_raw = self._fetch_kline(tc, period, adj, count=2000)
                 else:
                     logger.warning("Tencent does not support %s", code)
                     continue
-                if df is not None and not df.empty:
-                    df = df.loc[start_date:end_date]
+
+                if df_raw is not None and not df_raw.empty:
+                    raw_count = len(df_raw)
+                    raw_earliest = df_raw.index[0]
+                    df = df_raw.loc[start_date:end_date]
                     if not df.empty:
                         result[code] = df
+                    # Tencent returns at most 2000 bars per request.
+                    # If we got back ~2000 bars and the earliest bar is AFTER
+                    # the requested start_date, older data was likely truncated.
+                    if raw_count >= 1990 and pd.Timestamp(start_date) < raw_earliest:
+                        warnings.warn(
+                            f"Tencent data for {code} may be truncated: "
+                            f"requested {start_date}→{end_date}, "
+                            f"fetched {raw_count} bars starting from {raw_earliest.date()}. "
+                            f"Tencent caps at 2000 bars per request. "
+                            f"Consider using Tushare or EastMoney for longer histories.",
+                            stacklevel=2,
+                        )
             except Exception as exc:
                 logger.warning("Tencent failed for %s: %s", code, exc)
         return result

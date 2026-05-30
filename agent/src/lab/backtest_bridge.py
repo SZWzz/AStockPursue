@@ -107,6 +107,20 @@ def fetch_ohlcv(
 
     _ensure_registered()
 
+    # ── 1. Try PostgreSQL cache first (unless disabled) ──────────────────
+    try:
+        from backtest.loaders.cache import query_cache, write_cache
+        _cache_available = True
+    except Exception:
+        _cache_available = False
+
+    if _cache_available:
+        cached = query_cache(symbol, interval, start_date, end_date)
+        if cached is not None and len(cached) >= 5:
+            logger.debug("OHLCV cache hit for %s/%s (%d bars)", symbol, interval, len(cached))
+            return {symbol: cached}
+
+    # ── 2. Walk the fallback chain ──────────────────────────────────────
     if source == "auto":
         market = _detect_market(symbol)
         loader_names = FALLBACK_CHAINS.get(market, [])
@@ -136,6 +150,13 @@ def fetch_ohlcv(
                         interval=interval,
                     )
                     if data and symbol in data and len(data[symbol]) >= 5:
+                        # Write back to cache
+                        if _cache_available:
+                            try:
+                                n = write_cache(symbol, interval, data[symbol])
+                                logger.debug("Cached %d bars for %s/%s", n, symbol, interval)
+                            except Exception:
+                                pass
                         return data
                     tried.append(f"{name} (fetched {len(data.get(symbol, [])) if data else 0} rows)")
                     break  # empty data, don't retry
@@ -176,6 +197,12 @@ def fetch_ohlcv(
                     interval=interval,
                 )
                 if data and symbol in data and len(data[symbol]) >= 30:
+                    # Write back to cache
+                    if _cache_available:
+                        try:
+                            write_cache(symbol, interval, data[symbol])
+                        except Exception:
+                            pass
                     return data
             except Exception:
                 continue

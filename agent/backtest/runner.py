@@ -97,8 +97,13 @@ class BacktestConfigSchema(BaseModel):
     @field_validator("source")
     @classmethod
     def valid_source(cls, v: str) -> str:
-        if v not in _VALID_SOURCES:
-            raise ValueError(f"unsupported source {v!r}, must be one of {_VALID_SOURCES}")
+        # Dynamically resolve valid sources from the loader registry so new
+        # loaders (mootdx, eastmoney, baidu, …) are automatically accepted.
+        from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
+        _ensure_registered()
+        valid = set(LOADER_REGISTRY.keys()) | {"auto"}
+        if v not in valid:
+            raise ValueError(f"unsupported source {v!r}, must be one of {sorted(valid)}")
         return v
 
     @field_validator("fundamental_fields")
@@ -490,19 +495,18 @@ def main(run_dir: Path) -> None:
 
 
 def _create_market_engine(source: str, config: dict, codes: List[str]):
-    """Create the appropriate market engine based on data source and market type.
+    """Create the appropriate market engine based on **market type**.
 
     Routing priority:
       1. Detect market type from symbol patterns (futures, forex, etc.)
-      2. Fall back to source-based routing (okx->crypto, tushare->china_a, etc.)
+      2. A-share market → ChinaAEngine (works for ALL A-share loaders:
+         mootdx, tushare, eastmoney, tencent, futu, baidu, twelvedata, akshare)
+      3. Crypto → CryptoEngine
+      4. US/HK equity → GlobalEquityEngine
 
-    Args:
-        source: Data source (okx/ccxt/tushare/akshare/yfinance).
-        config: Backtest configuration.
-        codes: Instrument codes.
-
-    Returns:
-        BaseEngine subclass instance.
+    The *source* name is only used as a hint for crypto (okx/ccxt) and for
+    distinguishing China vs global futures.  All other routing is market-driven
+    so new A-share loaders work without modifying this function.
     """
     # Detect dominant market type from codes
     markets = {_detect_market(c) for c in codes} if codes else set()
@@ -512,38 +516,54 @@ def _create_market_engine(source: str, config: dict, codes: List[str]):
         from backtest.engines.composite import CompositeEngine
         return CompositeEngine(config, codes)
 
-    # Futures routing (Wave 2)
+    # Futures routing
     if "futures" in markets:
-        # Distinguish China vs global futures by exchange suffix
         if any(_is_china_futures(c) for c in codes):
             from backtest.engines.china_futures import ChinaFuturesEngine
             return ChinaFuturesEngine(config)
         from backtest.engines.global_futures import GlobalFuturesEngine
         return GlobalFuturesEngine(config)
 
-    # Forex routing (Wave 2)
+    # Forex routing
     if "forex" in markets:
         from backtest.engines.forex import ForexEngine
         return ForexEngine(config)
 
-    # Original routing (Wave 1)
-    if source in ("okx", "ccxt"):
-        from backtest.engines.crypto import CryptoEngine
-        return CryptoEngine(config)
-    elif source in ("tushare", "akshare"):
-        if markets & {"us_equity", "hk_equity"}:
-            from backtest.engines.global_equity import GlobalEquityEngine
-            market = _detect_submarket(codes)
-            return GlobalEquityEngine(config, market=market)
+    # ── Market-driven routing (source name is secondary) ─────────────────
+
+    # A-share market → ChinaAEngine (covers ALL A-share loaders)
+    if "a_share" in markets:
         from backtest.engines.china_a import ChinaAEngine
         return ChinaAEngine(config)
-    elif source == "yfinance":
+
+    # Crypto market → CryptoEngine
+    if "crypto" in markets:
+        from backtest.engines.crypto import CryptoEngine
+        return CryptoEngine(config)
+
+    # US/HK equity → GlobalEquityEngine
+    if markets & {"us_equity", "hk_equity"}:
         from backtest.engines.global_equity import GlobalEquityEngine
         market = _detect_submarket(codes)
         return GlobalEquityEngine(config, market=market)
-    else:
+
+    # Fund / macro / index / commodity → ChinaAEngine as safe default for
+    # Chinese markets; GlobalEquityEngine for global ones.
+    if markets & {"fund", "macro"}:
+        from backtest.engines.china_a import ChinaAEngine
+        return ChinaAEngine(config)
+    if markets & {"index", "commodity"}:
+        from backtest.engines.global_equity import GlobalEquityEngine
+        return GlobalEquityEngine(config, market="us")
+
+    # ── Fallback: source-name hint for unknown/unclassified codes ─────────
+    if source in ("okx", "ccxt"):
         from backtest.engines.crypto import CryptoEngine
         return CryptoEngine(config)
+
+    # Default: assume A-share (safest for Chinese users)
+    from backtest.engines.china_a import ChinaAEngine
+    return ChinaAEngine(config)
 
 
 def _detect_primary_source(codes: List[str], source: str) -> str:
@@ -568,6 +588,8 @@ def _detect_primary_source(codes: List[str], source: str) -> str:
 def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
     """Auto mode: route each market group through fallback chain.
 
+    Uses PG cache when available and concurrent fetching for multi-code groups.
+
     Args:
         codes: All symbols.
         config: Backtest config dict.
@@ -576,16 +598,40 @@ def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
     Returns:
         Merged ``code -> DataFrame`` map.
     """
+    from backtest.loaders.base import fetch_concurrent
+
+    # ── Cache support ─────────────────────────────────────────────────
+    try:
+        from backtest.loaders.cache import query_cache, write_cache
+        _cache_ok = True
+    except Exception:
+        _cache_ok = False
+
     market_groups = _group_codes_by_market(codes)
     merged = {}
     start_date = config.get("start_date", "")
     end_date = config.get("end_date", "")
 
     for market, market_codes in market_groups.items():
+        # ── Check PG cache first for each code ─────────────────────────
+        uncached_codes: list[str] = []
+        if _cache_ok:
+            for code in market_codes:
+                cached = query_cache(code, interval, start_date, end_date)
+                if cached is not None and len(cached) >= 5:
+                    merged[code] = cached
+                else:
+                    uncached_codes.append(code)
+        else:
+            uncached_codes = list(market_codes)
+
+        if not uncached_codes:
+            continue
+
+        # ── Resolve loader ─────────────────────────────────────────────
         try:
             loader = resolve_loader(market)
         except NoAvailableSourceError as exc:
-            # Fallback: try legacy source mapping
             legacy_src = _MARKET_TO_SOURCE.get(market, "tushare")
             logger.warning("Fallback chain failed for %s: %s — trying %s", market, exc, legacy_src)
             try:
@@ -596,9 +642,14 @@ def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
                 continue
 
         src_name = getattr(loader, "name", "unknown")
-        normalized_codes = _normalize_codes(market_codes, src_name)
+        normalized_codes = _normalize_codes(uncached_codes, src_name)
         fields = config.get("extra_fields") if src_name == "tushare" else None
-        result = loader.fetch(normalized_codes, start_date, end_date, fields=fields, interval=interval)
+
+        # ── Fetch — concurrent for multiple codes ──────────────────────
+        result = fetch_concurrent(
+            loader, normalized_codes, start_date, end_date,
+            interval=interval, fields=fields,
+        )
 
         # Runtime fallback: try remaining sources when primary returns empty
         if not result:
@@ -611,11 +662,22 @@ def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
                     continue
                 if not fb_loader.is_available():
                     continue
-                fb_codes = _normalize_codes(market_codes, fb_name)
-                result = fb_loader.fetch(fb_codes, start_date, end_date, interval=interval)
+                fb_codes = _normalize_codes(uncached_codes, fb_name)
+                result = fetch_concurrent(
+                    fb_loader, fb_codes, start_date, end_date,
+                    interval=interval,
+                )
                 if result:
                     logger.info("Runtime fallback: %s -> %s for %s", src_name, fb_name, market)
                     break
+
+        # ── Write back to cache ────────────────────────────────────────
+        if _cache_ok:
+            for code, df in result.items():
+                try:
+                    write_cache(code, interval, df)
+                except Exception:
+                    pass
 
         merged.update(result)
 

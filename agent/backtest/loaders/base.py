@@ -123,6 +123,66 @@ def retry_with_budget(
     raise AssertionError("unreachable: retry loop must return or raise")  # pragma: no cover
 
 
+def fetch_concurrent(
+    loader,
+    codes: list[str],
+    start_date: str,
+    end_date: str,
+    *,
+    interval: str = "1D",
+    max_workers: int = 8,
+    fields: list[str] | None = None,
+) -> dict[str, pd.DataFrame]:
+    """Fetch OHLCV data for multiple codes concurrently via ThreadPoolExecutor.
+
+    Falls back to sequential ``loader.fetch()`` when ``concurrent.futures`` is
+    unavailable (unlikely).  Each code is fetched independently and failures
+    are logged rather than propagated, so partial results are returned.
+
+    Args:
+        loader: A loader instance satisfying ``DataLoaderProtocol``.
+        codes: List of symbols to fetch.
+        start_date: ISO date string.
+        end_date: ISO date string.
+        interval: Bar interval (``"1D"``, ``"1H"``, etc.).
+        max_workers: Max threads in the pool (default 8).
+        fields: Optional extra field names (Tushare-specific).
+
+    Returns:
+        Merged ``{code: DataFrame}`` dict.  Codes whose fetch raised are
+        simply omitted from the result — the caller can detect gaps.
+    """
+    if len(codes) <= 1:
+        return loader.fetch(codes, start_date, end_date, interval=interval, fields=fields)
+
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    merged: dict[str, pd.DataFrame] = {}
+
+    def _fetch_one(code: str) -> tuple[str, pd.DataFrame | None]:
+        try:
+            result = loader.fetch(
+                [code], start_date, end_date, interval=interval, fields=fields,
+            )
+            if result and code in result and not result[code].empty:
+                return code, result[code]
+            return code, None
+        except Exception as exc:
+            import logging
+            _log = logging.getLogger(__name__)
+            _log.debug("concurrent fetch failed for %s: %s", code, exc)
+            return code, None
+
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(codes))) as ex:
+        futures = {ex.submit(_fetch_one, c): c for c in codes}
+        for fut in as_completed(futures):
+            code, df = fut.result()
+            if df is not None:
+                merged[code] = df
+
+    return merged
+
+
 @runtime_checkable
 class DataLoaderProtocol(Protocol):
     """Interface that every data source loader must satisfy."""

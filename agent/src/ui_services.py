@@ -429,13 +429,15 @@ def reconstruct_price_series(run_dir: Path) -> List[Dict[str, Any]]:
 
     try:
         source = context.get("source", "tushare")
-        if source == "okx":
-            from backtest.loaders.okx import DataLoader
-        elif source == "yfinance":
-            from backtest.loaders.yfinance_loader import DataLoader
-        else:
-            from backtest.loaders.tushare import DataLoader
-        loader = DataLoader()
+        # Dynamically resolve loader class from registry instead of
+        # hardcoding if/elif branches (supports mootdx/eastmoney/baidu/…).
+        from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
+        _ensure_registered()
+        loader_cls = LOADER_REGISTRY.get(source)
+        if loader_cls is None:
+            # Fallback to tushare for unknown sources
+            from backtest.loaders.tushare import DataLoader as loader_cls
+        loader = loader_cls()
         data_map = loader.fetch(codes, fetch_start_date, end_date)
     except Exception as exc:
         print(f"[WARN] reconstruct_price_series: DataLoader failed ({exc})")

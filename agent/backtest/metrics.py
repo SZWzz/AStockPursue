@@ -14,16 +14,33 @@ from backtest.models import TradeRecord
 
 # ─── Annualisation factor mapping ───
 
-_TRADING_DAYS = {"tushare": 252, "yfinance": 252, "okx": 365, "akshare": 252, "ccxt": 365, "tencent": 252, "futu": 252, "finnhub": 252, "twelvedata": 252, "auto": 252}
-_BARS_PER_DAY = {
-    "1m":  {"tushare": 240, "okx": 1440, "yfinance": 390, "akshare": 240, "ccxt": 1440},
-    "5m":  {"tushare": 48,  "okx": 288,  "yfinance": 78,  "akshare": 48,  "ccxt": 288},
-    "15m": {"tushare": 16,  "okx": 96,   "yfinance": 26,  "akshare": 16,  "ccxt": 96},
-    "30m": {"tushare": 8,   "okx": 48,   "yfinance": 13,  "akshare": 8,   "ccxt": 48},
-    "1H":  {"tushare": 4,   "okx": 24,   "yfinance": 7,   "akshare": 4,   "ccxt": 24},
-    "4H":  {"tushare": 1,   "okx": 6,    "yfinance": 2,   "akshare": 1,   "ccxt": 6},
-    "1D":  {"tushare": 1,   "okx": 1,    "yfinance": 1,   "akshare": 1,   "ccxt": 1},
+_TRADING_DAYS = {
+    # A-share sources (252 trading days / year)
+    "tushare": 252, "mootdx": 252, "eastmoney": 252, "tencent": 252,
+    "futu": 252, "baidu": 252, "twelvedata": 252, "akshare": 252,
+    # Global equity
+    "yfinance": 252, "finnhub": 252,
+    # Crypto (365 days / year)
+    "okx": 365, "ccxt": 365,
+    # Default
+    "auto": 252,
 }
+_BARS_PER_DAY = {
+    "1m":  {"tushare": 240, "mootdx": 240, "eastmoney": 240, "okx": 1440, "yfinance": 390, "akshare": 240, "ccxt": 1440},
+    "5m":  {"tushare": 48,  "mootdx": 48,  "eastmoney": 48,  "okx": 288,  "yfinance": 78,  "akshare": 48,  "ccxt": 288},
+    "15m": {"tushare": 16,  "mootdx": 16,  "eastmoney": 16,  "okx": 96,   "yfinance": 26,  "akshare": 16,  "ccxt": 96},
+    "30m": {"tushare": 8,   "mootdx": 8,   "eastmoney": 8,   "okx": 48,   "yfinance": 13,  "akshare": 8,   "ccxt": 48},
+    "1H":  {"tushare": 4,   "mootdx": 4,   "eastmoney": 4,   "okx": 24,   "yfinance": 7,   "akshare": 4,   "ccxt": 24},
+    "4H":  {"tushare": 1,   "mootdx": 1,   "eastmoney": 1,   "okx": 6,    "yfinance": 2,   "akshare": 1,   "ccxt": 6},
+    "1D":  {"tushare": 1,   "mootdx": 1,   "eastmoney": 1,   "okx": 1,    "yfinance": 1,   "akshare": 1,   "ccxt": 1},
+}
+
+# Fill missing source keys in _BARS_PER_DAY sub-dicts from tushare (A-share default)
+_A_SHARE_BARS = {"1m": 240, "5m": 48, "15m": 16, "30m": 8, "1H": 4, "4H": 1, "1D": 1}
+for _iv, _sub in _BARS_PER_DAY.items():
+    for _src in _TRADING_DAYS:
+        if _src not in _sub:
+            _sub[_src] = _A_SHARE_BARS.get(_iv, 1)
 
 
 def calc_bars_per_year(interval: str = "1D", source: str = "tushare") -> int:

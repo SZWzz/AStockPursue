@@ -72,7 +72,7 @@ export function StrategyBacktestPanel({ code, onClose }: StrategyBacktestPanelPr
             <div className="space-y-1.5">
               <label className={labelClass}>{t.indicatorLabSource}</label>
               <select value={source} onChange={(e) => setSource(e.target.value)} className={inputClass}>
-                {["auto", "tushare", "akshare", "yfinance", "okx", "ccxt", "twelvedata", "finnhub", "futu", "tencent", "coingecko", "global_indices", "commodities"].map((v) => (<option key={v} value={v}>{v}</option>))}
+                {["auto", "mootdx", "tushare", "eastmoney", "akshare", "yfinance", "okx", "ccxt", "twelvedata", "finnhub", "futu", "tencent", "baidu", "coingecko", "global_indices", "commodities"].map((v) => (<option key={v} value={v}>{v}</option>))}
               </select>
             </div>
           </div>

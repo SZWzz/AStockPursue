@@ -68,6 +68,7 @@ class UpdateLLMSettingsRequest(BaseModel):
 class DataSourceSettingsResponse(BaseModel):
     """Current data source credential settings."""
 
+    # Credential-based sources
     tushare_token_configured: bool
     tushare_token_hint: Optional[str] = None
     okx_api_key_configured: bool = False
@@ -78,6 +79,8 @@ class DataSourceSettingsResponse(BaseModel):
     tiingo_api_key_configured: bool = False
     akshare_available: bool = False
     akshare_version: str = ""
+
+    # Legacy single-loader booleans (keep for back-compat)
     yfinance_available: bool = False
     tencent_available: bool = False
     ccxt_available: bool = False
@@ -85,6 +88,15 @@ class DataSourceSettingsResponse(BaseModel):
     futu_available: bool = False
     global_indices_available: bool = False
     commodities_available: bool = False
+
+    # New A-share loaders (Phase 2)
+    mootdx_available: bool = False
+    eastmoney_available: bool = False
+    baidu_available: bool = False
+
+    # Dynamic list of ALL registered loaders (for frontend dropdowns)
+    loaders: list[dict] = []
+
     env_path: str
 
 
@@ -316,8 +328,11 @@ def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None
     except ImportError:
         pass
 
-    # Free / no-auth loader availability
+    # Free / no-auth loader availability — dynamically check ALL registered loaders
     yf_ok = tencent_ok = ccxt_ok = cg_ok = futu_ok = gi_ok = comm_ok = False
+    mootdx_ok = eastmoney_ok = baidu_ok = False
+    all_loaders: list[dict] = []
+
     try:
         from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
         _ensure_registered()
@@ -327,13 +342,27 @@ def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None
                 avail = inst.is_available() if hasattr(inst, "is_available") else True
             except Exception:
                 avail = False
-            if name == "yfinance": yf_ok = avail
-            elif name == "tencent": tencent_ok = avail
-            elif name == "ccxt": ccxt_ok = avail
-            elif name == "coingecko": cg_ok = avail
-            elif name == "futu": futu_ok = avail
+
+            # Legacy per-loader flags
+            if name == "yfinance":      yf_ok = avail
+            elif name == "tencent":     tencent_ok = avail
+            elif name == "ccxt":        ccxt_ok = avail
+            elif name == "coingecko":   cg_ok = avail
+            elif name == "futu":        futu_ok = avail
             elif name == "global_indices": gi_ok = avail
             elif name == "commodities": comm_ok = avail
+            elif name == "mootdx":      mootdx_ok = avail
+            elif name == "eastmoney":   eastmoney_ok = avail
+            elif name == "baidu":       baidu_ok = avail
+
+            # Build dynamic loader entry for frontend
+            all_loaders.append({
+                "name": name,
+                "display": getattr(cls, "name", name),
+                "markets": sorted(getattr(cls, "markets", set())),
+                "available": avail,
+                "requires_auth": getattr(cls, "requires_auth", False),
+            })
     except Exception:
         pass
 
@@ -355,6 +384,10 @@ def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None
         futu_available=futu_ok,
         global_indices_available=gi_ok,
         commodities_available=comm_ok,
+        mootdx_available=mootdx_ok,
+        eastmoney_available=eastmoney_ok,
+        baidu_available=baidu_ok,
+        loaders=all_loaders,
         env_path=_project_relative_path(ENV_PATH),
     )
 

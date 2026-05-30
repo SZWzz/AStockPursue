@@ -119,7 +119,9 @@ def _infer_market(codes: list[str], source: str) -> str:
         return "us_equity"
     if first.endswith(".HK"):
         return "hk_equity"
-    if source in ("tushare", "akshare"):
+
+    # A-share detection: check if source's loader covers a_share market
+    if _is_a_share_source(source):
         if first.isdigit() and len(first) == 6:
             return "a_share"
         if first.startswith(("IF", "IC", "IH", "IM", "T", "TF")):
@@ -127,6 +129,20 @@ def _infer_market(codes: list[str], source: str) -> str:
         return "a_share"
 
     return "us_equity"
+
+
+def _is_a_share_source(source: str) -> bool:
+    """Return True if *source* is an A-share data loader."""
+    try:
+        from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
+        _ensure_registered()
+        cls = LOADER_REGISTRY.get(source)
+        if cls is not None:
+            return "a_share" in getattr(cls, "markets", set())
+    except Exception:
+        pass
+    # Hardcoded fallback for widely-known A-share sources
+    return source in ("tushare", "akshare", "mootdx", "eastmoney", "tencent", "baidu", "futu", "twelvedata")
 
 
 def _fetch_benchmark(

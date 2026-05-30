@@ -131,7 +131,7 @@ export function ChartPanel({
           <div>
             <label className={labelClass}>{t.indicatorLabSource}</label>
             <select value={source} onChange={(e) => onSourceChange(e.target.value)} className={inputClass} style={{width: 110}} disabled={busy}>
-              {["auto", "tushare", "akshare", "yfinance", "okx", "ccxt", "twelvedata", "finnhub", "futu", "tencent", "coingecko", "global_indices", "commodities"].map((v) => (
+              {["auto", "mootdx", "tushare", "eastmoney", "akshare", "yfinance", "okx", "ccxt", "twelvedata", "finnhub", "futu", "tencent", "baidu", "coingecko", "global_indices", "commodities"].map((v) => (
                 <option key={v} value={v}>{v}</option>
               ))}
             </select>
