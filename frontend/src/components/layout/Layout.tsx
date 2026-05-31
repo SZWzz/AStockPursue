@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, BookOpen, Bot, Database, GitCompare, Menu, Moon, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users, X } from "lucide-react";
+import { BarChart3, BookOpen, Bot, Database, GitCompare, Menu, Moon, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users, X, Microscope } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useDarkMode } from "@/hooks/useDarkMode";
@@ -22,6 +22,7 @@ const NAV = [
   { to: "/compare", icon: GitCompare, key: "compare" as const, label: null },
   { to: "/correlation", icon: BarChart3, key: "correlation" as const, label: null },
   { to: "/data-sources", icon: Database, key: "dataSources" as const, label: null },
+  { to: "/factor-mining", icon: Microscope, key: "factorMining" as const, label: null },
   { to: "/docs", icon: BookOpen, key: "docs" as const, label: null },
   { to: "/settings", icon: Settings, key: "settings" as const, label: null },
 ];

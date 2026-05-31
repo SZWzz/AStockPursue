@@ -293,6 +293,37 @@ v1.include_router(create_system_router(require_auth))
 from src.api.trading_routes import router as trading_router  # noqa: E402
 v1.include_router(trading_router, dependencies=[Depends(require_auth)])
 
+from src.api.factor_mining_routes import router as factor_mining_router  # noqa: E402
+v1.include_router(factor_mining_router, dependencies=[Depends(require_auth)])
+
+from src.api.screener_routes import router as screener_router  # noqa: E402
+v1.include_router(screener_router, dependencies=[Depends(require_auth)])
+
+from src.api.compare_routes import router as compare_stats_router  # noqa: E402
+v1.include_router(compare_stats_router, dependencies=[Depends(require_auth)])
+
+from src.api.attribution_routes import router as attribution_router  # noqa: E402
+v1.include_router(attribution_router, dependencies=[Depends(require_auth)])
+
+from src.api.scheduler_routes import router as scheduler_router  # noqa: E402
+v1.include_router(scheduler_router, dependencies=[Depends(require_auth)])
+
+from src.api.news_routes import router as news_router  # noqa: E402
+v1.include_router(news_router, dependencies=[Depends(require_auth)])
+
+# --- P2 feature routes ---
+from src.api.version_routes import router as version_router  # noqa: E402
+v1.include_router(version_router, dependencies=[Depends(require_auth)])
+
+from src.api.live_bridge_routes import router as live_bridge_router  # noqa: E402
+v1.include_router(live_bridge_router, dependencies=[Depends(require_auth)])
+
+from src.api.marketplace_routes import router as marketplace_router  # noqa: E402
+v1.include_router(marketplace_router, dependencies=[Depends(require_auth)])
+
+from src.api.options_routes import router as options_router  # noqa: E402
+v1.include_router(options_router, dependencies=[Depends(require_auth)])
+
 app.include_router(v1)
 
 

@@ -198,6 +198,76 @@
     @apply bg-card border border-border rounded-2xl shadow-sm overflow-hidden flex flex-col;
   }
 
+  /* ── Mobile responsive utilities ──────────────────────────────────── */
+
+  /* Mobile bottom nav bar (shown on screens < 768px) */
+  .mobile-bottom-nav {
+    @apply hidden;
+  }
+  @media (max-width: 767px) {
+    .mobile-bottom-nav {
+      @apply fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around
+             bg-card border-t border-border px-1 py-2 safe-area-bottom;
+    }
+    .mobile-bottom-nav a,
+    .mobile-bottom-nav button {
+      @apply flex flex-col items-center gap-0.5 text-[10px] text-muted-foreground
+             px-2 py-1 rounded-lg transition-colors;
+    }
+    .mobile-bottom-nav a.active,
+    .mobile-bottom-nav button.active {
+      @apply text-primary;
+    }
+    .mobile-bottom-nav svg {
+      @apply h-5 w-5;
+    }
+
+    /* Full-width cards on mobile */
+    .section-card {
+      @apply rounded-xl mx-2;
+    }
+
+    /* Scrollable tables on mobile */
+    .table-responsive {
+      @apply overflow-x-auto -mx-2 px-2;
+    }
+
+    /* Stack side-by-side layouts on mobile */
+    .responsive-stack {
+      @apply flex-col;
+    }
+
+    /* Hide desktop-only elements */
+    .desktop-only {
+      @apply hidden;
+    }
+
+    /* Touch-friendly input sizing */
+    input[type="text"],
+    input[type="number"],
+    input[type="search"],
+    textarea,
+    select {
+      font-size: 16px !important;  /* Prevent iOS zoom on focus */
+    }
+
+    /* Main content padding for mobile bottom nav */
+    .has-bottom-nav {
+      padding-bottom: 60px;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .mobile-only {
+      @apply hidden;
+    }
+  }
+
+  /* Safe area inset for notched phones */
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
   /* ── Tab system ────────────────────────────────────────────────────── */
   .tab-bar {
     @apply flex shrink-0 bg-card/50 rounded-t-2xl overflow-hidden;

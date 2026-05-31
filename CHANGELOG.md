@@ -1,5 +1,91 @@
 # Changelog
 
+## 2026.5.31 (AI Factor Mining + P0-P2 Full Stack)
+
+### Added
+
+- **AI Factor Mining Engine** — Genetic programming + LLM-guided alpha discovery
+  - Expression tree evolution: 20+ operators, tournament selection, crossover/mutation, complexity penalty (AIC/BIC)
+  - Walk-Forward validation: rolling OOS windows replace simple train/test split; fitness = mean(OOS IC) − w·std(OOS IC)
+  - Benjamini-Hochberg multiple testing correction; `adjusted_p_value` and `is_statistically_significant` on every candidate
+  - LLM factor extraction: PDF research paper → factor formulas via structured JSON Schema output
+  - Multi-LLM debate filter: 3 personas (quant/research/PM) independently score candidates
+  - Hybrid GP+LLM co-evolution: LLM reviews population every ~5 generations, suggests search directions
+  - Factor promotion: auto-generates `__alpha_meta__` + `compute(panel)` code into `zoo/mined/`
+  - SSE live evolution chart: real-time IC curve per generation, expression tree viewer
+  - 13 API endpoints + 4 frontend components (EvolutionChart, ExpressionTreeViewer, CandidatesTable, MiningProgressCard)
+  - DB: `vt_factor_mining_runs`, `vt_factor_mining_candidates`
+
+- **Smart Stock Screener** — Multi-condition filtering across 450+ Alpha Zoo factors + 11 technical indicators
+  - Whitelist validation: all field names and operators validated against strict frozenset whitelists
+  - Parameterized SQL: `%s` placeholders prevent injection; `statement_timeout` protection
+  - AI-recommended presets based on recent factor IC ranking
+  - Batch operations: add to watchlist, export CSV, equal-weight basket backtest
+  - 8 API endpoints + DB: `vt_screener_presets`, `vt_screener_runs`, `vt_screener_results`
+
+- **Strategy Statistical Comparison** — Paired t-test, Bootstrap Sharpe CI (10k samples), White's Reality Check, CAPM/FF3 regression
+  - Rolling window Sharpe stability analysis
+  - Overlaid equity curves endpoint
+  - 3 API endpoints via `compare_routes.py`
+
+- **Performance Attribution Dashboard** — Brinson (allocation/selection/interaction), factor cross-sectional regression, sector (SW classification), time-series decomposition
+  - Full attribution report endpoint aggregating all 4 dimensions
+  - 5 API endpoints + 4 frontend chart components
+
+- **Scheduled Tasks Engine** — 6 task types: auto_backtest, data_health_check, watchlist_alert, signal_report, factor_mining, screener_run
+  - Visual cron builder with next-run preview
+  - Execution history + log viewer
+  - PostgreSQL persistence + notification integration
+  - 9 API endpoints + DB: `vt_scheduled_tasks`, `vt_scheduled_task_executions`
+
+- **News Sentiment Analysis** — Chinese NLP sentiment (SnowNLP + keyword fallback), stock-level aggregation, trending topics
+  - SSE real-time news stream
+  - Sentiment gauge card + trending topic word cloud
+  - 4 API endpoints + DB: `vt_news_items`, `vt_stock_sentiment`
+
+- **Strategy Version Control** — Auto-versioning with unified diffs, version comparison, one-click rollback
+  - Diff viewer component with ± syntax coloring
+  - 5 API endpoints + DB: `vt_strategy_versions`
+
+- **Strategy Marketplace** — Publish/browse/rate/install strategies
+  - 5-star rating, install count ranking, market/category filtering
+  - 6 API endpoints + DB: `vt_strategy_marketplace`, `vt_strategy_ratings`
+
+- **Options Analysis Module** — Black-Scholes pricing with full Greeks (Δ, Γ, Θ, ν, ρ), binomial tree, implied volatility Newton-Raphson solver, volatility surface generation
+  - 5 API endpoints
+
+- **Live Trading Bridge** — 5-step pre-flight validation (broker, risk config, performance, limits, balance), paper→live promotion with risk controls
+  - 2 API endpoints
+
+- **Onboarding Wizard** — 6-step guided setup (Welcome → LLM → Data Sources → Watchlist → Strategy → Done), auto-detect existing config, dismissible
+  - Frontend-only component
+
+- **Mobile Responsive Layout** — Adaptive sidebar (collapsed on mobile + overlay), bottom nav bar, touch-friendly 16px inputs, safe-area-bottom inset
+
+- **Cross-Worker SSE Bus** — PostgreSQL LISTEN/NOTIFY pub/sub layer with in-process fallback (`services/sse_bus.py`)
+
+- **GP Performance Profiler** — Per-generation eval timing (p50/p95/p99), data loading + population init tracking (`services/gp_profiler.py`)
+
+- **Factor Wide Table ETL** — Daily batch job computing all Alpha Zoo factors into `vt_factor_daily_wide` for fast screening queries (`services/factor_wide_etl.py`)
+
+- **LLM Prompt Cache** — SHA-256 dedup with TTL, cache hit/miss stats (`services/llm_cache.py`)
+
+- **Data Source Status Optimization** — Cached with 5-min TTL, parallel checks (16 workers), 1s timeout per loader (down from 2s), worst-case 46s → ≤10s
+
+### Changed
+
+- **LLM Cost Controls** — Rate limiting (10 calls/min), daily token budget (500k), usage tracking via `get_llm_usage_stats()`
+- **Screener Security** — All conditions validated against field/operator whitelists; sanitized field names
+- **GP Fitness** — Walk-forward cross-validation replaces simple train/test split; OOS stability penalty
+- **Factor Candidates** — Added `adjusted_p_value` and `is_statistically_significant` fields
+- **API Server** — 6 new route modules mounted (factor_mining, screener, compare, attribution, scheduler, news)
+
+### Legal
+
+- **Disclaimer** — Added "for research and educational purposes only, not investment advice" to both README.md and README_zh.md
+
+---
+
 ## 2026.5.30 (Dashboard)
 
 ### Added

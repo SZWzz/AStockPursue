@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/Data_Sources-23-blue?style=flat-square" alt="Data Sources">
   <img src="https://img.shields.io/badge/AI_Skills-89-purple?style=flat-square" alt="AI Skills">
   <img src="https://img.shields.io/badge/MCP_Tools-31-teal?style=flat-square" alt="MCP Tools">
-  <img src="https://img.shields.io/badge/Version-2026.5.30-blueviolet?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/Version-2026.5.31-blueviolet?style=flat-square" alt="Version">
 </p>
 
 <h1 align="center">🚀 AStockPursue</h1>
@@ -25,6 +25,8 @@
 ---
 
 Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT License).
+
+> ⚠️ **Disclaimer**: This software is for **research and educational purposes only**. It does not constitute investment advice, financial advice, trading advice, or any other type of advice. The authors and contributors assume no responsibility for any trading losses, financial damages, or legal liabilities incurred through the use of this software. **Past performance does not guarantee future results. All trading involves risk. Trade at your own risk.**
 
 ## ✨ Features
 
@@ -89,10 +91,78 @@ Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT Licen
 - **i18n** — 170+ translation keys (Chinese / English), auto-detect browser language
 - **Card UI** — Rounded card-based layout (`rounded-2xl`), soft modern aesthetic
 - **MCP Server** — 31 MCP tools exposed for Claude Desktop / Cursor integration
+- **Mobile Responsive** — Adaptive sidebar, bottom nav bar, touch-friendly inputs
 
 </td>
 </tr>
 </table>
+
+### 🧬 AI Factor Mining *(NEW)*
+- **Genetic Programming Engine** — Expression tree evolution with 20+ operators, tournament selection, subtree crossover & mutation, complexity penalty (AIC/BIC)
+- **Walk-Forward Validation** — Rolling OOS windows replace simple train/test split; final fitness = mean(OOS IC) − w·std(OOS IC)
+- **Benjamini-Hochberg Correction** — Multiple testing adjustment across all candidates; only `adjusted_p < 0.05` marked as statistically significant
+- **LLM-Guided Discovery** — Extract factor formulas from research PDFs; cross-market factor transfer; multi-LLM debate filtering with JSON Schema enforcement
+- **Hybrid GP+LLM** — LLM reviews GP population, suggests search directions, filters nonsensical formulas; rate-limited for cost control
+- **Factor Promotion** — One-click promote validated factors into Alpha Zoo with auto-generated `__alpha_meta__` + `compute(panel)` code
+- **Live Evolution Chart** — Real-time IC curve per generation via SSE streaming; expression tree visualizer; candidates table with validate/promote/delete
+
+### 🔍 Smart Stock Screener *(NEW)*
+- **Multi-Condition Filtering** — 450+ Alpha Zoo factors + 11 technical indicators as filterable fields
+- **Whitelist Validation** — All field names and operators validated against strict whitelists to prevent injection
+- **Parameterized SQL** — Safe query construction with `%s` placeholders; `statement_timeout` protection
+- **AI-Recommended Presets** — Top-N factor combinations ranked by recent IC
+- **Batch Operations** — Add results to watchlist, export CSV, create equal-weight basket backtest
+
+### 📊 Performance Attribution *(NEW)*
+- **Brinson Attribution** — Decompose excess return into allocation effect + selection effect + interaction effect per sector
+- **Factor Attribution** — Cross-sectional regression on Alpha Zoo factors; factor contribution breakdown
+- **Sector Attribution** — SW industry classification with P&L per sector and concentration HHI
+- **Time-Series Decomposition** — Trend / seasonal / residual decomposition of portfolio returns
+
+### 🔬 Strategy Comparison *(NEW)*
+- **Statistical Tests** — Paired t-test, Bootstrap Sharpe CI (10,000 samples), White's Reality Check
+- **Rolling Window Sharpe** — Stability analysis with dual-series overlay chart
+- **CAPM/FF3 Regression** — Jensen's alpha with t-test, beta, R-squared
+- **Overlaid Equity Curves** — Side-by-side visual comparison
+
+### ⏰ Scheduled Tasks *(NEW)*
+- **Cron Engine** — 6 task types: auto_backtest, data_health_check, watchlist_alert, signal_report, factor_mining, screener_run
+- **Task Management UI** — Create/edit/pause/resume/delete with execution history and log viewer
+- **Visual Cron Builder** — Dropdown-based cron expression builder with next-run preview
+- **Notification Integration** — Task results pushed via existing webhook/email channels
+
+### 📰 News Sentiment *(NEW)*
+- **Chinese NLP** — SnowNLP-based sentiment scoring with keyword fallback
+- **Stock-Level Aggregation** — Per-symbol sentiment mean/std/news_count/trending score
+- **Trending Topics** — Word frequency + sentiment-weighted trending heatmap
+- **Real-Time SSE Stream** — Live news sentiment updates for trading dashboard
+
+### 🔄 Strategy Version Control *(NEW)*
+- **Auto-Versioning** — Every save creates a new version with unified diff from previous
+- **Diff Viewer** — Side-by-side or unified diff with syntax-colored +/- lines
+- **Version Comparison** — Select any two versions to diff
+- **One-Click Rollback** — Revert to any previous version (creates a new version entry)
+
+### 🛒 Strategy Marketplace *(NEW)*
+- **Publish/Browse/Install** — Share strategies publicly, browse by market/category, one-click install to Strategy Lab
+- **5-Star Rating** — Per-user rating with average display
+- **Install Count** — Popularity ranking
+
+### 📈 Options Analysis *(NEW)*
+- **Black-Scholes Pricing** — Analytical pricing with full Greeks (Δ, Γ, Θ, ν, ρ)
+- **Binomial Tree** — Cox-Ross-Rubinstein n-step lattice pricing
+- **Implied Volatility** — Newton-Raphson solver from market price
+- **Volatility Surface** — Smile/skew pattern generation across strikes and expiries
+
+### 🚀 Live Trading Bridge *(NEW)*
+- **Pre-Flight Checks** — 5-step validation: broker connectivity, risk config, strategy performance, position limits, account balance
+- **Paper → Live Promotion** — Promote validated paper trading strategies to live with risk limits
+- **Override Mode** — Force-promote for trusted strategies
+
+### 🎓 Onboarding Wizard *(NEW)*
+- **6-Step Guided Setup** — Welcome → LLM → Data Sources → Watchlist → First Strategy → Ready
+- **Auto-Detect** — Checks existing LLM and data source config, skips completed steps
+- **Dismissible** — One-click skip, persisted in localStorage
 
 ## 🛠 Tech Stack
 

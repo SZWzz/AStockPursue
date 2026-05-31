@@ -810,6 +810,16 @@ const en = {
   tradingIndices: "Indices", tradingEditIndices: "Edit Indices",
   tradingNews: "News", tradingNoSymbol: "Select a stock from the watchlist",
   tradingCancelOrder: "Cancel",
+  // Factor Mining
+  factorMining: "Factor Mining",
+  fmTabGp: "GP Evolution",
+  fmTabLlm: "LLM Extraction",
+  fmTabHybrid: "Hybrid Search",
+  fmTabCandidates: "Candidates",
+  fmTabHistory: "History",
+  fmStartGp: "Start Evolution",
+  fmRunning: "Running",
+  fmCompleted: "Completed",
 } as const;
 
 const zh: Messages = {
@@ -1622,6 +1632,16 @@ const zh: Messages = {
   tradingIndices: "指数", tradingEditIndices: "编辑指数",
   tradingNews: "资讯", tradingNoSymbol: "请从左侧自选股选择一个标的",
   tradingCancelOrder: "撤单",
+  // Factor Mining
+  factorMining: "因子挖掘",
+  fmTabGp: "GP 演化",
+  fmTabLlm: "LLM 提取",
+  fmTabHybrid: "混合搜索",
+  fmTabCandidates: "候选因子",
+  fmTabHistory: "历史记录",
+  fmStartGp: "开始演化",
+  fmRunning: "运行中",
+  fmCompleted: "已完成",
 };
 
 type Messages = Record<keyof typeof en, string>;

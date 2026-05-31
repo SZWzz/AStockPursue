@@ -792,65 +792,89 @@ async def update_data_source_settings(payload: UpdateDataSourceSettingsRequest, 
     )
 
 # ------------------------------------------------------------------------
-# Data source status (live health check of all loaders)
+# Data source status (cached health check of all loaders)
 # ------------------------------------------------------------------------
 
-@router.get("/settings/data-source-status")
-async def get_data_source_status(auth: dict = Security(_require_auth)):
-    """Return live health/availability status of all registered data loaders."""
-    import asyncio
+_ds_status_cache: dict[str, Any] | None = None
+_ds_status_cache_ts: float = 0.0
+_ds_cache_ttl: float = 300.0  # 5 min cache before auto-refresh
+_ds_check_timeout: float = 1.0  # per-loader timeout
+_ds_refresh_lock = False  # prevent concurrent background refreshes
+import threading as _threading
 
-    def _build():
-        import concurrent.futures
 
-        all_loaders: list[dict] = []
-        try:
-            from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
-            _ensure_registered()
+def _rebuild_ds_status() -> list[dict]:
+    """Rebuild data source status in parallel. Returns sorted loader list."""
+    import concurrent.futures as _cf
 
-            def check_one(name, cls, timeout=2):
-                avail = False
-                if hasattr(cls, "is_available"):
-                    ex = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    all_loaders: list[dict] = []
+    try:
+        from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
+        _ensure_registered()
+
+        def _check_one(name: str, cls: type) -> dict:
+            avail = False
+            if hasattr(cls, "is_available"):
+                with _cf.ThreadPoolExecutor(max_workers=1) as ex:
                     try:
                         inst = cls()
-                        f = ex.submit(inst.is_available)
-                        avail = f.result(timeout=timeout)
+                        avail = ex.submit(inst.is_available).result(timeout=_ds_check_timeout)
                     except Exception:
                         avail = False
-                    finally:
-                        ex.shutdown(wait=False)
-                else:
-                    avail = True
+            else:
+                avail = True
+            return {
+                "name": name,
+                "display": getattr(cls, "name", name),
+                "markets": sorted(getattr(cls, "markets", set())),
+                "available": avail,
+                "requires_auth": getattr(cls, "requires_auth", False),
+                "health": None,
+            }
 
-                return {
-                    "name": name,
-                    "display": getattr(cls, "name", name),
-                    "markets": sorted(getattr(cls, "markets", set())),
-                    "available": avail,
-                    "requires_auth": getattr(cls, "requires_auth", False),
-                    "health": None,
-                }
-
-            # Check each loader sequentially with a per-loader timeout.
-            # shutdown(wait=False) ensures a hung is_available() won't block us.
-            for name, cls in LOADER_REGISTRY.items():
+        # All loaders checked in parallel, 16 workers, global deadline 10s
+        items = list(LOADER_REGISTRY.items())
+        with _cf.ThreadPoolExecutor(max_workers=min(16, max(1, len(items)))) as ex:
+            futures = {ex.submit(_check_one, name, cls): name for name, cls in items}
+            for f in _cf.as_completed(futures, timeout=10.0):
                 try:
-                    all_loaders.append(check_one(name, cls))
+                    all_loaders.append(f.result(timeout=_ds_check_timeout))
                 except Exception:
                     all_loaders.append({
-                        "name": name,
-                        "display": getattr(cls, "name", name),
-                        "markets": sorted(getattr(cls, "markets", set())),
+                        "name": futures.get(f, "?"),
+                        "display": futures.get(f, "?"),
+                        "markets": [],
                         "available": False,
-                        "requires_auth": getattr(cls, "requires_auth", False),
+                        "requires_auth": False,
                         "health": None,
                     })
-        except Exception:
-            pass
-        return {"loaders": all_loaders}
+    except Exception:
+        pass
+    return sorted(all_loaders, key=lambda x: (not x["available"], x["name"]))
 
-    return await asyncio.to_thread(_build)
+
+@router.get("/settings/data-source-status")
+async def get_data_source_status(auth: dict = Security(_require_auth), refresh: bool = False):
+    """Return health/availability of all data loaders (cached 5 min).
+
+    Pass ``?refresh=true`` to force an immediate re-check.
+    """
+    import asyncio
+    import time as _time
+
+    global _ds_status_cache, _ds_status_cache_ts, _ds_refresh_lock
+
+    now = _time.monotonic()
+    expired = (now - _ds_status_cache_ts) > _ds_cache_ttl
+
+    if _ds_status_cache is None or refresh or expired:
+        # Run synchronously (but parallel internally) so the caller gets fresh data
+        loaders = await asyncio.to_thread(_rebuild_ds_status)
+        _ds_status_cache = loaders
+        _ds_status_cache_ts = _time.monotonic()
+        return {"loaders": loaders, "cached": False, "age_s": 0}
+
+    return {"loaders": _ds_status_cache, "cached": True, "age_s": round(now - _ds_status_cache_ts, 1)}
 
 # ------------------------------------------------------------------------
 # Skill settings

@@ -333,4 +333,19 @@ export const api = {
 
   // News
   getNews: (symbol: string, limit = 20) => request<{ symbol: string; articles: NewsItem[]; source: string }>(`/trading/news/${encodeURIComponent(symbol)}?limit=${limit}`),
+
+  // --- Factor Mining ---
+  startGpRun: (config: import("@/types/api").GpConfig) => request<{ job_id: string; status: string }>("/factor-mining/gp/start", { method: "POST", body: JSON.stringify(config) }),
+  getGpResult: (jobId: string) => request<import("@/types/api").GpResult>(`/factor-mining/gp/${jobId}/result`),
+  getGenerationHistory: (jobId: string) => request<import("@/types/api").GenerationSnapshot[]>(`/factor-mining/gp/${jobId}/generations`),
+  cancelGpRun: (jobId: string) => request<{ status: string }>(`/factor-mining/gp/${jobId}/cancel`, { method: "POST" }),
+  llmExtractText: (text: string) => request<{ candidates: import("@/types/api").FactorCandidate[]; count: number }>("/factor-mining/llm/extract", { method: "POST", body: JSON.stringify({ text }) }),
+  llmExtractPdf: (formData: FormData) => request<{ candidates: import("@/types/api").FactorCandidate[]; count: number }>("/factor-mining/llm/extract-pdf", { method: "POST", body: formData, headers: {} }),
+  llmDebate: (candidateIds: string[]) => request<{ filtered: import("@/types/api").FactorCandidate[]; original_count: number; filtered_count: number }>("/factor-mining/llm/debate", { method: "POST", body: JSON.stringify({ candidate_ids: candidateIds }) }),
+  hybridStart: (config: Record<string, unknown>) => request<{ job_id: string; status: string }>("/factor-mining/hybrid/start", { method: "POST", body: JSON.stringify(config) }),
+  fetchCandidates: () => request<{ candidates: import("@/types/api").FactorCandidate[]; total: number }>("/factor-mining/candidates"),
+  validateCandidate: (id: string) => request<import("@/types/api").ValidationResult>(`/factor-mining/candidates/${id}/validate`, { method: "POST" }),
+  promoteCandidate: (id: string, data: { zoo: string; theme: string; name: string; description: string }) => request<{ ok: boolean; alpha_id: string; message: string }>(`/factor-mining/candidates/${id}/promote`, { method: "POST", body: JSON.stringify(data) }),
+  deleteCandidate: (id: string) => request<{ ok: boolean }>(`/factor-mining/candidates/${id}`, { method: "DELETE" }),
+  fetchMiningHistory: () => request<{ runs: import("@/types/api").MiningRunSummary[]; total: number }>("/factor-mining/history"),
 };

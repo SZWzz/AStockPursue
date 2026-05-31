@@ -43,6 +43,9 @@ const UserManagement = lazy(() =>
 const DataSourceStatus = lazy(() =>
   import("@/pages/DataSourceStatus").then((m) => ({ default: m.default })),
 );
+const FactorMining = lazy(() =>
+  import("@/pages/FactorMining").then((m) => ({ default: m.FactorMining })),
+);
 const NotFound = lazy(() =>
   import("@/pages/NotFound").then((m) => ({ default: m.default })),
 );
@@ -82,6 +85,7 @@ export const router = createBrowserRouter([
       { path: "/paper-trading", element: wrap(PaperTrading) },
       { path: "/trading", element: wrap(Trading) },
       { path: "/data-sources", element: wrap(DataSourceStatus) },
+      { path: "/factor-mining", element: wrap(FactorMining) },
       { path: "/admin/users", element: wrap(UserManagement) },
       { path: "*", element: wrap(NotFound) },
     ],

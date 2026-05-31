@@ -73,10 +73,10 @@ export function Trading() {
         onRefresh={fetchIndices}
       />
 
-      {/* Main content grid */}
-      <div className="flex-1 flex min-h-0 gap-2 p-2">
-        {/* Left sidebar — search + watchlist */}
-        <div className="w-56 shrink-0 flex flex-col rounded-xl border bg-card overflow-hidden">
+      {/* Main content grid — responsive: stack on mobile, side-by-side on desktop */}
+      <div className="flex-1 flex flex-col md:flex-row min-h-0 gap-2 p-2">
+        {/* Left sidebar — search + watchlist (hidden on mobile unless toggled) */}
+        <div className="hidden md:flex w-full md:w-56 shrink-0 flex-col rounded-xl border bg-card overflow-hidden">
           <TradingWatchlist
             selectedSymbol={selectedSymbol}
             onSelect={handleSelectSymbol}

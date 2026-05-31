@@ -509,3 +509,96 @@ export interface WSFeedStatus {
   available: boolean;
   error?: string;
 }
+
+// --- Factor Mining types ---
+
+export interface GpConfig {
+  population_size: number;
+  generations: number;
+  tournament_size: number;
+  crossover_prob: number;
+  mutation_prob: number;
+  fitness_metric: "ic_mean" | "rank_ic" | "sharpe";
+  complexity_penalty: "aic" | "bic" | "none";
+  train_start: string;
+  train_end: string;
+  test_start: string;
+  test_end: string;
+  universe: string[];
+}
+
+export interface GpProgress {
+  job_id?: string;
+  progress?: number;
+  current_generation?: number;
+  total_generations?: number;
+  best_ic_so_far?: number;
+  status?: string;
+  stage?: string;
+  message?: string;
+}
+
+export interface GpResult {
+  job_id: string;
+  status: string;
+  result?: {
+    best_individuals: FactorCandidate[];
+    generation_history: GenerationSnapshot[];
+    best_test_ic: number;
+    runtime_seconds: number;
+  };
+  candidates?: FactorCandidate[];
+  candidates_count?: number;
+  config?: Record<string, unknown>;
+  error?: string;
+}
+
+export interface GenerationSnapshot {
+  generation: number;
+  best_fitness: number;
+  mean_fitness: number;
+  std_fitness: number;
+  best_ic: number;
+  diversity: number;
+}
+
+export interface FactorCandidate {
+  id: string;
+  run_id?: string;
+  name: string;
+  formula: string;
+  expression_json?: Record<string, unknown>;
+  train_ic: number;
+  train_fitness?: number;
+  test_ic: number;
+  test_ir: number;
+  complexity: number;
+  is_promoted: boolean;
+  promoted_zoo_id?: string;
+  created_at?: string;
+  source?: string;
+  description?: string;
+  confidence?: number;
+}
+
+export interface ValidationResult {
+  syntax_valid: boolean;
+  lookahead_clean: boolean;
+  coverage: number;
+  nan_ratio: number;
+  inf_count: number;
+  ic_stability: number[];
+  max_correlation_with_zoo: number;
+  correlation_details?: { factor_id: string; correlation: number }[];
+  warnings: string[];
+  passed?: boolean;
+}
+
+export interface MiningRunSummary {
+  id: string;
+  type: string;
+  status: string;
+  config?: Record<string, unknown>;
+  candidates_count?: number;
+  created_at?: string;
+}
