@@ -39,21 +39,6 @@ interface ValuationData {
   digestion_signal: string;
 }
 
-const PEG_LABELS: Record<string, string> = {
-  cheap: "低估",
-  fair: "合理",
-  expensive: "高估",
-  unknown: "未知",
-};
-
-const DIGESTION_LABELS: Record<string, string> = {
-  already: "已消化",
-  fast: "快速 (<3年)",
-  normal: "正常 (3-7年)",
-  slow: "缓慢 (>7年)",
-  never: "难以消化",
-};
-
 export function StockFundamentalsPanel({ symbol, price }: Props) {
   const [finance, setFinance] = useState<FinanceSnapshot | null>(null);
   const [financials, setFinancials] = useState<FinancialsData | null>(null);

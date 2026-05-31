@@ -80,8 +80,6 @@ export function Sentiment() {
   useEffect(() => {
     let cancelled = false;
     // Track whether connect() was called so cleanup can close it
-    let connected = false;
-
     const connectSSE = async () => {
       try {
         const url = await api.newsStreamUrl();
@@ -92,7 +90,6 @@ export function Sentiment() {
             store.addLiveNews(item);
           },
         });
-        connected = true;
         if (cancelled) {
           // Navigated away during connect — tear down immediately
           sse.disconnect();
