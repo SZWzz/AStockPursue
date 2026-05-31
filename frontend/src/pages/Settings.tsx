@@ -679,8 +679,8 @@ export function Settings() {
           <p className="text-sm text-muted-foreground ml-[calc(1.75rem+0.625rem)]">{t.dataSourceSettingsDesc}</p>
         </div>
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
-          <div className="grid gap-4">
+        <div className="grid gap-5">
+          <div className="grid gap-4 max-w-2xl">
             <label className="grid gap-2">
               <span className={labelClass}>{t.tushareToken}</span>
               <div className="relative">

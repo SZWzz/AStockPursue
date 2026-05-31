@@ -67,11 +67,11 @@ export function FactorMining() {
   }, [store]);
 
   const tabs: { key: TabKey; label: string }[] = [
-    { key: "gp", label: "GP Evolution" },
-    { key: "llm", label: "LLM Extraction" },
-    { key: "hybrid", label: "Hybrid Search" },
-    { key: "candidates", label: "Candidates" },
-    { key: "history", label: "History" },
+    { key: "gp", label: t.fmTabGp },
+    { key: "llm", label: t.fmTabLlm },
+    { key: "hybrid", label: t.fmTabHybrid },
+    { key: "candidates", label: t.fmTabCandidates },
+    { key: "history", label: t.fmTabHistory },
   ];
 
   return (
@@ -103,34 +103,34 @@ export function FactorMining() {
         <div className="flex gap-4 flex-1 overflow-hidden">
           {/* Config panel */}
           <div className="w-72 flex-shrink-0 border rounded-xl p-3 overflow-y-auto space-y-3">
-            <h3 className="font-semibold text-sm">GP Setup</h3>
+            <h3 className="font-semibold text-sm">{t.fmGpSetup}</h3>
             <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Population Size</label>
+              <label className="text-xs text-muted-foreground">{t.fmPopulationSize}</label>
               <input type="number" value={gpConfig.population_size} onChange={(e) => setGpConfig({ ...gpConfig, population_size: +e.target.value })}
                 className="w-full rounded border bg-background px-2 py-1 text-sm" min={10} max={500} />
             </div>
             <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Generations</label>
+              <label className="text-xs text-muted-foreground">{t.fmGenerations}</label>
               <input type="number" value={gpConfig.generations} onChange={(e) => setGpConfig({ ...gpConfig, generations: +e.target.value })}
                 className="w-full rounded border bg-background px-2 py-1 text-sm" min={5} max={200} />
             </div>
             <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Train Start</label>
+              <label className="text-xs text-muted-foreground">{t.fmTrainStart}</label>
               <input type="text" value={gpConfig.train_start} onChange={(e) => setGpConfig({ ...gpConfig, train_start: e.target.value })}
                 className="w-full rounded border bg-background px-2 py-1 text-sm" />
             </div>
             <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Train End</label>
+              <label className="text-xs text-muted-foreground">{t.fmTrainEnd}</label>
               <input type="text" value={gpConfig.train_end} onChange={(e) => setGpConfig({ ...gpConfig, train_end: e.target.value })}
                 className="w-full rounded border bg-background px-2 py-1 text-sm" />
             </div>
             <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Test Start</label>
+              <label className="text-xs text-muted-foreground">{t.fmTestStart}</label>
               <input type="text" value={gpConfig.test_start} onChange={(e) => setGpConfig({ ...gpConfig, test_start: e.target.value })}
                 className="w-full rounded border bg-background px-2 py-1 text-sm" />
             </div>
             <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Test End</label>
+              <label className="text-xs text-muted-foreground">{t.fmTestEnd}</label>
               <input type="text" value={gpConfig.test_end} onChange={(e) => setGpConfig({ ...gpConfig, test_end: e.target.value })}
                 className="w-full rounded border bg-background px-2 py-1 text-sm" />
             </div>
@@ -140,12 +140,12 @@ export function FactorMining() {
               disabled={store.gpStatus === "running"}
               className="w-full px-3 py-2 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50"
             >
-              {store.gpStatus === "running" ? "Running..." : store.gpStatus === "starting" ? "Starting..." : "Start Evolution"}
+              {store.gpStatus === "running" ? t.fmRunning : store.gpStatus === "starting" ? t.fmStarting : t.fmStartGp}
             </button>
 
             {store.gpStatus === "running" && (
               <button onClick={store.cancelGpRun} className="w-full px-3 py-1 bg-destructive/10 text-destructive rounded text-sm">
-                Stop
+                {t.fmStop}
               </button>
             )}
           </div>
@@ -162,7 +162,7 @@ export function FactorMining() {
 
             {store.gpResult && store.gpResult.result?.best_individuals?.[0] && (
               <div className="border rounded-xl p-3">
-                <h3 className="text-sm font-semibold mb-2">Best Factor</h3>
+                <h3 className="text-sm font-semibold mb-2">{t.fmBestFactor}</h3>
                 <p className="text-xs font-mono bg-muted p-2 rounded">{store.gpResult.result.best_individuals[0].formula}</p>
                 {store.gpResult.result.best_individuals[0].expression_json && (
                   <ExpressionTreeViewer tree={store.gpResult.result.best_individuals[0].expression_json} />
@@ -177,22 +177,22 @@ export function FactorMining() {
       {activeTab === "llm" && (
         <div className="flex gap-4 flex-1">
           <div className="w-80 flex-shrink-0 border rounded-xl p-3 space-y-3">
-            <h3 className="font-semibold text-sm">Extract from Text</h3>
+            <h3 className="font-semibold text-sm">{t.fmExtractText}</h3>
             <textarea
               value={llmText}
               onChange={(e) => setLlmText(e.target.value)}
               className="w-full h-40 rounded border bg-background px-2 py-1 text-sm resize-none"
-              placeholder="Paste research text here..."
+              placeholder={t.fmPasteHint}
             />
             <button
               onClick={() => store.extractFromText(llmText)}
               disabled={store.llmLoading || !llmText.trim()}
               className="w-full px-3 py-2 bg-primary text-primary-foreground rounded text-sm disabled:opacity-50"
             >
-              {store.llmLoading ? "Extracting..." : "Extract Factors"}
+              {store.llmLoading ? t.fmExtracting : t.fmExtractBtn}
             </button>
 
-            <h3 className="font-semibold text-sm pt-4 border-t">Upload PDF</h3>
+            <h3 className="font-semibold text-sm pt-4 border-t">{t.fmUploadPdf}</h3>
             <input
               type="file"
               accept=".pdf"
@@ -204,12 +204,12 @@ export function FactorMining() {
               disabled={store.llmLoading || !selectedFile}
               className="w-full px-3 py-2 bg-primary text-primary-foreground rounded text-sm disabled:opacity-50"
             >
-              Upload & Extract
+              {t.fmUploadExtract}
             </button>
           </div>
 
           <div className="flex-1 border rounded-xl p-3">
-            <h3 className="font-semibold text-sm mb-2">Extracted Candidates</h3>
+            <h3 className="font-semibold text-sm mb-2">{t.fmExtractedCandidates}</h3>
             <CandidatesTable
               candidates={store.candidates}
               loading={store.candidatesLoading}
@@ -228,9 +228,9 @@ export function FactorMining() {
       {activeTab === "hybrid" && (
         <div className="flex gap-4 flex-1">
           <div className="w-72 border rounded-xl p-3 space-y-3">
-            <h3 className="font-semibold text-sm">Hybrid GP + LLM</h3>
+            <h3 className="font-semibold text-sm">{t.fmHybridTitle}</h3>
             <div className="space-y-2">
-              <label className="text-xs text-muted-foreground">Max Cycles</label>
+              <label className="text-xs text-muted-foreground">{t.fmMaxCycles}</label>
               <input type="number" defaultValue={5} min={1} max={20}
                 className="w-full rounded border bg-background px-2 py-1 text-sm" />
             </div>
@@ -239,13 +239,13 @@ export function FactorMining() {
               disabled={store.hybridLoading}
               className="w-full px-3 py-2 bg-primary text-primary-foreground rounded text-sm disabled:opacity-50"
             >
-              {store.hybridLoading ? "Starting..." : "Start Hybrid Run"}
+              {store.hybridLoading ? t.fmStarting : t.fmStartHybrid}
             </button>
           </div>
           <div className="flex-1 border rounded-xl p-3">
-            <h3 className="text-sm font-semibold mb-2">Hybrid Results</h3>
-            {store.hybridStatus === "idle" && <p className="text-xs text-muted-foreground">Start a hybrid run to see results.</p>}
-            {store.hybridStatus === "running" && <p className="text-xs text-muted-foreground">Running hybrid optimization...</p>}
+            <h3 className="text-sm font-semibold mb-2">{t.fmHybridTitle} Results</h3>
+            {store.hybridStatus === "idle" && <p className="text-xs text-muted-foreground">{t.fmHybridIdle}</p>}
+            {store.hybridStatus === "running" && <p className="text-xs text-muted-foreground">{t.fmHybridRunning}</p>}
           </div>
         </div>
       )}
@@ -254,7 +254,7 @@ export function FactorMining() {
       {activeTab === "candidates" && (
         <div className="flex-1 border rounded-xl p-3 overflow-y-auto">
           <h3 className="font-semibold text-sm mb-2">
-            Discovered Factor Candidates ({store.candidates.length})
+            {t.fmDiscoveredCandidates} ({store.candidates.length})
           </h3>
           <CandidatesTable
             candidates={store.candidates}
@@ -271,25 +271,25 @@ export function FactorMining() {
           {selectedCandidate && validationResult && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50" onClick={() => setSelectedCandidate(null)}>
               <div className="bg-card border rounded-xl p-4 w-96 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                <h3 className="font-bold text-sm mb-3">Validation Results</h3>
+                <h3 className="font-bold text-sm mb-3">{t.fmValidationResults}</h3>
                 <div className="space-y-2 text-xs">
-                  <div className="flex justify-between"><span>Syntax Valid:</span><span className={validationResult.syntax_valid ? "text-success" : "text-destructive"}>{String(validationResult.syntax_valid)}</span></div>
-                  <div className="flex justify-between"><span>Lookahead Clean:</span><span className={validationResult.lookahead_clean ? "text-success" : "text-destructive"}>{String(validationResult.lookahead_clean)}</span></div>
-                  <div className="flex justify-between"><span>Coverage:</span><span>{(validationResult.coverage * 100).toFixed(1)}%</span></div>
-                  <div className="flex justify-between"><span>NaN Ratio:</span><span>{(validationResult.nan_ratio * 100).toFixed(1)}%</span></div>
-                  <div className="flex justify-between"><span>Inf Count:</span><span>{validationResult.inf_count}</span></div>
-                  <div className="flex justify-between"><span>Max Correlation w/ Zoo:</span><span>{validationResult.max_correlation_with_zoo?.toFixed(4)}</span></div>
+                  <div className="flex justify-between"><span>{t.fmSyntaxValid}:</span><span className={validationResult.syntax_valid ? "text-success" : "text-destructive"}>{String(validationResult.syntax_valid)}</span></div>
+                  <div className="flex justify-between"><span>{t.fmLookaheadClean}:</span><span className={validationResult.lookahead_clean ? "text-success" : "text-destructive"}>{String(validationResult.lookahead_clean)}</span></div>
+                  <div className="flex justify-between"><span>{t.fmCoverage}:</span><span>{(validationResult.coverage * 100).toFixed(1)}%</span></div>
+                  <div className="flex justify-between"><span>{t.fmNaN}:</span><span>{(validationResult.nan_ratio * 100).toFixed(1)}%</span></div>
+                  <div className="flex justify-between"><span>{t.fmInfCount}:</span><span>{validationResult.inf_count}</span></div>
+                  <div className="flex justify-between"><span>{t.fmMaxCorr}:</span><span>{validationResult.max_correlation_with_zoo?.toFixed(4)}</span></div>
                   {validationResult.ic_stability?.length > 0 && (
-                    <div className="flex justify-between"><span>IC Stability (per fold):</span><span>{validationResult.ic_stability.map((v: number) => v.toFixed(4)).join(", ")}</span></div>
+                    <div className="flex justify-between"><span>{t.fmIcStability}:</span><span>{validationResult.ic_stability.map((v: number) => v.toFixed(4)).join(", ")}</span></div>
                   )}
                   {validationResult.warnings?.length > 0 && (
                     <div>{validationResult.warnings.map((w: string, i: number) => <p key={i} className="text-warning">⚠ {w}</p>)}</div>
                   )}
                   {validationResult.passed && (
-                    <p className="text-success font-semibold pt-2">✓ All checks passed — ready for promotion!</p>
+                    <p className="text-success font-semibold pt-2">✓ {t.fmPassedChecks}</p>
                   )}
                 </div>
-                <button onClick={() => setSelectedCandidate(null)} className="w-full mt-3 px-3 py-1.5 bg-muted text-foreground rounded text-sm">Close</button>
+                <button onClick={() => setSelectedCandidate(null)} className="w-full mt-3 px-3 py-1.5 bg-muted text-foreground rounded text-sm">{t.fmClose}</button>
               </div>
             </div>
           )}
@@ -299,14 +299,14 @@ export function FactorMining() {
       {/* History Tab */}
       {activeTab === "history" && (
         <div className="flex-1 border rounded-xl p-3 overflow-y-auto">
-          <h3 className="font-semibold text-sm mb-2">Mining Run History</h3>
-          {store.miningHistory.length === 0 && <p className="text-xs text-muted-foreground">No mining runs yet.</p>}
+          <h3 className="font-semibold text-sm mb-2">{t.fmMiningHistory}</h3>
+          {store.miningHistory.length === 0 && <p className="text-xs text-muted-foreground">{t.fmNoRuns}</p>}
           {store.miningHistory.map((run) => (
             <div key={run.id} className="border-b py-2 flex justify-between items-center text-sm">
               <div>
                 <span className="font-medium">{run.type?.toUpperCase()}</span>
                 <span className="text-muted-foreground ml-2">{run.id?.slice(0, 8)}...</span>
-                {run.candidates_count != null && <span className="ml-2 text-xs text-muted-foreground">({run.candidates_count} candidates)</span>}
+                {run.candidates_count != null && <span className="ml-2 text-xs text-muted-foreground">({run.candidates_count} {t.fmCandidatesCount?.replace("{n}", String(run.candidates_count))})</span>}
               </div>
               <span className={cn("text-xs px-2 py-0.5 rounded", run.status === "completed" ? "bg-success/10 text-success" : run.status === "failed" ? "bg-destructive/10 text-destructive" : "bg-muted text-muted-foreground")}>
                 {run.status}

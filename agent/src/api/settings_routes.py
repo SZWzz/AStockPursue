@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from pathlib import Path
@@ -751,5 +752,79 @@ async def update_data_source_settings(payload: UpdateDataSourceSettingsRequest, 
         twelvedata_api_key=td_key,
         finnhub_api_key=fh_key,
     )
+
+
+# Data source status (cached health check of all loaders)
+# ------------------------------------------------------------------------
+
+_ds_status_cache: dict[str, Any] | None = None
+_ds_status_cache_ts: float = 0.0
+_ds_cache_ttl: float = 300.0
+_ds_check_timeout: float = 1.0
+
+
+def _rebuild_ds_status() -> list[dict]:
+    """Rebuild data source status in parallel."""
+    import concurrent.futures as _cf
+
+    all_loaders: list[dict] = []
+    try:
+        from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
+        _ensure_registered()
+
+        def _check_one(name: str, cls: type) -> dict:
+            avail = False
+            if hasattr(cls, "is_available"):
+                with _cf.ThreadPoolExecutor(max_workers=1) as ex:
+                    try:
+                        inst = cls()
+                        avail = ex.submit(inst.is_available).result(timeout=_ds_check_timeout)
+                    except Exception:
+                        avail = False
+            else:
+                avail = True
+            return {
+                "name": name,
+                "display": getattr(cls, "name", name),
+                "markets": sorted(getattr(cls, "markets", set())),
+                "available": avail,
+                "requires_auth": getattr(cls, "requires_auth", False),
+                "health": None,
+            }
+
+        items = list(LOADER_REGISTRY.items())
+        with _cf.ThreadPoolExecutor(max_workers=min(16, max(1, len(items)))) as ex:
+            futures = {ex.submit(_check_one, name, cls): name for name, cls in items}
+            for f in _cf.as_completed(futures, timeout=10.0):
+                try:
+                    all_loaders.append(f.result(timeout=_ds_check_timeout))
+                except Exception:
+                    all_loaders.append({
+                        "name": futures.get(f, "?"), "display": futures.get(f, "?"),
+                        "markets": [], "available": False, "requires_auth": False, "health": None,
+                    })
+    except Exception:
+        pass
+    return sorted(all_loaders, key=lambda x: (not x["available"], x["name"]))
+
+
+@router.get("/settings/data-source-status")
+async def get_data_source_status(auth: dict = Security(_require_auth), refresh: bool = False):
+    """Return health/availability of all data loaders (cached 5 min)."""
+    import asyncio
+    import time as _time
+
+    global _ds_status_cache, _ds_status_cache_ts
+
+    now = _time.monotonic()
+    expired = (now - _ds_status_cache_ts) > _ds_cache_ttl
+
+    if _ds_status_cache is None or refresh or expired:
+        loaders = await asyncio.to_thread(_rebuild_ds_status)
+        _ds_status_cache = loaders
+        _ds_status_cache_ts = _time.monotonic()
+        return {"loaders": loaders, "cached": False, "age_s": 0}
+
+    return {"loaders": _ds_status_cache, "cached": True, "age_s": round(now - _ds_status_cache_ts, 1)}
 
 

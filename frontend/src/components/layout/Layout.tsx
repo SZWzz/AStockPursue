@@ -10,18 +10,16 @@ import { useAuthStore } from "@/stores/auth";
 import { ConnectionBanner } from "@/components/layout/ConnectionBanner";
 import { PostLoginSetup } from "@/components/layout/PostLoginSetup";
 
-const APP_VERSION = "v2026.5.24";
+const APP_VERSION = "v2026.5.31";
 
 const NAV = [
   { to: "/", icon: Bot, key: "home" as const, label: null },
-  { to: "/alpha-zoo", icon: Layers, key: "alphaZoo" as const, label: null },
   { to: "/indicator-lab", icon: FlaskConical, key: "indicatorLab" as const, label: null },
   { to: "/strategy-lab", icon: Target, key: "strategyLab" as const, label: null },
   { to: "/paper-trading", icon: TrendingUp, key: "paperTrading" as const, label: null },
   { to: "/trading", icon: BarChart3, key: "trading" as const, label: null },
   { to: "/compare", icon: GitCompare, key: "compare" as const, label: null },
   { to: "/correlation", icon: BarChart3, key: "correlation" as const, label: null },
-  { to: "/data-sources", icon: Database, key: "dataSources" as const, label: null },
   { to: "/factor-mining", icon: Microscope, key: "factorMining" as const, label: null },
   { to: "/screener", icon: Filter, key: "screener" as const, label: null },
   { to: "/attribution", icon: PieChart, key: "attribution" as const, label: null },
@@ -29,6 +27,8 @@ const NAV = [
   { to: "/marketplace", icon: Store, key: "marketplace" as const, label: null },
   { to: "/options", icon: CircleDollarSign, key: "options" as const, label: null },
   { to: "/docs", icon: BookOpen, key: "docs" as const, label: null },
+  { to: "/alpha-zoo", icon: Layers, key: "alphaZoo" as const, label: null },
+  { to: "/data-sources", icon: Database, key: "dataSources" as const, label: null },
   { to: "/settings", icon: Settings, key: "settings" as const, label: null },
 ];
 
