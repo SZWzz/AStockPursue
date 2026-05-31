@@ -809,6 +809,7 @@ const en = {
   tradingOptimizeMethodBayesian: "Bayesian", tradingOptimizeResult: "Optimize Result",
   tradingIndices: "Indices", tradingEditIndices: "Edit Indices",
   tradingNews: "News", tradingNoSymbol: "Select a stock from the watchlist",
+  tradingFundamentals: "Fundamentals",
   tradingCancelOrder: "Cancel",
   // Factor Mining
   factorMining: "Factor Mining",
@@ -1678,6 +1679,7 @@ const zh: Messages = {
   tradingOptimizeMethodBayesian: "贝叶斯优化", tradingOptimizeResult: "优化结果",
   tradingIndices: "指数", tradingEditIndices: "编辑指数",
   tradingNews: "资讯", tradingNoSymbol: "请从左侧自选股选择一个标的",
+  tradingFundamentals: "基本面",
   tradingCancelOrder: "撤单",
   // Factor Mining
   factorMining: "因子挖掘",

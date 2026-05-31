@@ -299,13 +299,34 @@ class SentimentFetcher:
     # ------------------------------------------------------------------
 
     def fetch_all(self) -> Dict[str, Any]:
-        """Fetch all sentiment indicators in one call."""
-        return {
-            "vix": self.fetch_vix(),
-            "vxn": self.fetch_vxn(),
-            "gvz": self.fetch_gvz(),
-            "dxy": self.fetch_dxy(),
-            "yield_curve": self.fetch_yield_curve(),
-            "fear_greed": self.fetch_fear_greed(),
-            "put_call_proxy": self.fetch_put_call_proxy(),
+        """Fetch all sentiment indicators in parallel (ThreadPoolExecutor).
+
+        Previously each yfinance call ran serially (~2s each × 7 = ~14s).
+        Now they fan out in threads, reducing wall-clock time to the slowest
+        single call (~2-3s).  Falls back to serial if threading fails.
+        """
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        tasks = {
+            "vix": self.fetch_vix,
+            "vxn": self.fetch_vxn,
+            "gvz": self.fetch_gvz,
+            "dxy": self.fetch_dxy,
+            "yield_curve": self.fetch_yield_curve,
+            "fear_greed": self.fetch_fear_greed,
+            "put_call_proxy": self.fetch_put_call_proxy,
         }
+
+        result: Dict[str, Any] = {}
+        with ThreadPoolExecutor(max_workers=len(tasks)) as executor:
+            futures = {executor.submit(fn): key for key, fn in tasks.items()}
+            for future in as_completed(futures):
+                key = futures[future]
+                try:
+                    result[key] = future.result(timeout=20)
+                except Exception as e:
+                    logger.warning("Sentiment indicator '%s' failed: %s", key, e)
+                    result[key] = {}
+
+        # Preserve deterministic key order
+        return {k: result.get(k, {}) for k in tasks}

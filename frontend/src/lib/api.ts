@@ -287,6 +287,21 @@ export const api = {
     return request<{ symbol: string; bars: PriceBar[]; source: string }>(`/stock/ohlcv?${q}`);
   },
 
+  // -- Fundamental data --------------------------------------------------
+  getStockFinance: (code: string) =>
+    request<{ symbol: string; available: boolean; fields: Record<string, number | string>; field_count: number }>(`/stock/finance/${encodeURIComponent(code)}`),
+  getStockF10: (code: string, name = "最新提示") =>
+    request<{ symbol: string; name: string; available: boolean; text: string | null }>(`/stock/f10/${encodeURIComponent(code)}?name=${encodeURIComponent(name)}`),
+  getStockF10All: (code: string) =>
+    request<{ symbol: string; categories: Record<string, string | null>; available_count: number }>(`/stock/f10/${encodeURIComponent(code)}/all`),
+  getStockFinancials: (code: string) =>
+    request<{ symbol: string; income_statement: any[]; balance_sheet: any[]; cash_flow: any[]; income_count: number; balance_count: number; cashflow_count: number }>(`/stock/financials/${encodeURIComponent(code)}`),
+  getStockValuation: (code: string, params: { price: number; eps_current: number; eps_forecast: number; target_pe?: number }) => {
+    const q = new URLSearchParams({ price: String(params.price), eps_current: String(params.eps_current), eps_forecast: String(params.eps_forecast) });
+    if (params.target_pe) q.set("target_pe", String(params.target_pe));
+    return request<Record<string, unknown>>(`/stock/valuation/${encodeURIComponent(code)}?${q}`);
+  },
+
   // SSE token (short-lived JWT for EventSource query param)
   getSseToken: () => request<{ token: string; expires_in_minutes: number }>("/api/sse-token"),
 

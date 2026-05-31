@@ -46,24 +46,25 @@ _trending_cache_ts: float = 0.0
 _market_cache: dict | None = None
 _market_cache_ts: float = 0.0
 
+# Short-lived "hot cache" — shared across market-sentiment + trending so the
+# second request reuses the first's fan-out results instead of starting a new
+# 10-source fetch.  TTL is short (10s) — just long enough to absorb the
+# concurrent page-load requests, not long enough to serve stale data.
+_HOT_RESULTS: dict[str, list[dict]] = {}   # key="market"|"STOCK"
+_HOT_RESULTS_TS: dict[str, float] = {}
+_HOT_TTL: float = 10.0
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _fetch_and_score(
+def _fetch_and_score_sync(
     symbol: str = "",
     limit: int = 20,
     force_refresh: bool = False,
 ) -> list[dict]:
-    """DB-first fetch: check cache → external API if stale.
-
-    Flow:
-      1. If force_refresh=False, try DB cache first
-      2. If cache hit rate >= 70%, return cached
-      3. Otherwise, fan out to all sources via AggregateNewsFetcher
-      4. Score with SentimentAnalyzer, persist to DB, return
-    """
+    """DB-first fetch (sync — run in a thread via asyncio.to_thread)."""
     from backtest.loaders.news import NewsFetcher
     from src.db.sentiment_store import get_recent_news, save_news_items
 
@@ -74,7 +75,6 @@ def _fetch_and_score(
     if not force_refresh:
         cached = get_recent_news(symbol=upper, limit=limit * 2, max_age_minutes=5)
         if len(cached) >= limit * 0.7:
-            # Cache is warm enough — return directly
             return cached[:limit]
 
     # Step 2: Cache miss or stale — fetch from external sources
@@ -118,6 +118,40 @@ def _fetch_and_score(
     return articles[:limit]
 
 
+async def _fetch_and_score(
+    symbol: str = "",
+    limit: int = 20,
+    force_refresh: bool = False,
+) -> list[dict]:
+    """Async wrapper — shares a 10s hot cache so concurrent requests don't re-fetch.
+
+    Runs the blocking work (fan-out + SnowNLP) in a thread so it never blocks
+    the FastAPI event loop.  All other endpoints call this instead of the sync
+    version directly.
+    """
+    upper = symbol.strip().upper() if symbol else ""
+    hot_key = upper or "market"
+    now = time.monotonic()
+
+    # Check hot cache first (10s window — absorbs concurrent page-load requests)
+    if not force_refresh:
+        hot_cached = _HOT_RESULTS.get(hot_key)
+        hot_ts = _HOT_RESULTS_TS.get(hot_key, 0.0)
+        if hot_cached is not None and (now - hot_ts) < _HOT_TTL:
+            return hot_cached[:limit]
+
+    # Run the heavy work in a thread so we don't block the event loop
+    articles = await asyncio.to_thread(
+        _fetch_and_score_sync, symbol=symbol, limit=max(limit, 50), force_refresh=force_refresh,
+    )
+
+    # Persist to hot cache so concurrent requests use the same results
+    _HOT_RESULTS[hot_key] = articles
+    _HOT_RESULTS_TS[hot_key] = now
+
+    return articles[:limit]
+
+
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -139,7 +173,7 @@ async def get_news_feed(
     if not refresh and cached is not None and (now - cached_ts) < _CACHE_TTL:
         return {"articles": cached, "total": len(cached), "symbol": symbol or "market", "cached": True}
 
-    articles = _fetch_and_score(symbol=symbol, limit=limit)
+    articles = await _fetch_and_score(symbol=symbol, limit=limit)
 
     # Persist to DB (fire-and-forget — log but don't fail the response)
     from src.db.sentiment_store import save_news_items
@@ -168,7 +202,7 @@ async def get_stock_sentiment(
     if not refresh and cached is not None and (now - cached_ts) < _CACHE_TTL:
         return {**cached, "cached": True}
 
-    articles = _fetch_and_score(symbol=symbol, limit=20)
+    articles = await _fetch_and_score(symbol=symbol, limit=20)
 
     scores = [a.get("sentiment_score", 0.5) for a in articles]
     result = {
@@ -215,7 +249,7 @@ async def get_trending_topics(
     if not refresh and _trending_cache is not None and (now - _trending_cache_ts) < _CACHE_TTL:
         return {"topics": _trending_cache, "cached": True}
 
-    articles = _fetch_and_score(limit=50)
+    articles = await _fetch_and_score(limit=50)
 
     # Extract topics via keyword matching (no NLP topic model yet)
     topic_keywords: dict[str, list[str]] = {
@@ -292,11 +326,10 @@ async def get_market_sentiment(
         "news_sentiment_count": 0,
     }
 
-    # 1) Market sentiment indicators via SentimentFetcher
+    # 1) Market sentiment indicators via SentimentFetcher (run in thread)
     try:
         from backtest.loaders.sentiment import SentimentFetcher
-        sf = SentimentFetcher()
-        data = sf.fetch_all()
+        data = await asyncio.to_thread(SentimentFetcher().fetch_all)
 
         # VIX
         vix_data = data.get("vix", {})
@@ -334,7 +367,7 @@ async def get_market_sentiment(
     # 2) News sentiment — aggregate recent market news
     market_articles: list[dict] = []
     try:
-        market_articles = _fetch_and_score(limit=30)
+        market_articles = await _fetch_and_score(limit=30)
         scores = [a.get("sentiment_score", 0.5) for a in market_articles]
         if scores:
             result["news_sentiment_mean"] = round(float(np.mean(scores)), 4)

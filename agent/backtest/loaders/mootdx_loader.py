@@ -423,3 +423,106 @@ class DataLoader:
                 continue
 
         return result
+
+    # ── 财务快照 (37-field quarterly snapshot) ──────────────────────────
+
+    def fetch_finance(self, code: str) -> dict[str, Any] | None:
+        """Fetch 37-field quarterly financial snapshot for a single stock.
+
+        Returns fields like: eps, bvps, roe, profit, income, total_shares,
+        float_shares, net_assets_per_share, etc.
+
+        Args:
+            code: Stock code (e.g. ``"688017"`` or ``"688017.SH"``).
+
+        Returns:
+            Dict of 37 financial fields, or None if unavailable.
+        """
+        try:
+            plain, market, _ = _normalize_code(code)
+        except ValueError:
+            logger.debug("mootdx finance: code not supported: %s", code)
+            return None
+
+        self._ensure_client()
+        try:
+            fin = self._client.finance(symbol=plain)
+            if fin is None:
+                return None
+            # mootdx returns a DataFrame with one row per report period.
+            # Return the latest period as a dict.
+            if hasattr(fin, "iloc"):
+                if len(fin) == 0:
+                    return None
+                latest = fin.iloc[-1]
+                return {str(k): _safe_float(v) for k, v in latest.items()}
+            return None
+        except Exception as exc:
+            logger.warning("mootdx finance fetch failed for %s: %s", code, exc)
+            return None
+
+    # ── F10 公司资料 (9 categories of text data) ────────────────────────
+
+    # All available F10 categories
+    F10_CATEGORIES: list[str] = [
+        "最新提示", "公司概况", "财务分析",
+        "股东研究", "股本结构", "资本运作",
+        "业内点评", "行业分析", "公司大事",
+    ]
+
+    def fetch_f10(self, code: str, name: str = "最新提示") -> str | None:
+        """Fetch F10 company text data for a single category.
+
+        Args:
+            code: Stock code (e.g. ``"688017"``).
+            name: Category name — one of ``F10_CATEGORIES``.
+
+        Returns:
+            Text content, or None if unavailable.
+        """
+        try:
+            plain, market, _ = _normalize_code(code)
+        except ValueError:
+            logger.debug("mootdx F10: code not supported: %s", code)
+            return None
+
+        self._ensure_client()
+        try:
+            text = self._client.F10(symbol=plain, name=name)
+            return text if text else None
+        except Exception as exc:
+            logger.warning("mootdx F10('%s') failed for %s: %s", name, code, exc)
+            return None
+
+    def fetch_f10_all(self, code: str) -> dict[str, str | None]:
+        """Fetch all 9 F10 categories for a stock.
+
+        Returns:
+            ``{category_name: text_content | None}``.
+        """
+        result: dict[str, str | None] = {}
+        for cat in self.F10_CATEGORIES:
+            result[cat] = self.fetch_f10(code, cat)
+        return result
+
+    def fetch_latest_announcements(self, code: str) -> str | None:
+        """Fetch latest announcements/proposals from F10 '最新提示'.
+
+        This covers recent announcements, dividends, shareholder meeting
+        resolutions, etc. — equivalent to 01.md section 7.2.
+        """
+        text = self.fetch_f10(code, "最新提示")
+        if text and len(text) > 16000:
+            # "股东研究" chapter 4 (股东变化) can be 16000+ chars of
+            # historical top-10 shareholder lists.  Keep only the latest
+            # period by truncating at ~70% for this specific category.
+            pass  # caller can truncate; raw F10 is better than nothing
+        return text
+
+
+def _safe_float(v: Any) -> float | str:
+    """Convert a value to float if possible, else keep as-is."""
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return str(v)

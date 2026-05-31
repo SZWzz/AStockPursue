@@ -356,3 +356,121 @@ async def get_minute_line(
         "preClose": pre_close,
         "minutes": minutes,
     }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Fundamental Data Endpoints (mootdx finance, F10, Sina reports, valuation)
+# ═══════════════════════════════════════════════════════════════════════════
+
+
+@router.get("/finance/{code}")
+async def get_stock_finance(code: str):
+    """37-field quarterly financial snapshot via mootdx.
+
+    Returns: eps, bvps, roe, profit, income, total_shares, float_shares, etc.
+    """
+    from backtest.loaders.mootdx_loader import DataLoader
+
+    loader = DataLoader()
+    if not loader.is_available():
+        raise HTTPException(status_code=503, detail="mootdx 数据源不可用")
+
+    result = loader.fetch_finance(code)
+    if result is None:
+        return {"symbol": code.upper(), "available": False, "fields": {}}
+
+    return {"symbol": code.upper(), "available": True, "fields": result, "field_count": len(result)}
+
+
+@router.get("/f10/{code}")
+async def get_stock_f10(code: str, name: str = Query("最新提示", description="F10 category name")):
+    """Single F10 company text category.
+
+    Categories: 最新提示, 公司概况, 财务分析, 股东研究, 股本结构, 资本运作, 业内点评, 行业分析, 公司大事
+    """
+    from backtest.loaders.mootdx_loader import DataLoader
+
+    loader = DataLoader()
+    if not loader.is_available():
+        raise HTTPException(status_code=503, detail="mootdx 数据源不可用")
+
+    valid = loader.F10_CATEGORIES
+    if name not in valid:
+        raise HTTPException(status_code=400, detail=f"无效的 F10 类别: {name}. 有效值: {valid}")
+
+    text = loader.fetch_f10(code, name)
+    if text is None:
+        return {"symbol": code.upper(), "name": name, "available": False, "text": None}
+
+    return {"symbol": code.upper(), "name": name, "available": True, "text": text}
+
+
+@router.get("/f10/{code}/all")
+async def get_stock_f10_all(code: str):
+    """All 9 F10 categories for a stock."""
+    from backtest.loaders.mootdx_loader import DataLoader
+
+    loader = DataLoader()
+    if not loader.is_available():
+        raise HTTPException(status_code=503, detail="mootdx 数据源不可用")
+
+    result = loader.fetch_f10_all(code)
+    return {
+        "symbol": code.upper(),
+        "categories": {k: v for k, v in result.items()},
+        "available_count": sum(1 for v in result.values() if v),
+    }
+
+
+@router.get("/financials/{code}")
+async def get_stock_financials(code: str):
+    """Sina finance 3-statement reports (利润表, 资产负债表, 现金流量表).
+
+    Returns up to 20 periods of each statement.
+    """
+    from backtest.loaders.sina_finance import SinaFinanceLoader
+
+    loader = SinaFinanceLoader()
+    try:
+        result = loader.fetch_all(code)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"新浪财报获取失败: {e}")
+
+    return {
+        "symbol": code.upper(),
+        "income_statement": result["income_statement"],
+        "balance_sheet": result["balance_sheet"],
+        "cash_flow": result["cash_flow"],
+        "income_count": len(result["income_statement"]),
+        "balance_count": len(result["balance_sheet"]),
+        "cashflow_count": len(result["cash_flow"]),
+    }
+
+
+@router.get("/valuation/{code}")
+async def get_stock_valuation(
+    code: str,
+    price: float = Query(..., description="当前股价"),
+    eps_current: float = Query(..., description="当期 EPS（TTM 或最近年报）"),
+    eps_forecast: float = Query(..., description="下一年度一致预期 EPS"),
+    target_pe: float = Query(30.0, description="目标 PE（默认 30x）"),
+):
+    """Valuation metrics: forward PE, PEG, PE digestion years.
+
+    Query params: price, eps_current, eps_forecast
+    """
+    from backtest.valuation import ValuationResult
+
+    if price <= 0:
+        raise HTTPException(status_code=400, detail="price 必须 > 0")
+    if eps_current <= 0:
+        raise HTTPException(status_code=400, detail="eps_current 必须 > 0")
+
+    result = ValuationResult.from_data(
+        price=price,
+        eps_current=eps_current,
+        eps_forecast=eps_forecast,
+        symbol=code.upper(),
+        target_pe=target_pe,
+    )
+    return result.to_dict()

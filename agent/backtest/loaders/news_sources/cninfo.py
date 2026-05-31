@@ -34,9 +34,30 @@ class CNINFOSource(BaseNewsSource):
         """No market-wide endpoint — would need to query major indices."""
         return []
 
+    @staticmethod
+    def _normalize_code(code: str) -> str:
+        """Strip exchange suffix so we get a bare 6-digit code.
+
+        "000001.SZ" → "000001", "600001.SH" → "600001", "430001.BJ" → "430001"
+        """
+        c = code.strip().upper()
+        for suffix in (".SZ", ".SH", ".BJ", ".SS"):
+            if c.endswith(suffix):
+                c = c[:-3]
+                break
+        # Also handle "SH600001" / "SZ000001" prefix style
+        if len(c) > 6:
+            for prefix in ("SH", "SZ", "BJ"):
+                if c.startswith(prefix) and c[2:].isdigit() and len(c[2:]) == 6:
+                    c = c[2:]
+                    break
+        return c
+
     def _fetch(self, code: str, page_size: int = 30) -> list[dict]:
         """Raw fetch from CNINFO announcement query API."""
         try:
+            code = self._normalize_code(code)
+
             # Construct orgId (CNINFO 2026 format)
             if code.startswith("6"):
                 org_id = f"gssh0{code}"

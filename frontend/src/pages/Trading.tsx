@@ -1,5 +1,5 @@
 import { useEffect, useCallback, useState, useRef } from "react";
-import { TrendingUp, Newspaper, ListOrdered, Building2, Bell, RefreshCw } from "lucide-react";
+import { TrendingUp, Newspaper, ListOrdered, Building2, Bell, RefreshCw, BarChart3 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useTradingStore } from "@/stores/tradingStore";
@@ -13,12 +13,14 @@ import { IndexTickerBar } from "@/components/trading/IndexTickerBar";
 import { OrderPanel } from "@/components/trading/OrderPanel";
 import { BrokerPanel } from "@/components/trading/BrokerPanel";
 import { NotifyConfigPanel } from "@/components/trading/NotifyConfigPanel";
+import { StockFundamentalsPanel } from "@/components/trading/StockFundamentalsPanel";
 
-type Tab = "news" | "orders" | "broker" | "notify";
+type Tab = "news" | "orders" | "broker" | "notify" | "fundamentals";
 
 const TABS: { id: Tab; labelKey: string; icon: typeof TrendingUp }[] = [
   { id: "news", labelKey: "tradingNews", icon: Newspaper },
   { id: "orders", labelKey: "tradingOrderPanel", icon: ListOrdered },
+  { id: "fundamentals", labelKey: "tradingFundamentals", icon: BarChart3 },
   { id: "broker", labelKey: "tradingBroker", icon: Building2 },
   { id: "notify", labelKey: "tradingNotify", icon: Bell },
 ];
@@ -38,6 +40,9 @@ export function Trading() {
   const { fetchIndices, fetchOrders, selectSymbol, selectedSymbol, chartMode, minuteDate, minutePreClose,
     klineData, klineLoading, minuteData, minuteLoading, orders, ordersLoading, indices,
     setChartMode, setMinuteDate } = store;
+
+  // Current price from kline data (last close)
+  const currentPrice = klineData.length > 0 ? klineData[klineData.length - 1].close : 0;
 
   // Load indices on mount
   useEffect(() => {
@@ -313,6 +318,9 @@ export function Trading() {
               )}
               {tab === "broker" && <BrokerPanel />}
               {tab === "notify" && <NotifyConfigPanel />}
+              {tab === "fundamentals" && (
+                <StockFundamentalsPanel symbol={selectedSymbol} price={currentPrice} />
+              )}
             </div>
           </div>
         </div>
