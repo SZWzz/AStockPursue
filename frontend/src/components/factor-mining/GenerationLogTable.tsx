@@ -2,7 +2,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { GenerationSnapshot } from "@/types/api";
 import { ExpressionTreeViewer } from "./ExpressionTreeViewer";
-import { ChevronDown, ChevronRight, TrendingUp, Clock } from "lucide-react";
+import { ChevronDown, ChevronRight, TrendingUp } from "lucide-react";
 
 interface Props {
   generations: GenerationSnapshot[];

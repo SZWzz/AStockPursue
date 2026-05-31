@@ -13,17 +13,11 @@ interface SectorData {
 
 interface Props {
   perSector: SectorData[];
-  allocationEffect: number;
-  selectionEffect: number;
-  interactionEffect: number;
   className?: string;
 }
 
 export function BrinsonWaterfallChart({
   perSector,
-  allocationEffect,
-  selectionEffect,
-  interactionEffect,
   className,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);

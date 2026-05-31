@@ -36,7 +36,6 @@ export function FactorExposureChart({
 
     const factors = Object.keys(betas);
     const betaVals = factors.map((k) => betas[k]);
-    const contribVals = factors.map((k) => contributions[k] || 0);
 
     chartRef.current.setOption({
       tooltip: {
@@ -67,7 +66,7 @@ export function FactorExposureChart({
         {
           name: "Beta",
           type: "bar",
-          data: betaVals.map((v, i) => ({
+          data: betaVals.map((v) => ({
             value: v,
             itemStyle: {
               color: v >= 0 ? "#22c55e" : "#ef4444",

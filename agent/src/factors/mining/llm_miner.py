@@ -36,24 +36,110 @@ EXTRACTION_PROMPT = """You are a quantitative finance researcher. Extract alpha 
 
 For each factor found, output a JSON object with:
 - name: short descriptive name (snake_case)
-- formula: the mathematical formula expressed as pandas operations on a DataFrame 'panel' with columns ['open','high','low','close','volume','vwap']
-- description: one-line explanation of what this factor measures
+- formula: the mathematical formula expressed as pandas operations using these local variables:
+  'close', 'open_', 'high', 'low', 'volume' — wide DataFrames (index=dates, columns=symbols)
+- description: one-line explanation of what this factor measures and why it works economically
 
-Use these base operators available on the panel DataFrame:
-- panel['close'].pct_change(N) for returns
-- panel['close'].rolling(N).mean() for moving average
-- panel['close'].rolling(N).std() for volatility
-- (panel['high'] - panel['low']) / panel['close'] for range
-- panel['volume'] / panel['volume'].rolling(N).mean() for volume ratio
-- .rank(axis=1, pct=True) for cross-sectional rank
-- .shift(N) for lag
-- .corr(other) for correlation
-- .rolling(N).corr(other) for rolling correlation
+Available operations on DataFrames:
+- .pct_change(N) for returns over N periods
+- .rolling(N).mean() / .std() / .max() / .min() for rolling windows
+- .shift(N) for lag (use positive N only — negative shift is lookahead bias!)
+- .rank(axis=1, pct=True) for cross-sectional percentile rank
+- .diff(N) for difference over N periods
+- Arithmetic: + - * / work element-wise
+- .corr(other) for correlation, .rolling(N).corr(other) for rolling correlation
+- .abs(), np.log(x.clip(lower=1e-12)), np.sqrt(x.clip(lower=0)), np.sign(x)
+
+IMPORTANT RULES:
+1. NEVER use .shift(-N) or .pct_change(-N) — that's lookahead bias (future data)
+2. All rolling windows should use at least 5 min_periods
+3. Use .replace([np.inf, -np.inf], np.nan) after division
+4. Cross-sectional operations use axis=1 (across stocks)
+
+HIGH-QUALITY FACTOR EXAMPLES (few-shot):
+
+Example 1 — Momentum:
+  name: momentum_20d
+  formula: (close - close.shift(20)) / close.shift(20).replace(0, np.nan)
+  description: 20-day price momentum — stocks that have risen tend to continue rising in the short term
+
+Example 2 — Volume Abnormal:
+  name: volume_ratio_abnormal
+  formula: volume / volume.rolling(60, min_periods=10).mean()
+  description: Abnormal volume relative to 60-day average — high volume often precedes large moves
+
+Example 3 — Reversal:
+  name: short_term_reversal_5d
+  formula: -close.pct_change(5).rank(axis=1, pct=True)
+  description: 5-day short-term reversal — stocks that fell sharply tend to bounce
+
+Example 4 — Volatility:
+  name: volatility_20d
+  formula: close.pct_change(1).rolling(20, min_periods=5).std()
+  description: 20-day realized volatility — low-vol stocks tend to have better risk-adjusted returns
+
+Example 5 — Range:
+  name: intraday_range
+  formula: (high - low) / close
+  description: Normalized intraday price range — wide ranges indicate uncertainty or reversal risk
+
+Market context: {market_context}
 
 Text to analyze:
 {text}
 
 Output as a JSON array of factor objects. Only output valid JSON, no commentary."""
+
+REFINE_PROMPT = """You are a quantitative finance researcher. A factor formula you created was tested against real market data and the results were suboptimal.
+
+ORIGINAL FORMULA:
+  Name: {name}
+  Formula: {formula}
+  Description: {description}
+
+EVALUATION RESULTS:
+  Train IC: {train_ic} (target: >0.02)
+  Coverage: {coverage} (target: >0.5)
+  Max Zoo Correlation: {max_zoo_corr} (target: <0.7)
+  Issues: {issues}
+
+Please REFINE this factor to improve its performance. Consider:
+1. Adjusting lookback windows (try different values: 5, 10, 20, 40, 60)
+2. Adding cross-sectional normalization (.rank(axis=1, pct=True))
+3. Removing noisy components that reduce coverage
+4. Adding complementary signals (volume, volatility filters)
+5. Using different transformations (log, sqrt, z-score)
+
+Output the refined factor as JSON:
+- name: refined name (append _v2, _v3 etc.)
+- formula: the improved formula
+- description: what changed and why
+- change_log: brief explanation of modifications made
+
+Only output valid JSON, no commentary."""
+
+EXPLAIN_PROMPT = """You are a quantitative finance researcher. Explain this alpha factor in detail.
+
+Factor: {name}
+Formula: {formula}
+IC: {train_ic}
+Sharpe: {train_sharpe}
+
+Please provide a comprehensive explanation covering:
+1. Economic intuition: What market anomaly or behavior does this factor capture?
+2. Mathematical interpretation: Walk through the formula step by step in plain language
+3. Market regime suitability: Bull/Bear/Sideways — when does this factor work best?
+4. Risk considerations: What could cause this factor to stop working?
+5. Suggested usage: Recommended rebalance frequency, position sizing, stop-loss logic
+
+Output as JSON:
+- intuition: string
+- math_explanation: string
+- market_regime: string
+- risks: string
+- usage: string
+
+Only output valid JSON, no commentary."""
 
 DEBATE_PROMPT = """You are a {role} reviewing alpha factor candidates for a quantitative trading system.
 
@@ -282,6 +368,84 @@ class LLMFactorMiner:
         logger.warning("Could not parse LLM response as JSON: %s...", text[:200])
         return []
 
+    # ── Market context ─────────────────────────────────────────────
+
+    @staticmethod
+    def _get_market_context() -> str:
+        """Build a brief market context string for factor extraction prompts.
+
+        Describes current market conditions so the LLM can tailor factors
+        to the prevailing regime.
+        """
+        try:
+            from backtest.data_store import get_data_store
+            store = get_data_store()
+            # Try to get recent SPY data for US market context
+            df = store.get_ohlcv("SPY.US", "2026-05-01", "2026-05-31", interval="1D")
+            if df is not None and len(df) >= 10:
+                close = df["close"]
+                ret_1m = (close.iloc[-1] / close.iloc[0] - 1) * 100
+                vol_20d = close.pct_change().rolling(20).std().iloc[-1] * 100
+                regime = "bullish" if ret_1m > 2 else "bearish" if ret_1m < -2 else "sideways"
+                v_level = "high" if vol_20d > 2 else "moderate" if vol_20d > 1 else "low"
+                return (
+                    f"Current market: {regime} (1M return: {ret_1m:.1f}%), "
+                    f"volatility: {v_level} ({vol_20d:.1f}% daily). "
+                    f"Prefer {'defensive/quality' if regime == 'bearish' else 'momentum/trend' if regime == 'bullish' else 'reversal/mean-reversion'} factors."
+                )
+        except Exception:
+            pass
+        return "Market context unavailable — design factors suitable for general market conditions."
+
+    # ── Sandbox pre-execution ───────────────────────────────────────
+
+    @staticmethod
+    def _sandbox_pre_run(formula: str) -> tuple[bool, str, dict[str, Any] | None]:
+        """Execute a formula on a tiny sandbox dataset to catch runtime errors.
+
+        Returns (success, error_message, result_stats).
+        """
+        import numpy as np
+        import pandas as pd
+
+        try:
+            # Create tiny test panel: 3 stocks × 30 days
+            dates = pd.date_range("2024-01-01", periods=30, freq="B")
+            symbols = ["S1", "S2", "S3"]
+            rng = np.random.RandomState(42)
+            close = pd.DataFrame(
+                100 + rng.randn(30, 3).cumsum(axis=0),
+                index=dates, columns=symbols, dtype=np.float64,
+            )
+            panel = {
+                "close": close,
+                "open_": close.shift(1).fillna(close) * (1 + rng.randn(30, 3) * 0.005),
+                "high": close * (1 + np.abs(rng.randn(30, 3)) * 0.01),
+                "low": close * (1 - np.abs(rng.randn(30, 3)) * 0.01),
+                "volume": pd.DataFrame(np.abs(rng.randn(30, 3)) * 1e6, index=dates, columns=symbols),
+            }
+
+            safe_locals = {
+                "panel": panel, "close": close, "open_": panel["open_"],
+                "high": panel["high"], "low": panel["low"], "volume": panel["volume"],
+                "pd": pd, "np": np, "abs": abs, "min": min, "max": max,
+                "round": round, "len": len,
+            }
+
+            result = eval(formula, {"__builtins__": {}}, safe_locals)
+            if isinstance(result, pd.DataFrame) and not result.empty:
+                arr = result.to_numpy(dtype=np.float64)
+                return True, "", {
+                    "shape": list(result.shape),
+                    "nan_ratio": round(float(np.isnan(arr).sum()) / arr.size, 4),
+                    "inf_count": int(np.isinf(arr).sum()),
+                }
+            return False, "Formula did not return a valid DataFrame", None
+        except Exception as e:
+            return False, str(e), None
+
+    # ── Formula validation ──────────────────────────────────────────
+
     @staticmethod
     def _validate_formula_syntax(formula: str) -> tuple[bool, str]:
         """Validate that a formula string is syntactically valid Python/pandas.
@@ -322,43 +486,66 @@ class LLMFactorMiner:
     def extract_from_text(self, text: str) -> list[FactorCandidate]:
         """Extract factor formulas from research text.
 
+        Pipeline: LLM extraction → AST syntax check → sandbox pre-run → return valid candidates.
+
         Args:
             text: Research paper or article text content.
 
         Returns:
-            List of FactorCandidate objects (only syntactically valid formulas).
+            List of FactorCandidate objects (syntax-valid AND runnable formulas).
         """
-        prompt = EXTRACTION_PROMPT.format(text=text[:8000])  # Cap context
+        market_ctx = self._get_market_context()
+        prompt = EXTRACTION_PROMPT.format(market_context=market_ctx, text=text[:8000])
         response = self._call_llm(prompt, json_schema=_JSON_SCHEMA_FACTORS)
         if not response:
             return []
 
         raw_factors = self._parse_json_response(response)
         candidates: list[FactorCandidate] = []
-        rejected_count = 0
+        rejected_syntax = 0
+        rejected_runtime = 0
         for rf in raw_factors:
             try:
                 formula = rf.get("formula", "")
-                # Validate formula syntax before accepting
+
+                # A3: Sandbox pre-execution — catch runtime errors before returning
+                sandbox_ok, sandbox_err, sandbox_stats = self._sandbox_pre_run(formula)
+                if not sandbox_ok:
+                    logger.debug("Sandbox rejected formula: %s — %s", formula[:60], sandbox_err)
+                    rejected_runtime += 1
+                    continue
+
+                # Syntax validation (double-check)
                 is_valid, err_msg = self._validate_formula_syntax(formula)
                 if not is_valid:
-                    logger.debug("Rejected invalid formula from LLM: %s — %s", formula[:80], err_msg)
-                    rejected_count += 1
+                    logger.debug("Rejected invalid formula: %s — %s", formula[:60], err_msg)
+                    rejected_syntax += 1
                     continue
+
+                confidence = rf.get("confidence", 0.5)
+                # Adjust confidence based on sandbox stats
+                if sandbox_stats:
+                    nan_r = sandbox_stats.get("nan_ratio", 1)
+                    if nan_r < 0.1:
+                        confidence = min(1.0, confidence + 0.1)
+                    elif nan_r > 0.5:
+                        confidence = max(0.1, confidence - 0.2)
 
                 candidates.append(FactorCandidate(
                     name=rf.get("name", "unknown"),
                     formula=formula,
                     description=rf.get("description", ""),
                     source="pdf",
-                    confidence=rf.get("confidence", 0.5),
+                    confidence=confidence,
+                    expression_json={"sandbox_stats": sandbox_stats} if sandbox_stats else None,
                 ))
             except Exception as e:
                 logger.debug("Failed to parse factor candidate: %s", e)
 
-        if rejected_count > 0:
-            logger.info("LLM extraction: %d accepted, %d rejected (invalid syntax)",
-                         len(candidates), rejected_count)
+        total = len(candidates) + rejected_syntax + rejected_runtime
+        if total > 0:
+            logger.info("LLM extraction: %d accepted, %d syntax rejected, %d runtime rejected (total %d)",
+                         len(candidates), rejected_syntax, rejected_runtime, total)
 
         return candidates
 
@@ -505,3 +692,165 @@ Only output valid JSON."""
                 filtered.append(c)
 
         return filtered
+
+    def self_refine(
+        self,
+        name: str,
+        formula: str,
+        description: str,
+        train_ic: float,
+        coverage: float = 0.0,
+        max_zoo_corr: float = 0.0,
+        max_iterations: int = 3,
+    ) -> list[FactorCandidate]:
+        """A2: Self-Refinement loop — iteratively improve a weak factor.
+
+        If a factor's IC is below threshold, sends it back to the LLM with
+        evaluation feedback and asks for improvements.  Repeats up to
+        ``max_iterations`` times until IC improves or budget exhausted.
+
+        Args:
+            name: Original factor name.
+            formula: Original formula string.
+            description: Original description.
+            train_ic: IC from evaluation (e.g., from evaluate_factor tool).
+            coverage: Data coverage ratio (0-1).
+            max_zoo_corr: Max correlation with existing zoo factors.
+            max_iterations: Max refinement rounds (controls token cost).
+
+        Returns:
+            List of refined FactorCandidate objects (one per iteration that
+            passed validation).
+        """
+        refined: list[FactorCandidate] = []
+        current_name = name
+        current_formula = formula
+        current_desc = description
+
+        issues = []
+        if abs(train_ic) < 0.02:
+            issues.append("IC too low (below 0.02)")
+        if coverage < 0.5:
+            issues.append(f"Low coverage ({coverage:.1%})")
+        if max_zoo_corr > 0.7:
+            issues.append(f"Too correlated with existing factor (r={max_zoo_corr:.2f})")
+
+        if not issues:
+            return refined  # Factor is fine, no refinement needed
+
+        for iteration in range(max_iterations):
+            prompt = REFINE_PROMPT.format(
+                name=current_name,
+                formula=current_formula,
+                description=current_desc,
+                train_ic=f"{train_ic:.6f}",
+                coverage=f"{coverage:.1%}",
+                max_zoo_corr=f"{max_zoo_corr:.2f}",
+                issues="; ".join(issues),
+            )
+
+            response = self._call_llm(prompt, json_schema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "formula": {"type": "string"},
+                    "description": {"type": "string"},
+                    "change_log": {"type": "string"},
+                },
+                "required": ["name", "formula", "description"],
+            })
+
+            if not response:
+                break
+
+            parsed = self._parse_json_response(response)
+            if not parsed:
+                break
+
+            rf = parsed[0] if isinstance(parsed, list) else parsed
+            new_formula = rf.get("formula", "")
+            new_name = rf.get("name", f"{name}_v{iteration + 2}")
+            new_desc = rf.get("description", current_desc)
+
+            # Validate and sandbox the refined formula
+            is_valid, err = self._validate_formula_syntax(new_formula)
+            if not is_valid:
+                logger.debug("Refined formula failed syntax check: %s", err)
+                continue
+
+            sandbox_ok, sandbox_err, sandbox_stats = self._sandbox_pre_run(new_formula)
+            if not sandbox_ok:
+                logger.debug("Refined formula failed sandbox: %s", sandbox_err)
+                continue
+
+            refined.append(FactorCandidate(
+                name=new_name,
+                formula=new_formula,
+                description=f"{new_desc} [Refined v{iteration + 2}]",
+                source="self_refine",
+                confidence=0.6 + 0.1 * iteration,
+                expression_json={
+                    "original_name": name,
+                    "refinement_round": iteration + 1,
+                    "change_log": rf.get("change_log", ""),
+                    "sandbox_stats": sandbox_stats,
+                },
+            ))
+
+            # Update for next iteration
+            current_name = new_name
+            current_formula = new_formula
+            current_desc = new_desc
+
+        return refined
+
+    def explain_factor(
+        self,
+        name: str,
+        formula: str,
+        train_ic: float = 0.0,
+        train_sharpe: float = 0.0,
+    ) -> dict[str, str]:
+        """B3: Generate a comprehensive explanation of a factor.
+
+        Explains economic intuition, math, market regime, risks, and usage.
+
+        Args:
+            name: Factor name.
+            formula: Factor formula string.
+            train_ic: IC from evaluation.
+            train_sharpe: Sharpe from evaluation.
+
+        Returns:
+            Dict with intuition, math_explanation, market_regime, risks, usage keys.
+        """
+        prompt = EXPLAIN_PROMPT.format(
+            name=name, formula=formula,
+            train_ic=f"{train_ic:.4f}", train_sharpe=f"{train_sharpe:.2f}",
+        )
+        response = self._call_llm(prompt, json_schema={
+            "type": "object",
+            "properties": {
+                "intuition": {"type": "string"},
+                "math_explanation": {"type": "string"},
+                "market_regime": {"type": "string"},
+                "risks": {"type": "string"},
+                "usage": {"type": "string"},
+            },
+            "required": ["intuition", "math_explanation", "market_regime", "risks", "usage"],
+        })
+
+        if not response:
+            return {"intuition": "Explanation unavailable", "math_explanation": "", "market_regime": "", "risks": "", "usage": ""}
+
+        parsed = self._parse_json_response(response)
+        if parsed:
+            result = parsed[0] if isinstance(parsed, list) else parsed
+            return {
+                "intuition": result.get("intuition", ""),
+                "math_explanation": result.get("math_explanation", ""),
+                "market_regime": result.get("market_regime", ""),
+                "risks": result.get("risks", ""),
+                "usage": result.get("usage", ""),
+            }
+        return {"intuition": "Could not parse explanation", "math_explanation": "", "market_regime": "", "risks": "", "usage": ""}

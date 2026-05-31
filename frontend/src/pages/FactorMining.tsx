@@ -13,7 +13,7 @@ import { ICDecayCurve } from "@/components/factor-mining/ICDecayCurve";
 import { RunComparisonView } from "@/components/factor-mining/RunComparisonView";
 import { LineageTree } from "@/components/factor-mining/LineageTree";
 import { cn } from "@/lib/utils";
-import { Zap, FlaskConical, HelpCircle, GitCompare } from "lucide-react";
+import { Zap, FlaskConical, HelpCircle } from "lucide-react";
 
 type TabKey = "gp" | "llm" | "hybrid" | "candidates" | "history" | "compare";
 
@@ -100,8 +100,8 @@ export function FactorMining() {
     tournament_size: 7,
     crossover_prob: 0.7,
     mutation_prob: 0.2,
-    fitness_metric: "ic_mean" as const,
-    complexity_penalty: "bic" as const,
+    fitness_metric: "ic_mean" as "ic_mean" | "rank_ic" | "sharpe",
+    complexity_penalty: "bic" as "aic" | "bic" | "none",
     train_start: "2023-01-01",
     train_end: "2024-12-31",
     test_start: "2025-01-01",

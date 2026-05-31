@@ -34,11 +34,6 @@ export function ICDecayCurve({ data, className }: Props) {
     if (!chartRef.current || !data || data.horizons.length === 0) return;
     const theme = getChartTheme();
 
-    const halfLifeLine = data.half_life != null ? [
-      { xAxis: data.half_life, yAxis: Math.max(...data.ic_per_horizon.map(Math.abs)) },
-      { xAxis: data.half_life, yAxis: 0 },
-    ] : [];
-
     chartRef.current.setOption({
       tooltip: {
         trigger: "axis",

@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { echarts } from "@/lib/echarts";
 import { getChartTheme } from "@/lib/chart-theme";
 import type { EliteEntry } from "@/types/api";
-import { GitBranch, Clock, TrendingUp } from "lucide-react";
+import { GitBranch, Clock } from "lucide-react";
 
 interface Props {
   elites: EliteEntry[];

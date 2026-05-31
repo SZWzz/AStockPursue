@@ -122,9 +122,6 @@ export function Attribution() {
             </div>
             <BrinsonWaterfallChart
               perSector={(store.brinsonResult.per_sector as any[]) || []}
-              allocationEffect={store.brinsonResult.allocation_effect as number}
-              selectionEffect={store.brinsonResult.selection_effect as number}
-              interactionEffect={store.brinsonResult.interaction_effect as number}
             />
           </div>
         )}

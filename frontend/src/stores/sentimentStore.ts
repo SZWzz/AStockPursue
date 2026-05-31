@@ -56,7 +56,7 @@ interface SentimentState {
 
 export const useSentimentStore = create<SentimentState>()(
   persist(
-    (set, get) => ({
+    (set, _get) => ({
       trendingTopics: [],
       trendingLoading: false,
       marketSentiment: null,
