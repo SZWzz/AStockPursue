@@ -39,6 +39,7 @@ import type {
   RunData,
   RunListItem,
   SessionItem,
+  SourceFreshness,
   StockSentiment,
   SwarmPreset,
   SwarmRunSummary,
@@ -91,6 +92,7 @@ export type {
   RunData,
   RunListItem,
   SessionItem,
+  SourceFreshness,
   StockSentiment,
   SwarmPreset,
   SwarmRunSummary,
@@ -341,15 +343,17 @@ export const api = {
   getNews: (symbol: string, limit = 20) => request<{ symbol: string; articles: NewsItem[]; source: string; stock_sentiment?: StockSentiment }>(`/trading/news/${encodeURIComponent(symbol)}?limit=${limit}`),
 
   // News Sentiment
-  getNewsFeed: (symbol?: string, limit = 20) => {
+  getNewsFeed: (symbol?: string, limit = 20, source?: string) => {
     const params = new URLSearchParams();
     if (symbol) params.set("symbol", symbol);
+    if (source) params.set("source", source);
     params.set("limit", String(limit));
     return request<{ articles: NewsItem[]; total: number; symbol: string }>(`/news/feed?${params}`);
   },
   getStockSentiment: (symbol: string) => request<StockSentiment>(`/news/sentiment/${encodeURIComponent(symbol)}`),
   getTrendingTopics: (limit = 10) => request<{ topics: TrendingTopic[] }>(`/news/trending?limit=${limit}`),
   getMarketSentiment: () => request<MarketSentiment>("/news/market-sentiment"),
+  getSourceFreshness: () => request<{ sources: Record<string, SourceFreshness> }>("/news/source-freshness"),
   newsStreamUrl: async (symbol?: string) => {
     const path = symbol
       ? `/news/stream?symbol=${encodeURIComponent(symbol)}`
@@ -364,6 +368,7 @@ export const api = {
   runScreener: (body: any) => request("/screener/run", { method: "POST", body: JSON.stringify(body) }),
   aiRecommendScreener: () => request<any>("/screener/ai-recommend", { method: "POST" }),
   screenerBatch: (body: any) => request("/screener/batch", { method: "POST", body: JSON.stringify(body) }),
+  getScreenerFields: () => request<any[]>("/screener/fields"),
 
   // --- Attribution ---
   attributionBrinson: (body: any) => request("/attribution/brinson", { method: "POST", body: JSON.stringify(body) }),

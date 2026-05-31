@@ -10,6 +10,7 @@ interface GenerationSnapshot {
   std_fitness: number;
   best_ic: number;
   diversity: number;
+  best_formula?: string;
 }
 
 interface Props {
@@ -48,6 +49,18 @@ export function EvolutionChart({ generations, className }: Props) {
         backgroundColor: theme.tooltipBg,
         borderColor: theme.tooltipBorder,
         textStyle: { color: theme.tooltipText, fontSize: 12 },
+        formatter: (params: any) => {
+          const genIdx = params[0]?.dataIndex;
+          const gen = generations[genIdx];
+          let html = `<div style="font-weight:600;margin-bottom:4px">Generation ${gen?.generation || genIdx + 1}</div>`;
+          params.forEach((p: any) => {
+            html += `<div style="display:flex;justify-content:space-between;gap:12px"><span>${p.marker} ${p.seriesName}</span><span style="font-family:monospace">${typeof p.value === 'number' ? p.value.toFixed(4) : p.value}</span></div>`;
+          });
+          if (gen?.best_formula) {
+            html += `<div style="margin-top:6px;padding-top:4px;border-top:1px solid ${theme.tooltipBorder};font-size:10px;color:#a0a0a0;max-width:280px;word-break:break-all"><code>${gen.best_formula}</code></div>`;
+          }
+          return html;
+        },
       },
       legend: {
         data: ["Best IC", "Mean Fitness", "Diversity"],

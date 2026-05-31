@@ -1,12 +1,22 @@
-"""News Sentiment REST API — real news with SnowNLP scoring, SSE streaming."""
+"""News Sentiment REST API — multi-source news with SnowNLP scoring, SSE streaming.
+
+Three-layer caching:
+  L1: In-memory TTL cache (5 min default, per-source TTL varies)
+  L2: PostgreSQL vt_news_items (DB-first read, avoids external API calls)
+  L3: External APIs — 10 sources via AggregateNewsFetcher (parallel fan-out)
+
+Data sources: East Money (stock + global 7x24), CLS Telegraph, CNINFO,
+  Sina, Xueqiu, Futu, THS, GNews, NewsAPI, DuckDuckGo.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
+import time
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import numpy as np
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
@@ -20,39 +30,92 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/news", tags=["news"])
 
+# ── Module-level TTL caches ──────────────────────────────────────────────────
+
+_CACHE_TTL: float = 300.0  # 5 minutes
+
+_feed_cache: dict[str, list[dict]] = {}
+_feed_cache_ts: dict[str, float] = {}
+
+_sentiment_cache: dict[str, dict] = {}
+_sentiment_cache_ts: dict[str, float] = {}
+
+_trending_cache: list[dict] | None = None
+_trending_cache_ts: float = 0.0
+
+_market_cache: dict | None = None
+_market_cache_ts: float = 0.0
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-def _fetch_and_score(symbol: str = "", limit: int = 20) -> list[dict]:
-    """Fetch real news via NewsFetcher and apply sentiment scoring."""
+def _fetch_and_score(
+    symbol: str = "",
+    limit: int = 20,
+    force_refresh: bool = False,
+) -> list[dict]:
+    """DB-first fetch: check cache → external API if stale.
+
+    Flow:
+      1. If force_refresh=False, try DB cache first
+      2. If cache hit rate >= 70%, return cached
+      3. Otherwise, fan out to all sources via AggregateNewsFetcher
+      4. Score with SentimentAnalyzer, persist to DB, return
+    """
     from backtest.loaders.news import NewsFetcher
+    from src.db.sentiment_store import get_recent_news, save_news_items
 
     upper = symbol.strip().upper() if symbol else ""
-    fetcher = NewsFetcher()
     analyzer = SentimentAnalyzer()
 
+    # Step 1: Try DB cache first (unless force refresh)
+    if not force_refresh:
+        cached = get_recent_news(symbol=upper, limit=limit * 2, max_age_minutes=5)
+        if len(cached) >= limit * 0.7:
+            # Cache is warm enough — return directly
+            return cached[:limit]
+
+    # Step 2: Cache miss or stale — fetch from external sources
+    fetcher = NewsFetcher()
     if upper:
-        raw = fetcher.fetch_stock_news(upper, max_results=limit)
+        raw = fetcher.fetch_stock_news(upper, name="", max_results=limit)
     else:
         raw = fetcher.fetch_market_news(max_results=limit)
 
+    # Step 3: Score and build articles
     articles: list[dict] = []
     for r in raw:
-        text = f"{r.get('title', '')} {r.get('snippet', '')}"
+        text = f"{r.get('title', '')} {r.get('summary', '')}"
         score = analyzer.analyze_text(text)
         articles.append({
             "title": r.get("title", ""),
             "url": r.get("url", ""),
             "source": r.get("source", "web_search"),
-            "summary": (r.get("snippet", "") or "")[:200],
+            "source_label": r.get("source_label", r.get("source", "")),
+            "summary": (r.get("summary", "") or r.get("snippet", ""))[:200],
             "published_at": r.get("published_at", ""),
             "sentiment_score": score,
             "sentiment_label": "positive" if score > 0.6 else ("negative" if score < 0.4 else "neutral"),
         })
 
-    return articles
+    # Step 4: Persist to DB (fire-and-forget)
+    if articles:
+        try:
+            save_news_items(articles)
+        except Exception:
+            logger.warning("Failed to persist fetched articles to DB", exc_info=True)
+
+    # Step 5: Merge with any remaining cached items we didn't fetch from
+    if not force_refresh:
+        cached = get_recent_news(symbol=upper, limit=limit * 2, max_age_minutes=30)
+        seen_titles = {a.get("title", "") for a in articles}
+        for c in cached:
+            if c.get("title", "") not in seen_titles:
+                articles.append(c)
+
+    return articles[:limit]
 
 
 # ---------------------------------------------------------------------------
@@ -64,21 +127,52 @@ def _fetch_and_score(symbol: str = "", limit: int = 20) -> list[dict]:
 async def get_news_feed(
     symbol: str = "",
     limit: int = Query(20, ge=1, le=100),
+    refresh: bool = Query(False),
     auth: dict = Depends(require_auth),
 ):
-    """Get latest news with sentiment scores."""
+    """Get latest news with sentiment scores (cached 5 min)."""
+    cache_key = f"feed:{symbol or 'market'}:{limit}"
+    now = time.monotonic()
+    cached = _feed_cache.get(cache_key)
+    cached_ts = _feed_cache_ts.get(cache_key, 0.0)
+
+    if not refresh and cached is not None and (now - cached_ts) < _CACHE_TTL:
+        return {"articles": cached, "total": len(cached), "symbol": symbol or "market", "cached": True}
+
     articles = _fetch_and_score(symbol=symbol, limit=limit)
-    return {"articles": articles, "total": len(articles), "symbol": symbol or "market"}
+
+    # Persist to DB (fire-and-forget — log but don't fail the response)
+    from src.db.sentiment_store import save_news_items
+    try:
+        save_news_items(articles)
+    except Exception:
+        logger.warning("Failed to persist news feed articles to DB", exc_info=True)
+
+    _feed_cache[cache_key] = articles
+    _feed_cache_ts[cache_key] = now
+    return {"articles": articles, "total": len(articles), "symbol": symbol or "market", "cached": False}
 
 
 @router.get("/sentiment/{symbol}")
-async def get_stock_sentiment(symbol: str, auth: dict = Depends(require_auth)):
-    """Get sentiment history and aggregate for a stock."""
+async def get_stock_sentiment(
+    symbol: str,
+    refresh: bool = Query(False),
+    auth: dict = Depends(require_auth),
+):
+    """Get sentiment history and aggregate for a stock (cached 5 min)."""
+    upper = symbol.strip().upper()
+    now = time.monotonic()
+    cached = _sentiment_cache.get(upper)
+    cached_ts = _sentiment_cache_ts.get(upper, 0.0)
+
+    if not refresh and cached is not None and (now - cached_ts) < _CACHE_TTL:
+        return {**cached, "cached": True}
+
     articles = _fetch_and_score(symbol=symbol, limit=20)
 
     scores = [a.get("sentiment_score", 0.5) for a in articles]
-    return {
-        "symbol": symbol.upper(),
+    result = {
+        "symbol": upper,
         "sentiment_mean": round(float(np.mean(scores)), 4) if scores else 0.5,
         "sentiment_std": round(float(np.std(scores, ddof=1)), 4) if len(scores) > 1 else 0.0,
         "news_count": len(articles),
@@ -86,10 +180,41 @@ async def get_stock_sentiment(symbol: str, auth: dict = Depends(require_auth)):
         "recent_articles": articles[:10],
     }
 
+    # Persist to DB
+    from src.db.sentiment_store import save_news_items, save_stock_sentiment
+    from datetime import date
+    try:
+        save_news_items(articles)
+        save_stock_sentiment(
+            symbol=upper,
+            date=str(date.today()),
+            sentiment_mean=result["sentiment_mean"],
+            sentiment_std=result["sentiment_std"],
+            news_count=result["news_count"],
+            trending_score=result["trending_score"],
+        )
+    except Exception:
+        logger.warning("Failed to persist stock sentiment for %s to DB", upper, exc_info=True)
+
+    _sentiment_cache[upper] = result
+    _sentiment_cache_ts[upper] = now
+    result["cached"] = False
+    return result
+
 
 @router.get("/trending")
-async def get_trending_topics(limit: int = 10, auth: dict = Depends(require_auth)):
-    """Get trending topics with sentiment aggregation from real news."""
+async def get_trending_topics(
+    limit: int = 10,
+    refresh: bool = Query(False),
+    auth: dict = Depends(require_auth),
+):
+    """Get trending topics with sentiment aggregation from real news (cached 5 min)."""
+    global _trending_cache, _trending_cache_ts
+    now = time.monotonic()
+
+    if not refresh and _trending_cache is not None and (now - _trending_cache_ts) < _CACHE_TTL:
+        return {"topics": _trending_cache, "cached": True}
+
     articles = _fetch_and_score(limit=50)
 
     # Extract topics via keyword matching (no NLP topic model yet)
@@ -130,12 +255,31 @@ async def get_trending_topics(limit: int = 10, auth: dict = Depends(require_auth
             "trending_score": round(count * float(np.mean(scores)), 2),
         })
     topics.sort(key=lambda x: x["trending_score"], reverse=True)
-    return {"topics": topics[:limit]}
+    topics = topics[:limit]
+
+    # Persist underlying articles to DB
+    from src.db.sentiment_store import save_news_items
+    try:
+        save_news_items(articles)
+    except Exception:
+        logger.warning("Failed to persist trending articles to DB", exc_info=True)
+
+    _trending_cache = topics
+    _trending_cache_ts = now
+    return {"topics": topics, "cached": False}
 
 
 @router.get("/market-sentiment")
-async def get_market_sentiment(auth: dict = Depends(require_auth)):
-    """Get market-wide sentiment overview (VIX, DXY, yield, F&G, news sentiment)."""
+async def get_market_sentiment(
+    refresh: bool = Query(False),
+    auth: dict = Depends(require_auth),
+):
+    """Get market-wide sentiment overview (VIX, DXY, yield, F&G, news sentiment) — cached 5 min."""
+    global _market_cache, _market_cache_ts
+    now = time.monotonic()
+
+    if not refresh and _market_cache is not None and (now - _market_cache_ts) < _CACHE_TTL:
+        return {**_market_cache, "cached": True}
     import numpy as np
 
     result: dict = {
@@ -188,9 +332,10 @@ async def get_market_sentiment(auth: dict = Depends(require_auth)):
         logger.warning("Market sentiment indicators fetch failed: %s", e)
 
     # 2) News sentiment — aggregate recent market news
+    market_articles: list[dict] = []
     try:
-        articles = _fetch_and_score(limit=30)
-        scores = [a.get("sentiment_score", 0.5) for a in articles]
+        market_articles = _fetch_and_score(limit=30)
+        scores = [a.get("sentiment_score", 0.5) for a in market_articles]
         if scores:
             result["news_sentiment_mean"] = round(float(np.mean(scores)), 4)
             result["news_sentiment_count"] = len(scores)
@@ -199,7 +344,35 @@ async def get_market_sentiment(auth: dict = Depends(require_auth)):
     except Exception as e:
         logger.warning("News sentiment fetch for market overview failed: %s", e)
 
+    # Persist news articles to DB
+    from src.db.sentiment_store import save_news_items
+    try:
+        if market_articles:
+            save_news_items(market_articles)
+    except Exception:
+        logger.warning("Failed to persist market-sentiment articles to DB", exc_info=True)
+
+    _market_cache = result
+    _market_cache_ts = now
+    result["cached"] = False
     return result
+
+
+@router.get("/source-freshness")
+async def get_source_freshness(
+    auth: dict = Depends(require_auth),
+):
+    """Return per-source freshness status and 24h article counts.
+
+    Response:
+        {source_id: {fresh: bool|null, last_update: str|null, count_24h: int, label: str, category: str, ttl_seconds: int}}
+
+    fresh=true  → data within TTL
+    fresh=false → data exists but stale
+    fresh=null  → never fetched / source unavailable
+    """
+    from src.db.sentiment_store import get_source_freshness as _db_freshness
+    return {"sources": _db_freshness()}
 
 
 @router.get("/stream")
@@ -226,6 +399,8 @@ async def news_stream(request: Request, symbol: str = Query("")):
 
     async def poll_loop():
         """Fetch news on an interval, score, and publish."""
+        from src.db.sentiment_store import save_news_items as _save
+
         # Initial fetch immediately
         try:
             if symbol:
@@ -233,24 +408,34 @@ async def news_stream(request: Request, symbol: str = Query("")):
             else:
                 raw = fetcher.fetch_market_news(max_results=10)
 
+            batch: list[dict] = []
             for item in raw:
                 url = item.get("url", "")
                 if url and url in seen_urls:
                     continue
                 if url:
                     seen_urls.add(url)
-                text = f"{item.get('title', '')} {item.get('snippet', '')}"
+                text = f"{item.get('title', '')} {item.get('summary', item.get('snippet', ''))}"
                 score = analyzer.analyze_text(text)
                 label = "positive" if score > 0.6 else ("negative" if score < 0.4 else "neutral")
-                await bus.publish(channel, "news", {
+                article = {
                     "title": item.get("title", ""),
                     "url": url,
                     "source": item.get("source", "web_search"),
-                    "summary": (item.get("snippet", "") or "")[:200],
+                    "source_label": item.get("source_label", item.get("source", "")),
+                    "summary": (item.get("summary", "") or item.get("snippet", ""))[:200],
                     "published_at": item.get("published_at", ""),
                     "sentiment_score": score,
                     "sentiment_label": label,
-                })
+                }
+                batch.append(article)
+                await bus.publish(channel, "news", article)
+            # Persist to DB (fire-and-forget)
+            if batch:
+                try:
+                    _save(batch)
+                except Exception:
+                    logger.warning("SSE stream: failed to persist initial batch", exc_info=True)
         except Exception as e:
             logger.warning("Initial news poll for stream failed: %s", e)
 
@@ -265,24 +450,34 @@ async def news_stream(request: Request, symbol: str = Query("")):
                 else:
                     raw = fetcher.fetch_market_news(max_results=5)
 
+                batch = []
                 for item in raw:
                     url = item.get("url", "")
                     if url and url in seen_urls:
                         continue
                     if url:
                         seen_urls.add(url)
-                    text = f"{item.get('title', '')} {item.get('snippet', '')}"
+                    text = f"{item.get('title', '')} {item.get('summary', item.get('snippet', ''))}"
                     score = analyzer.analyze_text(text)
                     label = "positive" if score > 0.6 else ("negative" if score < 0.4 else "neutral")
-                    await bus.publish(channel, "news", {
+                    article = {
                         "title": item.get("title", ""),
                         "url": url,
                         "source": item.get("source", "web_search"),
-                        "summary": (item.get("snippet", "") or "")[:200],
+                        "source_label": item.get("source_label", item.get("source", "")),
+                        "summary": (item.get("summary", "") or item.get("snippet", ""))[:200],
                         "published_at": item.get("published_at", ""),
                         "sentiment_score": score,
                         "sentiment_label": label,
-                    })
+                    }
+                    batch.append(article)
+                    await bus.publish(channel, "news", article)
+                # Persist to DB (fire-and-forget)
+                if batch:
+                    try:
+                        _save(batch)
+                    except Exception:
+                        logger.warning("SSE stream: failed to persist poll batch", exc_info=True)
             except asyncio.CancelledError:
                 break
             except Exception as e:

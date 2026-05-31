@@ -153,6 +153,13 @@ class GPEvolution:
         self._train_panel: dict[str, pd.DataFrame] = {}
         self._test_panel: dict[str, pd.DataFrame] = {}
 
+        # Data source tracking
+        self.data_source: str = "unknown"  # "real" | "mock"
+        self.data_source_detail: str = ""
+
+        # Elite lineage tracking: formula_hash -> {first_seen_gen, last_seen_gen, best_fitness, representative}
+        self._elite_tracker: dict[str, dict[str, Any]] = {}
+
         # SSE progress queue
         self._progress_queue: queue.Queue[dict[str, Any]] = queue.Queue()
 
@@ -164,12 +171,19 @@ class GPEvolution:
     # ------------------------------------------------------------------
 
     def _load_data(self) -> None:
-        """Load OHLCV data for the configured universe from DataStore."""
+        """Load OHLCV data for the configured universe from DataStore.
+
+        Sets self.data_source to 'real' on success, 'mock' on fallback.
+        Emits data source status via SSE so the frontend can show a badge.
+        """
         try:
             from backtest.data_store import get_data_store
             store = get_data_store()
         except Exception as e:
             logger.warning("DataStore unavailable, using mock data: %s", e)
+            self.data_source = "mock"
+            self.data_source_detail = f"DataStore import failed: {e}"
+            self._emit_progress("data_source", {"source": "mock", "detail": self.data_source_detail})
             self._load_mock_data()
             return
 
@@ -195,6 +209,9 @@ class GPEvolution:
 
             if not data_map:
                 logger.warning("No data returned from DataStore, using mock data")
+                self.data_source = "mock"
+                self.data_source_detail = f"DataStore returned empty for {len(universe)} symbols"
+                self._emit_progress("data_source", {"source": "mock", "detail": self.data_source_detail})
                 self._load_mock_data()
                 return
 
@@ -228,15 +245,34 @@ class GPEvolution:
             if "close" in self._test_panel:
                 self._test_returns = compute_forward_returns(self._test_panel["close"], period=1)
 
-            logger.info("Loaded data: train=%d bars, test=%d bars",
-                         len(self._train_panel.get("close", pd.DataFrame())),
-                         len(self._test_panel.get("close", pd.DataFrame())))
+            train_bars = len(self._train_panel.get("close", pd.DataFrame()))
+            test_bars = len(self._test_panel.get("close", pd.DataFrame()))
+            n_stocks = len(self._train_panel.get("close", pd.DataFrame()).columns) if train_bars > 0 else 0
+
+            self.data_source = "real"
+            self.data_source_detail = f"{n_stocks} stocks, train={train_bars} bars, test={test_bars} bars"
+            self._emit_progress("data_source", {
+                "source": "real",
+                "detail": self.data_source_detail,
+                "n_stocks": n_stocks,
+                "train_bars": train_bars,
+                "test_bars": test_bars,
+            })
+
+            logger.info("Loaded REAL data: train=%d bars, test=%d bars, %d stocks",
+                         train_bars, test_bars, n_stocks)
         except Exception as e:
             logger.warning("Failed to load real data (%s), using mock data", e)
+            self.data_source = "mock"
+            self.data_source_detail = f"Data loading error: {e}"
+            self._emit_progress("data_source", {"source": "mock", "detail": self.data_source_detail})
             self._load_mock_data()
 
     def _load_mock_data(self) -> None:
         """Generate synthetic OHLCV data for testing/demo purposes."""
+        self.data_source = "mock"
+        if not self.data_source_detail:
+            self.data_source_detail = "Synthetic random-walk data (for demo only)"
         dates_train = pd.date_range(self.config.train_start, self.config.train_end, freq="B")
         dates_test = pd.date_range(self.config.test_start, self.config.test_end, freq="B")
         universe = self.config.universe or [f"STOCK_{i:03d}" for i in range(20)]
@@ -637,6 +673,69 @@ class GPEvolution:
             return 0.0
         return float(np.std(fitnesses, ddof=1))
 
+    def _get_fitness_distribution(self, fitnesses: list[float], n_bins: int = 10) -> dict[str, Any]:
+        """Compute fitness distribution histogram for frontend visualization.
+
+        Returns bins and counts for a histogram, plus summary stats.
+        """
+        if not fitnesses:
+            return {"bins": [], "counts": [], "min": 0, "max": 0, "median": 0, "q25": 0, "q75": 0}
+
+        arr = np.array(fitnesses, dtype=np.float64)
+        finite = arr[np.isfinite(arr)]
+        if len(finite) == 0:
+            return {"bins": [], "counts": [], "min": 0, "max": 0, "median": 0, "q25": 0, "q75": 0}
+
+        hist, bin_edges = np.histogram(finite, bins=min(n_bins, len(finite) // 3 + 2))
+        return {
+            "bins": [round(float(e), 6) for e in bin_edges],
+            "counts": [int(c) for c in hist],
+            "min": round(float(np.min(finite)), 6),
+            "max": round(float(np.max(finite)), 6),
+            "median": round(float(np.median(finite)), 6),
+            "q25": round(float(np.percentile(finite, 25)), 6),
+            "q75": round(float(np.percentile(finite, 75)), 6),
+        }
+
+    def _update_elite_lineage(self, individuals: list[GPIndividual], generation: int, top_n: int = 5) -> None:
+        """Track elite individuals that survive across generations.
+
+        Records each individual's first appearance and updates survival count.
+        """
+        sorted_ind = sorted(individuals, key=lambda ind: ind.train_fitness, reverse=True)
+        for rank, ind in enumerate(sorted_ind[:top_n]):
+            formula_hash = ind.formula  # Use formula string as identity key
+            if formula_hash in self._elite_tracker:
+                entry = self._elite_tracker[formula_hash]
+                entry["last_seen_gen"] = generation
+                entry["survival_gens"] = generation - entry["first_seen_gen"] + 1
+                if ind.train_fitness > entry.get("best_fitness", float("-inf")):
+                    entry["best_fitness"] = ind.train_fitness
+                    entry["best_ic"] = ind.test_ic
+                    entry["expression_json"] = ind.tree.to_dict()
+            else:
+                self._elite_tracker[formula_hash] = {
+                    "formula": ind.formula,
+                    "expression_json": ind.tree.to_dict(),
+                    "first_seen_gen": generation,
+                    "last_seen_gen": generation,
+                    "survival_gens": 1,
+                    "best_fitness": ind.train_fitness,
+                    "best_ic": ind.test_ic,
+                    "test_ir": ind.test_ir,
+                    "complexity": ind.complexity,
+                    "rank": rank + 1,
+                }
+
+    def _get_elite_summary(self, min_survival: int = 3, top_n: int = 8) -> list[dict[str, Any]]:
+        """Return elite individuals sorted by survival_gens descending."""
+        elites = [
+            v for v in self._elite_tracker.values()
+            if v.get("survival_gens", 0) >= min_survival
+        ]
+        elites.sort(key=lambda x: (x.get("survival_gens", 0), x.get("best_fitness", 0)), reverse=True)
+        return elites[:top_n]
+
     # ------------------------------------------------------------------
     # Main run
     # ------------------------------------------------------------------
@@ -716,6 +815,13 @@ class GPEvolution:
 
             gen_elapsed = time.monotonic() - gen_start
 
+            # Compute fitness distribution for frontend histogram
+            fitness_dist = self._get_fitness_distribution(fitnesses)
+
+            # Update elite lineage tracking
+            self._update_elite_lineage(self._population, gen + 1)
+            elite_summary = self._get_elite_summary()
+
             self._emit_progress("generation_complete", {
                 "generation": gen + 1,
                 "total_generations": total_generations,
@@ -725,6 +831,11 @@ class GPEvolution:
                 "diversity": stats.diversity,
                 "gen_seconds": round(gen_elapsed, 2),
                 "best_formula": gen_best.formula,
+                "best_expression_json": gen_best.tree.to_dict(),
+                "best_complexity": gen_best.complexity,
+                "fitness_distribution": fitness_dist,
+                "elite_lineage": elite_summary,
+                "data_source": self.data_source,
             })
 
             # Evolve (unless last generation)
@@ -758,6 +869,8 @@ class GPEvolution:
             "runtime_seconds": round(runtime, 1),
             "significant_count": len(sig),
             "total_candidates": len(best_individuals),
+            "data_source": self.data_source,
+            "data_source_detail": self.data_source_detail,
         })
 
         return GPRunResult(
@@ -766,6 +879,12 @@ class GPEvolution:
             generation_history=self._generation_history,
             best_test_ic=best_test_ic,
             runtime_seconds=runtime,
+            config={
+                "data_source": self.data_source,
+                "data_source_detail": self.data_source_detail,
+                "population_size": self.config.population_size,
+                "generations": self.config.generations,
+            },
         )
 
     def cancel(self) -> None:

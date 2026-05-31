@@ -23,11 +23,25 @@ class ScreenRunRequest(BaseModel):
     conditions: list[dict[str, Any]] = Field(default_factory=list)
     universe: list[str] = Field(default_factory=list)
     date: str = ""
+    mode: str = "filter"  # "filter", "rank", "score"
+    top_n: int = 50
+    weights: dict[str, float] | None = None
 
 
 class BatchRequest(BaseModel):
     action: str = "add_watchlist"  # add_watchlist, export_csv, backtest_basket
     symbols: list[str] = Field(default_factory=list)
+
+
+@router.get("/fields")
+async def get_fields():
+    """Return all available screening fields (indicators + factor IDs)."""
+    engine = ScreenerEngine()
+    conditions = engine.get_available_conditions()
+    return [
+        {"name": c.field_name, "label": c.display_name, "category": c.category, "source": c.source}
+        for c in conditions
+    ]
 
 
 @router.get("/presets")
@@ -63,12 +77,29 @@ async def delete_preset(preset_id: int, auth: dict = Depends(require_auth)):
 
 @router.post("/run")
 async def run_screen(req: ScreenRunRequest, auth: dict = Depends(require_auth)):
-    """Execute a stock screen with the given conditions."""
+    """Execute a stock screen with the given conditions.
+
+    Supports three modes:
+      - ``filter``: hard-condition AND filtering
+      - ``rank``: Z-score composite ranking (sorted by score desc)
+      - ``score``: weighted multi-factor scoring
+    """
     conditions = [ScreenCondition(**c) for c in req.conditions]
     engine = ScreenerEngine()
-    df = engine.execute(conditions, req.universe or None, req.date or None)
+    df = engine.execute(
+        conditions,
+        req.universe or None,
+        req.date or None,
+        mode=req.mode,
+        top_n=req.top_n,
+        weights=req.weights,
+    )
+    data_source = df["_data_source"].iloc[0] if "_data_source" in df.columns and not df.empty else "unknown"
+    # Drop internal column from output
+    if "_data_source" in df.columns:
+        df = df.drop(columns=["_data_source"])
     results = df.to_dict(orient="records") if not df.empty else []
-    return {"results": results, "count": len(results)}
+    return {"results": results, "count": len(results), "data_source": data_source}
 
 
 @router.post("/ai-recommend")

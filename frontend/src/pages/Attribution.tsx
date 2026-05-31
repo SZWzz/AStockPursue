@@ -3,7 +3,10 @@ import { useI18n } from "@/lib/i18n";
 import { useAttributionStore } from "@/stores/attributionStore";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
-import { PieChart, BarChart3, TrendingUp, Calendar } from "lucide-react";
+import { PieChart, BarChart3, TrendingUp, Calendar, Database } from "lucide-react";
+import { BrinsonWaterfallChart } from "@/components/attribution/BrinsonWaterfallChart";
+import { FactorExposureChart } from "@/components/attribution/FactorExposureChart";
+import { SectorComparisonChart } from "@/components/attribution/SectorComparisonChart";
 
 type TabKey = "brinson" | "factor" | "sector" | "decomp";
 
@@ -12,6 +15,7 @@ export function Attribution() {
   const store = useAttributionStore();
   const [activeTab, setActiveTab] = useState<TabKey>("brinson");
   const [runs, setRuns] = useState<Array<{ id: string; name?: string }>>([]);
+  const [sectorClass, setSectorClass] = useState<string>("sw");
 
   useEffect(() => {
     (api as any).listRuns?.().then((d: any) => {
@@ -33,16 +37,39 @@ export function Attribution() {
 
   return (
     <div className="flex flex-col h-full p-4 gap-3">
-      <h1 className="text-lg font-bold flex items-center gap-2"><PieChart className="h-5 w-5" />{t.attribution || "Performance Attribution"}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-bold flex items-center gap-2"><PieChart className="h-5 w-5" />{t.attribution || "Performance Attribution"}</h1>
+        {(store.fullReport as any)?.brinson?.data_source && (
+          <span className={cn(
+            "text-[10px] px-2 py-0.5 rounded-full border flex items-center gap-1",
+            (store.fullReport as any).brinson.data_source !== "sample"
+              ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+              : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+          )}>
+            <Database className="h-2.5 w-2.5" />
+            {(store.fullReport as any).brinson.data_source === "sample" ? "Sample Data ⚠" : "Real Data"}
+          </span>
+        )}
+      </div>
 
-      {/* Run selector */}
-      <div className="flex items-center gap-2 text-sm">
-        <label className="text-muted-foreground">{t.attributionSelectRun || "Select Run"}:</label>
-        <select onChange={(e) => handleSelectRun(e.target.value)} value={store.selectedRunId || ""}
-          className="border rounded px-2 py-1 bg-background text-sm min-w-[200px]">
-          <option value="">-- {t.attributionSelectRun || "Select a run"} --</option>
-          {runs.map((r) => <option key={r.id} value={r.id}>{r.name || r.id}</option>)}
-        </select>
+      {/* Run selector + classification */}
+      <div className="flex items-center gap-3 text-sm flex-wrap">
+        <div className="flex items-center gap-2">
+          <label className="text-muted-foreground text-xs">{t.attributionSelectRun || "Run"}:</label>
+          <select onChange={(e) => handleSelectRun(e.target.value)} value={store.selectedRunId || ""}
+            className="border rounded px-2 py-1 bg-background text-sm min-w-[200px]">
+            <option value="">-- Select --</option>
+            {runs.map((r) => <option key={r.id} value={r.id}>{r.name || r.id}</option>)}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className="text-muted-foreground text-xs">Classification:</label>
+          <select value={sectorClass} onChange={(e) => setSectorClass(e.target.value)}
+            className="border rounded px-2 py-1 bg-background text-sm">
+            <option value="sw">申万 (31 Sectors)</option>
+            <option value="gics">GICS (11 Sectors)</option>
+          </select>
+        </div>
         {store.loading && <span className="text-xs text-muted-foreground animate-pulse">Computing...</span>}
       </div>
 
@@ -70,91 +97,54 @@ export function Attribution() {
             <div className="grid grid-cols-4 gap-3 text-center text-sm">
               <div className="border rounded-lg p-3">
                 <div className="text-muted-foreground text-xs">{t.attributionAllocation || "Allocation"}</div>
-                <div className={cn("font-bold", (store.brinsonResult.allocation_effect as number) > 0 ? "text-success" : "text-destructive")}>
+                <div className={cn("font-bold text-lg", (store.brinsonResult.allocation_effect as number) > 0 ? "text-emerald-600" : "text-red-500")}>
                   {(store.brinsonResult.allocation_effect as number)?.toFixed?.(4)}
                 </div>
               </div>
               <div className="border rounded-lg p-3">
                 <div className="text-muted-foreground text-xs">{t.attributionSelection || "Selection"}</div>
-                <div className={cn("font-bold", (store.brinsonResult.selection_effect as number) > 0 ? "text-success" : "text-destructive")}>
+                <div className={cn("font-bold text-lg", (store.brinsonResult.selection_effect as number) > 0 ? "text-emerald-600" : "text-red-500")}>
                   {(store.brinsonResult.selection_effect as number)?.toFixed?.(4)}
                 </div>
               </div>
               <div className="border rounded-lg p-3">
                 <div className="text-muted-foreground text-xs">{t.attributionInteraction || "Interaction"}</div>
-                <div className={cn("font-bold", (store.brinsonResult.interaction_effect as number) > 0 ? "text-success" : "text-destructive")}>
+                <div className={cn("font-bold text-lg", (store.brinsonResult.interaction_effect as number) > 0 ? "text-emerald-600" : "text-red-500")}>
                   {(store.brinsonResult.interaction_effect as number)?.toFixed?.(4)}
                 </div>
               </div>
               <div className="border rounded-lg p-3 bg-muted/20">
                 <div className="text-muted-foreground text-xs">Total Excess</div>
-                <div className="font-bold">{(store.brinsonResult.total_excess_return as number)?.toFixed?.(4)}</div>
+                <div className={cn("font-bold text-lg", (store.brinsonResult.total_excess_return as number) > 0 ? "text-emerald-600" : "text-red-500")}>
+                  {(store.brinsonResult.total_excess_return as number)?.toFixed?.(4)}
+                </div>
               </div>
             </div>
-            <table className="w-full text-xs">
-              <thead><tr className="border-b text-muted-foreground">
-                <th className="text-left py-1">Sector</th>
-                <th className="text-right py-1">Allocation</th>
-                <th className="text-right py-1">Selection</th>
-                <th className="text-right py-1">Interaction</th>
-                <th className="text-right py-1">Total</th>
-              </tr></thead>
-              <tbody>
-                {(store.brinsonResult.per_sector as any[])?.map((s: any, i: number) => (
-                  <tr key={i} className="border-b hover:bg-muted/30">
-                    <td className="py-1">{s.sector}</td>
-                    <td className={cn("text-right", s.allocation_effect > 0 ? "text-success" : "text-destructive")}>{s.allocation_effect?.toFixed(4)}</td>
-                    <td className={cn("text-right", s.selection_effect > 0 ? "text-success" : "text-destructive")}>{s.selection_effect?.toFixed(4)}</td>
-                    <td className="text-right">{s.interaction_effect?.toFixed(4)}</td>
-                    <td className={cn("text-right font-medium", s.total > 0 ? "text-success" : "text-destructive")}>{s.total?.toFixed(4)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <BrinsonWaterfallChart
+              perSector={(store.brinsonResult.per_sector as any[]) || []}
+              allocationEffect={store.brinsonResult.allocation_effect as number}
+              selectionEffect={store.brinsonResult.selection_effect as number}
+              interactionEffect={store.brinsonResult.interaction_effect as number}
+            />
           </div>
         )}
 
         {activeTab === "factor" && store.factorResult && (
           <div className="space-y-2">
-            <div className="text-sm">R² = {(store.factorResult.r_squared as number)?.toFixed?.(4)} | Residual Return: {(store.factorResult.residual_return as number)?.toFixed?.(6)}</div>
-            <table className="w-full text-xs">
-              <thead><tr className="border-b text-muted-foreground">
-                <th className="text-left py-1">Factor</th><th className="text-right py-1">Beta</th><th className="text-right py-1">Contribution</th>
-              </tr></thead>
-              <tbody>
-                {Object.entries(store.factorResult.factor_betas as Record<string, number> || {}).map(([k, beta]) => (
-                  <tr key={k} className="border-b hover:bg-muted/30">
-                    <td className="py-1 font-mono text-[11px]">{k}</td>
-                    <td className="text-right">{beta?.toFixed(4)}</td>
-                    <td className={cn("text-right", (((store.factorResult?.factor_contributions as any)?.[k] || 0) > 0) ? "text-success" : "text-destructive")}>
-                      {(store.factorResult?.factor_contributions as any)?.[k]?.toFixed?.(6)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <FactorExposureChart
+              betas={(store.factorResult.factor_betas as Record<string, number>) || {}}
+              contributions={(store.factorResult.factor_contributions as Record<string, number>) || {}}
+              rSquared={(store.factorResult.r_squared as number) || 0}
+              residualReturn={(store.factorResult.residual_return as number) || 0}
+            />
           </div>
         )}
 
         {activeTab === "sector" && store.sectorResult && (
-          <div className="space-y-2">
-            <div className="text-xs text-muted-foreground">Concentration HHI: {(store.sectorResult.concentration_hhi as number)?.toFixed?.(4)}</div>
-            <table className="w-full text-xs">
-              <thead><tr className="border-b text-muted-foreground">
-                <th className="text-left py-1">Sector</th><th className="text-right py-1">Weight</th><th className="text-right py-1">P&L</th><th className="text-right py-1">Contribution</th>
-              </tr></thead>
-              <tbody>
-                {(store.sectorResult.per_sector as any[])?.map((s: any, i: number) => (
-                  <tr key={i} className="border-b hover:bg-muted/30">
-                    <td className="py-1">{s.sector}</td>
-                    <td className="text-right">{(s.weight * 100).toFixed(1)}%</td>
-                    <td className={cn("text-right", s.pnl > 0 ? "text-success" : "text-destructive")}>{s.pnl?.toFixed(4)}</td>
-                    <td className={cn("text-right", s.contribution > 0 ? "text-success" : "text-destructive")}>{s.contribution?.toFixed(6)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <SectorComparisonChart
+            perSector={(store.sectorResult.per_sector as any[]) || []}
+            concentrationHhi={(store.sectorResult.concentration_hhi as number) || 0}
+          />
         )}
 
         {activeTab === "decomp" && store.decompResult && (

@@ -848,6 +848,7 @@ const en = {
   sentimentVix: "VIX", sentimentDxy: "DXY", sentimentYieldSpread: "Yield Spread",
   sentimentFearGreed: "Fear & Greed", sentimentOverallNews: "Overall News Sentiment",
   sentimentRefresh: "Refresh",
+  sentimentAllSources: "All Sources", sentimentSourceHealth: "Source Health",
   tradingNewsSentiment: "Sent.", tradingNewsSentimentLive: "Live",
   // Attribution
   attribution: "Attribution", attributionSelectRun: "Select a completed backtest run",
@@ -1716,6 +1717,7 @@ const zh: Messages = {
   sentimentVix: "恐慌指数", sentimentDxy: "美元指数", sentimentYieldSpread: "收益率差",
   sentimentFearGreed: "恐慌贪婪指数", sentimentOverallNews: "整体新闻情绪",
   sentimentRefresh: "刷新",
+  sentimentAllSources: "全部来源", sentimentSourceHealth: "数据源健康",
   tradingNewsSentiment: "情绪", tradingNewsSentimentLive: "实时",
   // Attribution
   attribution: "绩效归因", attributionSelectRun: "选择回测运行",

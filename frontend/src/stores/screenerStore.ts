@@ -21,6 +21,13 @@ interface ScreenerResult {
   [key: string]: unknown;
 }
 
+interface FieldDef {
+  name: string;
+  label: string;
+  category: string;
+  source: string;
+}
+
 interface ScreenerState {
   conditions: ScreenCondition[];
   universe: string[];
@@ -28,6 +35,11 @@ interface ScreenerState {
   loading: boolean;
   presets: Preset[];
   presetsLoading: boolean;
+  fields: FieldDef[];
+  fieldsLoading: boolean;
+  mode: "filter" | "rank" | "score";
+  topN: number;
+  dataSource: string;
 
   addCondition: () => void;
   removeCondition: (idx: number) => void;
@@ -39,6 +51,9 @@ interface ScreenerState {
   aiRecommend: () => Promise<Preset[]>;
   batchAddWatchlist: (symbols: string[]) => Promise<void>;
   batchBacktest: (symbols: string[]) => Promise<void>;
+  loadFields: () => Promise<void>;
+  setMode: (mode: "filter" | "rank" | "score") => void;
+  setTopN: (n: number) => void;
 }
 
 export const useScreenerStore = create<ScreenerState>((set, get) => ({
@@ -48,6 +63,11 @@ export const useScreenerStore = create<ScreenerState>((set, get) => ({
   loading: false,
   presets: [],
   presetsLoading: false,
+  fields: [],
+  fieldsLoading: false,
+  mode: "filter" as const,
+  topN: 50,
+  dataSource: "",
 
   addCondition: () => set((s) => ({ conditions: [...s.conditions, { field: "close", operator: ">", value: 0 }] })),
   removeCondition: (idx) => set((s) => ({ conditions: s.conditions.filter((_, i) => i !== idx) })),
@@ -57,12 +77,15 @@ export const useScreenerStore = create<ScreenerState>((set, get) => ({
     return { conditions: arr };
   }),
 
+  setMode: (mode) => set({ mode }),
+  setTopN: (n) => set({ topN: n }),
+
   runScreen: async () => {
     set({ loading: true });
     try {
-      const { conditions, universe } = get();
-      const data = await (api as any).runScreener({ conditions, universe });
-      set({ results: data?.results || [], loading: false });
+      const { conditions, universe, mode, topN } = get();
+      const data = await (api as any).runScreener({ conditions, universe, mode, top_n: topN });
+      set({ results: data?.results || [], dataSource: data?.data_source || "", loading: false });
     } catch { set({ loading: false }); }
   },
 
@@ -96,5 +119,13 @@ export const useScreenerStore = create<ScreenerState>((set, get) => ({
 
   batchBacktest: async (symbols) => {
     await (api as any).screenerBatch({ action: "backtest_basket", symbols });
+  },
+
+  loadFields: async () => {
+    set({ fieldsLoading: true });
+    try {
+      const data = await (api as any).getScreenerFields();
+      set({ fields: Array.isArray(data) ? data : [], fieldsLoading: false });
+    } catch { set({ fieldsLoading: false }); }
   },
 }));

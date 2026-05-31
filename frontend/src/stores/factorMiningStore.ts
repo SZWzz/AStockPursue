@@ -8,6 +8,7 @@ import type {
   FactorCandidate,
   ValidationResult,
   MiningRunSummary,
+  EliteEntry,
 } from "@/types/api";
 
 interface FactorMiningState {
@@ -18,6 +19,9 @@ interface FactorMiningState {
   gpGenerations: GenerationSnapshot[];
   gpResult: GpResult | null;
   gpLoading: boolean;
+  gpDataSource: string;
+  gpDataSourceDetail: string;
+  gpEliteLineage: EliteEntry[];
   startGpRun: (config: GpConfig) => Promise<string>;
   cancelGpRun: () => Promise<void>;
   fetchGpGenerations: (jobId: string) => Promise<void>;
@@ -60,9 +64,12 @@ export const useFactorMiningStore = create<FactorMiningState>((set, get) => ({
   gpGenerations: [],
   gpResult: null,
   gpLoading: false,
+  gpDataSource: "",
+  gpDataSourceDetail: "",
+  gpEliteLineage: [],
 
   startGpRun: async (config: GpConfig) => {
-    set({ gpLoading: true, gpStatus: "starting" });
+    set({ gpLoading: true, gpStatus: "starting", gpGenerations: [], gpResult: null, gpDataSource: "", gpDataSourceDetail: "", gpEliteLineage: [] });
     try {
       const data = await api.startGpRun(config);
       set({ gpJobId: data.job_id, gpStatus: "running", gpLoading: false });
@@ -243,9 +250,29 @@ export const useFactorMiningStore = create<FactorMiningState>((set, get) => ({
               std_fitness: data.std_fitness || 0,
               best_ic: data.best_ic,
               diversity: data.diversity || 0,
+              best_formula: data.best_formula || "",
+              best_expression_json: data.best_expression_json || undefined,
+              best_complexity: data.best_complexity || 0,
+              gen_seconds: data.gen_seconds || 0,
+              fitness_distribution: data.fitness_distribution || undefined,
+              elite_lineage: data.elite_lineage || undefined,
+              data_source: data.data_source || "",
             },
           ],
+          gpEliteLineage: data.elite_lineage || state.gpEliteLineage,
         }));
+      } catch {
+        // ignore
+      }
+    });
+
+    es.addEventListener("data_source", (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        set({
+          gpDataSource: data.source || "",
+          gpDataSourceDetail: data.detail || "",
+        });
       } catch {
         // ignore
       }

@@ -1,11 +1,13 @@
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 import { TrendingUp, Newspaper, Zap, ShieldAlert, DollarSign, TrendingDown, Activity, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
-import { useSentimentStore } from "@/stores/sentimentStore";
+import { useSentimentStore, SOURCE_COLORS, type SSEStatus } from "@/stores/sentimentStore";
 import { useSSE } from "@/hooks/useSSE";
 import { api, type NewsItem } from "@/lib/api";
 import { Skeleton } from "@/components/common/Skeleton";
+
+// ── Sub-components ─────────────────────────────────────────────────────────
 
 function SentimentBadge({ score, size = "sm" }: { score: number; size?: "sm" | "md" }) {
   const colorClass =
@@ -34,6 +36,28 @@ function SentimentBar({ value, maxWidth = 80 }: { value: number; maxWidth?: numb
   );
 }
 
+function SourceBadge({ source, sourceLabel, className }: { source: string; sourceLabel?: string; className?: string }) {
+  const colors = SOURCE_COLORS[source] || SOURCE_COLORS.web_search;
+  const label = sourceLabel || source || "未知";
+  return (
+    <span className={cn("inline-block rounded px-1.5 py-0 text-[10px] font-medium border whitespace-nowrap", colors, className)}>
+      {label}
+    </span>
+  );
+}
+
+function FreshnessDot({ fresh }: { fresh: boolean | null }) {
+  if (fresh === true) {
+    return <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" title="数据新鲜" />;
+  }
+  if (fresh === false) {
+    return <span className="h-2 w-2 rounded-full bg-amber-400 inline-block" title="数据过期" />;
+  }
+  return <span className="h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600 inline-block" title="无数据" />;
+}
+
+// ── Main page ──────────────────────────────────────────────────────────────
+
 export function Sentiment() {
   const { t } = useI18n();
   const store = useSentimentStore();
@@ -43,6 +67,13 @@ export function Sentiment() {
   useEffect(() => {
     store.fetchMarketSentiment();
     store.fetchTrending();
+    store.fetchSourceFreshness();
+  }, []);
+
+  // Periodically refresh source freshness (every 60s)
+  useEffect(() => {
+    const interval = setInterval(() => store.fetchSourceFreshness(), 60000);
+    return () => clearInterval(interval);
   }, []);
 
   // SSE connection for market-wide live news
@@ -63,7 +94,7 @@ export function Sentiment() {
         store.setSseStatus("disconnected");
       }
     };
-    sse.onStatusChange((status) => {
+    sse.onStatusChange((status: SSEStatus) => {
       store.setSseStatus(status);
     });
     connectSSE();
@@ -76,10 +107,40 @@ export function Sentiment() {
   const refreshAll = useCallback(() => {
     store.fetchMarketSentiment();
     store.fetchTrending();
+    store.fetchSourceFreshness();
     store.resetLiveNews();
   }, [store]);
 
-  const { marketSentiment, marketLoading, trendingTopics, trendingLoading, liveNews, sseStatus } = store;
+  const {
+    marketSentiment,
+    marketLoading,
+    trendingTopics,
+    trendingLoading,
+    liveNews,
+    sseStatus,
+    sourceFilter,
+    sourceFreshness,
+    sourceCounts,
+  } = store;
+
+  // Compute filtered live news + unique source list
+  const filteredNews = useMemo(() => {
+    if (!sourceFilter) return liveNews;
+    return liveNews.filter((n) => n.source === sourceFilter);
+  }, [liveNews, sourceFilter]);
+
+  const availableSources = useMemo(() => {
+    const sourceSet = new Set(liveNews.map((n) => n.source || "web_search"));
+    return Array.from(sourceSet)
+      .map((id) => ({
+        id,
+        label: sourceFreshness[id]?.label || id,
+        count: sourceCounts[id] || 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+  }, [liveNews, sourceFreshness, sourceCounts]);
+
+  const totalCount = liveNews.length;
 
   return (
     <div className="flex flex-col h-full p-4 gap-4 overflow-auto">
@@ -105,6 +166,38 @@ export function Sentiment() {
           </button>
         </div>
       </div>
+
+      {/* Source Filter Bar */}
+      <section className="shrink-0">
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
+          <button
+            onClick={() => store.setSourceFilter("")}
+            className={cn(
+              "shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border transition",
+              !sourceFilter
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-card text-muted-foreground border-border hover:bg-muted"
+            )}
+          >
+            {t.sentimentAllSources || "全部"} ({totalCount})
+          </button>
+          {availableSources.map((src) => (
+            <button
+              key={src.id}
+              onClick={() => store.setSourceFilter(src.id)}
+              className={cn(
+                "shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border transition flex items-center gap-1",
+                sourceFilter === src.id
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:bg-muted"
+              )}
+            >
+              <SourceBadge source={src.id} sourceLabel={src.label} />
+              ({src.count})
+            </button>
+          ))}
+        </div>
+      </section>
 
       {/* Market Sentiment Overview */}
       <section className="shrink-0">
@@ -186,6 +279,24 @@ export function Sentiment() {
         )}
       </section>
 
+      {/* Source Health Indicators */}
+      {Object.keys(sourceFreshness).length > 0 && (
+        <section className="shrink-0">
+          <div className="flex items-center gap-3 flex-wrap text-[11px] text-muted-foreground">
+            <span className="font-medium">{t.sentimentSourceHealth || "数据源健康"}:</span>
+            {Object.entries(sourceFreshness).slice(0, 12).map(([id, info]) => (
+              <span key={id} className="flex items-center gap-1">
+                <FreshnessDot fresh={info.fresh} />
+                <SourceBadge source={id} sourceLabel={info.label} />
+                {info.count_24h > 0 && (
+                  <span className="text-[10px]">{info.count_24h}</span>
+                )}
+              </span>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Trending Topics + Live News */}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4 min-h-0">
         {/* Trending Topics */}
@@ -216,20 +327,20 @@ export function Sentiment() {
                   </tr>
                 </thead>
                 <tbody>
-                  {trendingTopics.map((t_, i) => (
-                    <tr key={t_.topic} className={cn("border-b last:border-0 hover:bg-muted/20 transition", i % 2 === 0 && "bg-muted/5")}>
-                      <td className="px-3 py-2 font-medium">{t_.topic}</td>
-                      <td className="px-2 py-2 text-center text-muted-foreground">{t_.count}</td>
+                  {trendingTopics.map((topic, i) => (
+                    <tr key={topic.topic} className={cn("border-b last:border-0 hover:bg-muted/20 transition", i % 2 === 0 && "bg-muted/5")}>
+                      <td className="px-3 py-2 font-medium">{topic.topic}</td>
+                      <td className="px-2 py-2 text-center text-muted-foreground">{topic.count}</td>
                       <td className="px-2 py-2">
                         <div className="flex items-center justify-center gap-1">
-                          <SentimentBadge score={t_.sentiment_mean} />
+                          <SentimentBadge score={topic.sentiment_mean} />
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right font-mono">
                         <span className={cn(
-                          t_.trending_score >= 3 ? "text-emerald-500 font-semibold" : t_.trending_score >= 1 ? "text-foreground" : "text-muted-foreground"
+                          topic.trending_score >= 3 ? "text-emerald-500 font-semibold" : topic.trending_score >= 1 ? "text-foreground" : "text-muted-foreground"
                         )}>
-                          {t_.trending_score.toFixed(1)}
+                          {topic.trending_score.toFixed(1)}
                         </span>
                       </td>
                     </tr>
@@ -250,18 +361,18 @@ export function Sentiment() {
             )}
           </h2>
           <div className="flex-1 overflow-auto rounded-xl border bg-card p-2 space-y-1.5">
-            {liveNews.length === 0 ? (
+            {filteredNews.length === 0 ? (
               <div className="flex items-center justify-center h-full text-xs text-muted-foreground py-12 text-center">
                 {sseStatus === "connected"
                   ? (t.sentimentLoading || "Waiting for live news...")
                   : (t.sentimentNoData || "Connecting to live feed...")}
               </div>
             ) : (
-              liveNews.map((n, i) => (
+              filteredNews.map((n, i) => (
                 <a
-                  key={i}
-                  href={n.url}
-                  target="_blank"
+                  key={`${n.source}-${i}`}
+                  href={n.url || "#"}
+                  target={n.url ? "_blank" : undefined}
                   rel="noreferrer"
                   className="block border rounded-lg p-2 hover:bg-muted/30 transition text-xs"
                 >
@@ -272,7 +383,7 @@ export function Sentiment() {
                     )}
                   </div>
                   <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
-                    <span>{n.source}</span>
+                    <SourceBadge source={n.source} sourceLabel={n.source_label} />
                     {n.published_at && <span>{n.published_at.slice(0, 10)}</span>}
                   </div>
                 </a>

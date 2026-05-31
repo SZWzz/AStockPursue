@@ -1,21 +1,9 @@
 import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useScreenerStore } from "@/stores/screenerStore";
-import { Search, Plus, Trash2, Save, Sparkles, Download, Star, BarChart3 } from "lucide-react";
+import { Search, Plus, Trash2, Save, Sparkles, Download, Star, BarChart3, Filter, ListOrdered, Database } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const FIELDS = [
-  { name: "close", label: "Close Price", cat: "technical" },
-  { name: "volume", label: "Volume", cat: "technical" },
-  { name: "returns_1d", label: "1-Day Return", cat: "momentum" },
-  { name: "returns_5d", label: "5-Day Return", cat: "momentum" },
-  { name: "returns_20d", label: "20-Day Return", cat: "momentum" },
-  { name: "volume_ratio", label: "Volume Ratio", cat: "technical" },
-  { name: "high_low_ratio", label: "High/Low Ratio", cat: "volatility" },
-  { name: "sma_20", label: "SMA(20)", cat: "technical" },
-  { name: "sma_60", label: "SMA(60)", cat: "technical" },
-  { name: "volatility_20d", label: "20-Day Vol", cat: "volatility" },
-  { name: "rsi_14", label: "RSI(14)", cat: "momentum" },
-];
 const OPERATORS = [
   { value: ">", label: ">" },
   { value: "<", label: "<" },
@@ -27,6 +15,12 @@ const OPERATORS = [
   { value: "rank_bottom", label: "Rank Bottom %" },
 ];
 
+const MODES = [
+  { key: "filter" as const, label: "Filter", icon: Filter, desc: "AND conditions" },
+  { key: "rank" as const, label: "Rank", icon: ListOrdered, desc: "Z-score composite" },
+  { key: "score" as const, label: "Score", icon: BarChart3, desc: "Weighted scoring" },
+];
+
 export function Screener() {
   const { t } = useI18n();
   const store = useScreenerStore();
@@ -34,7 +28,10 @@ export function Screener() {
   const [showSave, setShowSave] = useState(false);
   const [selectedSymbols, setSelectedSymbols] = useState<Set<string>>(new Set());
 
-  useEffect(() => { store.loadPresets(); }, []);
+  useEffect(() => {
+    store.loadPresets();
+    store.loadFields();
+  }, []);
 
   const toggleSymbol = (s: string) => {
     setSelectedSymbols((prev) => {
@@ -46,7 +43,38 @@ export function Screener() {
 
   return (
     <div className="flex flex-col h-full p-4 gap-3">
-      <h1 className="text-lg font-bold flex items-center gap-2"><Search className="h-5 w-5" />{t.screener || "Stock Screener"}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-bold flex items-center gap-2"><Search className="h-5 w-5" />{t.screener || "Stock Screener"}</h1>
+        <div className="flex items-center gap-2">
+          {/* Mode toggle */}
+          <div className="flex items-center bg-muted rounded-lg p-0.5">
+            {MODES.map((m) => (
+              <button
+                key={m.key}
+                onClick={() => store.setMode(m.key)}
+                className={cn(
+                  "flex items-center gap-1 px-2.5 py-1 rounded text-xs transition",
+                  store.mode === m.key ? "bg-background shadow-sm font-medium" : "text-muted-foreground hover:text-foreground"
+                )}
+                title={m.desc}
+              >
+                <m.icon className="h-3 w-3" />
+                {m.label}
+              </button>
+            ))}
+          </div>
+          {/* Data source badge */}
+          {store.dataSource && (
+            <span className={cn(
+              "text-[10px] px-2 py-0.5 rounded-full border",
+              store.dataSource === "real" ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+            )}>
+              <Database className="h-2.5 w-2.5 inline mr-0.5" />
+              {store.dataSource === "real" ? "Real Data" : "Mock ⚠"}
+            </span>
+          )}
+        </div>
+      </div>
 
       <div className="flex gap-3 flex-1 min-h-0">
         {/* Left: conditions builder */}
@@ -59,7 +87,21 @@ export function Screener() {
             <div key={i} className="flex items-center gap-1 text-xs bg-muted/30 rounded-lg p-2">
               <select value={c.field} onChange={(e) => store.updateCondition(i, { ...c, field: e.target.value })}
                 className="flex-1 border rounded px-1 py-0.5 bg-background min-w-0">
-                {FIELDS.map((f) => <option key={f.name} value={f.name}>{f.label}</option>)}
+                {(store.fields.length > 0 ? store.fields : [
+                  { name: "close", label: "Close", category: "technical" },
+                  { name: "volume", label: "Volume", category: "technical" },
+                  { name: "returns_1d", label: "1D Return", category: "momentum" },
+                  { name: "returns_5d", label: "5D Return", category: "momentum" },
+                  { name: "returns_20d", label: "20D Return", category: "momentum" },
+                  { name: "volume_ratio", label: "Vol Ratio", category: "technical" },
+                  { name: "high_low_ratio", label: "H/L Ratio", category: "volatility" },
+                  { name: "sma_20", label: "SMA(20)", category: "technical" },
+                  { name: "sma_60", label: "SMA(60)", category: "technical" },
+                  { name: "volatility_20d", label: "20D Vol", category: "volatility" },
+                  { name: "rsi_14", label: "RSI(14)", category: "momentum" },
+                ]).map((f) => (
+                  <option key={f.name} value={f.name}>{f.label}</option>
+                ))}
               </select>
               <select value={c.operator} onChange={(e) => store.updateCondition(i, { ...c, operator: e.target.value })}
                 className="w-16 border rounded px-1 py-0.5 bg-background">

@@ -1,10 +1,13 @@
 import { cn } from "@/lib/utils";
+import { Database, AlertTriangle, CheckCircle2 } from "lucide-react";
 
 interface Props {
   status: string;
   currentGeneration: number;
   totalGenerations: number;
   bestIC: number;
+  dataSource?: string;
+  dataSourceDetail?: string;
   className?: string;
 }
 
@@ -13,6 +16,8 @@ export function MiningProgressCard({
   currentGeneration,
   totalGenerations,
   bestIC,
+  dataSource,
+  dataSourceDetail,
   className,
 }: Props) {
   const percentage = totalGenerations > 0
@@ -34,10 +39,37 @@ export function MiningProgressCard({
     : status === "error" || status === "cancelled" ? "text-destructive"
     : "text-muted-foreground";
 
+  const dataSourceBadge = dataSource ? (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium",
+        dataSource === "real"
+          ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+          : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+      )}
+      title={dataSourceDetail || dataSource}
+    >
+      {dataSource === "real" ? (
+        <CheckCircle2 className="h-3 w-3" />
+      ) : (
+        <AlertTriangle className="h-3 w-3" />
+      )}
+      {dataSource === "real" ? "Real Data" : "Mock Data ⚠"}
+      {dataSourceDetail && (
+        <span className="text-[9px] opacity-70 ml-0.5 max-w-[120px] truncate">
+          {dataSourceDetail}
+        </span>
+      )}
+    </span>
+  ) : null;
+
   return (
     <div className={cn("border rounded-xl p-3", className)}>
       <div className="flex items-center justify-between mb-2">
-        <span className={cn("text-sm font-medium", statusColor)}>{statusLabel}</span>
+        <div className="flex items-center gap-2">
+          <span className={cn("text-sm font-medium", statusColor)}>{statusLabel}</span>
+          {dataSourceBadge}
+        </div>
         {bestIC !== 0 && (
           <span className="text-xs text-muted-foreground">
             Best IC: <span className={bestIC > 0 ? "text-success" : "text-destructive"}>{bestIC.toFixed(4)}</span>
@@ -53,7 +85,10 @@ export function MiningProgressCard({
         </div>
       )}
       {status === "idle" && (
-        <p className="text-xs text-muted-foreground">Configure parameters and start evolution.</p>
+        <p className="text-xs text-muted-foreground flex items-center gap-1">
+          <Database className="h-3 w-3" />
+          Configure parameters and start evolution.
+        </p>
       )}
     </div>
   );

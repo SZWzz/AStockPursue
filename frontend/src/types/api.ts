@@ -497,10 +497,11 @@ export interface NewsItem {
   title: string;
   url: string;
   source: string;
+  source_label?: string;       // human-readable Chinese label (e.g. "东财个股")
   summary: string;
   published_at: string;
-  sentiment_score?: number;   // 0=negative, 1=positive
-  sentiment_label?: string;   // "positive" | "neutral" | "negative"
+  sentiment_score?: number;    // 0=negative, 1=positive
+  sentiment_label?: string;    // "positive" | "neutral" | "negative"
 }
 
 export interface StockSentiment {
@@ -527,6 +528,21 @@ export interface MarketSentiment {
   fear_greed: { value: number; classification: string };
   news_sentiment_mean: number;
   news_sentiment_count: number;
+}
+
+export interface SourceFreshness {
+  fresh: boolean | null;
+  last_update: string | null;
+  count_24h: number;
+  label: string;
+  category: string;
+  ttl_seconds: number;
+}
+
+export interface SourceInfo {
+  id: string;
+  label: string;
+  category: string;
 }
 
 export interface WSFeedStatus {
@@ -575,6 +591,8 @@ export interface GpResult {
   candidates_count?: number;
   config?: Record<string, unknown>;
   error?: string;
+  data_source?: string;
+  data_source_detail?: string;
 }
 
 export interface GenerationSnapshot {
@@ -584,6 +602,36 @@ export interface GenerationSnapshot {
   std_fitness: number;
   best_ic: number;
   diversity: number;
+  best_formula?: string;
+  best_expression_json?: Record<string, unknown>;
+  best_complexity?: number;
+  gen_seconds?: number;
+  fitness_distribution?: FitnessDistribution;
+  elite_lineage?: EliteEntry[];
+  data_source?: string;
+}
+
+export interface FitnessDistribution {
+  bins: number[];
+  counts: number[];
+  min: number;
+  max: number;
+  median: number;
+  q25: number;
+  q75: number;
+}
+
+export interface EliteEntry {
+  formula: string;
+  expression_json?: Record<string, unknown>;
+  first_seen_gen: number;
+  last_seen_gen: number;
+  survival_gens: number;
+  best_fitness: number;
+  best_ic: number;
+  test_ir: number;
+  complexity: number;
+  rank: number;
 }
 
 export interface FactorCandidate {

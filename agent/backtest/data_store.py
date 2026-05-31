@@ -46,31 +46,42 @@ class DataStore:
         end_date: str,
         interval: str = "1D",
         source: str = "auto",
+        force_refresh: bool = False,
+        cache_max_age_hours: int = 24,
     ) -> pd.DataFrame | None:
         """Fetch OHLCV data, walking cache → store → API.
 
-        Returns a DataFrame with columns [open, high, low, close, volume]
-        and a DatetimeIndex named ``trade_date``, or ``None`` if all sources fail.
-        """
-        # 1. PG cache
-        df = self._try_cache(code, interval, start_date, end_date)
-        if df is not None:
-            self._stats["cache_hits"] += 1
-            return df
+        Args:
+            code: Stock symbol (e.g. ``AAPL.US``, ``600519.SH``).
+            start_date: Start date string ``YYYY-MM-DD``.
+            end_date: End date string ``YYYY-MM-DD``.
+            interval: Bar interval (``1D``, ``1H``, etc.).
+            source: Loader name or ``"auto"`` for fallback chain.
+            force_refresh: If True, bypass cache and store, go straight to API.
+            cache_max_age_hours: Max age of cached data before re-fetching.
+                Data older than this threshold triggers a background refresh.
 
-        # 2. Parquet store
-        df = self._try_store(code, interval, start_date, end_date)
-        if df is not None:
-            self._stats["store_hits"] += 1
-            # Write back to PG cache
-            self._write_cache(code, interval, df)
-            return df
+        Returns:
+            DataFrame or ``None`` if all sources fail.
+        """
+        # 1. PG cache (skip if force_refresh)
+        if not force_refresh:
+            df = self._try_cache(code, interval, start_date, end_date, cache_max_age_hours)
+            if df is not None:
+                self._stats["cache_hits"] += 1
+                return df
+
+            # 2. Parquet store
+            df = self._try_store(code, interval, start_date, end_date)
+            if df is not None:
+                self._stats["store_hits"] += 1
+                self._write_cache(code, interval, df)
+                return df
 
         # 3. API loaders
         df = self._try_api(code, start_date, end_date, interval, source)
         if df is not None:
             self._stats["api_fetches"] += 1
-            # Write back to both
             self._write_cache(code, interval, df)
             self._write_store(code, interval, df)
         return df
@@ -82,27 +93,35 @@ class DataStore:
         end_date: str,
         interval: str = "1D",
         source: str = "auto",
+        force_refresh: bool = False,
+        cache_max_age_hours: int = 24,
     ) -> dict[str, pd.DataFrame]:
         """Fetch OHLCV for multiple codes (concurrent where possible).
+
+        Args:
+            force_refresh: If True, skip cache for ALL codes and re-fetch.
+            cache_max_age_hours: Max age of cached data before re-fetching.
 
         Returns ``{code: DataFrame}`` — codes that fail are simply omitted.
         """
         result: dict[str, pd.DataFrame] = {}
         uncached: list[str] = []
 
-        # Check cache/store first for each code
-        for code in codes:
-            df = self._try_cache(code, interval, start_date, end_date)
-            if df is None:
-                df = self._try_store(code, interval, start_date, end_date)
+        if force_refresh:
+            uncached = list(codes)
+        else:
+            for code in codes:
+                df = self._try_cache(code, interval, start_date, end_date, cache_max_age_hours)
+                if df is None:
+                    df = self._try_store(code, interval, start_date, end_date)
+                    if df is not None:
+                        self._stats["store_hits"] += 1
+                        self._write_cache(code, interval, df)
                 if df is not None:
-                    self._stats["store_hits"] += 1
-                    self._write_cache(code, interval, df)
-            if df is not None:
-                self._stats["cache_hits"] += 1
-                result[code] = df
-            else:
-                uncached.append(code)
+                    self._stats["cache_hits"] += 1
+                    result[code] = df
+                else:
+                    uncached.append(code)
 
         if not uncached:
             return result
@@ -146,13 +165,30 @@ class DataStore:
 
     # ── Internal ───────────────────────────────────────────────────────────
 
-    def _try_cache(self, code: str, interval: str, start: str, end: str) -> pd.DataFrame | None:
+    def _try_cache(
+        self, code: str, interval: str, start: str, end: str,
+        max_age_hours: int = 24,
+    ) -> pd.DataFrame | None:
         if self._cache_ok is False:
             return None
         try:
             from backtest.loaders.cache import query_cache
             df = query_cache(code, interval, start, end)
             if df is not None and len(df) >= 5:
+                # Check cache freshness: if the latest bar is older than max_age_hours
+                # from now AND the end_date includes today/recent, skip cache
+                if max_age_hours > 0:
+                    latest_bar = df.index.max()
+                    now = pd.Timestamp.now()
+                    age_hours = (now - latest_bar).total_seconds() / 3600
+                    end_dt = pd.Timestamp(end)
+                    # If user is requesting data up to today/recent and cache is stale
+                    if end_dt >= now - pd.Timedelta(hours=max_age_hours) and age_hours > max_age_hours:
+                        logger.debug(
+                            "Cache for %s is stale (latest bar: %s, age: %.1fh > %dh), bypassing",
+                            code, latest_bar, age_hours, max_age_hours,
+                        )
+                        return None  # Bypass stale cache
                 return df
         except Exception:
             self._cache_ok = False

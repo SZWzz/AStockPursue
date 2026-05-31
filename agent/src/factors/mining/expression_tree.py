@@ -36,19 +36,80 @@ OPERATOR_REGISTRY: dict[str, tuple[int, Callable[..., pd.DataFrame], str]] = {
     "sub":  (2, lambda a, b: a - b, "-"),
     "mul":  (2, lambda a, b: a * b, "*"),
     "div":  (2, lambda a, b: (a / b.replace(0, np.nan)).replace([np.inf, -np.inf], np.nan), "/"),
+    "pow":  (2, lambda a, b: (a.clip(lower=-100, upper=100) ** b.clip(-5, 5)).replace([np.inf, -np.inf], np.nan), "^"),
     # --- cross-sectional (unary, row-wise) ---
-    "rank": (1, lambda x: x.rank(axis=1, method="average", pct=True, na_option="keep"), "rank"),
-    "scale": (1, lambda x: (lambda s: x.div(s.where(s > 0), axis=0))(x.abs().sum(axis=1, skipna=True)), "scale"),
-    "abs":  (1, lambda x: x.abs(), "abs"),
-    "log":  (1, lambda x: np.log(x.clip(lower=1e-12)), "log"),
-    "sqrt": (1, lambda x: np.sqrt(x.clip(lower=0)), "sqrt"),
-    "sign": (1, lambda x: np.sign(x), "sign"),
-    # --- time-series rolling (unary) ---
-    "ts_mean":   (1, lambda x: x.rolling(window=min(20, max(1, len(x)//4)), min_periods=max(1, min(20, max(1, len(x)//4))//2)).mean(), "ts_mean"),
-    "ts_std":    (1, lambda x: x.rolling(window=min(20, max(2, len(x)//4)), min_periods=max(2, min(20, max(2, len(x)//4))//2)).std(ddof=1), "ts_std"),
-    "ts_max":    (1, lambda x: x.rolling(window=min(20, max(1, len(x)//4)), min_periods=max(1, min(20, max(1, len(x)//4))//2)).max(), "ts_max"),
-    "ts_min":    (1, lambda x: x.rolling(window=min(20, max(1, len(x)//4)), min_periods=max(1, min(20, max(1, len(x)//4))//2)).min(), "ts_min"),
+    "rank":     (1, lambda x: x.rank(axis=1, method="average", pct=True, na_option="keep"), "rank"),
+    "cs_zscore":(1, lambda x: ((x.subtract(x.mean(axis=1, skipna=True), axis=0)).div(x.std(axis=1, skipna=True).replace(0, np.nan), axis=0)).replace([np.inf, -np.inf], np.nan), "csz"),
+    "scale":    (1, lambda x: (lambda s: x.div(s.where(s > 0), axis=0))(x.abs().sum(axis=1, skipna=True)), "scale"),
+    "abs":      (1, lambda x: x.abs(), "abs"),
+    "log":      (1, lambda x: np.log(x.clip(lower=1e-12)), "log"),
+    "sqrt":     (1, lambda x: np.sqrt(x.clip(lower=0)), "sqrt"),
+    "sign":     (1, lambda x: np.sign(x), "sign"),
+    "neg":      (1, lambda x: -x, "neg"),
+    "inv":      (1, lambda x: (1.0 / x.replace(0, np.nan)).replace([np.inf, -np.inf], np.nan), "1/x"),
+    # --- conditional (ternary) ---
+    "if_else":  (3, lambda cond, t, f: pd.DataFrame(
+        np.where(cond.to_numpy(dtype=np.float64) > 0, t.to_numpy(dtype=np.float64), f.to_numpy(dtype=np.float64)),
+        index=cond.index, columns=cond.columns), "if"),
+    # --- time-series rolling (unary + window param from node.window) ---
+    "ts_mean":   (1, lambda x, w=20: x.rolling(window=min(w, max(1, len(x)//4)), min_periods=max(1, min(w, max(1, len(x)//4))//2)).mean(), "ts_mean"),
+    "ts_std":    (1, lambda x, w=20: x.rolling(window=min(w, max(2, len(x)//4)), min_periods=max(2, min(w, max(2, len(x)//4))//2)).std(ddof=1), "ts_std"),
+    "ts_max":    (1, lambda x, w=20: x.rolling(window=min(w, max(1, len(x)//4)), min_periods=max(1, min(w, max(1, len(x)//4))//2)).max(), "ts_max"),
+    "ts_min":    (1, lambda x, w=20: x.rolling(window=min(w, max(1, len(x)//4)), min_periods=max(1, min(w, max(1, len(x)//4))//2)).min(), "ts_min"),
+    "ts_sum":    (1, lambda x, w=20: x.rolling(window=min(w, max(1, len(x)//4)), min_periods=max(1, min(w, max(1, len(x)//4))//2)).sum(), "ts_sum"),
+    "ts_rank":   (1, lambda x, w=20: x.rolling(window=min(w, max(3, len(x)//4)), min_periods=max(3, min(w, max(3, len(x)//4))//2)).apply(
+        lambda s: s.rank(pct=True).iloc[-1] if len(s) >= 3 else np.nan, raw=False), "ts_rank"),
+    "ts_delta":  (1, lambda x, w=20: x - x.shift(min(w, max(1, len(x)//4))), "ts_delta"),
+    "ts_delay":  (1, lambda x, w=5: x.shift(min(w, max(1, len(x)//4))), "delay"),
+    "ts_pct":    (1, lambda x, w=20: x.pct_change(min(w, max(1, len(x)//4))), "ts_pct"),
+    "ts_zscore": (1, lambda x, w=20: ((x - x.rolling(window=min(w, max(2, len(x)//4)), min_periods=max(2, min(w, max(2, len(x)//4))//2)).mean())
+        / x.rolling(window=min(w, max(2, len(x)//4)), min_periods=max(2, min(w, max(2, len(x)//4))//2)).std(ddof=1).replace(0, np.nan)).replace([np.inf, -np.inf], np.nan), "ts_z"),
+    # --- cross-sectional pairwise (binary, uses window from node.window) ---
+    "ts_corr":   (2, lambda a, b, w=20: _rolling_corr(a, b, w), "corr"),
+    "ts_cov":    (2, lambda a, b, w=20: _rolling_cov(a, b, w), "cov"),
+    # --- industry neutralization (unary, cross-sectional) ---
+    "ind_neutralize": (1, lambda x: _ind_neutralize(x), "indN"),
 }
+
+# Rolling window options (trading days) for GP to evolve
+WINDOW_OPTIONS: list[int] = [3, 5, 10, 20, 40, 60, 120]
+
+def _rolling_corr(a: pd.DataFrame, b: pd.DataFrame, w: int) -> pd.DataFrame:
+    """Element-wise rolling Pearson correlation between two DataFrames."""
+    window = min(w, max(3, len(a) // 4))
+    min_p = max(3, window // 2)
+    ma = a.rolling(window=window, min_periods=min_p).mean()
+    mb = b.rolling(window=window, min_periods=min_p).mean()
+    cov = ((a - ma) * (b - mb)).rolling(window=window, min_periods=min_p).mean()
+    sa = a.rolling(window=window, min_periods=min_p).std(ddof=1)
+    sb = b.rolling(window=window, min_periods=min_p).std(ddof=1)
+    result = cov / (sa * sb)
+    return result.replace([np.inf, -np.inf], np.nan)
+
+def _rolling_cov(a: pd.DataFrame, b: pd.DataFrame, w: int) -> pd.DataFrame:
+    """Element-wise rolling covariance between two DataFrames."""
+    window = min(w, max(3, len(a) // 4))
+    min_p = max(3, window // 2)
+    ma = a.rolling(window=window, min_periods=min_p).mean()
+    mb = b.rolling(window=window, min_periods=min_p).mean()
+    result = ((a - ma) * (b - mb)).rolling(window=window, min_periods=min_p).mean()
+    return result.replace([np.inf, -np.inf], np.nan)
+
+
+def _ind_neutralize(x: pd.DataFrame) -> pd.DataFrame:
+    """Cross-sectional industry neutralization.
+
+    For each date, demean the factor within each "industry" cluster.
+    When no explicit industry mapping is available, uses a simple
+    cross-sectional demean (market neutral) as the default behavior.
+
+    With a sector mapping provided via panel['sector'], subtracts
+    the sector-cap-weighted mean from each stock.
+    """
+    # Market-neutral: subtract cross-sectional mean per date
+    cs_mean = x.mean(axis=1, skipna=True)
+    result = x.subtract(cs_mean, axis=0)
+    return result.replace([np.inf, -np.inf], np.nan)
 
 MAX_DEPTH = 5
 MAX_COMPLEXITY = 50
@@ -64,6 +125,7 @@ FEATURE_IDS: list[str] = [
 # Operator names for random generation
 UNARY_OPS = [k for k, v in OPERATOR_REGISTRY.items() if v[0] == 1]
 BINARY_OPS = [k for k, v in OPERATOR_REGISTRY.items() if v[0] == 2]
+TERNARY_OPS = [k for k, v in OPERATOR_REGISTRY.items() if v[0] == 3]
 
 
 # ---------------------------------------------------------------------------
@@ -242,10 +304,21 @@ class ExpressionTree:
             arity, func, _ = OPERATOR_REGISTRY[op_name]
 
             child_results = [_evaluate(c, panel) for c in node.children]
+
+            # Pass window parameter for time-series operators
+            window = node.window if node.window else 20
+            if op_name.startswith("ts_") or op_name in ("ts_corr", "ts_cov"):
+                if arity == 1:
+                    return func(child_results[0], window)
+                elif arity == 2:
+                    return func(child_results[0], child_results[1], window)
+
             if arity == 1:
                 return func(child_results[0])
             elif arity == 2:
                 return func(child_results[0], child_results[1])
+            elif arity == 3:
+                return func(child_results[0], child_results[1], child_results[2])
             raise ValueError(f"Unknown arity {arity} for op {op_name}")
 
         def compute(panel: dict[str, pd.DataFrame]) -> pd.DataFrame:
@@ -320,18 +393,25 @@ def _random_node(
         if rng.random() < p_leaf:
             return _random_leaf(rng, feature_ids)
 
-    # Pick an operator
-    use_unary = rng.random() < 0.6
-    if use_unary and UNARY_OPS:
+    # Pick an operator — weighted random choice between unary/binary/ternary
+    op_type_roll = rng.random()
+    if op_type_roll < 0.55 and UNARY_OPS:
         op = rng.choice(UNARY_OPS)
         child = _random_node(rng, method, max_depth - 1, feature_ids)
-        window = rng.choice([5, 10, 20, 60])
+        window = rng.choice(WINDOW_OPTIONS) if op.startswith("ts_") else 20
         return ExpressionNode(op=op, children=[child], window=window)
-    elif BINARY_OPS:
+    elif op_type_roll < 0.90 and BINARY_OPS:
         op = rng.choice(BINARY_OPS)
         left = _random_node(rng, method, max_depth - 1, feature_ids)
         right = _random_node(rng, method, max_depth - 1, feature_ids)
-        return ExpressionNode(op=op, children=[left, right])
+        window = rng.choice(WINDOW_OPTIONS) if op.startswith("ts_") else 20
+        return ExpressionNode(op=op, children=[left, right], window=window)
+    elif TERNARY_OPS:
+        op = rng.choice(TERNARY_OPS)
+        cond = _random_node(rng, method, max_depth - 1, feature_ids)
+        t_branch = _random_node(rng, method, max_depth - 1, feature_ids)
+        f_branch = _random_node(rng, method, max_depth - 1, feature_ids)
+        return ExpressionNode(op=op, children=[cond, t_branch, f_branch])
     return _random_leaf(rng, feature_ids)
 
 

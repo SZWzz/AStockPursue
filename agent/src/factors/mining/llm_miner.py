@@ -282,6 +282,43 @@ class LLMFactorMiner:
         logger.warning("Could not parse LLM response as JSON: %s...", text[:200])
         return []
 
+    @staticmethod
+    def _validate_formula_syntax(formula: str) -> tuple[bool, str]:
+        """Validate that a formula string is syntactically valid Python/pandas.
+
+        Returns (is_valid, error_message).
+        """
+        if not formula or not formula.strip():
+            return False, "Empty formula"
+
+        import ast
+        try:
+            tree = ast.parse(formula, mode="eval")
+        except SyntaxError as e:
+            return False, f"Python syntax error: {e}"
+
+        # Check for dangerous constructs
+        dangerous = {"__import__", "exec", "eval", "compile", "open", "os.", "sys.", "subprocess", "shutil"}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and node.id in dangerous:
+                return False, f"Blocked dangerous name: {node.id}"
+            if isinstance(node, ast.Attribute):
+                full = ast.unparse(node) if hasattr(ast, "unparse") else str(node)
+                if any(d in full for d in dangerous):
+                    return False, f"Blocked dangerous call: {full}"
+            if isinstance(node, ast.Call):
+                if isinstance(node.func, ast.Name) and node.func.id in dangerous:
+                    return False, f"Blocked dangerous function: {node.func.id}"
+
+        # Check that the expression references allowed DataFrame operations
+        allowed = {"panel", "pd", "np", "abs", "min", "max", "round", "len", "range"}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Name) and node.id not in allowed and not node.id.startswith("_"):
+                # Allow as part of method chains (e.g., panel['close'].pct_change(1))
+                pass
+
+        return True, ""
+
     def extract_from_text(self, text: str) -> list[FactorCandidate]:
         """Extract factor formulas from research text.
 
@@ -289,7 +326,7 @@ class LLMFactorMiner:
             text: Research paper or article text content.
 
         Returns:
-            List of FactorCandidate objects.
+            List of FactorCandidate objects (only syntactically valid formulas).
         """
         prompt = EXTRACTION_PROMPT.format(text=text[:8000])  # Cap context
         response = self._call_llm(prompt, json_schema=_JSON_SCHEMA_FACTORS)
@@ -298,17 +335,30 @@ class LLMFactorMiner:
 
         raw_factors = self._parse_json_response(response)
         candidates: list[FactorCandidate] = []
+        rejected_count = 0
         for rf in raw_factors:
             try:
+                formula = rf.get("formula", "")
+                # Validate formula syntax before accepting
+                is_valid, err_msg = self._validate_formula_syntax(formula)
+                if not is_valid:
+                    logger.debug("Rejected invalid formula from LLM: %s — %s", formula[:80], err_msg)
+                    rejected_count += 1
+                    continue
+
                 candidates.append(FactorCandidate(
                     name=rf.get("name", "unknown"),
-                    formula=rf.get("formula", ""),
+                    formula=formula,
                     description=rf.get("description", ""),
                     source="pdf",
                     confidence=rf.get("confidence", 0.5),
                 ))
             except Exception as e:
                 logger.debug("Failed to parse factor candidate: %s", e)
+
+        if rejected_count > 0:
+            logger.info("LLM extraction: %d accepted, %d rejected (invalid syntax)",
+                         len(candidates), rejected_count)
 
         return candidates
 

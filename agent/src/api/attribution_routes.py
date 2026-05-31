@@ -75,3 +75,42 @@ async def compute_full_report(req: AttributionRequest):
         return engine.full_report(req.run_id).model_dump()
     except Exception as e:
         raise HTTPException(status_code=500, detail=safe_error(e))
+
+
+class MultiPeriodRequest(BaseModel):
+    run_id: str
+    n_periods: int = 12
+    sector_field: str = "sw"
+
+
+@router.post("/multi-period")
+async def compute_multi_period(req: MultiPeriodRequest):
+    """Multi-period Brinson attribution across time windows."""
+    try:
+        from src.services.attribution_engine import AttributionEngine
+        engine = AttributionEngine()
+        return engine.multi_period_brinson(req.run_id, req.n_periods, req.sector_field)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=safe_error(e))
+
+
+@router.post("/significance")
+async def compute_significance(req: AttributionRequest):
+    """Bootstrap significance tests for attribution effects."""
+    try:
+        from src.services.attribution_engine import AttributionEngine
+        engine = AttributionEngine()
+        return engine.significance_test(req.run_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=safe_error(e))
+
+
+@router.post("/transaction-cost")
+async def compute_transaction_cost(req: AttributionRequest):
+    """Transaction cost attribution (commission + slippage + impact)."""
+    try:
+        from src.services.attribution_engine import AttributionEngine
+        engine = AttributionEngine()
+        return engine.transaction_cost_attribution(req.run_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=safe_error(e))
