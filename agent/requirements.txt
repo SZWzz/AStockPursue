@@ -30,6 +30,9 @@ Pillow>=10.0.0
 scikit-learn>=1.3.0
 joblib>=1.3.0
 
+# Chinese NLP (News Sentiment)
+snownlp>=0.12.3
+
 # Signal Skills
 smartmoneyconcepts>=0.0.1
 pyharmonics>=1.5.0

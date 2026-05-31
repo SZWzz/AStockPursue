@@ -61,7 +61,7 @@ export function useSSE(config?: SSEConfig) {
     const knownTypes = [
       "text_delta", "thinking_done", "tool_call", "tool_result", "compact",
       "attempt.completed", "attempt.failed",
-      "heartbeat", "done",
+      "heartbeat", "done", "news",
     ];
 
     const handleRaw = (eventType: string, raw: MessageEvent) => {

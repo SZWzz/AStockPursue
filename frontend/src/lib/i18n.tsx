@@ -838,6 +838,17 @@ const en = {
   // Screener
   screener: "Screener", screenerConditions: "Conditions", screenerRun: "Run Screen",
   screenerNoResults: "Run a screen to see results", screenerPresets: "Presets", screenerAiRec: "AI Recommend",
+  // Sentiment
+  sentiment: "Sentiment", sentimentTrending: "Trending Topics", sentimentMarket: "Market Sentiment",
+  sentimentStocks: "Stock Sentiment", sentimentHeat: "Heat", sentimentPositive: "Positive",
+  sentimentNegative: "Negative", sentimentNeutral: "Neutral", sentimentScore: "Score",
+  sentimentCount: "Articles", sentimentMean: "Mean", sentimentStd: "Std",
+  sentimentTrendingScore: "Trend Score", sentimentNoData: "No sentiment data available",
+  sentimentLoading: "Loading sentiment data...", sentimentSseConnected: "Live",
+  sentimentVix: "VIX", sentimentDxy: "DXY", sentimentYieldSpread: "Yield Spread",
+  sentimentFearGreed: "Fear & Greed", sentimentOverallNews: "Overall News Sentiment",
+  sentimentRefresh: "Refresh",
+  tradingNewsSentiment: "Sent.", tradingNewsSentimentLive: "Live",
   // Attribution
   attribution: "Attribution", attributionSelectRun: "Select a completed backtest run",
   attributionNoRun: "Select a run to analyze", attributionAllocation: "Allocation",
@@ -1695,6 +1706,17 @@ const zh: Messages = {
   // Screener
   screener: "选股筛选", screenerConditions: "筛选条件", screenerRun: "执行筛选",
   screenerNoResults: "点击执行筛选查看结果", screenerPresets: "预设", screenerAiRec: "AI 推荐",
+  // Sentiment
+  sentiment: "舆情分析", sentimentTrending: "热门话题", sentimentMarket: "市场情绪",
+  sentimentStocks: "个股情绪", sentimentHeat: "热度", sentimentPositive: "正面",
+  sentimentNegative: "负面", sentimentNeutral: "中性", sentimentScore: "评分",
+  sentimentCount: "文章数", sentimentMean: "均值", sentimentStd: "标准差",
+  sentimentTrendingScore: "趋势评分", sentimentNoData: "暂无舆情数据",
+  sentimentLoading: "加载舆情数据...", sentimentSseConnected: "实时连接中",
+  sentimentVix: "恐慌指数", sentimentDxy: "美元指数", sentimentYieldSpread: "收益率差",
+  sentimentFearGreed: "恐慌贪婪指数", sentimentOverallNews: "整体新闻情绪",
+  sentimentRefresh: "刷新",
+  tradingNewsSentiment: "情绪", tradingNewsSentimentLive: "实时",
   // Attribution
   attribution: "绩效归因", attributionSelectRun: "选择回测运行",
   attributionNoRun: "选择一个回测运行进行分析", attributionAllocation: "配置效应",

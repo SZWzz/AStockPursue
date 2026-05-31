@@ -19,6 +19,7 @@ from fastapi.responses import StreamingResponse
 
 from src.api.common import safe_error
 from src.auth.dependencies import require_auth
+from src.services.sentiment_analyzer import SentimentAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -708,4 +709,23 @@ async def get_news(
         except Exception:
             pass
 
-    return {"symbol": upper, "articles": articles, "source": source}
+    # Apply sentiment analysis to all articles
+    analyzer = SentimentAnalyzer()
+    for a in articles:
+        text = f"{a.get('title', '')} {a.get('summary', '')}"
+        score = analyzer.analyze_text(text)
+        a["sentiment_score"] = score
+        a["sentiment_label"] = "positive" if score > 0.6 else ("negative" if score < 0.4 else "neutral")
+
+    # Per-stock sentiment aggregation
+    import numpy as np
+    scores = [a.get("sentiment_score", 0.5) for a in articles]
+    stock_sentiment = {
+        "symbol": upper,
+        "sentiment_mean": round(float(np.mean(scores)), 4) if scores else 0.5,
+        "sentiment_std": round(float(np.std(scores, ddof=1)), 4) if len(scores) > 1 else 0.0,
+        "news_count": len(scores),
+        "trending_score": round(float(np.mean(scores)) * min(1.0, len(scores) / 10), 4) if scores else 0.0,
+    }
+
+    return {"symbol": upper, "articles": articles, "source": source, "stock_sentiment": stock_sentiment}

@@ -132,10 +132,12 @@ Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT Licen
 - **Notification Integration** — Task results pushed via existing webhook/email channels
 
 ### 📰 News Sentiment *(NEW)*
-- **Chinese NLP** — SnowNLP-based sentiment scoring with keyword fallback
-- **Stock-Level Aggregation** — Per-symbol sentiment mean/std/news_count/trending score
-- **Trending Topics** — Word frequency + sentiment-weighted trending heatmap
-- **Real-Time SSE Stream** — Live news sentiment updates for trading dashboard
+- **Chinese NLP** — SnowNLP-based sentiment scoring with keyword fallback; 0-1 score with positive/neutral/negative labels
+- **Standalone Sentiment Page** — Trending topics ranking with sentiment-weighted heat bars, market sentiment gauge cards (VIX/DXY/Yield Spread/Fear & Greed), live news feed via SSE
+- **Stock-Level Aggregation** — Per-symbol sentiment mean/std/news_count/trending score; generated from real-time news fetched via DuckDuckGo/Finnhub
+- **Trending Topics** — Keyword-based topic extraction (10 categories: monetary policy, EV, semiconductors, pharma, real estate, AI, etc.) with sentiment-weighted heat ranking
+- **Real-Time SSE Stream** — Cross-worker live news push via PostgreSQL LISTEN/NOTIFY (SSEBus); per-symbol or market-wide subscription with auto-reconnect on frontend
+- **Enhanced Trading Dashboard** — News tab shows per-article sentiment score badges, stock sentiment summary bar (mean/std/count/heat), and SSE live indicator; articles auto-prepend with URL dedup
 
 ### 🔄 Strategy Version Control *(NEW)*
 - **Auto-Versioning** — Every save creates a new version with unified diff from previous

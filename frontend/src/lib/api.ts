@@ -22,6 +22,7 @@ import type {
   IndicatorPoint,
   LLMProviderOption,
   LLMSettings,
+  MarketSentiment,
   MessageItem,
   MinuteBar,
   MinuteLineData,
@@ -38,10 +39,12 @@ import type {
   RunData,
   RunListItem,
   SessionItem,
+  StockSentiment,
   SwarmPreset,
   SwarmRunSummary,
   TradeMarker,
   TradingOrder,
+  TrendingTopic,
   UpdateDataSourceSettingsRequest,
   UpdateLLMSettingsRequest,
   UploadResult,
@@ -71,6 +74,7 @@ export type {
   IndicatorPoint,
   LLMProviderOption,
   LLMSettings,
+  MarketSentiment,
   MessageItem,
   MinuteBar,
   MinuteLineData,
@@ -87,10 +91,12 @@ export type {
   RunData,
   RunListItem,
   SessionItem,
+  StockSentiment,
   SwarmPreset,
   SwarmRunSummary,
   TradeMarker,
   TradingOrder,
+  TrendingTopic,
   UpdateDataSourceSettingsRequest,
   UpdateLLMSettingsRequest,
   UploadResult,
@@ -332,7 +338,24 @@ export const api = {
   saveIndicesConfig: (indices: IndexItem[]) => request<{ ok: boolean }>("/trading/indices/config", { method: "POST", body: JSON.stringify({ indices }) }),
 
   // News
-  getNews: (symbol: string, limit = 20) => request<{ symbol: string; articles: NewsItem[]; source: string }>(`/trading/news/${encodeURIComponent(symbol)}?limit=${limit}`),
+  getNews: (symbol: string, limit = 20) => request<{ symbol: string; articles: NewsItem[]; source: string; stock_sentiment?: StockSentiment }>(`/trading/news/${encodeURIComponent(symbol)}?limit=${limit}`),
+
+  // News Sentiment
+  getNewsFeed: (symbol?: string, limit = 20) => {
+    const params = new URLSearchParams();
+    if (symbol) params.set("symbol", symbol);
+    params.set("limit", String(limit));
+    return request<{ articles: NewsItem[]; total: number; symbol: string }>(`/news/feed?${params}`);
+  },
+  getStockSentiment: (symbol: string) => request<StockSentiment>(`/news/sentiment/${encodeURIComponent(symbol)}`),
+  getTrendingTopics: (limit = 10) => request<{ topics: TrendingTopic[] }>(`/news/trending?limit=${limit}`),
+  getMarketSentiment: () => request<MarketSentiment>("/news/market-sentiment"),
+  newsStreamUrl: async (symbol?: string) => {
+    const path = symbol
+      ? `/news/stream?symbol=${encodeURIComponent(symbol)}`
+      : "/news/stream";
+    return sseUrlWithToken(path);
+  },
 
   // --- Screener ---
   listScreenerPresets: () => request<any[]>("/screener/presets"),

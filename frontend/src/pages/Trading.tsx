@@ -1,8 +1,10 @@
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { TrendingUp, Newspaper, ListOrdered, Building2, Bell, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useTradingStore } from "@/stores/tradingStore";
+import { useSSE } from "@/hooks/useSSE";
+import { api, type NewsItem, type StockSentiment } from "@/lib/api";
 import { Skeleton } from "@/components/common/Skeleton";
 import { CandlestickChart } from "@/components/charts/CandlestickChart";
 import { MinuteLineChart } from "@/components/trading/MinuteLineChart";
@@ -25,9 +27,12 @@ export function Trading() {
   const { t } = useI18n();
   const store = useTradingStore();
   const [tab, setTab] = useState<Tab>("orders");
-  const [news, setNews] = useState<{ title: string; url: string; source: string; summary: string; published_at: string }[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsError, setNewsError] = useState(false);
+  const [stockSentiment, setStockSentiment] = useState<StockSentiment | null>(null);
+  const sse = useSSE();
+  const sseConnectedRef = useRef(false);
 
   // Extract stable action references from zustand store
   const { fetchIndices, fetchOrders, selectSymbol, selectedSymbol, chartMode, minuteDate, minutePreClose,
@@ -49,12 +54,13 @@ export function Trading() {
     setNewsLoading(true);
     setNewsError(false);
     try {
-      const { api } = await import("@/lib/api");
       const data = await api.getNews(selectedSymbol);
       setNews(data.articles || []);
+      setStockSentiment(data.stock_sentiment || null);
       if (!data.articles?.length) setNewsError(true);
     } catch {
       setNewsError(true);
+      setStockSentiment(null);
     }
     setNewsLoading(false);
   }, [selectedSymbol]);
@@ -64,6 +70,40 @@ export function Trading() {
       loadNews();
     }
   }, [tab, selectedSymbol, loadNews]);
+
+  // SSE connection for per-symbol real-time news
+  useEffect(() => {
+    if (tab === "news" && selectedSymbol) {
+      let cancelled = false;
+      const connectSSE = async () => {
+        try {
+          const url = await api.newsStreamUrl(selectedSymbol);
+          if (cancelled) return;
+          sse.connect(url, {
+            news: (data) => {
+              const item = data as unknown as NewsItem;
+              setNews((prev) => {
+                if (item.url && prev.some((n) => n.url === item.url)) return prev;
+                return [item, ...prev].slice(0, 50);
+              });
+            },
+          });
+          sseConnectedRef.current = true;
+        } catch {
+          sseConnectedRef.current = false;
+        }
+      };
+      connectSSE();
+      return () => {
+        cancelled = true;
+        sse.disconnect();
+        sseConnectedRef.current = false;
+      };
+    } else {
+      sse.disconnect();
+      sseConnectedRef.current = false;
+    }
+  }, [tab, selectedSymbol]);
 
   return (
     <div className="flex flex-col h-full">
@@ -172,12 +212,20 @@ export function Trading() {
             <div className="overflow-auto" style={{ height: "calc(100% - 35px)" }}>
               {tab === "news" && (
                 <div className="flex flex-col h-full">
-                  {/* news header with refresh */}
+                  {/* news header with refresh + live indicator + stock sentiment */}
                   {selectedSymbol && (
                     <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0">
-                      <span className="text-[11px] text-muted-foreground">
-                        {news.length > 0 ? `${news.length} 条资讯` : "资讯"}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-muted-foreground">
+                          {news.length > 0 ? `${news.length} 条资讯` : "资讯"}
+                        </span>
+                        {sseConnectedRef.current && (
+                          <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            {t.tradingNewsSentimentLive || "Live"}
+                          </span>
+                        )}
+                      </div>
                       <button
                         onClick={loadNews}
                         disabled={newsLoading}
@@ -186,6 +234,27 @@ export function Trading() {
                       >
                         <RefreshCw className={cn("h-3 w-3", newsLoading && "animate-spin")} />
                       </button>
+                    </div>
+                  )}
+                  {/* Stock sentiment summary bar */}
+                  {stockSentiment && (
+                    <div className="flex items-center gap-3 px-3 py-2 border-b shrink-0 bg-muted/20">
+                      <span className="text-[10px] text-muted-foreground">{t.tradingNewsSentiment || "Sent."}</span>
+                      <span className={cn(
+                        "text-xs font-semibold",
+                        stockSentiment.sentiment_mean >= 0.6 ? "text-emerald-500" : stockSentiment.sentiment_mean <= 0.4 ? "text-red-500" : "text-amber-500"
+                      )}>
+                        {(stockSentiment.sentiment_mean * 100).toFixed(0)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {t.sentimentStd || "Std"}: {(stockSentiment.sentiment_std * 100).toFixed(0)}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        N={stockSentiment.news_count}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground ml-auto">
+                        {t.sentimentHeat || "Heat"}: {stockSentiment.trending_score.toFixed(2)}
+                      </span>
                     </div>
                   )}
                   <div className="flex-1 overflow-auto p-3 space-y-2">
@@ -212,7 +281,19 @@ export function Trading() {
                       rel="noreferrer"
                       className="block border rounded-lg p-2 hover:bg-muted/30 transition text-xs"
                     >
-                      <div className="font-medium line-clamp-2">{n.title}</div>
+                      <div className="flex items-start gap-1.5">
+                        <span className="font-medium line-clamp-2 flex-1">{n.title}</span>
+                        {n.sentiment_score !== undefined && (
+                          <span className={cn(
+                            "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium",
+                            n.sentiment_score >= 0.6 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                            n.sentiment_score <= 0.4 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+                            "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
+                          )}>
+                            {(n.sentiment_score * 100).toFixed(0)}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-1 text-[10px] text-muted-foreground">
                         <span>{n.source}</span>
                         <span>{n.published_at?.slice(0, 10)}</span>

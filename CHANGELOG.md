@@ -38,10 +38,13 @@
   - PostgreSQL persistence + notification integration
   - 9 API endpoints + DB: `vt_scheduled_tasks`, `vt_scheduled_task_executions`
 
-- **News Sentiment Analysis** — Chinese NLP sentiment (SnowNLP + keyword fallback), stock-level aggregation, trending topics
-  - SSE real-time news stream
-  - Sentiment gauge card + trending topic word cloud
-  - 4 API endpoints + DB: `vt_news_items`, `vt_stock_sentiment`
+- **News Sentiment Analysis** — Chinese NLP sentiment (SnowNLP), stock-level aggregation, trending topics, market sentiment overview (VIX/DXY/yield/F&G)
+  - Standalone `/sentiment` page: trending topics ranking with sentiment bars, market sentiment gauge cards, live news feed with SSE
+  - Enhanced Trading page news tab: per-article sentiment score badges, stock sentiment summary bar, real-time SSE updates
+  - Real-time SSE news stream via PostgreSQL LISTEN/NOTIFY cross-worker bus (SSEBus); per-symbol or market-wide subscription
+  - Keyword-based topic extraction from Chinese financial news (10 topic categories)
+  - `SentimentAnalyzer` wired into all news endpoints; real news from DuckDuckGo/Finnhub scored on-the-fly
+  - 5 API endpoints: `/news/feed`, `/news/sentiment/{symbol}`, `/news/trending`, `/news/market-sentiment`, `/news/stream`
 
 - **Strategy Version Control** — Auto-versioning with unified diffs, version comparison, one-click rollback
   - Diff viewer component with ± syntax coloring

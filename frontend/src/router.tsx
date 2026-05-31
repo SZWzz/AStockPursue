@@ -61,6 +61,9 @@ const Marketplace = lazy(() =>
 const Options = lazy(() =>
   import("@/pages/Options").then((m) => ({ default: m.Options })),
 );
+const Sentiment = lazy(() =>
+  import("@/pages/Sentiment").then((m) => ({ default: m.Sentiment })),
+);
 const NotFound = lazy(() =>
   import("@/pages/NotFound").then((m) => ({ default: m.default })),
 );
@@ -106,6 +109,7 @@ export const router = createBrowserRouter([
       { path: "/scheduler", element: wrap(Scheduler) },
       { path: "/marketplace", element: wrap(Marketplace) },
       { path: "/options", element: wrap(Options) },
+      { path: "/sentiment", element: wrap(Sentiment) },
       { path: "/admin/users", element: wrap(UserManagement) },
       { path: "*", element: wrap(NotFound) },
     ],

@@ -499,6 +499,34 @@ export interface NewsItem {
   source: string;
   summary: string;
   published_at: string;
+  sentiment_score?: number;   // 0=negative, 1=positive
+  sentiment_label?: string;   // "positive" | "neutral" | "negative"
+}
+
+export interface StockSentiment {
+  symbol: string;
+  sentiment_mean: number;
+  sentiment_std: number;
+  news_count: number;
+  trending_score: number;
+  recent_articles?: NewsItem[];
+}
+
+export interface TrendingTopic {
+  topic: string;
+  count: number;
+  sentiment_mean: number;
+  trending_score: number;
+}
+
+export interface MarketSentiment {
+  overall_sentiment: number;
+  vix: { current: number; level: string; trend: string };
+  dxy: { current: number; level: string; trend: string };
+  yield_spread: { spread: number; level: string; signal: string };
+  fear_greed: { value: number; classification: string };
+  news_sentiment_mean: number;
+  news_sentiment_count: number;
 }
 
 export interface WSFeedStatus {

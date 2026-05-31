@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, BookOpen, Bot, Database, GitCompare, Menu, Moon, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users, X, Microscope, Filter, PieChart, Clock, Store, CircleDollarSign } from "lucide-react";
+import { BarChart3, BookOpen, Bot, Database, GitCompare, Menu, Moon, Newspaper, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users, X, Microscope, Filter, PieChart, Clock, Store, CircleDollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useDarkMode } from "@/hooks/useDarkMode";
@@ -18,6 +18,7 @@ const NAV = [
   { to: "/strategy-lab", icon: Target, key: "strategyLab" as const, label: null },
   { to: "/paper-trading", icon: TrendingUp, key: "paperTrading" as const, label: null },
   { to: "/trading", icon: BarChart3, key: "trading" as const, label: null },
+  { to: "/sentiment", icon: Newspaper, key: "sentiment" as const, label: null },
   { to: "/compare", icon: GitCompare, key: "compare" as const, label: null },
   { to: "/correlation", icon: BarChart3, key: "correlation" as const, label: null },
   { to: "/factor-mining", icon: Microscope, key: "factorMining" as const, label: null },
