@@ -334,6 +334,64 @@ export const api = {
   // News
   getNews: (symbol: string, limit = 20) => request<{ symbol: string; articles: NewsItem[]; source: string }>(`/trading/news/${encodeURIComponent(symbol)}?limit=${limit}`),
 
+  // --- Screener ---
+  listScreenerPresets: () => request<any[]>("/screener/presets"),
+  saveScreenerPreset: (body: any) => request("/screener/presets", { method: "POST", body: JSON.stringify(body) }),
+  deleteScreenerPreset: (id: number) => request(`/screener/presets/${id}`, { method: "DELETE" }),
+  runScreener: (body: any) => request("/screener/run", { method: "POST", body: JSON.stringify(body) }),
+  aiRecommendScreener: () => request<any>("/screener/ai-recommend", { method: "POST" }),
+  screenerBatch: (body: any) => request("/screener/batch", { method: "POST", body: JSON.stringify(body) }),
+
+  // --- Attribution ---
+  attributionBrinson: (body: any) => request("/attribution/brinson", { method: "POST", body: JSON.stringify(body) }),
+  attributionFactor: (body: any) => request("/attribution/factor", { method: "POST", body: JSON.stringify(body) }),
+  attributionSector: (body: any) => request("/attribution/sector", { method: "POST", body: JSON.stringify(body) }),
+  attributionDecomp: (body: any) => request("/attribution/time-series-decomposition", { method: "POST", body: JSON.stringify(body) }),
+  attributionFull: (body: any) => request("/attribution/full", { method: "POST", body: JSON.stringify(body) }),
+
+  // --- Scheduler ---
+  listSchedulerTasks: () => request("/scheduler/tasks"),
+  createSchedulerTask: (body: any) => request("/scheduler/tasks", { method: "POST", body: JSON.stringify(body) }),
+  updateSchedulerTask: (id: string, body: any) => request(`/scheduler/tasks/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteSchedulerTask: (id: string) => request(`/scheduler/tasks/${id}`, { method: "DELETE" }),
+  pauseSchedulerTask: (id: string) => request(`/scheduler/tasks/${id}/pause`, { method: "POST" }),
+  resumeSchedulerTask: (id: string) => request(`/scheduler/tasks/${id}/resume`, { method: "POST" }),
+  runSchedulerTaskNow: (id: string) => request(`/scheduler/tasks/${id}/run-now`, { method: "POST" }),
+  getSchedulerTaskHistory: (id: string) => request(`/scheduler/tasks/${id}/history`),
+
+  // --- Marketplace ---
+  browseMarketplace: (params: any) => {
+    const q = new URLSearchParams();
+    if (params.market) q.set("market", params.market);
+    if (params.category) q.set("category", params.category);
+    if (params.sort) q.set("sort", params.sort);
+    if (params.limit) q.set("limit", String(params.limit));
+    return request(`/marketplace/strategies?${q.toString()}`);
+  },
+  publishMarketplaceStrategy: (body: any) => request("/marketplace/publish", { method: "POST", body: JSON.stringify(body) }),
+  getMarketplaceStrategy: (id: string) => request(`/marketplace/strategy/${id}`),
+  rateMarketplaceStrategy: (id: string, body: any) => request(`/marketplace/strategy/${id}/rate`, { method: "POST", body: JSON.stringify(body) }),
+  installMarketplaceStrategy: (id: string) => request(`/marketplace/strategy/${id}/install`, { method: "POST" }),
+  unpublishMarketplaceStrategy: (id: string) => request(`/marketplace/strategy/${id}`, { method: "DELETE" }),
+
+  // --- Options ---
+  optionsBlackScholes: (body: any) => request("/options/black-scholes", { method: "POST", body: JSON.stringify(body) }),
+  optionsBinomial: (body: any) => request("/options/binomial", { method: "POST", body: JSON.stringify(body) }),
+  optionsImpliedVol: (body: any) => request("/options/implied-volatility", { method: "POST", body: JSON.stringify(body) }),
+  optionsVolSurface: (body: any) => request("/options/vol-surface", { method: "POST", body: JSON.stringify(body) }),
+  optionsGreeks: (body: any) => request("/options/greeks", { method: "POST", body: JSON.stringify(body) }),
+
+  // --- Strategy Versions ---
+  listStrategyVersions: (strategyId: number) => request(`/strategy-versions/${strategyId}`),
+  saveStrategyVersion: (strategyId: number, body: any) => request(`/strategy-versions/${strategyId}`, { method: "POST", body: JSON.stringify(body) }),
+  getStrategyVersion: (strategyId: number, versionNum: number) => request(`/strategy-versions/${strategyId}/${versionNum}`),
+  getStrategyVersionDiff: (strategyId: number, fromV: number, toV: number) => request(`/strategy-versions/${strategyId}/diff/${fromV}/${toV}`),
+  revertStrategyVersion: (strategyId: number, versionNum: number) => request(`/strategy-versions/${strategyId}/revert/${versionNum}`, { method: "POST" }),
+
+  // --- Live Bridge ---
+  liveBridgePreflight: (runId: string) => request(`/live-bridge/preflight/${runId}`, { method: "POST" }),
+  liveBridgePromote: (body: any) => request("/live-bridge/promote", { method: "POST", body: JSON.stringify(body) }),
+
   // --- Factor Mining ---
   startGpRun: (config: import("@/types/api").GpConfig) => request<{ job_id: string; status: string }>("/factor-mining/gp/start", { method: "POST", body: JSON.stringify(config) }),
   getGpResult: (jobId: string) => request<import("@/types/api").GpResult>(`/factor-mining/gp/${jobId}/result`),

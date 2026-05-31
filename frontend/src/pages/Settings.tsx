@@ -242,16 +242,12 @@ export function Settings() {
   const [clearApiKey, setClearApiKey] = useState(false);
   const [tushareToken, setTushareToken] = useState("");
   const [clearTushareToken, setClearTushareToken] = useState(false);
-  const [okxApiKey, setOkxApiKey] = useState("");
-  const [okxSecretKey, setOkxSecretKey] = useState("");
-  const [okxPassphrase, setOkxPassphrase] = useState("");
-  const [clearOkx, setClearOkx] = useState(false);
+  const [futuHost, setFutuHost] = useState("");
+  const [futuPort, setFutuPort] = useState("");
   const [twelvedataApiKey, setTwelvedataApiKey] = useState("");
   const [clearTwelvedata, setClearTwelvedata] = useState(false);
   const [finnhubApiKey, setFinnhubApiKey] = useState("");
   const [clearFinnhub, setClearFinnhub] = useState(false);
-  const [tiingoApiKey, setTiingoApiKey] = useState("");
-  const [clearTiingo, setClearTiingo] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dataSaving, setDataSaving] = useState(false);
@@ -336,30 +332,22 @@ export function Settings() {
       const updated = await api.updateDataSourceSettings({
         tushare_token: tushareToken.trim() || undefined,
         clear_tushare_token: clearTushareToken,
-        okx_api_key: okxApiKey.trim() || undefined,
-        okx_secret_key: okxSecretKey.trim() || undefined,
-        okx_passphrase: okxPassphrase.trim() || undefined,
-        clear_okx: clearOkx,
+        futu_host: futuHost.trim() || undefined,
+        futu_port: futuPort.trim() || undefined,
         twelvedata_api_key: twelvedataApiKey.trim() || undefined,
         clear_twelvedata: clearTwelvedata,
         finnhub_api_key: finnhubApiKey.trim() || undefined,
         clear_finnhub: clearFinnhub,
-        tiingo_api_key: tiingoApiKey.trim() || undefined,
-        clear_tiingo: clearTiingo,
       });
       setDataSettings(updated);
       setTushareToken("");
       setClearTushareToken(false);
-      setOkxApiKey("");
-      setOkxSecretKey("");
-      setOkxPassphrase("");
-      setClearOkx(false);
+      setFutuHost("");
+      setFutuPort("");
       setTwelvedataApiKey("");
       setClearTwelvedata(false);
       setFinnhubApiKey("");
       setClearFinnhub(false);
-      setTiingoApiKey("");
-      setClearTiingo(false);
       toast.success(t.dataSourceSettingsSaved);
     } catch (error) {
       toast.error(`${t.dataSourceSettingsSaveFailed}: ${error instanceof Error ? error.message : t.unknownError}`);
@@ -724,77 +712,35 @@ export function Settings() {
               </div>
             </label>
 
-            {/* OKX credentials */}
+            {/* Futu OpenD connection */}
             <div className="grid gap-3 rounded-lg border bg-muted/20 p-4">
-              <span className="text-sm font-medium">{t.okxApiKey}</span>
-
+              <span className="text-sm font-medium">{t.futuSettings || "FutuOpenD"}</span>
               <label className="grid gap-2">
-                <span className={labelClass}>{t.okxApiKey}</span>
-                <div className="relative">
-                  <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="password"
-                    value={okxApiKey}
-                    onChange={(event) => setOkxApiKey(event.target.value)}
-                    className={`${fieldClass} pl-9`}
-                    placeholder={dataSettings.okx_api_key_configured ? t.okxConfigured : t.okxNotConfigured}
-                    autoComplete="off"
-                    disabled={clearOkx}
-                  />
-                </div>
-              </label>
-
-              <label className="grid gap-2">
-                <span className={labelClass}>{t.okxSecretKey}</span>
-                <div className="relative">
-                  <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="password"
-                    value={okxSecretKey}
-                    onChange={(event) => setOkxSecretKey(event.target.value)}
-                    className={`${fieldClass} pl-9`}
-                    placeholder={dataSettings.okx_secret_key_configured ? t.okxConfigured : t.okxNotConfigured}
-                    autoComplete="off"
-                    disabled={clearOkx}
-                  />
-                </div>
-              </label>
-
-              <label className="grid gap-2">
-                <span className={labelClass}>{t.okxPassphrase}</span>
-                <div className="relative">
-                  <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="password"
-                    value={okxPassphrase}
-                    onChange={(event) => setOkxPassphrase(event.target.value)}
-                    className={`${fieldClass} pl-9`}
-                    placeholder={dataSettings.okx_passphrase_configured ? t.okxConfigured : t.okxNotConfigured}
-                    autoComplete="off"
-                    disabled={clearOkx}
-                  />
-                </div>
-              </label>
-
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className={labelClass}>{t.futuHost || "Host"}</span>
                 <input
-                  type="checkbox"
-                  checked={clearOkx}
-                  onChange={(event) => {
-                    setClearOkx(event.target.checked);
-                    if (event.target.checked) {
-                      setOkxApiKey("");
-                      setOkxSecretKey("");
-                      setOkxPassphrase("");
-                    }
-                  }}
-                  className="h-3.5 w-3.5 accent-primary"
+                  type="text"
+                  value={futuHost}
+                  onChange={(event) => setFutuHost(event.target.value)}
+                  className={fieldClass}
+                  placeholder="127.0.0.1"
+                  autoComplete="off"
                 />
-                {t.clearOkx}
               </label>
+              <label className="grid gap-2">
+                <span className={labelClass}>{t.futuPort || "Port"}</span>
+                <input
+                  type="text"
+                  value={futuPort}
+                  onChange={(event) => setFutuPort(event.target.value)}
+                  className={fieldClass}
+                  placeholder="11111"
+                  autoComplete="off"
+                />
+              </label>
+              <span className={hintClass}>{t.futuHint || "Requires FutuOpenD running locally. Free to use with Futu account."}</span>
             </div>
 
-            {/* Paid API Keys */}
+            {/* Verified API Keys */}
             <div className="grid gap-3 rounded-lg border bg-muted/20 p-4">
               <span className="text-sm font-medium">{t.paidApiKeys}</span>
 
@@ -807,7 +753,7 @@ export function Settings() {
                     value={twelvedataApiKey}
                     onChange={(event) => setTwelvedataApiKey(event.target.value)}
                     className={`${fieldClass} pl-9`}
-                    placeholder={dataSettings.twelvedata_api_key_configured ? t.okxConfigured : t.okxNotConfigured}
+                    placeholder={dataSettings.twelvedata_api_key_configured ? t.configured : t.notConfigured}
                     autoComplete="off"
                     disabled={clearTwelvedata}
                   />
@@ -838,7 +784,7 @@ export function Settings() {
                     value={finnhubApiKey}
                     onChange={(event) => setFinnhubApiKey(event.target.value)}
                     className={`${fieldClass} pl-9`}
-                    placeholder={dataSettings.finnhub_api_key_configured ? t.okxConfigured : t.okxNotConfigured}
+                    placeholder={dataSettings.finnhub_api_key_configured ? t.configured : t.notConfigured}
                     autoComplete="off"
                     disabled={clearFinnhub}
                   />
@@ -860,36 +806,6 @@ export function Settings() {
                 </div>
               </label>
 
-              <label className="grid gap-2">
-                <span className={labelClass}>{t.tiingoApiKey}</span>
-                <div className="relative">
-                  <KeyRound className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="password"
-                    value={tiingoApiKey}
-                    onChange={(event) => setTiingoApiKey(event.target.value)}
-                    className={`${fieldClass} pl-9`}
-                    placeholder={dataSettings.tiingo_api_key_configured ? t.okxConfigured : t.okxNotConfigured}
-                    autoComplete="off"
-                    disabled={clearTiingo}
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className={hintClass}>{t.tiingoApiKeyHint}</span>
-                  <label className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-                    <input
-                      type="checkbox"
-                      checked={clearTiingo}
-                      onChange={(event) => {
-                        setClearTiingo(event.target.checked);
-                        if (event.target.checked) setTiingoApiKey("");
-                      }}
-                      className="h-3.5 w-3.5 accent-primary"
-                    />
-                    {t.clearTiingo}
-                  </label>
-                </div>
-              </label>
             </div>
 
             <button
@@ -902,30 +818,6 @@ export function Settings() {
             </button>
           </div>
 
-          {/* Free data sources */}
-          <div className="grid gap-3 rounded-lg border bg-muted/20 p-4">
-            <span className="text-sm font-medium">免费数据源</span>
-            {([
-              ["AKShare", `A股/港股/美股/期货/外汇${dataSettings.akshare_available && dataSettings.akshare_version ? ` v${dataSettings.akshare_version}` : ""}`, dataSettings.akshare_available],
-              ["YFinance", "美股 / 港股", dataSettings.yfinance_available],
-              ["Tencent", "A股 / 港股", dataSettings.tencent_available],
-              ["CCXT", "加密货币 (100+交易所)", dataSettings.ccxt_available],
-              ["CoinGecko", "加密货币", dataSettings.coingecko_available],
-              ["Futu", "A股 / 港股 (需 FutuOpenD)", dataSettings.futu_available],
-              ["Global Indices", "全球指数", dataSettings.global_indices_available],
-              ["Commodities", "大宗商品", dataSettings.commodities_available],
-            ] as [string, string, boolean][]).map(([name, desc, available]) => (
-              <div key={name} className="flex items-center justify-between py-1.5 px-3 rounded-md bg-background/60 border border-border/50">
-                <div>
-                  <span className="text-sm">{name}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">{desc}</span>
-                </div>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${available ? "bg-success/10 text-success" : "bg-warning/10 text-warning"}`}>
-                  {available ? "可用" : "不可用"}
-                </span>
-              </div>
-            ))}
-          </div>
         </div>
       </form>
 

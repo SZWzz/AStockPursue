@@ -820,6 +820,26 @@ const en = {
   fmStartGp: "Start Evolution",
   fmRunning: "Running",
   fmCompleted: "Completed",
+  // Screener
+  screener: "Screener", screenerConditions: "Conditions", screenerRun: "Run Screen",
+  screenerNoResults: "Run a screen to see results", screenerPresets: "Presets", screenerAiRec: "AI Recommend",
+  // Attribution
+  attribution: "Attribution", attributionSelectRun: "Select a completed backtest run",
+  attributionNoRun: "Select a run to analyze", attributionAllocation: "Allocation",
+  attributionSelection: "Selection", attributionInteraction: "Interaction",
+  factor: "Factor", sector: "Sector", decomp: "Decomposition",
+  // Scheduler
+  scheduler: "Scheduler", schedulerNew: "New Task", schedulerNoTasks: "No scheduled tasks yet",
+  schedulerName: "Name", schedulerType: "Type",
+  // Marketplace
+  marketplace: "Marketplace", marketplaceInstall: "Install to Strategy Lab",
+  // Options
+  options: "Options", optionsParams: "Parameters", optionsHint: "Enter parameters and click Calculate",
+  // Version
+  versions: "Versions",
+  // Data source keys
+  futuSettings: "FutuOpenD", futuHost: "Host", futuPort: "Port",
+  futuHint: "Requires FutuOpenD running locally.",
 } as const;
 
 const zh: Messages = {
@@ -1642,6 +1662,26 @@ const zh: Messages = {
   fmStartGp: "开始演化",
   fmRunning: "运行中",
   fmCompleted: "已完成",
+  // Screener
+  screener: "选股筛选", screenerConditions: "筛选条件", screenerRun: "执行筛选",
+  screenerNoResults: "点击执行筛选查看结果", screenerPresets: "预设", screenerAiRec: "AI 推荐",
+  // Attribution
+  attribution: "绩效归因", attributionSelectRun: "选择回测运行",
+  attributionNoRun: "选择一个回测运行进行分析", attributionAllocation: "配置效应",
+  attributionSelection: "选择效应", attributionInteraction: "交互效应",
+  factor: "因子", sector: "行业", decomp: "分解",
+  // Scheduler
+  scheduler: "定时任务", schedulerNew: "新建任务", schedulerNoTasks: "暂无定时任务",
+  schedulerName: "名称", schedulerType: "类型",
+  // Marketplace
+  marketplace: "策略市场", marketplaceInstall: "安装到策略实验室",
+  // Options
+  options: "期权分析", optionsParams: "参数设置", optionsHint: "输入参数后点击计算",
+  // Version
+  versions: "版本历史",
+  // Data source keys
+  futuSettings: "FutuOpenD", futuHost: "主机地址", futuPort: "端口",
+  futuHint: "需要本地运行 FutuOpenD。富途账户免费使用。",
 };
 
 type Messages = Record<keyof typeof en, string>;

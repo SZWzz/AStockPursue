@@ -68,15 +68,13 @@ class UpdateLLMSettingsRequest(BaseModel):
 class DataSourceSettingsResponse(BaseModel):
     """Current data source credential settings."""
 
-    # Credential-based sources
+    # Credential-based sources (only sources that require API keys)
     tushare_token_configured: bool
     tushare_token_hint: Optional[str] = None
-    okx_api_key_configured: bool = False
-    okx_secret_key_configured: bool = False
-    okx_passphrase_configured: bool = False
+    futu_host_configured: bool = False
+    futu_port_configured: bool = False
     twelvedata_api_key_configured: bool = False
     finnhub_api_key_configured: bool = False
-    tiingo_api_key_configured: bool = False
     akshare_available: bool = False
     akshare_version: str = ""
 
@@ -105,16 +103,12 @@ class UpdateDataSourceSettingsRequest(BaseModel):
 
     tushare_token: Optional[str] = None
     clear_tushare_token: bool = False
-    okx_api_key: Optional[str] = None
-    okx_secret_key: Optional[str] = None
-    okx_passphrase: Optional[str] = None
-    clear_okx: bool = False
+    futu_host: Optional[str] = None
+    futu_port: Optional[str] = None
     twelvedata_api_key: Optional[str] = None
     clear_twelvedata: bool = False
     finnhub_api_key: Optional[str] = None
     clear_finnhub: bool = False
-    tiingo_api_key: Optional[str] = None
-    clear_tiingo: bool = False
 
 
 # ============================================================================
@@ -303,22 +297,18 @@ def _build_llm_settings_response(values: Optional[Dict[str, str]] = None, *, db_
 
 
 def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None, *, token: Optional[str] = None,
-                                          okx_api_key: Optional[str] = None, okx_secret_key: Optional[str] = None,
-                                          okx_passphrase: Optional[str] = None,
+                                          futu_host: Optional[str] = None, futu_port: Optional[str] = None,
                                           twelvedata_api_key: Optional[str] = None,
-                                          finnhub_api_key: Optional[str] = None,
-                                          tiingo_api_key: Optional[str] = None) -> DataSourceSettingsResponse:
+                                          finnhub_api_key: Optional[str] = None) -> DataSourceSettingsResponse:
     """Build the public data source settings payload."""
     env_values = values if values is not None else _read_settings_env_values()
     if token is None:
         token = env_values.get("TUSHARE_TOKEN", "")
     token_configured = _is_configured_secret(token, TUSHARE_TOKEN_PLACEHOLDERS)
-    okx_key_configured = bool(okx_api_key) if okx_api_key is not None else False
-    okx_secret_configured = bool(okx_secret_key) if okx_secret_key is not None else False
-    okx_pass_configured = bool(okx_passphrase) if okx_passphrase is not None else False
+    futu_host_ok = bool(futu_host) if futu_host is not None else False
+    futu_port_ok = bool(futu_port) if futu_port is not None else False
     td_configured = bool(twelvedata_api_key) if twelvedata_api_key is not None else False
     fh_configured = bool(finnhub_api_key) if finnhub_api_key is not None else False
-    ti_configured = bool(tiingo_api_key) if tiingo_api_key is not None else False
     akshare_available = False
     akshare_version = ""
     try:
@@ -394,12 +384,10 @@ def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None
     return DataSourceSettingsResponse(
         tushare_token_configured=token_configured,
         tushare_token_hint=None,
-        okx_api_key_configured=okx_key_configured,
-        okx_secret_key_configured=okx_secret_configured,
-        okx_passphrase_configured=okx_pass_configured,
+        futu_host_configured=futu_host_ok,
+        futu_port_configured=futu_port_ok,
         twelvedata_api_key_configured=td_configured,
         finnhub_api_key_configured=fh_configured,
-        tiingo_api_key_configured=ti_configured,
         akshare_available=akshare_available,
         akshare_version=akshare_version,
         yfinance_available=yf_ok,
@@ -682,12 +670,10 @@ async def get_data_source_settings(auth: dict = Depends(_require_auth)):
     return await asyncio.to_thread(
         _build_data_source_settings_response,
         token=ds_config.get("tushare_token", ""),
-        okx_api_key=ds_config.get("okx_api_key", ""),
-        okx_secret_key=ds_config.get("okx_secret_key", ""),
-        okx_passphrase=ds_config.get("okx_passphrase", ""),
+        futu_host=ds_config.get("futu_host", ""),
+        futu_port=ds_config.get("futu_port", ""),
         twelvedata_api_key=ds_config.get("twelvedata_api_key", ""),
         finnhub_api_key=ds_config.get("finnhub_api_key", ""),
-        tiingo_api_key=ds_config.get("tiingo_api_key", ""),
     )
 
 @router.put(
@@ -708,18 +694,11 @@ async def update_data_source_settings(payload: UpdateDataSourceSettingsRequest, 
     elif payload.tushare_token is not None and payload.tushare_token.strip():
         db_updates["tushare_token"] = payload.tushare_token.strip()
 
-    # --- OKX ---
-    if payload.clear_okx:
-        db_updates["okx_api_key"] = ""
-        db_updates["okx_secret_key"] = ""
-        db_updates["okx_passphrase"] = ""
-    else:
-        if payload.okx_api_key is not None:
-            db_updates["okx_api_key"] = payload.okx_api_key.strip()
-        if payload.okx_secret_key is not None:
-            db_updates["okx_secret_key"] = payload.okx_secret_key.strip()
-        if payload.okx_passphrase is not None:
-            db_updates["okx_passphrase"] = payload.okx_passphrase.strip()
+    # --- Futu ---
+    if payload.futu_host is not None:
+        db_updates["futu_host"] = payload.futu_host.strip()
+    if payload.futu_port is not None:
+        db_updates["futu_port"] = payload.futu_port.strip()
 
     # --- Twelve Data ---
     if payload.clear_twelvedata:
@@ -733,258 +712,44 @@ async def update_data_source_settings(payload: UpdateDataSourceSettingsRequest, 
     elif payload.finnhub_api_key is not None and payload.finnhub_api_key.strip():
         db_updates["finnhub_api_key"] = payload.finnhub_api_key.strip()
 
-    # --- Tiingo ---
-    if payload.clear_tiingo:
-        db_updates["tiingo_api_key"] = ""
-    elif payload.tiingo_api_key is not None and payload.tiingo_api_key.strip():
-        db_updates["tiingo_api_key"] = payload.tiingo_api_key.strip()
-
     if db_updates and user_id > 0:
         _write_user_ds_config(user_id, db_updates)
 
     # Apply to runtime env
     ds_config = _read_user_ds_config(user_id) if user_id > 0 else {}
     token = ds_config.get("tushare_token", "")
-    okx_key = ds_config.get("okx_api_key", "")
-    okx_secret = ds_config.get("okx_secret_key", "")
-    okx_pass = ds_config.get("okx_passphrase", "")
+    fu_host = ds_config.get("futu_host", "")
+    fu_port = ds_config.get("futu_port", "")
     td_key = ds_config.get("twelvedata_api_key", "")
     fh_key = ds_config.get("finnhub_api_key", "")
-    ti_key = ds_config.get("tiingo_api_key", "")
 
     if token and _is_configured_secret(token, TUSHARE_TOKEN_PLACEHOLDERS):
         os.environ["TUSHARE_TOKEN"] = token
     else:
         os.environ.pop("TUSHARE_TOKEN", None)
 
-    if okx_key:
-        os.environ["OKX_API_KEY"] = okx_key
-        os.environ["OKX_SECRET_KEY"] = okx_secret
-        os.environ["OKX_PASSPHRASE"] = okx_pass
-    else:
-        os.environ.pop("OKX_API_KEY", None)
-        os.environ.pop("OKX_SECRET_KEY", None)
-        os.environ.pop("OKX_PASSPHRASE", None)
+    if fu_host:
+        os.environ["FUTU_HOST"] = fu_host
+    if fu_port:
+        os.environ["FUTU_PORT"] = fu_port
 
     if td_key:
-        os.environ["TWELVE_DATA_API_KEY"] = td_key
+        os.environ["TWELVEDATA_API_KEY"] = td_key
     else:
-        os.environ.pop("TWELVE_DATA_API_KEY", None)
+        os.environ.pop("TWELVEDATA_API_KEY", None)
 
     if fh_key:
         os.environ["FINNHUB_API_KEY"] = fh_key
     else:
         os.environ.pop("FINNHUB_API_KEY", None)
 
-    if ti_key:
-        os.environ["TIINGO_API_KEY"] = ti_key
-    else:
-        os.environ.pop("TIINGO_API_KEY", None)
-
-    return _build_data_source_settings_response(
+    return await asyncio.to_thread(
+        _build_data_source_settings_response,
         token=token,
-        okx_api_key=okx_key,
-        okx_secret_key=okx_secret,
-        okx_passphrase=okx_pass,
+        futu_host=fu_host,
+        futu_port=fu_port,
         twelvedata_api_key=td_key,
         finnhub_api_key=fh_key,
-        tiingo_api_key=ti_key,
     )
 
-# ------------------------------------------------------------------------
-# Data source status (cached health check of all loaders)
-# ------------------------------------------------------------------------
-
-_ds_status_cache: dict[str, Any] | None = None
-_ds_status_cache_ts: float = 0.0
-_ds_cache_ttl: float = 300.0  # 5 min cache before auto-refresh
-_ds_check_timeout: float = 1.0  # per-loader timeout
-_ds_refresh_lock = False  # prevent concurrent background refreshes
-import threading as _threading
-
-
-def _rebuild_ds_status() -> list[dict]:
-    """Rebuild data source status in parallel. Returns sorted loader list."""
-    import concurrent.futures as _cf
-
-    all_loaders: list[dict] = []
-    try:
-        from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
-        _ensure_registered()
-
-        def _check_one(name: str, cls: type) -> dict:
-            avail = False
-            if hasattr(cls, "is_available"):
-                with _cf.ThreadPoolExecutor(max_workers=1) as ex:
-                    try:
-                        inst = cls()
-                        avail = ex.submit(inst.is_available).result(timeout=_ds_check_timeout)
-                    except Exception:
-                        avail = False
-            else:
-                avail = True
-            return {
-                "name": name,
-                "display": getattr(cls, "name", name),
-                "markets": sorted(getattr(cls, "markets", set())),
-                "available": avail,
-                "requires_auth": getattr(cls, "requires_auth", False),
-                "health": None,
-            }
-
-        # All loaders checked in parallel, 16 workers, global deadline 10s
-        items = list(LOADER_REGISTRY.items())
-        with _cf.ThreadPoolExecutor(max_workers=min(16, max(1, len(items)))) as ex:
-            futures = {ex.submit(_check_one, name, cls): name for name, cls in items}
-            for f in _cf.as_completed(futures, timeout=10.0):
-                try:
-                    all_loaders.append(f.result(timeout=_ds_check_timeout))
-                except Exception:
-                    all_loaders.append({
-                        "name": futures.get(f, "?"),
-                        "display": futures.get(f, "?"),
-                        "markets": [],
-                        "available": False,
-                        "requires_auth": False,
-                        "health": None,
-                    })
-    except Exception:
-        pass
-    return sorted(all_loaders, key=lambda x: (not x["available"], x["name"]))
-
-
-@router.get("/settings/data-source-status")
-async def get_data_source_status(auth: dict = Security(_require_auth), refresh: bool = False):
-    """Return health/availability of all data loaders (cached 5 min).
-
-    Pass ``?refresh=true`` to force an immediate re-check.
-    """
-    import asyncio
-    import time as _time
-
-    global _ds_status_cache, _ds_status_cache_ts, _ds_refresh_lock
-
-    now = _time.monotonic()
-    expired = (now - _ds_status_cache_ts) > _ds_cache_ttl
-
-    if _ds_status_cache is None or refresh or expired:
-        # Run synchronously (but parallel internally) so the caller gets fresh data
-        loaders = await asyncio.to_thread(_rebuild_ds_status)
-        _ds_status_cache = loaders
-        _ds_status_cache_ts = _time.monotonic()
-        return {"loaders": loaders, "cached": False, "age_s": 0}
-
-    return {"loaders": _ds_status_cache, "cached": True, "age_s": round(now - _ds_status_cache_ts, 1)}
-
-# ------------------------------------------------------------------------
-# Skill settings
-# ------------------------------------------------------------------------
-
-@router.get("/settings/skills")
-async def get_skill_settings(auth: dict = Security(_require_auth)):
-    user_id = int(auth["user_id"])
-    from src.agent.skills import SkillsLoader
-    disabled = set(_read_skill_config(user_id).get("disabled_skills", []))
-    loader = SkillsLoader(user_id=user_id, disabled_skills=disabled)
-    skills_data = []
-    for s in loader.skills:
-        skills_data.append({
-            "name": s.name,
-            "description": s.description,
-            "category": s.category,
-            "enabled": s.name not in disabled,
-            "source": s.source,
-        })
-    return {"skills": skills_data, "total": len(skills_data),
-            "enabled_count": sum(1 for s in skills_data if s["enabled"])}
-
-@router.put("/settings/skills")
-async def update_skill_settings(payload: dict, auth: dict = Security(_require_auth)):
-    user_id = int(auth["user_id"])
-    _write_skill_config(user_id, {"disabled_skills": payload.get("disabled_skills", [])})
-    return {"ok": True}
-
-@router.post("/settings/skills/import")
-async def import_skill(file: UploadFile, auth: dict = Security(_require_auth)):
-    user_id = int(auth["user_id"])
-    import zipfile, tempfile
-    if not file.filename or not file.filename.endswith(".zip"):
-        raise HTTPException(status_code=400, detail="Only .zip files are supported")
-    try:
-        with tempfile.TemporaryDirectory() as tmp:
-            zip_path = Path(tmp) / "upload.zip"
-            zip_path.write_bytes(await file.read())
-            with zipfile.ZipFile(zip_path) as zf:
-                members = [n for n in zf.namelist() if not n.startswith("__MACOSX") and not n.endswith("/")]
-                if not any("SKILL.md" in m for m in members):
-                    raise HTTPException(status_code=400, detail="ZIP must contain SKILL.md")
-                usd = Path.home() / ".AStockPursue" / "skills" / str(user_id)
-                # Find skill name from SKILL.md
-                skill_name = None
-                for m in members:
-                    if m.endswith("SKILL.md"):
-                        zf.extract(m, tmp)
-                        from src.agent.frontmatter import parse_frontmatter
-                        meta, _ = parse_frontmatter((Path(tmp) / m).read_text(encoding="utf-8"))
-                        skill_name = meta.get("name") or Path(m).parent.name
-                        break
-                if not skill_name:
-                    raise HTTPException(status_code=400, detail="SKILL.md must have a 'name' in frontmatter")
-                dest = usd / skill_name
-                dest.mkdir(parents=True, exist_ok=True)
-                for m in members:
-                    zf.extract(m, str(dest))
-                return {"ok": True, "name": skill_name}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Import failed: {e}")
-
-@router.delete("/settings/skills/{name}")
-async def delete_user_skill(name: str, auth: dict = Security(_require_auth)):
-    user_id = int(auth["user_id"])
-    usd = Path.home() / ".AStockPursue" / "skills" / str(user_id)
-    target = usd / name
-    if not target.exists():
-        raise HTTPException(status_code=404, detail="Skill not found")
-    import shutil
-    shutil.rmtree(target)
-    return {"ok": True}
-
-# ------------------------------------------------------------------------
-# MCP settings
-# ------------------------------------------------------------------------
-
-@router.get("/settings/mcp")
-async def get_mcp_settings(auth: dict = Security(_require_auth)):
-    if auth.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    import os as _os
-    config_path = Path.home() / ".AStockPursue" / "mcp_config.json"
-    config = {}
-    if config_path.exists():
-        try:
-            config = json.loads(config_path.read_text())
-        except Exception:
-            pass
-    return {
-        "service_name": "AStockPursue",
-        "transport": config.get("transport", "stdio"),
-        "sse_port": config.get("sse_port", 8900),
-        "shell_tools_enabled": _os.getenv("ASTOCKPURSUE_ENABLE_SHELL_TOOLS", "") in ("1", "true"),
-        "config_path": str(config_path),
-        "install_cmd": f"python {Path(__file__).resolve().parent / 'mcp_server.py'}",
-    }
-
-@router.put("/settings/mcp")
-async def update_mcp_settings(payload: dict, auth: dict = Security(_require_auth)):
-    if auth.get("role") != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
-    config_path = Path.home() / ".AStockPursue" / "mcp_config.json"
-    config_path.parent.mkdir(parents=True, exist_ok=True)
-    config_path.write_text(json.dumps(payload, indent=2))
-    os.chmod(config_path, 0o600)
-    if "shell_tools_enabled" in payload:
-        os.environ["ASTOCKPURSUE_ENABLE_SHELL_TOOLS"] = "1" if payload["shell_tools_enabled"] else "0"
-    return {"ok": True}
 

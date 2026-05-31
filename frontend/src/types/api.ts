@@ -91,16 +91,12 @@ export interface DataSourceSettings {
 export interface UpdateDataSourceSettingsRequest {
   tushare_token?: string;
   clear_tushare_token?: boolean;
-  okx_api_key?: string;
-  okx_secret_key?: string;
-  okx_passphrase?: string;
-  clear_okx?: boolean;
+  futu_host?: string;
+  futu_port?: string;
   twelvedata_api_key?: string;
   clear_twelvedata?: boolean;
   finnhub_api_key?: string;
   clear_finnhub?: boolean;
-  tiingo_api_key?: string;
-  clear_tiingo?: boolean;
 }
 
 export interface DataSourceLoaderStatus {

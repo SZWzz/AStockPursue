@@ -46,6 +46,21 @@ const DataSourceStatus = lazy(() =>
 const FactorMining = lazy(() =>
   import("@/pages/FactorMining").then((m) => ({ default: m.FactorMining })),
 );
+const Screener = lazy(() =>
+  import("@/pages/Screener").then((m) => ({ default: m.Screener })),
+);
+const Attribution = lazy(() =>
+  import("@/pages/Attribution").then((m) => ({ default: m.Attribution })),
+);
+const Scheduler = lazy(() =>
+  import("@/pages/Scheduler").then((m) => ({ default: m.Scheduler })),
+);
+const Marketplace = lazy(() =>
+  import("@/pages/Marketplace").then((m) => ({ default: m.Marketplace })),
+);
+const Options = lazy(() =>
+  import("@/pages/Options").then((m) => ({ default: m.Options })),
+);
 const NotFound = lazy(() =>
   import("@/pages/NotFound").then((m) => ({ default: m.default })),
 );
@@ -86,6 +101,11 @@ export const router = createBrowserRouter([
       { path: "/trading", element: wrap(Trading) },
       { path: "/data-sources", element: wrap(DataSourceStatus) },
       { path: "/factor-mining", element: wrap(FactorMining) },
+      { path: "/screener", element: wrap(Screener) },
+      { path: "/attribution", element: wrap(Attribution) },
+      { path: "/scheduler", element: wrap(Scheduler) },
+      { path: "/marketplace", element: wrap(Marketplace) },
+      { path: "/options", element: wrap(Options) },
       { path: "/admin/users", element: wrap(UserManagement) },
       { path: "*", element: wrap(NotFound) },
     ],
