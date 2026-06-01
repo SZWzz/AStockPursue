@@ -868,6 +868,27 @@ const en = {
   // Data source keys
   futuSettings: "FutuOpenD", futuHost: "Host", futuPort: "Port",
   futuHint: "Requires FutuOpenD running locally.",
+  // Dashboard
+  dashTitle: "AStockPursue Dashboard", dashRefresh: "Refresh",
+  dashMarketOverview: "Market Overview", dashFearGreed: "Fear & Greed",
+  dashDataSourceHealth: "Data Sources", dashHealthy: "healthy",
+  dashCacheHit: "Cache hit", dashApiCalls: "API calls today",
+  dashManageDataSources: "Manage data sources →",
+  dashMarketSentiment: "Market Sentiment", dashBullish: "Bullish", dashBearish: "Bearish",
+  dashPaperTrading: "Paper Trading", dashNoActiveStrategies: "No active paper trading strategies",
+  dashStartPaperTrading: "Start paper trading →",
+  dashFactorPipeline: "Factor Pipeline", dashGpRuns: "GP Runs",
+  dashPendingValidation: "Pending Validation", dashZooFactors: "Zoo Factors",
+  dashProduction: "Production", dashThemeHealth: "Theme Health",
+  dashRecentDiscoveries: "Recent Discoveries",
+  dashOpenFactorWorkbench: "Open Factor Workbench →",
+  dashQuickActions: "Quick Actions",
+  dashMining: "Mining", dashScreener: "Screener", dashAttribution: "Attribution",
+  dashAgent: "Agent", dashZoo: "Zoo", dashStrategies: "Strategies",
+  dashTrading: "Trading", dashNews: "News", dashData: "Data",
+  dashRecentActivity: "Recent Activity",
+  dashLoading: "Loading dashboard…",
+  dashStale: "Some data may be stale",
 } as const;
 
 const zh: Messages = {
@@ -1738,6 +1759,27 @@ const zh: Messages = {
   // Data source keys
   futuSettings: "FutuOpenD", futuHost: "主机地址", futuPort: "端口",
   futuHint: "需要本地运行 FutuOpenD。富途账户免费使用。",
+  // Dashboard
+  dashTitle: "AStockPursue 仪表盘", dashRefresh: "刷新",
+  dashMarketOverview: "市场概览", dashFearGreed: "恐惧贪婪指数",
+  dashDataSourceHealth: "数据源", dashHealthy: "可用",
+  dashCacheHit: "缓存命中", dashApiCalls: "今日 API 调用",
+  dashManageDataSources: "管理数据源 →",
+  dashMarketSentiment: "市场舆情", dashBullish: "偏乐观", dashBearish: "偏悲观",
+  dashPaperTrading: "模拟盘", dashNoActiveStrategies: "无活跃模拟盘策略",
+  dashStartPaperTrading: "启动模拟盘 →",
+  dashFactorPipeline: "因子管道", dashGpRuns: "GP 运行",
+  dashPendingValidation: "待验证", dashZooFactors: "Zoo 因子",
+  dashProduction: "生产中", dashThemeHealth: "主题健康度",
+  dashRecentDiscoveries: "最近发现",
+  dashOpenFactorWorkbench: "打开因子工作台 →",
+  dashQuickActions: "快捷入口",
+  dashMining: "挖掘", dashScreener: "筛选", dashAttribution: "归因",
+  dashAgent: "智能体", dashZoo: "因子库", dashStrategies: "策略",
+  dashTrading: "交易", dashNews: "舆情", dashData: "数据",
+  dashRecentActivity: "最近动态",
+  dashLoading: "加载仪表盘…",
+  dashStale: "部分数据可能已过期",
 };
 
 type Messages = Record<keyof typeof en, string>;
