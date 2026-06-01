@@ -18,6 +18,40 @@ from typing import Dict, List, Optional
 import pandas as pd
 from pydantic import BaseModel, ConfigDict, model_validator, field_validator
 
+# ── Data coverage helpers ────────────────────────────────────────────────
+# Some free data sources (mootdx TDX server, eastmoney non-paginated, etc.)
+# return data but may not cover the full requested date range.  These helpers
+# detect insufficient coverage so the fallback chain can try other sources.
+
+# A data source is considered to have "insufficient coverage" when the
+# earliest bar it returns is more than this many calendar days AFTER the
+# requested start_date.  e.g. with a 60-day tolerance, a source returning
+# bars from 2024-01-02 for a 2020-01-01 request is flagged; one returning
+# from 2023-11-15 for a 2024-01-01 request is NOT flagged.
+_COVERAGE_TOLERANCE_DAYS = 60
+
+
+def _data_covers_range(
+    data_map: dict[str, pd.DataFrame],
+    start_date: str,
+    tolerance_days: int = _COVERAGE_TOLERANCE_DAYS,
+) -> bool:
+    """Return True if *every* DataFrame in *data_map* covers *start_date*
+    within *tolerance_days*.
+
+    An empty data_map returns False (no coverage at all).
+    """
+    if not data_map:
+        return False
+    start_ts = pd.Timestamp(start_date)
+    cutoff = start_ts + pd.Timedelta(days=tolerance_days)
+    for df in data_map.values():
+        if df is None or df.empty:
+            return False
+        if df.index.min() > cutoff:
+            return False
+    return True
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -424,8 +458,18 @@ def main(run_dir: Path) -> None:
             fields=config.get("extra_fields") or None,
             interval=interval,
         )
-        # Runtime fallback: try next sources in chain when primary returns empty
-        if not data_map and codes:
+        # Runtime fallback: try next sources in chain when primary returns
+        # empty OR when the returned data doesn't cover the requested start_date.
+        # This is critical for free sources like mootdx whose TDX servers may
+        # only keep ~2-3 years of daily bars — they return data successfully
+        # but the range is too short for longer backtests.
+        start_date = config.get("start_date", "")
+        needs_fallback = (
+            not _data_covers_range(data_map, start_date)
+            if data_map and start_date
+            else not data_map
+        )
+        if needs_fallback and codes:
             market = _detect_market(codes[0])
             for fb_name in FALLBACK_CHAINS.get(market, []):
                 if fb_name == source or fb_name not in LOADER_REGISTRY:
@@ -437,15 +481,25 @@ def main(run_dir: Path) -> None:
                 if not fb_loader.is_available():
                     continue
                 fb_codes = _normalize_codes(codes, fb_name)
-                data_map = fb_loader.fetch(
+                fb_data_map = fb_loader.fetch(
                     fb_codes, config.get("start_date", ""),
                     config.get("end_date", ""), interval=interval,
                 )
-                if data_map:
-                    logger.info("Runtime fallback: %s -> %s", source, fb_name)
+                if fb_data_map and _data_covers_range(fb_data_map, start_date):
+                    logger.info("Runtime fallback: %s -> %s (better coverage)", source, fb_name)
+                    data_map = fb_data_map
                     source = fb_name
                     loader = fb_loader
                     break
+                elif fb_data_map:
+                    # Secondary source also has insufficient range, but it's
+                    # better than nothing — use it if primary was completely empty.
+                    if not data_map:
+                        logger.info("Runtime fallback: %s -> %s (partial coverage)", source, fb_name)
+                        data_map = fb_data_map
+                        source = fb_name
+                        loader = fb_loader
+                        break
     # Survivorship-bias check: codes that returned empty DataFrames
     missing_codes = [c for c in codes if c not in data_map or len(data_map.get(c, [])) == 0]
     if missing_codes:
@@ -652,7 +706,13 @@ def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
         )
 
         # Runtime fallback: try remaining sources when primary returns empty
-        if not result:
+        # OR when the returned data doesn't cover the requested start_date.
+        needs_fb = (
+            not _data_covers_range(result, start_date)
+            if result and start_date
+            else not result
+        )
+        if needs_fb:
             for fb_name in FALLBACK_CHAINS.get(market, []):
                 if fb_name == src_name or fb_name not in LOADER_REGISTRY:
                     continue
@@ -663,13 +723,20 @@ def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
                 if not fb_loader.is_available():
                     continue
                 fb_codes = _normalize_codes(uncached_codes, fb_name)
-                result = fetch_concurrent(
+                fb_result = fetch_concurrent(
                     fb_loader, fb_codes, start_date, end_date,
                     interval=interval,
                 )
-                if result:
-                    logger.info("Runtime fallback: %s -> %s for %s", src_name, fb_name, market)
+                if fb_result and _data_covers_range(fb_result, start_date):
+                    logger.info("Runtime fallback: %s -> %s for %s (better coverage)", src_name, fb_name, market)
+                    result = fb_result
                     break
+                elif fb_result:
+                    # Partial coverage — use if primary was completely empty.
+                    if not result:
+                        logger.info("Runtime fallback: %s -> %s for %s (partial coverage)", src_name, fb_name, market)
+                        result = fb_result
+                        break
 
         # ── Write back to cache + Parquet store ────────────────────────
         if _cache_ok:
@@ -688,6 +755,23 @@ def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
                     pass
         except Exception:
             pass
+
+        # Warn if even the best source doesn't cover the requested range.
+        if result and start_date and not _data_covers_range(result, start_date):
+            for code, df in result.items():
+                if df is not None and not df.empty:
+                    logger.warning(
+                        "Data coverage gap: requested start=%s, earliest bar for %s is %s. "
+                        "The free data source may not retain history this far back. "
+                        "Try tushare (with token), akshare, or twelvedata for longer histories.",
+                        start_date, code, df.index.min().strftime("%Y-%m-%d"),
+                    )
+                    break
+            config.setdefault("_warnings", []).append(
+                f"Insufficient data coverage: requested start_date={start_date}, "
+                f"but the earliest available bar is after that. "
+                f"The backtest will run on the available range only."
+            )
 
         merged.update(result)
 

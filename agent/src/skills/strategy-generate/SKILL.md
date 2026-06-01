@@ -97,12 +97,32 @@ Self-check after writing `signal_engine.py`:
 
 ## Market Detection and Data Sources
 
-| Pattern | Market | source | Extra Fields |
-|------|------|--------|----------|
-| `^\d{6}\.(SZ\|SH\|BJ)$` | China A-shares | tushare | `extra_fields`: pe, pb, pe_ttm, ps_ttm, dv_ttm, total_mv, circ_mv, roe; `fundamental_fields`: income/balancesheet/cashflow/fina_indicator |
-| `^[A-Z]+\.US$` | US stocks | yfinance | - |
-| `^\d{3,5}\.HK$` | Hong Kong stocks | yfinance | - |
-| `^[A-Z]+-USDT$` | Cryptocurrency | okx | - |
+| Pattern | Market | Free Sources (no token) | Token Sources | Extra Fields |
+|------|------|--------|----------|----------|
+| `^\d{6}\.(SZ\|SH\|BJ)$` | China A-shares | mootdx, eastmoney, tencent, baidu, akshare | tushare, twelvedata, futu | `extra_fields`: pe, pb, pe_ttm, ps_ttm, dv_ttm, total_mv, circ_mv, roe (tushare only); `fundamental_fields`: income/balancesheet/cashflow/fina_indicator (tushare only) |
+| `^[A-Z]+\.US$` | US stocks | yfinance | twelvedata, finnhub | - |
+| `^\d{3,5}\.HK$` | Hong Kong stocks | yfinance, tencent | futu, twelvedata | - |
+| `^[A-Z]+-USDT$` | Cryptocurrency | okx, ccxt | - | - |
+
+### Data Source History Depth (A-Shares)
+
+**CRITICAL — match the source to your backtest date range.** The engine auto-paginates and auto-falls-back, but choosing the right source avoids surprises:
+
+| Source | Approx. History Depth | Best For |
+|--------|----------------------|----------|
+| **mootdx** (TDX TCP) | ~2-3 years (free server dependent) | Recent backtests ≤ 2yr; fastest |
+| **eastmoney** (HTTP) | ~10+ years | Long-history backtests 3-10yr; free, paginated |
+| **tencent** (HTTP) | ~10+ years (2000 bars/req) | Medium-history backtests; real-time quotes |
+| **baidu** (HTTP) | Variable (server-capped) | Quick K-line with MA indicators |
+| **tushare** | 1990-present (full history) | Full-history backtests; fundamentals (requires token) |
+| **akshare** | Full history (multi-source) | Fallback for any market; free |
+
+**Source selection rules:**
+- **Default / recent data**: use `"source": "auto"` — auto-detects market and tries mootdx first, falls back through the chain
+- **Long history (3+ years)**: use `"source": "eastmoney"` (free) or `"source": "tushare"` (needs token). mootdx free servers typically don't retain data beyond ~3 years
+- **Need PE/PB/ROE/fundamentals**: use `"source": "tushare"` + `extra_fields` / `fundamental_fields` (requires TUSHARE_TOKEN)
+- **Auto-fallback**: when the primary source doesn't cover the requested date range, the engine automatically tries the next source in the chain. You don't need to implement fallback logic
+- **Pagination is automatic**: all loaders handle pagination internally. Just set `start_date` and `end_date` in config.json — the engine fetches all available data
 
 **`extra_fields` selection logic**: only China A-shares (`tushare`) support daily valuation fields. If the strategy needs `PE/PB/ROE` and similar daily_basic fields, specify them in `config.json.extra_fields` and `DataLoader` will retrieve them automatically. Hong Kong stocks, US stocks, and crypto do not support `extra_fields`.
 
@@ -131,7 +151,10 @@ Self-check after writing `signal_engine.py`:
 }
 ```
 
-- `source`: `"auto"` (recommended, auto-select by code format) / `"tushare"` / `"yfinance"` / `"okx"` / `"akshare"` / `"ccxt"`
+- `source`: `"auto"` (recommended, auto-select by code format with fallback) / `"mootdx"` (fastest, ~2-3yr history) / `"eastmoney"` (free, ~10yr+ history) / `"tencent"` (free, ~10yr+ history) / `"baidu"` (free, K-line+MA) / `"tushare"` (full history + fundamentals, needs token) / `"yfinance"` / `"okx"` / `"akshare"` / `"ccxt"` / `"twelvedata"`
+  - **For backtests > 3 years**: prefer `"eastmoney"` or `"tushare"` — mootdx free servers may not retain data that far back
+  - **For recent backtests ≤ 2 years**: `"mootdx"` or `"auto"` is fastest
+  - `"auto"` supports mixed instruments and auto-falls-back when data coverage is insufficient
   - `"auto"` supports mixed instruments. For example, `["000001.SZ", "BTC-USDT"]` will be automatically routed to `tushare` and `okx`
   - Futures codes (e.g. `"IF2406.CFFEX"`, `"ESZ4"`) and forex pairs (e.g. `"EUR/USD"`) are also auto-routed
 - `interval`: candlestick interval, default `"1D"`. Supported values: `"1m"` / `"5m"` / `"15m"` / `"30m"` / `"1H"` / `"4H"` / `"1D"`

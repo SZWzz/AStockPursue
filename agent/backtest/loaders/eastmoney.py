@@ -134,34 +134,84 @@ class DataLoader:
 
         for code in codes:
             try:
-                secid = _build_secid(code)
-                params = {
-                    "secid": secid,
-                    "klt": str(klt),
-                    "fqt": "1",           # 前复权
-                    "lmt": str(_MAX_COUNT),
-                    "end": "20500101",    # far future = latest available
-                    "fields1": "f1,f2,f3,f4,f5,f6",
-                    "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
-                }
-                resp = self._session.get(_BASE_URL, params=params, timeout=15)
-                resp.raise_for_status()
-                data = resp.json()
-
-                df = _parse_push2_response(data)
-                if df is None or df.empty:
-                    logger.debug("EastMoney returned empty for %s", code)
-                    continue
-
-                # Filter to requested date range
-                df = df.loc[start_date:end_date]
-                if df.empty:
-                    continue
-
-                result[code] = df
-
+                df = self._fetch_one_paginated(code, klt, start_date, end_date)
+                if df is not None and not df.empty:
+                    result[code] = df
             except Exception as exc:
                 logger.warning("EastMoney fetch failed for %s: %s", code, exc)
                 continue
 
+        return result
+
+    def _fetch_one_paginated(
+        self,
+        code: str,
+        klt: int,
+        start_date: str,
+        end_date: str,
+    ) -> Optional[pd.DataFrame]:
+        """Fetch OHLCV bars for a single code with pagination.
+
+        EastMoney's push2 API returns at most ``_MAX_COUNT`` bars per call.
+        We paginate backwards by setting ``end`` to just before the earliest
+        bar received in the previous chunk, repeating until we have enough
+        data or the API returns fewer than ``_MAX_COUNT`` bars (end of history).
+
+        Args:
+            code: Stock code string (e.g. ``"000001.SZ"``).
+            klt: EastMoney K-line type code (e.g. 101 for daily).
+            start_date: ISO date string, oldest bar to include.
+            end_date: ISO date string, newest bar to include.
+
+        Returns:
+            DataFrame indexed by ``trade_date`` with OHLCV columns,
+            filtered to [*start_date*, *end_date*]; or ``None``.
+        """
+        secid = _build_secid(code)
+        start_ts = pd.Timestamp(start_date)
+        all_frames: list[pd.DataFrame] = []
+        chunk_end = "20500101"  # far future = latest available
+        max_chunks = 500  # safety cap: 500 × 300 = 150 000 bars (~600 years daily)
+
+        for _ in range(max_chunks):
+            params = {
+                "secid": secid,
+                "klt": str(klt),
+                "fqt": "1",           # 前复权
+                "lmt": str(_MAX_COUNT),
+                "end": chunk_end,
+                "fields1": "f1,f2,f3,f4,f5,f6",
+                "fields2": "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61",
+            }
+            resp = self._session.get(_BASE_URL, params=params, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+
+            df = _parse_push2_response(data)
+            if df is None or df.empty:
+                break
+
+            all_frames.append(df)
+
+            earliest = df.index.min()
+            # Stop when we've gone past the requested start_date.
+            if earliest <= start_ts:
+                break
+
+            # Stop when the server has no more data (returned fewer than limit).
+            if len(df) < _MAX_COUNT:
+                break
+
+            # Next chunk: set end to one day before the earliest bar we just got.
+            chunk_end = (earliest - pd.Timedelta(days=1)).strftime("%Y%m%d")
+
+        if not all_frames:
+            return None
+
+        result = pd.concat(all_frames)
+        result = result[~result.index.duplicated()]
+        result = result.sort_index()
+
+        # Filter to the requested window.
+        result = result.loc[start_date:end_date]
         return result

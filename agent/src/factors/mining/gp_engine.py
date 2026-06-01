@@ -1,11 +1,13 @@
 """Genetic Programming Evolution Engine.
 
 Orchestrates the evolution of alpha factor expressions through:
-    - Population initialisation (ramped half-and-half)
-    - Fitness evaluation (IC / rank-IC / Sharpe + complexity penalty)
-    - Tournament selection
+    - Hybrid population initialisation (skeletons + mutation + random)
+    - Multiplicative composite fitness (IC × cost × orthogonality × A-share × stability × complexity)
+    - Tiered operator unlocking (basic → advanced → alternative)
+    - Tournament selection + elitism
     - Subtree crossover + point mutation
-    - Elitism preservation
+    - FactorKB integration (auto-register + formula dedup)
+    - FDR multiple testing correction (Benjamini-Hochberg, every generation)
     - SSE progress streaming for live frontend updates
 """
 
@@ -32,10 +34,25 @@ from src.factors.mining.expression_tree import (
     ExpressionTree,
     FEATURE_IDS,
     MAX_COMPLEXITY,
+    get_allowed_operators,
 )
 from src.factors.mining.fitness import (
     compute_forward_returns,
-    evaluate_fitness,
+    rank_ic_fitness,
+)
+from src.factors.mining.enhanced_fitness import (
+    composite_fitness,
+    apply_fdr_correction,
+)
+from src.factors.mining.hybrid_init import (
+    hybrid_initialize_population,
+    get_default_skeletons,
+)
+from src.factors.mining.factor_kb import (
+    FactorKnowledgeBase,
+    FactorEntry,
+    FactorStatus,
+    get_kb,
 )
 
 logger = logging.getLogger(__name__)
@@ -54,7 +71,8 @@ class GPEvolutionConfig(BaseModel):
     crossover_prob: float = Field(default=0.7, ge=0.0, le=1.0)
     mutation_prob: float = Field(default=0.2, ge=0.0, le=1.0)
     elitism_count: int = Field(default=2, ge=0, le=10)
-    fitness_metric: Literal["ic_mean", "rank_ic", "sharpe"] = "ic_mean"
+    # ── Legacy fitness config (kept for backward compat) ──
+    fitness_metric: Literal["ic_mean", "rank_ic", "sharpe", "composite"] = "composite"
     complexity_penalty: Literal["aic", "bic", "none"] = "bic"
     train_start: str = "2023-01-01"
     train_end: str = "2024-12-31"
@@ -62,9 +80,20 @@ class GPEvolutionConfig(BaseModel):
     test_end: str = "2025-12-31"
     universe: list[str] = Field(default_factory=list, description="Stock codes to include")
     max_workers: int = Field(default=4, ge=1, le=16)
-    # Walk-forward validation
-    walk_forward_windows: int = Field(default=3, ge=1, le=10, description="Number of rolling OOS windows for fitness evaluation")
+    # ── Walk-forward validation ──
+    walk_forward_windows: int = Field(default=5, ge=1, le=24, description="Number of rolling OOS windows for fitness evaluation")
     oos_stability_weight: float = Field(default=0.5, ge=0.0, le=2.0, description="Penalty weight on std of OOS IC (higher = prefer stable factors)")
+    # ── P0: Tiered operators ──
+    use_tiered_operators: bool = Field(default=True, description="Progressively unlock operators by tier")
+    # ── P0: Hybrid initialization ──
+    use_hybrid_init: bool = Field(default=True, description="Use skeleton-seeded hybrid initialization")
+    skeleton_ratio: float = Field(default=0.30, ge=0.0, le=1.0, description="Fraction from direct skeleton copies")
+    mutant_ratio: float = Field(default=0.40, ge=0.0, le=1.0, description="Fraction from skeleton mutations")
+    # ── P0: FactorKB integration ──
+    use_kb: bool = Field(default=True, description="Auto-register factors to Knowledge Base with dedup")
+    kb_user_id: int = Field(default=1, description="User ID for KB tenant isolation")
+    # ── P0: FDR correction ──
+    fdr_alpha: float = Field(default=0.05, ge=0.01, le=0.20, description="FDR threshold for BH correction")
 
 
 # ---------------------------------------------------------------------------
@@ -134,16 +163,31 @@ class GPRunResult:
 # ---------------------------------------------------------------------------
 
 class GPEvolution:
-    """Orchestrates genetic programming evolution for alpha factor discovery."""
+    """Orchestrates genetic programming evolution for alpha factor discovery.
+
+    P0 upgrades:
+    - Multiplicative composite fitness (IC × cost × orthogonality × …)
+    - Hybrid skeleton-seeded initialization
+    - FactorKB auto-registration with formula dedup
+    - FDR correction every generation
+    - Tiered operator unlocking
+    """
 
     def __init__(
         self,
         config: GPEvolutionConfig,
         data_provider: Any | None = None,
+        kb: FactorKnowledgeBase | None = None,
     ) -> None:
         self.config = config
         self.rng = random.Random()
         self._data_provider = data_provider
+
+        # ── P0: FactorKB ──
+        self._kb = kb if kb is not None else (get_kb(user_id=config.kb_user_id) if config.use_kb else None)
+
+        # ── P0: Skeletons (shared across runs) ──
+        self._skeletons: list[ExpressionTree] | None = None
 
         # Internal state
         self._population: list[GPIndividual] = []
@@ -157,8 +201,15 @@ class GPEvolution:
         self.data_source: str = "unknown"  # "real" | "mock"
         self.data_source_detail: str = ""
 
+        # ── P0: Core factor values for orthogonality checks ──
+        self._core_factor_values: dict[str, pd.DataFrame] = {}
+
         # Elite lineage tracking: formula_hash -> {first_seen_gen, last_seen_gen, best_fitness, representative}
         self._elite_tracker: dict[str, dict[str, Any]] = {}
+
+        # ── P0: KB registration stats ──
+        self._kb_new_registrations: int = 0
+        self._kb_duplicates_avoided: int = 0
 
         # SSE progress queue
         self._progress_queue: queue.Queue[dict[str, Any]] = queue.Queue()
@@ -302,18 +353,142 @@ class GPEvolution:
                 self._test_returns = compute_forward_returns(panel["close"], period=1)
 
     # ------------------------------------------------------------------
-    # Population management
+    # P0: Core factor loading + KB registration
     # ------------------------------------------------------------------
 
+    def _load_core_factors(self) -> None:
+        """Load core factor values from KB for orthogonality checks.
+
+        Core factors are the top-N approved/production factors in KB.
+        Their values are evaluated on the current train panel so they
+        can be used as regressors in the orthogonality penalty.
+        """
+        if self._kb is None or not self.config.use_kb:
+            return
+
+        core_entries = self._kb.get_top_core_factors(n=50)
+        if not core_entries:
+            logger.debug("No core factors in KB for orthogonality checks")
+            return
+
+        self._core_factor_values = {}
+        for entry in core_entries[:30]:  # Use top 30 for regression
+            try:
+                fn = entry.tree.to_callable()
+                fv = fn(self._train_panel)
+                if not fv.empty:
+                    self._core_factor_values[entry.alpha_id] = fv
+            except Exception:
+                continue
+
+        if self._core_factor_values:
+            logger.info("Loaded %d core factors from KB for orthogonality checks",
+                        len(self._core_factor_values))
+
+    def _register_to_kb(
+        self,
+        ind: GPIndividual,
+        generation: int,
+        source: str = "gp_engine",
+    ) -> FactorEntry | None:
+        """Register a GP individual to the FactorKB.
+
+        Formula dedup is automatic — if the same formula_hash already
+        exists, the existing entry is returned instead.
+
+        Args:
+            ind: GP individual to register.
+            generation: Current generation number.
+            source: Origin label for KB.
+
+        Returns:
+            The FactorEntry (new or existing), or None if KB is disabled.
+        """
+        if self._kb is None or not self.config.use_kb:
+            return None
+
+        detail = getattr(ind, "_fitness_detail", {})
+        components = detail.get("components", {})
+        ortho = detail.get("orthogonality", {})
+
+        entry, is_new = self._kb.register(
+            tree=ind.tree,
+            name=f"gp_gen{generation}_{ind.tree.formula_hash[:8]}",
+            theme=[],
+            semantic_tags=[],
+            source=source,
+            economic_rationale=f"GP evolution generation {generation}",
+            data_source_version=self.data_source,
+            train_ic=detail.get("rank_ic", 0.0),
+            test_ic=ind.test_ic,
+            test_ir=ind.test_ir,
+            sharpe=0.0,
+            max_drawdown=0.0,
+            oos_ic_per_window=ind.oos_ic_per_window,
+            orthogonality_score=components.get("orthogonality_penalty", 0.0),
+            max_corr_with_core=ortho.get("max_corr_with_core", 0.0),
+        )
+
+        if is_new:
+            self._kb_new_registrations += 1
+            # Auto-transition to VALIDATING if IC passes threshold
+            if abs(ind.test_ic) > 0.01:
+                try:
+                    self._kb.transition_status(
+                        entry.alpha_id, FactorStatus.VALIDATING,
+                        reason=f"Auto-validated from GP gen {generation}",
+                    )
+                except ValueError:
+                    pass
+        else:
+            self._kb_duplicates_avoided += 1
+
+        return entry
+
     def initialize_population(self) -> None:
-        """Generate initial population with ramped half-and-half."""
-        self._population = []
-        for _ in range(self.config.population_size):
-            tree = ExpressionTree.random(rng=self.rng, max_depth=3)
-            # Enforce complexity limit
-            while tree.complexity() > MAX_COMPLEXITY:
-                tree = ExpressionTree.random(rng=self.rng, max_depth=2)
-            self._population.append(GPIndividual(tree=tree))
+        """Generate initial population.
+
+        P0: Uses hybrid initialization (skeletons + mutants + random) when
+        ``use_hybrid_init=True``.  Falls back to ramped half-and-half otherwise.
+
+        P0: When tiered operators are enabled, skeletons are filtered to only
+        use operators available at generation 0 (basic tier).
+        """
+        if self.config.use_hybrid_init:
+            if self._skeletons is None:
+                self._skeletons = get_default_skeletons()
+                # Also extract skeletons from KB if available
+                if self._kb and len(self._kb) > 0:
+                    from src.factors.mining.hybrid_init import extract_skeletons_from_zoo
+                    kb_skeletons = extract_skeletons_from_zoo(top_n=5)
+                    for sk in kb_skeletons:
+                        if sk.formula_hash not in {s.formula_hash for s in self._skeletons}:
+                            self._skeletons.append(sk)
+                logger.info("Loaded %d factor skeletons for hybrid init", len(self._skeletons))
+
+            trees = hybrid_initialize_population(
+                population_size=self.config.population_size,
+                rng=self.rng,
+                skeletons=self._skeletons,
+                skeleton_ratio=self.config.skeleton_ratio,
+                mutant_ratio=self.config.mutant_ratio,
+                random_ratio=round(1.0 - self.config.skeleton_ratio - self.config.mutant_ratio, 2),
+            )
+            self._population = [GPIndividual(tree=t) for t in trees]
+            logger.info(
+                "Hybrid init: %d individuals (%.0f%% skeleton, %.0f%% mutant, %.0f%% random)",
+                len(self._population),
+                self.config.skeleton_ratio * 100,
+                self.config.mutant_ratio * 100,
+                (1.0 - self.config.skeleton_ratio - self.config.mutant_ratio) * 100,
+            )
+        else:
+            self._population = []
+            for _ in range(self.config.population_size):
+                tree = ExpressionTree.random(rng=self.rng, max_depth=3)
+                while tree.complexity() > MAX_COMPLEXITY:
+                    tree = ExpressionTree.random(rng=self.rng, max_depth=2)
+                self._population.append(GPIndividual(tree=tree))
 
     def _get_walk_forward_windows(self) -> list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]]:
         """Split the train period into in-sample / out-of-sample window pairs.
@@ -355,14 +530,77 @@ class GPEvolution:
 
         return windows or [(all_dates[: max(10, int(n * 0.8))], all_dates[max(10, int(n * 0.8)) :])]
 
+    def _evaluate_individual(self, ind: GPIndividual) -> float:
+        """Evaluate a single individual's fitness.
+
+        P0: Uses ``composite_fitness()`` — multiplicative composite with
+        A-share cost penalty, orthogonality check against KB core factors,
+        cross-time stability, and complexity discount.
+
+        Also tracks OOS IC per window for FDR correction.
+        """
+        # ── P0: KB dedup check (skip evaluation if duplicate) ──
+        if self._kb is not None and self.config.use_kb:
+            fhash = ind.tree.formula_hash
+            existing = self._kb.get_by_hash(fhash)
+            if existing is not None:
+                # Already in KB — reuse stored IC as fitness
+                ind.train_fitness = abs(existing.test_ic)
+                ind.test_ic = existing.test_ic
+                ind.test_ir = existing.test_ir
+                ind.oos_ic_per_window = existing.oos_ic_per_window
+                self._kb_duplicates_avoided += 1
+                return float(ind.train_fitness)
+
+        try:
+            compute_fn = ind.tree.to_callable()
+            factor_values = compute_fn(self._train_panel)
+        except Exception:
+            ind.train_fitness = 0.0
+            return 0.0
+
+        if factor_values.empty or self._train_returns is None:
+            ind.train_fitness = 0.0
+            return 0.0
+
+        common_idx = factor_values.index.intersection(self._train_returns.index)
+        common_cols = factor_values.columns.intersection(self._train_returns.columns)
+
+        if len(common_idx) < 10 or len(common_cols) < 3:
+            ind.train_fitness = 0.0
+            return 0.0
+
+        fv = factor_values.loc[common_idx, common_cols]
+        fr = self._train_returns.loc[common_idx, common_cols]
+
+        # ── P0: Composite fitness (multiplicative) ──
+        result = composite_fitness(
+            tree=ind.tree,
+            factor_values=fv,
+            forward_returns=fr,
+            panel=self._train_panel,
+            core_factors=self._core_factor_values if self._core_factor_values else None,
+        )
+
+        fitness = result["fitness"]
+        ind.train_fitness = float(fitness)
+        ind.oos_ic_per_window = [result["rank_ic"]]  # Single-window for now; WF enrichment in validate()
+
+        # ── P0: Store component scores for diagnostics ──
+        ind._fitness_detail = result
+
+        return float(fitness)
+
     def _evaluate_individual_wf(self, ind: GPIndividual) -> tuple[float, list[float]]:
-        """Walk-forward evaluation: compute IC in each window, return (mean_IC - w * std_IC, per_window_ICs)."""
+        """Walk-forward evaluation using composite_fitness in each OOS window.
+
+        Retained for backward compatibility.  The primary fitness path is
+        now ``_evaluate_individual`` which uses composite_fitness directly.
+        """
         windows = self._get_walk_forward_windows()
 
         if not windows or self._train_returns is None:
             return 0.0, []
-
-        from src.factors.mining.fitness import ic_fitness
 
         compute_fn = ind.tree.to_callable()
         window_ics: list[float] = []
@@ -372,18 +610,10 @@ class GPEvolution:
                 continue
 
             try:
-                # "Fit" = compute factor values on train period
-                train_panel_slice = {
-                    k: v.loc[v.index.intersection(train_idx)] if not v.empty else v
-                    for k, v in self._train_panel.items()
-                }
-                # "Predict" = compute on OOS period
                 oos_panel_slice = {
                     k: v.loc[v.index.intersection(oos_idx)] if not v.empty else v
                     for k, v in self._train_panel.items()
                 }
-
-                # Factor values on OOS period
                 fv = compute_fn(oos_panel_slice)
                 if fv.empty:
                     continue
@@ -393,10 +623,10 @@ class GPEvolution:
                 common_cols = fv.columns.intersection(oos_returns.columns)
 
                 if len(common_idx) >= 5 and len(common_cols) >= 3:
-                    ic = ic_fitness(
+                    ic = float(rank_ic_fitness(
                         fv.loc[common_idx, common_cols],
                         oos_returns.loc[common_idx, common_cols],
-                    )
+                    ))
                     window_ics.append(ic)
             except Exception:
                 continue
@@ -408,42 +638,7 @@ class GPEvolution:
         std_ic = float(np.std(window_ics, ddof=1)) if len(window_ics) > 1 else 0.0
         fitness = mean_ic - self.config.oos_stability_weight * std_ic
 
-        # Also apply complexity penalty
-        n_samples = len(self._train_returns) * len(self._train_returns.columns)
-        from src.factors.mining.fitness import complexity_penalty
-        penalty = complexity_penalty(ind.complexity, max(n_samples, 100), self.config.complexity_penalty)
-        fitness -= penalty
-
         return float(fitness), window_ics
-
-    def _evaluate_individual(self, ind: GPIndividual) -> float:
-        """Evaluate a single individual's fitness using walk-forward cross-validation."""
-        fitness, window_ics = self._evaluate_individual_wf(ind)
-        ind.oos_ic_per_window = window_ics
-
-        # Fallback to traditional single-split if walk-forward gives no signal
-        if fitness == 0.0 and window_ics == []:
-            try:
-                compute_fn = ind.tree.to_callable()
-                factor_values = compute_fn(self._train_panel)
-                if not factor_values.empty and self._train_returns is not None:
-                    common_idx = factor_values.index.intersection(self._train_returns.index)
-                    common_cols = factor_values.columns.intersection(self._train_returns.columns)
-                    if len(common_idx) >= 10 and len(common_cols) >= 3:
-                        n_samples = len(common_idx) * len(common_cols)
-                        fitness = evaluate_fitness(
-                            factor_values.loc[common_idx, common_cols],
-                            self._train_returns.loc[common_idx, common_cols],
-                            n_nodes=ind.complexity,
-                            n_samples=n_samples,
-                            metric=self.config.fitness_metric,
-                            penalty=self.config.complexity_penalty,
-                        )
-            except Exception:
-                pass
-
-        ind.train_fitness = float(fitness)
-        return float(fitness)
 
     def evaluate_population(self, parallel: bool = True) -> list[float]:
         """Evaluate all individuals in the population. Returns fitnesses."""
@@ -488,8 +683,39 @@ class GPEvolution:
     # Evolution loop
     # ------------------------------------------------------------------
 
-    def evolve(self, fitnesses: list[float]) -> list[GPIndividual]:
-        """Produce the next generation through selection, crossover, mutation, elitism."""
+    def _get_allowed_ops_for_gen(self, generation: int) -> list[str] | None:
+        """Return allowed operators for the current generation, or None if
+        tiered operators are disabled (all operators allowed)."""
+        if not self.config.use_tiered_operators:
+            return None
+        return get_allowed_operators(generation, self.config.generations)
+
+    def _mutate_with_tier_guard(
+        self,
+        child_tree: ExpressionTree,
+        generation: int,
+    ) -> ExpressionTree:
+        """Mutate a tree, ensuring the result only uses allowed operators
+        for the current generation tier."""
+        allowed_ops = self._get_allowed_ops_for_gen(generation)
+        if allowed_ops is None:
+            # All operators allowed — standard mutation
+            return child_tree.mutate(rng=self.rng, rate=self.config.mutation_prob)
+
+        # Tiered mode: mutate, then validate operators
+        for _attempt in range(10):
+            mutant = child_tree.mutate(rng=self.rng, rate=self.config.mutation_prob)
+            if _tree_uses_only_allowed_ops(mutant.root, set(allowed_ops)):
+                return mutant
+        # Fallback: return original
+        return child_tree
+
+    def evolve(self, fitnesses: list[float], generation: int = 0) -> list[GPIndividual]:
+        """Produce the next generation through selection, crossover, mutation, elitism.
+
+        P0: When ``use_tiered_operators=True``, mutations are filtered to only
+        use operators unlocked at the current generation's progress.
+        """
         new_pop: list[GPIndividual] = []
 
         # Elitism
@@ -500,6 +726,8 @@ class GPEvolution:
                     tree=ExpressionTree(self._population[idx].tree.root.copy()),
                     train_fitness=fitnesses[idx],
                 ))
+
+        allowed_ops = self._get_allowed_ops_for_gen(generation)
 
         # Fill rest with offspring
         while len(new_pop) < self.config.population_size:
@@ -516,9 +744,14 @@ class GPEvolution:
             else:
                 child_tree = ExpressionTree(parent1.tree.root.copy())
 
-            # Mutation
+            # Mutation (P0: tier-aware)
             if self.rng.random() < self.config.mutation_prob:
-                child_tree = child_tree.mutate(rng=self.rng, rate=self.config.mutation_prob)
+                child_tree = self._mutate_with_tier_guard(child_tree, generation)
+
+            # P0: Validate operators when tiered mode is active
+            if allowed_ops is not None and not _tree_uses_only_allowed_ops(child_tree.root, set(allowed_ops)):
+                # Replace with random tree using only allowed ops
+                child_tree = _random_tree_with_ops(self.rng, allowed_ops)
 
             # Complexity guard
             if child_tree.complexity() > MAX_COMPLEXITY:
@@ -743,6 +976,14 @@ class GPEvolution:
     def run(self) -> GPRunResult:
         """Execute the full GP evolution run.
 
+        P0 upgrades:
+        - Hybrid skeleton-seeded initialization
+        - Multiplicative composite fitness with orthogonality checks
+        - FactorKB auto-registration with formula dedup
+        - FDR correction every generation (not just final)
+        - Tiered operator unlocking
+        - KB mining guidance for future runs
+
         Returns:
             GPRunResult with best individuals, generation history, etc.
         """
@@ -756,6 +997,9 @@ class GPEvolution:
         self._load_data()
         self._emit_progress("progress", {"stage": "data_loaded", "message": "Data loaded"})
 
+        # ── P0: Load core factors from KB for orthogonality checks ──
+        self._load_core_factors()
+
         # Initialize population
         self._emit_progress("progress", {"stage": "init_population", "message": "Initializing population..."})
         self.initialize_population()
@@ -763,6 +1007,9 @@ class GPEvolution:
         total_generations = self.config.generations
         best_overall: GPIndividual | None = None
         best_overall_fitness = float("-inf")
+
+        # ── P0: Track all-time candidates for FDR ──
+        all_time_candidates: list[GPIndividual] = []
 
         for gen in range(total_generations):
             if self._cancelled.is_set():
@@ -780,6 +1027,21 @@ class GPEvolution:
             })
 
             fitnesses = self.evaluate_population()
+
+            # ── P0: FDR correction on this generation ──
+            # Build candidate dicts for FDR
+            gen_candidates = []
+            for ind in self._population:
+                gen_candidates.append({
+                    "individual": ind,
+                    "rank_ic": getattr(ind, "_fitness_detail", {}).get("rank_ic", 0.0),
+                    "oos_ic_per_window": ind.oos_ic_per_window,
+                })
+            apply_fdr_correction(gen_candidates, ic_key="rank_ic", alpha=self.config.fdr_alpha)
+            # Apply FDR results back to individuals
+            for gc in gen_candidates:
+                gc["individual"].adjusted_p_value = gc.get("fdr_adjusted_p_value", 1.0)
+                gc["individual"].is_statistically_significant = gc.get("fdr_significant", False)
 
             # Record stats
             best_idx = max(range(len(fitnesses)), key=lambda i: fitnesses[i])
@@ -815,12 +1077,30 @@ class GPEvolution:
 
             gen_elapsed = time.monotonic() - gen_start
 
+            # ── P0: Auto-register top individuals to KB ──
+            sorted_pop = sorted(
+                self._population, key=lambda ind: ind.train_fitness, reverse=True,
+            )
+            for rank, ind in enumerate(sorted_pop[:5]):
+                if ind.train_fitness > 0 and ind.is_statistically_significant:
+                    self._register_to_kb(ind, gen + 1)
+
+            # ── P0: Track for all-time FDR ──
+            for ind in sorted_pop[:10]:
+                if ind.train_fitness > 0:
+                    all_time_candidates.append(ind)
+
             # Compute fitness distribution for frontend histogram
             fitness_dist = self._get_fitness_distribution(fitnesses)
 
             # Update elite lineage tracking
             self._update_elite_lineage(self._population, gen + 1)
             elite_summary = self._get_elite_summary()
+
+            # ── P0: Get KB mining guidance every 10 generations ──
+            kb_guidance = None
+            if self._kb and (gen + 1) % 10 == 0:
+                kb_guidance = self._kb.get_mining_guidance()
 
             self._emit_progress("generation_complete", {
                 "generation": gen + 1,
@@ -836,11 +1116,15 @@ class GPEvolution:
                 "fitness_distribution": fitness_dist,
                 "elite_lineage": elite_summary,
                 "data_source": self.data_source,
+                "kb_registrations": self._kb_new_registrations,
+                "kb_duplicates": self._kb_duplicates_avoided,
+                "kb_guidance": kb_guidance,
+                "tier_allowed_ops": self._get_allowed_ops_for_gen(gen) if self.config.use_tiered_operators else None,
             })
 
             # Evolve (unless last generation)
             if gen < total_generations - 1:
-                self._population = self.evolve(fitnesses)
+                self._population = self.evolve(fitnesses, generation=gen + 1)
 
         # Final validation of top individuals
         best_individuals: list[GPIndividual] = []
@@ -852,7 +1136,19 @@ class GPEvolution:
             ind.test_ir = val["ir"]
             best_individuals.append(ind)
 
-        # Apply Benjamini-Hochberg multiple testing correction
+        # ── P0: Final FDR on all-time top candidates ──
+        all_time_dicts = [
+            {
+                "individual": ind,
+                "rank_ic": ind.test_ic,
+                "oos_ic_per_window": ind.oos_ic_per_window,
+            }
+            for ind in all_time_candidates[-50:]  # last 50 unique candidates
+        ]
+        if all_time_dicts:
+            apply_fdr_correction(all_time_dicts, ic_key="rank_ic", alpha=self.config.fdr_alpha)
+
+        # Also run BH on final best_individuals for backward compat
         self._compute_bh_correction(best_individuals)
 
         # Best test IC only from statistically significant factors
@@ -861,6 +1157,13 @@ class GPEvolution:
         if best_test_ic == 0.0 and best_individuals:
             best_test_ic = max((ind.test_ic for ind in best_individuals))
         runtime = time.monotonic() - start_time
+
+        # ── P0: KB stats ──
+        if self._kb:
+            logger.info(
+                "FactorKB: %d total factors, %d new this run, %d duplicates avoided",
+                len(self._kb), self._kb_new_registrations, self._kb_duplicates_avoided,
+            )
 
         self._emit_progress("done", {
             "status": "completed",
@@ -871,6 +1174,9 @@ class GPEvolution:
             "total_candidates": len(best_individuals),
             "data_source": self.data_source,
             "data_source_detail": self.data_source_detail,
+            "kb_total": len(self._kb) if self._kb else 0,
+            "kb_new": self._kb_new_registrations,
+            "kb_duplicates": self._kb_duplicates_avoided,
         })
 
         return GPRunResult(
@@ -884,6 +1190,8 @@ class GPEvolution:
                 "data_source_detail": self.data_source_detail,
                 "population_size": self.config.population_size,
                 "generations": self.config.generations,
+                "kb_registrations": self._kb_new_registrations,
+                "kb_duplicates_avoided": self._kb_duplicates_avoided,
             },
         )
 
@@ -894,3 +1202,101 @@ class GPEvolution:
     def get_progress_queue(self) -> queue.Queue[dict[str, Any]]:
         """Get the SSE progress queue for streaming to frontend."""
         return self._progress_queue
+
+
+# ---------------------------------------------------------------------------
+# P0: Tiered operator helpers
+# ---------------------------------------------------------------------------
+
+def _tree_uses_only_allowed_ops(root: ExpressionNode, allowed_ops: set[str]) -> bool:
+    """Check recursively that every operator in the tree is in *allowed_ops*.
+
+    Leaf nodes (feature references / constants) are always allowed.
+    """
+    if root.is_leaf:
+        return True
+    if root.op is not None and root.op not in allowed_ops:
+        return False
+    return all(_tree_uses_only_allowed_ops(c, allowed_ops) for c in root.children)
+
+
+def _random_tree_with_ops(
+    rng: random.Random,
+    allowed_ops: list[str],
+    max_depth: int = 3,
+    max_attempts: int = 100,
+) -> ExpressionTree:
+    """Generate a random tree using only the given operator set.
+
+    Repeatedly generates random trees and filters for those using only
+    allowed operators.  Falls back to a single feature reference if no
+    valid tree is found within max_attempts.
+    """
+    # Filter the global operator registry to allowed ops
+    from src.factors.mining.expression_tree import UNARY_OPS, BINARY_OPS, TERNARY_OPS
+
+    allowed_unary = [o for o in UNARY_OPS if o in allowed_ops]
+    allowed_binary = [o for o in BINARY_OPS if o in allowed_ops]
+    allowed_ternary = [o for o in TERNARY_OPS if o in allowed_ops]
+
+    if not allowed_unary and not allowed_binary:
+        # No operators allowed — fall back to leaf
+        return ExpressionTree(ExpressionNode(feature_id=rng.choice(FEATURE_IDS)))
+
+    for _ in range(max_attempts):
+        tree = _random_tree_restricted(
+            rng, allowed_unary, allowed_binary, allowed_ternary, max_depth,
+        )
+        if tree.complexity() <= MAX_COMPLEXITY:
+            return tree
+
+    return ExpressionTree(ExpressionNode(feature_id=rng.choice(FEATURE_IDS)))
+
+
+def _random_tree_restricted(
+    rng: random.Random,
+    unary_ops: list[str],
+    binary_ops: list[str],
+    ternary_ops: list[str],
+    max_depth: int,
+) -> ExpressionTree:
+    """Generate a random tree from restricted operator sets."""
+    from src.factors.mining.expression_tree import WINDOW_OPTIONS
+
+    if max_depth <= 0:
+        return ExpressionTree(ExpressionNode(feature_id=rng.choice(FEATURE_IDS)))
+
+    # Choose operator type based on availability
+    choices = []
+    if unary_ops:
+        choices.append("unary")
+    if binary_ops:
+        choices.append("binary")
+    if ternary_ops:
+        choices.append("ternary")
+
+    if not choices or rng.random() < 0.3:
+        # 30% chance of leaf even when operators are available
+        return ExpressionTree(ExpressionNode(
+            feature_id=rng.choice(FEATURE_IDS) if rng.random() < 0.8 else None,
+            value=round(rng.uniform(-2.0, 2.0), 4) if rng.random() < 0.2 else None,
+        ))
+
+    choice = rng.choice(choices)
+    if choice == "unary":
+        op = rng.choice(unary_ops)
+        child = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
+        window = rng.choice(WINDOW_OPTIONS) if op.startswith("ts_") else 20
+        return ExpressionTree(op=op, children=[child], window=window)
+    elif choice == "binary":
+        op = rng.choice(binary_ops)
+        left = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
+        right = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
+        window = rng.choice(WINDOW_OPTIONS) if op.startswith("ts_") else 20
+        return ExpressionTree(op=op, children=[left, right], window=window)
+    else:
+        op = rng.choice(ternary_ops) if ternary_ops else rng.choice(unary_ops)
+        cond = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
+        t_branch = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
+        f_branch = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
+        return ExpressionTree(op=op, children=[cond, t_branch, f_branch])

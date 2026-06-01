@@ -141,6 +141,21 @@ class DataLoader:
                         col_map[col] = cl
                 df = df.rename(columns=col_map)
 
+                # Detect truncation: Baidu's `all=1` should return full history,
+                # but some server deployments may cap the response.  If the
+                # earliest bar is well after the requested start_date, warn so
+                # the runner can fall back to another source.
+                raw_earliest = df.index.min()
+                requested_start = pd.Timestamp(start_date)
+                if raw_earliest is not pd.NaT and raw_earliest > requested_start + pd.Timedelta(days=60):
+                    logger.warning(
+                        "Baidu data for %s may be truncated: "
+                        "requested %s, earliest available bar is %s. "
+                        "Baidu free API may not retain full history. "
+                        "Consider using eastmoney, tencent, tushare, or akshare for longer histories.",
+                        code, start_date, raw_earliest.strftime("%Y-%m-%d"),
+                    )
+
                 # Filter date range
                 df = df.loc[start_date:end_date]
 

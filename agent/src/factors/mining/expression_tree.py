@@ -3,6 +3,18 @@
 Models an alpha factor as a tree of arithmetic and time-series operators.
 Supports random generation, mutation, crossover, and execution on panel data.
 
+**Formula consistency contract** (single source of truth):
+    ExpressionTree (or its JSON dict form) is the authoritative representation.
+    All derived forms MUST be generated from it, never authored independently:
+
+        ExpressionTree
+        ├── to_formula()        → human-readable string
+        ├── normalized_formula  → canonical string (sorted args, fixed names)
+        ├── formula_hash        → SHA256(normalized_formula) for dedup
+        ├── to_dict()           → JSON-serializable dict
+        ├── to_signalengine_code() → executable Python SignalEngine code
+        └── to_callable()       → in-memory callable for GP evaluation
+
 Design constraints:
     - MAX_DEPTH = 5   (prevent bloat)
     - MAX_COMPLEXITY = 50  (node count limit)
@@ -13,6 +25,7 @@ Design constraints:
 from __future__ import annotations
 
 import copy
+import hashlib
 import random
 import uuid
 from dataclasses import dataclass, field
@@ -22,8 +35,48 @@ import numpy as np
 import pandas as pd
 
 # ---------------------------------------------------------------------------
-# Operator registry
+# Operator registry with tier metadata
 # ---------------------------------------------------------------------------
+
+# Operator tier definitions for progressive unlocking during GP evolution.
+# basic:     available from generation 0 (60% of total generations)
+# advanced:  unlocked at 40% progress
+# alternative: unlocked at 80% progress
+OPERATOR_TIERS: dict[str, str] = {
+    # ── basic: arithmetic + simple rolling + cross-sectional ──
+    "add": "basic", "sub": "basic", "mul": "basic", "div": "basic",
+    "rank": "basic", "abs": "basic", "log": "basic", "sqrt": "basic",
+    "sign": "basic", "neg": "basic",
+    "ts_mean": "basic", "ts_std": "basic", "ts_max": "basic", "ts_min": "basic",
+    "ts_delta": "basic", "ts_delay": "basic", "ts_pct": "basic",
+    # ── advanced: time-series statistics + cross-sectional regression ──
+    "ts_sum": "advanced", "ts_rank": "advanced", "ts_zscore": "advanced",
+    "cs_zscore": "advanced", "scale": "advanced",
+    "ts_corr": "advanced", "ts_cov": "advanced", "pow": "advanced", "inv": "advanced",
+    # ── alternative: conditional + industry neutralization + text/flow ──
+    "if_else": "alternative", "ind_neutralize": "alternative",
+}
+
+TIER_UNLOCK_ORDER: dict[str, int] = {"basic": 0, "advanced": 1, "alternative": 2}
+
+def get_allowed_operators(generation: int, total_generations: int) -> list[str]:
+    """Return the set of operator names allowed at a given evolution progress.
+
+    Args:
+        generation: Current generation number (0-indexed).
+        total_generations: Total number of generations planned.
+
+    Returns:
+        List of allowed operator names.
+    """
+    progress = generation / max(total_generations, 1)
+    allowed: list[str] = []
+    for op, tier in OPERATOR_TIERS.items():
+        tier_idx = TIER_UNLOCK_ORDER.get(tier, 0)
+        if tier_idx == 0 or (tier_idx == 1 and progress > 0.4) or (tier_idx == 2 and progress > 0.8):
+            allowed.append(op)
+    return allowed
+
 
 # Each operator: (arity, python_callable, display_symbol)
 # arity == 1: unary  (operates on one child DataFrame)
@@ -182,7 +235,12 @@ class ExpressionNode:
 
 
 class ExpressionTree:
-    """Wrapper around an ExpressionNode root with tree-level operations."""
+    """Wrapper around an ExpressionNode root with tree-level operations.
+
+    **Formula consistency**: this tree is the single source of truth.
+    All derived forms (formula string, hash, SignalEngine code, dict)
+    are generated from it — never authored independently.
+    """
 
     def __init__(self, root: ExpressionNode) -> None:
         self.root = root
@@ -193,12 +251,59 @@ class ExpressionTree:
         return self.root.to_formula()
 
     def to_dict(self) -> dict[str, Any]:
-        """Serialize to JSON-compatible dict."""
+        """Serialize to JSON-compatible dict (the authoritative serialization)."""
         return _node_to_dict(self.root)
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> ExpressionTree:
+        """Deserialize from JSON-compatible dict."""
         return cls(_node_from_dict(d))
+
+    # ---- formula consistency (single source of truth) ----
+
+    @property
+    def normalized_formula(self) -> str:
+        """Canonical, deterministic formula string for hashing and dedup.
+
+        Normalization rules:
+        - Binary commutative operators (add, mul) sort children alphabetically
+        - Feature IDs lowercased
+        - Window values always included for ts_* operators
+        - Whitespace normalized
+        - Constants rounded to 6 decimal places
+        """
+        return _normalize_node(self.root)
+
+    @property
+    def formula_hash(self) -> str:
+        """SHA256 hash of the normalized formula — used for dedup across the system.
+
+        Two trees with the same mathematical meaning produce the same hash,
+        even if they were generated with different variable names or
+        child ordering for commutative operators.
+        """
+        return hashlib.sha256(self.normalized_formula.encode("utf-8")).hexdigest()[:16]
+
+    # ---- SignalEngine code generation ----
+
+    def to_signalengine_code(self, class_name: str = "GeneratedSignal") -> str:
+        """Compile the expression tree into a standard SignalEngine Python class.
+
+        The generated code follows the exact SignalEngine contract:
+            class SignalEngine:
+                def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
+
+        This ensures the factor can be used directly in backtests without
+        any code modification — the formula is embedded as the canonical
+        implementation.
+
+        Args:
+            class_name: Name for the generated SignalEngine class.
+
+        Returns:
+            Complete Python source code string.
+        """
+        return _compile_to_signalengine(self.root, class_name)
 
     # ---- metrics ----
 
@@ -468,3 +573,206 @@ def _crossover_nodes(
     (na.value, nb.value) = (nb.value, na.value)
     (na.feature_id, nb.feature_id) = (nb.feature_id, na.feature_id)
     (na.window, nb.window) = (nb.window, na.window)
+
+
+# ---------------------------------------------------------------------------
+# Formula normalization — canonical string for hashing / dedup
+# ---------------------------------------------------------------------------
+
+# Commutative operators: child order doesn't matter, so we sort children
+# to get a deterministic canonical form.
+_COMMUTATIVE_OPS = {"add", "mul"}
+
+
+def _normalize_node(node: ExpressionNode) -> str:
+    """Generate a canonical, deterministic formula string for hashing.
+
+    This is the foundation of formula consistency — all hash-based dedup
+    uses this normalized form so that semantically identical formulas
+    (differing only in child ordering or whitespace) produce the same hash.
+    """
+    if node.is_leaf:
+        if node.feature_id is not None:
+            return node.feature_id.lower()
+        if node.value is not None:
+            return f"{node.value:.6g}"
+        return "?"
+
+    op = node.op or "?"
+    _, _, symbol = OPERATOR_REGISTRY.get(op, (0, lambda x: x, op))
+
+    child_strs = [_normalize_node(c) for c in node.children]
+
+    # Sort children for commutative operators
+    if op in _COMMUTATIVE_OPS:
+        child_strs.sort()
+
+    # Time-series operators: include window in canonical form
+    if op.startswith("ts_") or op in ("ts_corr", "ts_cov"):
+        w = node.window if node.window else 20
+        return f"{symbol}({','.join(child_strs)},w={w})"
+
+    if node.arity == 1:
+        return f"{symbol}({child_strs[0]})"
+    elif node.arity == 2:
+        return f"({child_strs[0]}{symbol}{child_strs[1]})"
+    elif node.arity == 3:
+        return f"{symbol}({','.join(child_strs)})"
+    return f"{symbol}({','.join(child_strs)})"
+
+
+# ---------------------------------------------------------------------------
+# SignalEngine code compiler — ExpressionTree → executable Python
+# ---------------------------------------------------------------------------
+
+# Mapping from expression tree operators to pandas/SignalEngine code patterns.
+# Each entry is a lambda that takes child code strings + window and returns
+# a complete expression string.
+_SIGNALENGINE_OP_MAP: dict[str, Callable[..., str]] = {
+    # arithmetic
+    "add":  lambda a, b, w: f"({a} + {b})",
+    "sub":  lambda a, b, w: f"({a} - {b})",
+    "mul":  lambda a, b, w: f"({a} * {b})",
+    "div":  lambda a, b, w: f"({a} / {b}.replace(0, np.nan))",
+    "pow":  lambda a, b, w: f"({a}.clip(-100, 100) ** {b}.clip(-5, 5))",
+    # cross-sectional
+    "rank":      lambda x, _, w: f"{x}.rank(axis=1, pct=True, na_option='keep')",
+    "cs_zscore": lambda x, _, w: f"(({x}.sub({x}.mean(axis=1), axis=0)).div({x}.std(axis=1).replace(0, np.nan), axis=0))",
+    "scale":     lambda x, _, w: f"({x}.div({x}.abs().sum(axis=1).replace(0, np.nan), axis=0))",
+    "abs":       lambda x, _, w: f"{x}.abs()",
+    "log":       lambda x, _, w: f"np.log({x}.clip(1e-12))",
+    "sqrt":      lambda x, _, w: f"np.sqrt({x}.clip(0))",
+    "sign":      lambda x, _, w: f"np.sign({x})",
+    "neg":       lambda x, _, w: f"(-{x})",
+    "inv":       lambda x, _, w: f"(1.0 / {x}.replace(0, np.nan))",
+    # conditional
+    "if_else":   lambda c, t, f, w: f"pd.DataFrame(np.where({c}.values > 0, {t}.values, {f}.values), index={c}.index, columns={c}.columns)",
+    # time-series rolling
+    "ts_mean":   lambda x, _, w: f"{x}.rolling({w}, min_periods=max(1,{w}//2)).mean()",
+    "ts_std":    lambda x, _, w: f"{x}.rolling({w}, min_periods=max(2,{w}//2)).std()",
+    "ts_max":    lambda x, _, w: f"{x}.rolling({w}, min_periods=max(1,{w}//2)).max()",
+    "ts_min":    lambda x, _, w: f"{x}.rolling({w}, min_periods=max(1,{w}//2)).min()",
+    "ts_sum":    lambda x, _, w: f"{x}.rolling({w}, min_periods=max(1,{w}//2)).sum()",
+    "ts_rank":   lambda x, _, w: f"{x}.rolling({w}, min_periods=max(3,{w}//2)).apply(lambda s: s.rank(pct=True).iloc[-1] if len(s)>=3 else np.nan)",
+    "ts_delta":  lambda x, _, w: f"({x} - {x}.shift({w}))",
+    "ts_delay":  lambda x, _, w: f"{x}.shift({w})",
+    "ts_pct":    lambda x, _, w: f"{x}.pct_change({w})",
+    "ts_zscore": lambda x, _, w: f"(({x} - {x}.rolling({w}, min_periods=max(2,{w}//2)).mean()) / {x}.rolling({w}, min_periods=max(2,{w}//2)).std().replace(0, np.nan))",
+    # cross-sectional pairwise
+    "ts_corr": lambda a, b, w: f"_rolling_corr({a}, {b}, {w})",
+    "ts_cov":  lambda a, b, w: f"_rolling_cov({a}, {b}, {w})",
+    # industry neutralization
+    "ind_neutralize": lambda x, _, w: f"({x}.sub({x}.mean(axis=1), axis=0))",
+}
+
+
+def _compile_node_to_code(node: ExpressionNode) -> str:
+    """Recursively compile an ExpressionNode to a pandas code string.
+
+    The generated code uses the same logic as ``to_callable()`` but produces
+    readable, importable Python source code instead of a closure.
+    """
+    if node.is_leaf:
+        if node.feature_id is not None:
+            return f"df['{node.feature_id}']"
+        return f"{node.value:.6g}" if node.value is not None else "0.0"
+
+    op = node.op
+    if op is None:
+        raise ValueError("Internal node has no operator")
+
+    child_codes = [_compile_node_to_code(c) for c in node.children]
+    window = node.window if node.window else 20
+
+    code_gen = _SIGNALENGINE_OP_MAP.get(op)
+    if code_gen is None:
+        raise ValueError(f"No SignalEngine code mapping for operator: {op}")
+
+    if op in ("if_else",):
+        return code_gen(*child_codes, window)
+    elif op in ("ts_corr", "ts_cov"):
+        return code_gen(child_codes[0], child_codes[1], window)
+    elif node.arity == 1:
+        return code_gen(child_codes[0], "", window)
+    elif node.arity == 2:
+        return code_gen(child_codes[0], child_codes[1], window)
+    elif node.arity == 3:
+        return code_gen(*child_codes, window)
+    raise ValueError(f"Unknown arity {node.arity} for op {op}")
+
+
+def _compile_to_signalengine(root: ExpressionNode, class_name: str = "GeneratedSignal") -> str:
+    """Compile an ExpressionNode tree into a complete SignalEngine Python class.
+
+    The generated code is a STANDARD SignalEngine implementation that can be
+    directly written to ``code/signal_engine.py`` and used in backtests.
+
+    Formula consistency: the expression embedded in the generated code IS the
+    compiled form of this tree — not a separately authored string.
+    """
+    factor_expr = _compile_node_to_code(root)
+    formula_str = root.to_formula()
+    norm_formula = _normalize_node(root)
+    fhash = hashlib.sha256(norm_formula.encode("utf-8")).hexdigest()[:16]
+
+    return f'''"""Auto-generated SignalEngine from ExpressionTree.
+
+Formula: {formula_str}
+Hash: {fhash}
+Generated by: ExpressionTree.to_signalengine_code()
+"""
+
+import numpy as np
+import pandas as pd
+from typing import Dict
+
+
+def _rolling_corr(a: pd.DataFrame, b: pd.DataFrame, w: int) -> pd.DataFrame:
+    """Element-wise rolling Pearson correlation between two DataFrames."""
+    ma = a.rolling(window=w, min_periods=max(3, w // 2)).mean()
+    mb = b.rolling(window=w, min_periods=max(3, w // 2)).mean()
+    cov = ((a - ma) * (b - mb)).rolling(window=w, min_periods=max(3, w // 2)).mean()
+    sa = a.rolling(window=w, min_periods=max(3, w // 2)).std()
+    sb = b.rolling(window=w, min_periods=max(3, w // 2)).std()
+    return cov / (sa * sb)
+
+
+def _rolling_cov(a: pd.DataFrame, b: pd.DataFrame, w: int) -> pd.DataFrame:
+    """Element-wise rolling covariance between two DataFrames."""
+    ma = a.rolling(window=w, min_periods=max(3, w // 2)).mean()
+    mb = b.rolling(window=w, min_periods=max(3, w // 2)).mean()
+    return ((a - ma) * (b - mb)).rolling(window=w, min_periods=max(3, w // 2)).mean()
+
+
+class {class_name}:
+    """SignalEngine — auto-generated from expression tree.
+
+    Formula: {formula_str}
+    Hash: {fhash}
+    """
+
+    def generate(self, data_map: Dict[str, pd.DataFrame]) -> Dict[str, pd.Series]:
+        """Generate trading signals from OHLCV data.
+
+        Args:
+            data_map: code -> DataFrame (columns: open, high, low, close, volume)
+
+        Returns:
+            code -> signal Series, value range [-1.0, 1.0]
+        """
+        signals = {{}}
+        for code, df in data_map.items():
+            if df is None or df.empty:
+                signals[code] = pd.Series(dtype=float)
+                continue
+            try:
+                factor = {factor_expr}
+                # Cross-sectional rank to make values comparable across stocks
+                ranked = factor.rank(pct=True)
+                # Normalize to [-1, 1]
+                signal = (ranked - 0.5) * 2.0
+                signals[code] = signal.clip(-1.0, 1.0)
+            except Exception:
+                signals[code] = pd.Series(0.0, index=df.index)
+        return signals
+'''

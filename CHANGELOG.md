@@ -1,6 +1,59 @@
 # Changelog
 
-## 2026.5.31 (AI Factor Mining + P0-P2 Full Stack)
+## 2026.6.1 (Phase C: LLM+GP+FactorKB + P0-P3 Full Stack)
+
+### Added
+
+- **Phase C: LLM + GP + FactorKB Trinity Alpha Factory** — Full implementation plan + core code
+  - `ExpressionTree` as single source of truth: `formula_hash` (SHA256), `normalized_formula`, `to_signalengine_code()`, `to_callable()` all derived from the same tree
+  - 27 operators with 3-tier progressive unlocking (basic/advanced/alternative) to prevent search space explosion
+  - `enhanced_fitness.py`: multiplicative composite fitness — `rank_ic × cost_penalty × orthogonality_penalty × a_share_penalty × stability × complexity_discount`
+  - A-share-specific penalties: T+1 intraday ×0.5, extreme turnover >200x ×0.3, small-cap extreme exposure ×0.7
+  - FDR multiple testing correction (Benjamini-Hochberg, q=0.05) applied every generation
+  - `hybrid_init.py`: skeleton-seeded population initialization (30% known effective structures + 40% mutations + 30% random) with 10 A-share factor skeletons
+  - `factor_kb.py`: FactorKnowledgeBase — register/query/dedup by formula_hash, lifecycle state machine (discovered→validating→approved→paper_trading→production→deprecated→archived), semantic tag search, mining guidance for theme health analysis
+  - `llm_intervention.py`: LLM-guided evolution with 7 intervention actions (inject_seeds/adjust_mutation/theme_redirect/avoid_redundant/no_op/…), structured prompt with few-shot examples + KB context + Zoo feedback
+  - Ablation study framework: 3-group controlled experiment (Baseline/LLM/Placebo) with Welch's t-test to validate LLM's real contribution
+  - `duckdb_evaluator.py`: DuckDB benchmark gate — 10 typical factors benchmarked, migration only proceeds if >5x speedup
+  - `safety_validator.py`: 3-layer defence — AST whitelist validator + Type signature validator + Runtime circuit breaker (512MB/30s)
+  - Walk-Forward 24-window Purged Cross-Validation with 5-day purge
+  - PAPER_TRADING promotion gate: ≥21 trading days, Sharpe>0.5, turnover gap<1.5x, positive P&L, slippage<15bps
+  - `factor_tools.py`: 4 MCP tools (factor_kb_search / factor_review / factor_mining_start_gp / factor_kb_list) + auto-promotion pipeline
+  - PostgreSQL DDL: 7 tables (vt_factor_knowledge + snapshots + similarities + regime_performance + subtree_cache + archive + activity_log)
+  - `factor_kb_store.py`: pgvector semantic search adapter with graceful PostgreSQL degradation
+  - `dashboard_routes.py`: C4 Dashboard aggregation API — 8 modules in parallel with 5s timeout and per-module graceful degradation
+
+- **Data Source Fixes** — Free A-share data reliability overhaul
+  - Runner fallback logic: now triggers when data doesn't cover requested date range (not just when empty)
+  - `_data_covers_range()` helper with 60-day tolerance for coverage gap detection
+  - `mootdx_loader.py`: already paginated (800-bar chunks, loops until coverage), TDX free server limitation documented
+  - `eastmoney.py`: added `_fetch_one_paginated()` — date-based pagination with `end` parameter, 300-bar chunks, 500-chunk safety cap
+  - `baidu.py`: added truncation detection with warning when server-capped data doesn't cover requested range
+  - System prompt + strategy-generate skill: full data source history depth guide (mootdx ~2-3yr, eastmoney ~10yr+, tencent ~10yr+, etc.)
+  - `pyarrow>=14.0.0` added to requirements for Parquet store support
+
+### Changed
+
+- **GP Engine P0 Upgrades** (`gp_engine.py`)
+  - `_evaluate_individual()`: switched from additive `evaluate_fitness()` to multiplicative `composite_fitness()` with orthogonality checks against KB core factors
+  - `initialize_population()`: switched from pure random to `hybrid_initialize_population()` with auto-extraction of Zoo survivors as additional skeletons
+  - FactorKB auto-registration: top 5 significant individuals per generation auto-registered to KB with formula dedup
+  - FDR correction applied every generation (was: only on final top 10)
+  - Tiered operator unlocking: `evolve()` now accepts `generation` parameter, mutations filtered by operator tier
+  - `GPEvolutionConfig`: 7 new fields (fitness_metric="composite", use_tiered_operators, use_hybrid_init, skeleton_ratio, mutant_ratio, use_kb, fdr_alpha)
+  - KB mining guidance emitted via SSE every 10 generations
+  - `GPEvolution.__init__()`: accepts optional `kb` parameter, auto-loads core factors for orthogonality
+
+- **ExpressionTree Enhancements** (`expression_tree.py`)
+  - `formula_hash` property: SHA256 of canonical normalized formula for dedup
+  - `normalized_formula` property: deterministic form with commutative op sorting, lowercased features, fixed window encoding
+  - `to_signalengine_code()`: compiles tree → deployable SignalEngine Python class
+  - `OPERATOR_TIERS` dict + `get_allowed_operators()`: progressive operator unlocking by generation progress
+  - `_normalize_node()` + `_compile_to_signalengine()`: canonical form generation and code compilation helpers
+
+### Test Coverage
+- `test_formula_consistency.py`: 30 tests covering tree→hash consistency, serialization round-trip, SignalEngine code execution, KB dedup, lifecycle state machine, hybrid init, enhanced fitness, operator tiers, and cross-representation execution consistency
+- All existing 976+ tests pass
 
 ### Added
 

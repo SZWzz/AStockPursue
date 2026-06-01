@@ -318,6 +318,10 @@ v1.include_router(version_router, dependencies=[Depends(require_auth)])
 from src.api.live_bridge_routes import router as live_bridge_router  # noqa: E402
 v1.include_router(live_bridge_router, dependencies=[Depends(require_auth)])
 
+# --- P3 Dashboard routes ---
+from src.api.dashboard_routes import router as dashboard_router  # noqa: E402
+v1.include_router(dashboard_router, dependencies=[Depends(require_auth)])
+
 from src.api.marketplace_routes import router as marketplace_router  # noqa: E402
 v1.include_router(marketplace_router, dependencies=[Depends(require_auth)])
 

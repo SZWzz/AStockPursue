@@ -10,8 +10,8 @@
   <img src="https://img.shields.io/badge/Factors-450+-orange?style=flat-square" alt="Alpha Factors">
   <img src="https://img.shields.io/badge/Data_Sources-23-blue?style=flat-square" alt="Data Sources">
   <img src="https://img.shields.io/badge/AI_Skills-89-purple?style=flat-square" alt="AI Skills">
-  <img src="https://img.shields.io/badge/MCP_Tools-31-teal?style=flat-square" alt="MCP Tools">
-  <img src="https://img.shields.io/badge/Version-2026.5.31-blueviolet?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/MCP_Tools-35-teal?style=flat-square" alt="MCP Tools">
+  <img src="https://img.shields.io/badge/Version-2026.6.1-blueviolet?style=flat-square" alt="Version">
 </p>
 
 <h1 align="center">🚀 AStockPursue</h1>
@@ -78,7 +78,8 @@ Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT Licen
 ### 🧬 Factors & Data
 - **Alpha Zoo** — 450+ quantitative factors across 4 families (Alpha101 / GTJA191 / Qlib158 / Academic), user-defined promotion, benchmark scoring with IC/IR
 - **23 Data Sources** — CN / HK / US / Crypto / Futures / Forex / Indices / Commodities
-- **8-Source A-Share Fallback Chain** — `mootdx → tushare → eastmoney → tencent → futu → baidu → twelvedata → akshare`
+- **8-Source A-Share Intelligent Fallback** — `mootdx → tushare → eastmoney → tencent → futu → baidu → twelvedata → akshare`; auto-fallback when data range insufficient
+- **Source History Depth Guide** — mootdx ~2-3yr (fastest), eastmoney ~10yr+ (free long history), tencent ~10yr+ (real-time quotes), tushare 1990-present (needs token)
 - **3-Tier Data Access** — PostgreSQL cache → Parquet local store → API, with incremental updates and health-aware auto-routing
 - **Non-OHLCV Data** — Dragon Tiger Board / lockup expiry / margin trading / block trades / fund flow (minute + 120d daily) / hot stocks + theme attribution / northbound capital / market sentiment
 - **Correlation Matrix** — Cross-market correlation (Pearson/Spearman), AI analysis + save to session
@@ -97,14 +98,19 @@ Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT Licen
 </tr>
 </table>
 
-### 🧬 AI Factor Mining *(NEW)*
-- **Genetic Programming Engine** — Expression tree evolution with 20+ operators, tournament selection, subtree crossover & mutation, complexity penalty (AIC/BIC)
-- **Walk-Forward Validation** — Rolling OOS windows replace simple train/test split; final fitness = mean(OOS IC) − w·std(OOS IC)
-- **Benjamini-Hochberg Correction** — Multiple testing adjustment across all candidates; only `adjusted_p < 0.05` marked as statistically significant
-- **LLM-Guided Discovery** — Extract factor formulas from research PDFs; cross-market factor transfer; multi-LLM debate filtering with JSON Schema enforcement
-- **Hybrid GP+LLM** — LLM reviews GP population, suggests search directions, filters nonsensical formulas; rate-limited for cost control
-- **Factor Promotion** — One-click promote validated factors into Alpha Zoo with auto-generated `__alpha_meta__` + `compute(panel)` code
-- **Live Evolution Chart** — Real-time IC curve per generation via SSE streaming; expression tree visualizer; candidates table with validate/promote/delete
+### 🧬 AI Factor Mining — Phase C: LLM+GP+FactorKB Trinity *(Major Upgrade)*
+- **Genetic Programming Engine** — 27 operators × 3-tier progressive unlocking (basic→advanced→alternative), tournament selection, subtree crossover & mutation, hybrid skeleton initialization (30% known structures + 40% mutations + 30% random)
+- **Multiplicative Composite Fitness** — `IC × cost_penalty × orthogonality × A-share_specific × stability × complexity_discount` — one bad dimension zeros the entire fitness
+- **A-Share Specific Penalties** — T+1 intraday signal ×0.5, annual turnover >200× → ×0.3, small-cap extreme exposure ×0.7
+- **FDR Every Generation** — Benjamini-Hochberg correction (q=0.05) applied to the full population each generation
+- **FactorKB Knowledge Base** — Factor registration with SHA256 formula_hash dedup, semantic tag search, lifecycle state machine (discovered→validating→approved→paper_trading→production→deprecated→archived)
+- **LLM-Guided Evolution** — LLM analyzes population every 5 generations, 7 intervention actions (seed injection/theme redirect/mutation adjustment/dedup); ablation study framework (Baseline vs LLM vs Placebo) validates LLM's real contribution
+- **ExpressionTree Single Source of Truth** — `formula_hash`/`normalized_formula`/SignalEngine code all derived from the same tree — zero formula inconsistency
+- **Walk-Forward 24-Window** — Purged cross-validation with 5-day gap, semi-annual OOS, >60% windows must pass
+- **PAPER_TRADING Gate** — ≥21 trading days, Sharpe>0.5, turnover gap<1.5×, positive P&L, slippage<15bps before production promotion
+- **3-Layer Safety Defence** — AST whitelist → type signature validation → runtime circuit breaker (512MB/30s)
+- **MCP Tools** — `factor_kb_search` / `factor_review` / `factor_mining_start_gp` / `factor_kb_list`
+- **Live Evolution Chart** — Real-time IC curve per generation via SSE + KB registration stats + operator tier progress
 
 ### 🔍 Smart Stock Screener *(NEW)*
 - **Multi-Condition Filtering** — 450+ Alpha Zoo factors + 11 technical indicators as filterable fields

@@ -10,8 +10,8 @@
   <img src="https://img.shields.io/badge/因子库-450+-orange?style=flat-square" alt="因子数">
   <img src="https://img.shields.io/badge/数据源-23-blue?style=flat-square" alt="数据源">
   <img src="https://img.shields.io/badge/AI技能-89-purple?style=flat-square" alt="AI 技能">
-  <img src="https://img.shields.io/badge/MCP工具-31-teal?style=flat-square" alt="MCP 工具">
-  <img src="https://img.shields.io/badge/版本-2026.5.31-blueviolet?style=flat-square" alt="版本">
+  <img src="https://img.shields.io/badge/MCP工具-35-teal?style=flat-square" alt="MCP 工具">
+  <img src="https://img.shields.io/badge/版本-2026.6.1-blueviolet?style=flat-square" alt="版本">
 </p>
 
 <h1 align="center">🚀 AStockPursue</h1>
@@ -78,7 +78,8 @@
 ### 🧬 因子 & 数据
 - **Alpha 因子库** — 450+ 量化因子，4 大家族（Alpha101 / GTJA191 / Qlib158 / Academic），支持用户自定义提升，IC/IR 基准评分
 - **23 个数据源** — A 股 / 港股 / 美股 / 加密货币 / 期货 / 外汇 / 指数 / 大宗商品全覆盖
-- **A 股 8 源回退链** — `mootdx → tushare → eastmoney → tencent → futu → baidu → twelvedata → akshare`
+- **A 股 8 源智能回退链** — `mootdx → tushare → eastmoney → tencent → futu → baidu → twelvedata → akshare`，数据范围不足时自动触发回退
+- **各源历史深度指南** — mootdx ~2-3年（最快），eastmoney ~10+年（免费长历史），tencent ~10+年（实时行情），tushare 1990-至今（需 Token）
 - **三级数据访问** — PG 缓存 → Parquet 本地存储 → API 实时拉取，增量更新 + 健康度感知自动路由
 - **非 OHLCV 数据** — 龙虎榜 / 限售解禁 / 融资融券 / 大宗交易 / 资金流（分钟+120日日级） / 强势股题材归因 / 北向资金 / 市场情绪
 - **相关性矩阵** — 多市场交叉相关性 (Pearson/Spearman)，AI 分析 + 保存到会话
@@ -97,14 +98,20 @@
 </tr>
 </table>
 
-### 🧬 AI 因子挖掘 *(新增)*
-- **遗传规划引擎** — 表达式树演化，20+ 算子，锦标赛选择，子树交叉变异，复杂度惩罚（AIC/BIC）
-- **Walk-Forward 验证** — 滚动样本外窗口替代简单切分，适应度 = mean(OOS IC) − w·std(OOS IC)
-- **Benjamini-Hochberg 校正** — 多重检验校正，仅 `adjusted_p < 0.05` 标记为统计显著
-- **LLM 驱动发现** — 从研报 PDF 提取因子公式；跨市场因子迁移；多 LLM 辩论筛选 + JSON Schema 强约束
-- **混合 GP+LLM** — LLM 审查 GP 种群，建议搜索方向，过滤无意义公式；内置频率和 Token 预算控制
-- **一键入库** — 验证通过的因子自动生成 `__alpha_meta__` + `compute(panel)` 代码，入库 Alpha Zoo
-- **演化直播图表** — SSE 实时推送每代 IC 曲线；表达式树可视化；候选因子管理面板
+### 🧬 AI 因子挖掘 — Phase C: LLM+GP+FactorKB 三位一体 *(重大升级)*
+- **遗传规划引擎** — 27 算子 × 3 级渐进解锁（基础→进阶→另类），锦标赛选择，子树交叉变异，混合骨架初始化（30%已知结构+40%变异+30%随机）
+- **乘性复合适应度** — `IC × 成本惩罚 × 正交化 × A股特化 × 稳定性 × 复杂度折扣`，一个维度差直接归零
+- **A 股特化惩罚** — T+1 日内信号×0.5、年化换手>200×→×0.3、小盘极端暴露×0.7
+- **FDR 每代校正** — Benjamini-Hochberg 多重检验校正（q=0.05），每代对全种群执行
+- **FactorKB 知识库** — 因子注册/公式哈希去重/语义标签搜索/生命周期状态机（发现→验证→批准→模拟盘→生产→淘汰→归档）
+- **LLM 指导进化** — 每 5 代 LLM 分析种群，7 种干预动作（种子注入/主题重定向/变异率调整/去重）；消融实验框架（Baseline vs LLM vs Placebo）验证 LLM 真实贡献
+- **表达式树单一真相源** — `formula_hash`/`normalized_formula`/SignalEngine 代码均从同一棵树派生，杜绝公式不一致
+- **Walk-Forward 24 窗** — Purged 交叉验证，5 天间隔防止信息泄露，半年度样本外
+- **PAPER_TRADING 门禁** — 模拟盘≥21 个交易日验证，换手偏差<1.5×，Sharpe>0.5，正收益
+- **三层安全防线** — AST 白名单 → 类型签名校验 → 运行时熔断（512MB/30s）
+- **模拟盘验证** — 因子入库前必须通过模拟盘≥21 交易日验证
+- **MCP 工具** — `factor_kb_search` / `factor_review` / `factor_mining_start_gp` / `factor_kb_list`
+- **演化直播图表** — SSE 实时推送每代 IC 曲线 + KB 注册统计 + 算子解锁进度
 
 ### 🔍 智能选股筛选器 *(新增)*
 - **多条件筛选** — 450+ Alpha Zoo 因子 + 11 个技术指标作为可筛选字段
