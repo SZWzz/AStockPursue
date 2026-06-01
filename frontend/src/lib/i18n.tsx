@@ -889,6 +889,16 @@ const en = {
   dashRecentActivity: "Recent Activity",
   dashLoading: "Loading dashboard…",
   dashStale: "Some data may be stale",
+  // DataSource management
+  dsTitle: "Data Source Management", dsSubtitle: "Monitor, configure, and manage all registered data loaders",
+  dsRefresh: "Refresh", dsLastCheck: "Last check",
+  dsAuthRequired: "Auth Required", dsAvailable: "Available", dsUnavailable: "Unavailable",
+  dsApiKey: "API Key / Token", dsSave: "Save", dsEnterKey: "Enter API key…",
+  dsTestConnection: "Test Connection", dsTesting: "Testing…",
+  dsClearCache: "Clear Cache", dsClearing: "Clearing…",
+  dsConnectionOk: "Connected", dsConnectionFailed: "Connection failed",
+  dsNoData: "No data source information available. Ensure the backend API is connected.",
+  dsLoading: "Loading…",
 } as const;
 
 const zh: Messages = {
@@ -1780,6 +1790,16 @@ const zh: Messages = {
   dashRecentActivity: "最近动态",
   dashLoading: "加载仪表盘…",
   dashStale: "部分数据可能已过期",
+  // DataSource management
+  dsTitle: "数据源管理", dsSubtitle: "监控、配置和管理所有已注册的数据加载器",
+  dsRefresh: "刷新", dsLastCheck: "最后检查",
+  dsAuthRequired: "需认证", dsAvailable: "可用", dsUnavailable: "不可用",
+  dsApiKey: "API Key / Token", dsSave: "保存", dsEnterKey: "输入 API Key…",
+  dsTestConnection: "测试连接", dsTesting: "测试中…",
+  dsClearCache: "清除缓存", dsClearing: "清除中…",
+  dsConnectionOk: "连接成功", dsConnectionFailed: "连接失败",
+  dsNoData: "暂无数据源信息。请确保后端 API 正常连接。",
+  dsLoading: "加载中…",
 };
 
 type Messages = Record<keyof typeof en, string>;

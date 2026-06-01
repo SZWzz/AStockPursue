@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Activity, CheckCircle, XCircle, AlertTriangle, RefreshCw, Database, Zap, Eye, EyeOff, Trash2, Wifi } from "lucide-react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
 import type { DataSourceLoaderStatus } from "@/types/api";
 
 const MARKET_LABELS: Record<string, string> = {
@@ -12,6 +13,7 @@ const MARKET_LABELS: Record<string, string> = {
 const AUTH_SOURCE_NAMES = ["tushare", "twelvedata", "finnhub", "futu"];
 
 export default function DataSourceStatus() {
+  const { t } = useI18n();
   const [sources, setSources] = useState<DataSourceLoaderStatus[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastCheck, setLastCheck] = useState("");
@@ -48,9 +50,9 @@ export default function DataSourceStatus() {
       const key = keys[name] || "";
       const res = await fetch(`/api/v1/data-sources/${name}/test?api_key=${encodeURIComponent(key)}`, { method: "POST" });
       const data = await res.json();
-      setTestResults(prev => ({ ...prev, [name]: { ok: res.ok, msg: data.message || data.error || (res.ok ? "Connected" : "Failed") } }));
+      setTestResults(prev => ({ ...prev, [name]: { ok: res.ok, msg: data.message || data.error || (res.ok ? t.dsConnectionOk : t.dsConnectionFailed) } }));
     } catch (e: any) {
-      setTestResults(prev => ({ ...prev, [name]: { ok: false, msg: e.message || "Connection failed" } }));
+      setTestResults(prev => ({ ...prev, [name]: { ok: false, msg: e.message || t.dsConnectionFailed } }));
     } finally {
       setTesting(prev => ({ ...prev, [name]: false }));
     }
@@ -90,23 +92,23 @@ export default function DataSourceStatus() {
     <div className="max-w-4xl mx-auto p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold">Data Source Management</h1>
+          <h1 className="text-xl font-bold">{t.dsTitle}</h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Monitor, configure, and manage all registered data loaders
-            {lastCheck && <span className="ml-2">· Last check: {lastCheck}</span>}
+            {t.dsSubtitle}
+            {lastCheck && <span className="ml-2">· {t.dsLastCheck}: {lastCheck}</span>}
           </p>
         </div>
         <button onClick={fetchStatus} disabled={loading}
           className="px-3 py-2 bg-primary text-primary-foreground rounded-lg text-sm flex items-center gap-1.5 hover:opacity-90 disabled:opacity-50">
           <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-          Refresh
+          {t.dsRefresh}
         </button>
       </div>
 
       {loading && sources.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">
           <Activity className="w-8 h-8 mx-auto mb-2 animate-pulse" />
-          Loading…
+          {t.dsLoading}
         </div>
       ) : (
         Object.entries(grouped).map(([market, loaders]) => (
@@ -144,7 +146,7 @@ export default function DataSourceStatus() {
                       <div className="flex items-center gap-2 text-xs">
                         {needsAuth && (
                           <span className="px-2 py-0.5 bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 rounded-full">
-                            Auth Required
+                            {t.dsAuthRequired}
                           </span>
                         )}
                         <span className={`px-2 py-0.5 rounded-full ${
@@ -152,7 +154,7 @@ export default function DataSourceStatus() {
                             ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                             : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                         }`}>
-                          {l.available ? "Available" : "Unavailable"}
+                          {l.available ? t.dsAvailable : t.dsUnavailable}
                         </span>
                       </div>
                     </div>
@@ -163,14 +165,14 @@ export default function DataSourceStatus() {
                         {/* API Key for sources that need auth */}
                         {needsAuth && (
                           <div>
-                            <label className="text-xs font-medium text-muted-foreground">API Key / Token</label>
+                            <label className="text-xs font-medium text-muted-foreground">{t.dsApiKey}</label>
                             <div className="flex gap-2 mt-1">
                               <div className="relative flex-1">
                                 <input
                                   type={showKey[l.name] ? "text" : "password"}
                                   value={keys[l.name] || ""}
                                   onChange={e => setKeys(prev => ({ ...prev, [l.name]: e.target.value }))}
-                                  placeholder="Enter API key…"
+                                  placeholder={t.dsEnterKey}
                                   className="w-full text-xs px-3 py-1.5 border rounded-lg bg-background"
                                   onClick={e => e.stopPropagation()}
                                 />
@@ -185,7 +187,7 @@ export default function DataSourceStatus() {
                                 onClick={e => { e.stopPropagation(); handleSaveKey(l.name); }}
                                 className="px-3 py-1.5 bg-primary text-primary-foreground rounded-lg text-xs"
                               >
-                                Save
+                                {t.dsSave}
                               </button>
                             </div>
                             {AUTH_SOURCE_NAMES.includes(l.name) && (
@@ -214,7 +216,7 @@ export default function DataSourceStatus() {
                             className="inline-flex items-center gap-1 px-3 py-1.5 border rounded-lg text-xs hover:bg-accent disabled:opacity-50"
                           >
                             <Wifi className="w-3 h-3" />
-                            {testing[l.name] ? "Testing…" : "Test Connection"}
+                            {testing[l.name] ? t.dsTesting : t.dsTestConnection}
                           </button>
                           <button
                             onClick={e => { e.stopPropagation(); handleClearCache(l.name); }}
@@ -222,7 +224,7 @@ export default function DataSourceStatus() {
                             className="inline-flex items-center gap-1 px-3 py-1.5 border rounded-lg text-xs hover:bg-accent disabled:opacity-50 text-red-600"
                           >
                             <Trash2 className="w-3 h-3" />
-                            {clearing[l.name] ? "Clearing…" : "Clear Cache"}
+                            {clearing[l.name] ? t.dsClearing : t.dsClearCache}
                           </button>
                         </div>
                       </div>
@@ -238,7 +240,7 @@ export default function DataSourceStatus() {
       {!loading && sources.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
           <Zap className="w-8 h-8 mx-auto mb-2" />
-          No data source information available. Ensure the backend API is connected.
+          {t.dsNoData}
         </div>
       )}
     </div>
