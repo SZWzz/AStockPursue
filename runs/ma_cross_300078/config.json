@@ -1,0 +1,10 @@
+{
+  "codes": ["300078.SZ"],
+  "start_date": "2020-01-01",
+  "end_date": "2025-12-31",
+  "source": "tencent",
+  "interval": "1D",
+  "engine": "daily",
+  "initial_cash": 100000,
+  "benchmark": "auto"
+}
