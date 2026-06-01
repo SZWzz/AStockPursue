@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import { request } from "@/lib/api";
 import {
   TrendingUp, Database, Newspaper, Microscope,
   Zap, BarChart3, Target, Search,
@@ -329,9 +330,7 @@ export function Dashboard() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/v1/dashboard/overview?user_id=1");
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const json = await res.json();
+      const json = await request<DashboardData>("/dashboard/overview?user_id=1");
       setData(json);
     } catch (e: any) {
       setError(e.message || "Failed to load dashboard");
