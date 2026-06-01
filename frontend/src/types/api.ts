@@ -558,8 +558,12 @@ export interface GpConfig {
   tournament_size: number;
   crossover_prob: number;
   mutation_prob: number;
-  fitness_metric: "ic_mean" | "rank_ic" | "sharpe";
+  fitness_metric: "ic_mean" | "rank_ic" | "sharpe" | "composite";
   complexity_penalty: "aic" | "bic" | "none";
+  use_tiered_operators?: boolean;
+  use_hybrid_init?: boolean;
+  use_kb?: boolean;
+  fdr_alpha?: number;
   train_start: string;
   train_end: string;
   test_start: string;

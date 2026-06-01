@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, BookOpen, Bot, Database, GitCompare, Menu, Moon, Newspaper, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users, X, Microscope, Filter, PieChart, Clock, Store, CircleDollarSign } from "lucide-react";
+import { BarChart3, BookOpen, Bot, Database, GitCompare, LayoutDashboard, Menu, Moon, Newspaper, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users, X, Microscope, Filter, PieChart, Clock, Store, CircleDollarSign } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useDarkMode } from "@/hooks/useDarkMode";
@@ -10,10 +10,11 @@ import { useAuthStore } from "@/stores/auth";
 import { ConnectionBanner } from "@/components/layout/ConnectionBanner";
 import { PostLoginSetup } from "@/components/layout/PostLoginSetup";
 
-const APP_VERSION = "v2026.5.31";
+const APP_VERSION = "v2026.6.1";
 
 const NAV = [
-  { to: "/", icon: Bot, key: "home" as const, label: null },
+  { to: "/", icon: LayoutDashboard, key: "home" as const, label: "Dashboard" },
+  { to: "/agent", icon: Bot, key: "home" as const, label: "Agent" },
   { to: "/indicator-lab", icon: FlaskConical, key: "indicatorLab" as const, label: null },
   { to: "/strategy-lab", icon: Target, key: "strategyLab" as const, label: null },
   { to: "/paper-trading", icon: TrendingUp, key: "paperTrading" as const, label: null },

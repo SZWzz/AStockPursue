@@ -3,6 +3,7 @@ import { createBrowserRouter } from "react-router-dom";
 import { Layout } from "@/components/layout/Layout";
 import { AuthGuard } from "@/components/auth/AuthGuard";
 
+const Dashboard = lazy(() => import("@/pages/Dashboard").then((m) => ({ default: m.Dashboard })));
 const Agent = lazy(() => import("@/pages/Agent").then((m) => ({ default: m.Agent })));
 const RunDetail = lazy(() =>
   import("@/pages/RunDetail").then((m) => ({ default: m.RunDetail })),
@@ -89,7 +90,8 @@ export const router = createBrowserRouter([
   {
     element: <AuthGuard><Layout /></AuthGuard>,
     children: [
-      { path: "/", element: wrap(Agent) },
+      { path: "/", element: wrap(Dashboard) },
+      { path: "/agent", element: wrap(Agent) },
       { path: "/settings", element: wrap(Settings) },
       { path: "/runs/:runId", element: wrap(RunDetail) },
       { path: "/compare", element: wrap(Compare) },

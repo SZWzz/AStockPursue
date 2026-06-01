@@ -17,21 +17,24 @@ import { Zap, FlaskConical, HelpCircle } from "lucide-react";
 
 type TabKey = "gp" | "llm" | "hybrid" | "candidates" | "history" | "compare";
 
-// ── GP Config Presets ──────────────────────────────────────────────
+// ── GP Config Presets (Phase C P0) ─────────────────────────────────
 const GP_PRESETS = [
   {
     key: "quick",
     label: "Quick Explore",
     icon: "⚡",
-    desc: "Fast discovery, 10 generations",
+    desc: "Fast discovery, 10 gens, composite fitness",
     config: {
       population_size: 50,
       generations: 10,
       tournament_size: 5,
       crossover_prob: 0.7,
       mutation_prob: 0.25,
-      fitness_metric: "ic_mean" as const,
+      fitness_metric: "composite" as const,
       complexity_penalty: "bic" as const,
+      use_tiered_operators: true,
+      use_hybrid_init: true,
+      use_kb: true,
       train_start: "2024-01-01",
       train_end: "2024-12-31",
       test_start: "2025-01-01",
@@ -42,15 +45,18 @@ const GP_PRESETS = [
     key: "standard",
     label: "Standard",
     icon: "🧬",
-    desc: "Balanced evolution, 30 generations",
+    desc: "Balanced evolution, 30 gens, composite + KB",
     config: {
       population_size: 100,
       generations: 30,
       tournament_size: 7,
       crossover_prob: 0.7,
       mutation_prob: 0.2,
-      fitness_metric: "ic_mean" as const,
+      fitness_metric: "composite" as const,
       complexity_penalty: "bic" as const,
+      use_tiered_operators: true,
+      use_hybrid_init: true,
+      use_kb: true,
       train_start: "2023-01-01",
       train_end: "2024-12-31",
       test_start: "2025-01-01",
@@ -61,15 +67,19 @@ const GP_PRESETS = [
     key: "deep",
     label: "Deep Search",
     icon: "🔬",
-    desc: "Thorough exploration, 100 generations",
+    desc: "Thorough exploration, 100 gens, composite + tiers",
     config: {
       population_size: 200,
       generations: 100,
       tournament_size: 10,
       crossover_prob: 0.65,
       mutation_prob: 0.15,
-      fitness_metric: "rank_ic" as const,
+      fitness_metric: "composite" as const,
       complexity_penalty: "bic" as const,
+      use_tiered_operators: true,
+      use_hybrid_init: true,
+      use_kb: true,
+      fdr_alpha: 0.05,
       train_start: "2020-01-01",
       train_end: "2024-12-31",
       test_start: "2025-01-01",
@@ -93,15 +103,19 @@ export function FactorMining() {
   const store = useFactorMiningStore();
   const [activeTab, setActiveTab] = useState<TabKey>("gp");
 
-  // GP config state
+  // GP config state (Phase C P0: composite fitness, tiers, hybrid init, KB)
   const [gpConfig, setGpConfig] = useState({
     population_size: 100,
     generations: 30,
     tournament_size: 7,
     crossover_prob: 0.7,
     mutation_prob: 0.2,
-    fitness_metric: "ic_mean" as "ic_mean" | "rank_ic" | "sharpe",
+    fitness_metric: "composite" as "composite" | "ic_mean" | "rank_ic" | "sharpe",
     complexity_penalty: "bic" as "aic" | "bic" | "none",
+    use_tiered_operators: true,
+    use_hybrid_init: true,
+    use_kb: true,
+    fdr_alpha: 0.05,
     train_start: "2023-01-01",
     train_end: "2024-12-31",
     test_start: "2025-01-01",
