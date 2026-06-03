@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/数据源-23-blue?style=flat-square" alt="数据源">
   <img src="https://img.shields.io/badge/AI技能-89-purple?style=flat-square" alt="AI 技能">
   <img src="https://img.shields.io/badge/MCP工具-35-teal?style=flat-square" alt="MCP 工具">
-  <img src="https://img.shields.io/badge/版本-2026.6.1-blueviolet?style=flat-square" alt="版本">
+  <img src="https://img.shields.io/badge/版本-2026.6.3-blueviolet?style=flat-square" alt="版本">
 </p>
 
 <h1 align="center">🚀 AStockPursue</h1>
@@ -171,7 +171,9 @@
 ### 🎓 入门向导 *(新增)*
 - **6 步引导** — 欢迎 → LLM 配置 → 数据源 → 自选股 → 首个策略 → 完成
 - **自动检测** — 检查已有配置，自动跳过已完成步骤
-- **可跳过** — 一键跳过，localStorage 记���状态
+- **可跳过** — 一键跳过，localStorage 记忆状态
+
+## 🛠 技术栈
 
 | 层级 | 技术 |
 |-------|-------|

@@ -10,7 +10,7 @@ import { useAuthStore } from "@/stores/auth";
 import { ConnectionBanner } from "@/components/layout/ConnectionBanner";
 import { PostLoginSetup } from "@/components/layout/PostLoginSetup";
 
-const APP_VERSION = "v2026.6.1";
+const APP_VERSION = "v2026.6.3";
 
 const NAV = [
   { to: "/", icon: LayoutDashboard, key: "home" as const, label: "Dashboard" },

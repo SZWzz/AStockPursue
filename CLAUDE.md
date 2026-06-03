@@ -135,6 +135,16 @@ Per-user: orders (PG `user_id` FK), broker context (independent FutuOpenD cache)
 
 ## Development Rules
 
+### Version Date Check
+
+**Before every commit and push, verify that the project version matches the current date.**  The version string is defined in `frontend/src/components/layout/Layout.tsx` as `APP_VERSION` (format: `vYYYY.M.D`).  Update it to match today's date if it is stale.  For example, if today is 2026-06-03, the version should be `v2026.6.3`.
+
+```
+APP_VERSION = "v2026.6.3"   // <-- update before commit if today's date doesn't match
+```
+
+This ensures the version number reflects when the code was actually shipped.
+
 ### Changelog Maintenance
 
 **Every change must be recorded in `CHANGELOG.md`.**  This is non-negotiable.  The changelog follows [Keep a Changelog](https://keepachangelog.com/) conventions:

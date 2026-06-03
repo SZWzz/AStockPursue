@@ -11,7 +11,7 @@
   <img src="https://img.shields.io/badge/Data_Sources-23-blue?style=flat-square" alt="Data Sources">
   <img src="https://img.shields.io/badge/AI_Skills-89-purple?style=flat-square" alt="AI Skills">
   <img src="https://img.shields.io/badge/MCP_Tools-35-teal?style=flat-square" alt="MCP Tools">
-  <img src="https://img.shields.io/badge/Version-2026.6.1-blueviolet?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/Version-2026.6.3-blueviolet?style=flat-square" alt="Version">
 </p>
 
 <h1 align="center">🚀 AStockPursue</h1>
