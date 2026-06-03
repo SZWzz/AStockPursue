@@ -76,6 +76,17 @@ export function MiningProgressCard({
           </span>
         )}
       </div>
+
+      {/* Prominent warning when running on mock data */}
+      {dataSource === "mock" && status === "running" && (
+        <div className="mb-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-700 dark:text-amber-400">
+          <strong>⚠ Running on MOCK data</strong> — no real OHLCV data could be loaded.
+          All factor IC values will be ≈ 0, and generations will produce identical results.
+          Check that DataStore is configured and data sources (mootdx/eastmoney) are reachable.
+          {dataSourceDetail && <div className="mt-1 text-[10px] opacity-70">Reason: {dataSourceDetail}</div>}
+        </div>
+      )}
+
       {status === "running" && (
         <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
           <div
