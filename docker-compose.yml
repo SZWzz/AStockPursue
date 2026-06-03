@@ -15,6 +15,7 @@ services:
       - astockpursue-runs:/app/agent/runs
       - astockpursue-sessions:/app/agent/sessions
       - astockpursue-skills:/root/.AStockPursue/skills
+      - /opt/data:/opt/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8899/health"]
