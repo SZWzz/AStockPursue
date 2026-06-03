@@ -54,6 +54,9 @@ interface ScreenerState {
   loadFields: () => Promise<void>;
   setMode: (mode: "filter" | "rank" | "score") => void;
   setTopN: (n: number) => void;
+  setUniverse: (codes: string[]) => void;
+  applyPreset: (preset: Preset) => void;
+  applyAiRecommend: (combo: { factors?: string[]; conditions?: ScreenCondition[]; name?: string }) => void;
 }
 
 export const useScreenerStore = create<ScreenerState>((set, get) => ({
@@ -79,6 +82,28 @@ export const useScreenerStore = create<ScreenerState>((set, get) => ({
 
   setMode: (mode) => set({ mode }),
   setTopN: (n) => set({ topN: n }),
+  setUniverse: (codes: string[]) => set({ universe: codes }),
+
+  applyPreset: (preset: Preset) => {
+    set({
+      conditions: preset.conditions || [{ field: "close", operator: ">", value: 0 }],
+      universe: preset.universe || [],
+    });
+  },
+
+  applyAiRecommend: (combo: { factors?: string[]; conditions?: ScreenCondition[]; name?: string }) => {
+    if (combo.factors && combo.factors.length > 0) {
+      const conditions: ScreenCondition[] = combo.factors.map((f) => ({
+        field: f,
+        operator: ">",
+        value: 0,
+      }));
+      set({ conditions: conditions.length > 0 ? conditions : [{ field: "close", operator: ">", value: 0 }] });
+    }
+    if (combo.conditions && combo.conditions.length > 0) {
+      set({ conditions: combo.conditions });
+    }
+  },
 
   runScreen: async () => {
     set({ loading: true });

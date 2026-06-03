@@ -182,7 +182,8 @@ class ScreenerEngine:
         import pandas as pd
         today = pd.Timestamp.now()
         end_date = date or today.strftime("%Y-%m-%d")
-        start_date = (pd.Timestamp(end_date) - pd.Timedelta(days=120)).strftime("%Y-%m-%d")
+        # 70 calendar days (~50 trading days) — enough for sma_60 + RSI(14) + buffer
+        start_date = (pd.Timestamp(end_date) - pd.Timedelta(days=70)).strftime("%Y-%m-%d")
 
         try:
             from backtest.data_store import get_data_store
@@ -244,7 +245,12 @@ class ScreenerEngine:
         for c in conditions:
             self._validate_condition(c)
 
-        universe = universe or [f"STOCK_{i:03d}" for i in range(50)]
+        # Require a real universe — never fall back to mock symbols silently
+        if not universe:
+            return pd.DataFrame({
+                "symbol": [], "name": [], "_data_source": ["error"],
+                "_error": ["No universe selected — please choose a stock universe (e.g. 沪深300)"],
+            })
 
         # Try loading real data
         panel, data_source = self._load_market_data(universe, date)
