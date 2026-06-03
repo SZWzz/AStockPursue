@@ -38,12 +38,14 @@ logger = logging.getLogger(__name__)
 # A-share trading cost constants
 # ---------------------------------------------------------------------------
 
-# Commission: 0.03 bps bilateral (万三)
+# [P0-04 fix] Commission: 万三 = 3 bps per side (not 0.3 bps).
+# Previously 0.3 was 10x too low, making high-turnover strategies appear far
+# more profitable than in reality.
 # Stamp duty: 5 bps on sell only (千分之一，仅卖出)
 # Total round-trip cost per trade in bps
-A_SHARE_COMMISSION_BPS = 0.3   # 佣金 万三
+A_SHARE_COMMISSION_BPS = 3.0   # 佣金 万三 = 3 bps
 A_SHARE_STAMP_DUTY_BPS = 5.0   # 印花税 千一（仅卖出）
-A_SHARE_ROUNDTRIP_COST_BPS = A_SHARE_COMMISSION_BPS * 2 + A_SHARE_STAMP_DUTY_BPS  # ≈ 5.6 bps
+A_SHARE_ROUNDTRIP_COST_BPS = A_SHARE_COMMISSION_BPS * 2 + A_SHARE_STAMP_DUTY_BPS  # = 11 bps
 
 # Annual cost thresholds
 MAX_ACCEPTABLE_ANNUAL_COST_BPS = 500  # > 500bps annual cost → penalty → 0

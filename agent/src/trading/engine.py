@@ -293,11 +293,6 @@ class TradingEngine:
             if c in bar:
                 self._market.on_bar(c, bar[c], timestamp)
 
-        # [P1-2 fix] Record ALL bars for data continuity — even suspended stocks.
-        # Previously only active bars were appended, so a stock resuming from
-        # suspension had a gap in its data_map history, breaking rolling windows.
-        self._record_bars(bar)
-
         # 1. Generate signals (or use precomputed).  Suspended symbols are filtered
         #    so the strategy never sees them and cannot generate trades on halted stock.
         active_bar = {c: s for c, s in bar.items() if not self._suspended.get(c)}
@@ -306,6 +301,11 @@ class TradingEngine:
             weights = {c: w for c, w in precomputed_weights.items() if c in active_codes}
         else:
             weights = self._generate_signals(active_bar) if active_bar else {}
+
+        # [P1-2 fix] Record ALL bars for data continuity — even suspended stocks.
+        # MUST come AFTER _generate_signals to prevent look-ahead bias: the strategy
+        # must never see the current bar's data when generating signals.
+        self._record_bars(bar)
 
         # 1.5 Online optimizer (Phase 2)
         if self._optimizer is not None and weights:
@@ -426,7 +426,14 @@ class TradingEngine:
             if hasattr(row, "name") and row.name is not None:
                 ts = row.name
             elif len(df) > 0:
-                ts = df.index[-1] + pd.Timedelta(days=1)
+                # [P1-01 fix] Infer frequency from existing index instead of
+                # assuming daily bars.  For intraday data, df.index[-1] + 1day
+                # would corrupt the timeline.
+                freq = pd.infer_freq(df.index[-5:]) if len(df) >= 3 else None
+                if freq is not None:
+                    ts = df.index[-1] + pd.tseries.frequencies.to_offset(freq)
+                else:
+                    ts = df.index[-1] + pd.Timedelta(days=1)
             else:
                 ts = pd.Timestamp.now()
             new_row = pd.DataFrame([row], index=[ts])

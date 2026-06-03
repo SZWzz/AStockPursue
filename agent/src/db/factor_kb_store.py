@@ -54,7 +54,11 @@ class FactorKBStore:
     # ------------------------------------------------------------------
 
     def save_entry(self, entry_dict: dict[str, Any]) -> bool:
-        """Insert or update a factor entry in PostgreSQL."""
+        """Insert or update a factor entry in PostgreSQL.
+
+        [P0-06 fix] Now includes description_embedding and formula_embedding
+        columns so pgvector semantic search actually works.
+        """
         if not self.available:
             return False
         try:
@@ -67,7 +71,8 @@ class FactorKBStore:
                     train_ic, test_ic, test_ir, sharpe, max_drawdown,
                     ic_decay_halflife, oos_ic_per_window,
                     orthogonality_score, max_corr_with_core,
-                    status, discovered_at, complexity, user_id
+                    status, discovered_at, complexity, user_id,
+                    description_embedding, formula_embedding
                 ) VALUES (
                     %(alpha_id)s, %(formula_hash)s, %(name)s, %(formula)s, %(normalized_formula)s,
                     %(expression_json)s, %(theme)s, %(semantic_tags)s, %(source)s, %(source_prompt)s,
@@ -75,12 +80,15 @@ class FactorKBStore:
                     %(train_ic)s, %(test_ic)s, %(test_ir)s, %(sharpe)s, %(max_drawdown)s,
                     %(ic_decay_halflife)s, %(oos_ic_per_window)s,
                     %(orthogonality_score)s, %(max_corr_with_core)s,
-                    %(status)s, %(discovered_at)s, %(complexity)s, %(user_id)s
+                    %(status)s, %(discovered_at)s, %(complexity)s, %(user_id)s,
+                    %(description_embedding)s, %(formula_embedding)s
                 )
                 ON CONFLICT (formula_hash) DO UPDATE SET
                     last_validated_at = NOW(),
                     test_ic = EXCLUDED.test_ic,
-                    status = EXCLUDED.status
+                    status = EXCLUDED.status,
+                    description_embedding = COALESCE(EXCLUDED.description_embedding, vt_factor_knowledge.description_embedding),
+                    formula_embedding = COALESCE(EXCLUDED.formula_embedding, vt_factor_knowledge.formula_embedding)
             """, self._serialize_entry(entry_dict))
             self._conn.commit()
             return True
@@ -244,6 +252,9 @@ class FactorKBStore:
 
     def _serialize_entry(self, d: dict[str, Any]) -> dict[str, Any]:
         """Convert FactorEntry dict to PG-compatible params."""
+        # [P0-06 fix] Include embedding vectors for pgvector semantic search.
+        desc_emb = d.get("description_embedding")
+        form_emb = d.get("formula_embedding")
         return {
             "alpha_id": d.get("alpha_id", ""),
             "formula_hash": d.get("formula_hash", ""),
@@ -270,6 +281,8 @@ class FactorKBStore:
             "discovered_at": d.get("discovered_at", "now"),
             "complexity": d.get("complexity", 0),
             "user_id": d.get("user_id", 1),
+            "description_embedding": _embedding_to_pg_vector(desc_emb) if desc_emb else None,
+            "formula_embedding": _embedding_to_pg_vector(form_emb) if form_emb else None,
         }
 
     def _deserialize_entry(self, d: dict[str, Any]) -> dict[str, Any]:
@@ -281,6 +294,22 @@ class FactorKBStore:
             **d,
             "expression_json": expr_json,
         }
+
+
+def _embedding_to_pg_vector(embedding) -> str | None:
+    """Convert a Python list/array to a pgvector-compatible string literal.
+
+    pgvector accepts ``'[0.1, 0.2, ...]'`` as a vector literal.
+    Returns None if the input is empty or invalid.
+    """
+    if embedding is None:
+        return None
+    if isinstance(embedding, str):
+        return embedding  # already formatted
+    try:
+        return f"[{','.join(str(float(e)) for e in embedding)}]"
+    except (TypeError, ValueError):
+        return None
 
     def close(self) -> None:
         if self._conn:

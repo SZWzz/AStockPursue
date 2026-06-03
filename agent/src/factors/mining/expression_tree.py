@@ -101,9 +101,10 @@ OPERATOR_REGISTRY: dict[str, tuple[int, Callable[..., pd.DataFrame], str]] = {
     "neg":      (1, lambda x: -x, "neg"),
     "inv":      (1, lambda x: (1.0 / x.replace(0, np.nan)).replace([np.inf, -np.inf], np.nan), "1/x"),
     # --- conditional (ternary) ---
-    "if_else":  (3, lambda cond, t, f: pd.DataFrame(
-        np.where(cond.to_numpy(dtype=np.float64) > 0, t.to_numpy(dtype=np.float64), f.to_numpy(dtype=np.float64)),
-        index=cond.index, columns=cond.columns), "if"),
+    # [P2-04 fix] Align all three DataFrames to a common column order before
+    # extracting .values.  Without alignment, if t and f have different column
+    # orders than cond, the numpy data is silently assigned to wrong columns.
+    "if_else":  (3, lambda cond, t, f: _safe_if_else(cond, t, f), "if"),
     # --- time-series rolling (unary + window param from node.window) ---
     "ts_mean":   (1, lambda x, w=20: x.rolling(window=min(w, max(1, len(x)//4)), min_periods=max(1, min(w, max(1, len(x)//4))//2)).mean(), "ts_mean"),
     "ts_std":    (1, lambda x, w=20: x.rolling(window=min(w, max(2, len(x)//4)), min_periods=max(2, min(w, max(2, len(x)//4))//2)).std(ddof=1), "ts_std"),
@@ -126,6 +127,27 @@ OPERATOR_REGISTRY: dict[str, tuple[int, Callable[..., pd.DataFrame], str]] = {
 
 # Rolling window options (trading days) for GP to evolve
 WINDOW_OPTIONS: list[int] = [3, 5, 10, 20, 40, 60, 120]
+
+def _safe_if_else(cond: pd.DataFrame, t: pd.DataFrame, f: pd.DataFrame) -> pd.DataFrame:
+    """Ternary operator with guaranteed column alignment.
+
+    [P2-04 fix] Aligns cond, t, and f to a common column set before applying
+    np.where, so column-misordered branches don't silently assign values to
+    the wrong stock codes.
+    """
+    cols = cond.columns.union(t.columns).union(f.columns)
+    cond_a = cond.reindex(columns=cols)
+    t_a = t.reindex(columns=cols)
+    f_a = f.reindex(columns=cols)
+    result = pd.DataFrame(
+        np.where(cond_a.to_numpy(dtype=np.float64) > 0,
+                 t_a.to_numpy(dtype=np.float64),
+                 f_a.to_numpy(dtype=np.float64)),
+        index=cond_a.index,
+        columns=cols,
+    )
+    # Drop columns that were NaN in all inputs (optional, keeps output clean)
+    return result
 
 def _rolling_corr(a: pd.DataFrame, b: pd.DataFrame, w: int) -> pd.DataFrame:
     """Element-wise rolling Pearson correlation between two DataFrames."""
@@ -646,7 +668,9 @@ _SIGNALENGINE_OP_MAP: dict[str, Callable[..., str]] = {
     "neg":       lambda x, _, w: f"(-{x})",
     "inv":       lambda x, _, w: f"(1.0 / {x}.replace(0, np.nan))",
     # conditional
-    "if_else":   lambda c, t, f, w: f"pd.DataFrame(np.where({c}.values > 0, {t}.values, {f}.values), index={c}.index, columns={c}.columns)",
+    "if_else":   lambda c, t, f, w: (
+        f"_safe_if_else({c}, {t}, {f})"
+    ),
     # time-series rolling
     "ts_mean":   lambda x, _, w: f"{x}.rolling({w}, min_periods=max(1,{w}//2)).mean()",
     "ts_std":    lambda x, _, w: f"{x}.rolling({w}, min_periods=max(2,{w}//2)).std()",
