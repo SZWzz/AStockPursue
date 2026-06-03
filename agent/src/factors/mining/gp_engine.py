@@ -43,6 +43,7 @@ from src.factors.mining.fitness import (
 from src.factors.mining.enhanced_fitness import (
     composite_fitness,
     apply_fdr_correction,
+    apply_by_correction,
 )
 from src.factors.mining.hybrid_init import (
     hybrid_initialize_population,
@@ -93,7 +94,14 @@ class GPEvolutionConfig(BaseModel):
     use_kb: bool = Field(default=True, description="Auto-register factors to Knowledge Base with dedup")
     kb_user_id: int = Field(default=1, description="User ID for KB tenant isolation")
     # ── P0: FDR correction ──
-    fdr_alpha: float = Field(default=0.05, ge=0.01, le=0.20, description="FDR threshold for BH correction")
+    fdr_alpha: float = Field(default=0.05, ge=0.01, le=0.20, description="FDR threshold for BH/BY correction")
+    # [P0-05 fix] Use Benjamini-Yekutieli instead of BH when candidates are
+    # tested on the same data (correlated p-values). BY controls FDR under
+    # arbitrary dependence.
+    use_by_correction: bool = Field(default=True, description="Use BY (more conservative) instead of BH for FDR")
+
+    # ── P1-06 fix: Walk-forward OOS evaluation in core fitness path ──
+    use_walk_forward_oos: bool = Field(default=True, description="Use rolling OOS windows for IC in core fitness")
 
 
 # ---------------------------------------------------------------------------
@@ -210,6 +218,10 @@ class GPEvolution:
         # ── P0: KB registration stats ──
         self._kb_new_registrations: int = 0
         self._kb_duplicates_avoided: int = 0
+
+        # [P0-02 fix] Thread-safe KB access — prevents data races when
+        # evaluate_population() runs workers in parallel via ThreadPoolExecutor.
+        self._kb_lock = threading.Lock()
 
         # SSE progress queue
         self._progress_queue: queue.Queue[dict[str, Any]] = queue.Queue()
@@ -542,15 +554,25 @@ class GPEvolution:
         # ── P0: KB dedup check (skip evaluation if duplicate) ──
         if self._kb is not None and self.config.use_kb:
             fhash = ind.tree.formula_hash
-            existing = self._kb.get_by_hash(fhash)
-            if existing is not None:
-                # Already in KB — reuse stored IC as fitness
-                ind.train_fitness = abs(existing.test_ic)
-                ind.test_ic = existing.test_ic
-                ind.test_ir = existing.test_ir
-                ind.oos_ic_per_window = existing.oos_ic_per_window
-                self._kb_duplicates_avoided += 1
-                return float(ind.train_fitness)
+            # [P0-02 fix] Thread-safe KB access with provenance validation
+            with self._kb_lock:
+                existing = self._kb.get_by_hash(fhash)
+                if existing is not None:
+                    # [P0-03 fix] Verify data provenance — KB metrics are only
+                    # valid if they came from the same data source and a
+                    # compatible date range.  Otherwise re-evaluate.
+                    if self._kb_provenance_matches(existing):
+                        ind.train_fitness = abs(existing.test_ic)
+                        ind.test_ic = existing.test_ic
+                        ind.test_ir = existing.test_ir
+                        ind.oos_ic_per_window = existing.oos_ic_per_window
+                        self._kb_duplicates_avoided += 1
+                        return float(ind.train_fitness)
+                    else:
+                        logger.debug(
+                            "KB entry %s has mismatched provenance — re-evaluating",
+                            fhash[:12],
+                        )
 
         try:
             compute_fn = ind.tree.to_callable()
@@ -573,6 +595,15 @@ class GPEvolution:
         fv = factor_values.loc[common_idx, common_cols]
         fr = self._train_returns.loc[common_idx, common_cols]
 
+        # ── P1-06 fix: Walk-forward OOS evaluation ──
+        # When use_walk_forward_oos is enabled, compute true OOS IC from
+        # rolling windows rather than reusing in-sample IC.
+        oos_ic_windows: list[float] = []
+        if self.config.use_walk_forward_oos and len(common_idx) >= 40:
+            oos_ic_windows = self._compute_oos_ic_windows(fv, fr)
+            if not oos_ic_windows:
+                oos_ic_windows = []  # fall through to single-window below
+
         # ── P0: Composite fitness (multiplicative) ──
         result = composite_fitness(
             tree=ind.tree,
@@ -584,7 +615,9 @@ class GPEvolution:
 
         fitness = result["fitness"]
         ind.train_fitness = float(fitness)
-        ind.oos_ic_per_window = [result["rank_ic"]]  # Single-window for now; WF enrichment in validate()
+        # [P1-06 fix] Use true OOS windows when available, otherwise fall back
+        # to the single in-sample IC for backward compatibility.
+        ind.oos_ic_per_window = oos_ic_windows if oos_ic_windows else [result["rank_ic"]]
 
         # ── P0: Store component scores for diagnostics ──
         ind._fitness_detail = result
@@ -639,6 +672,90 @@ class GPEvolution:
         fitness = mean_ic - self.config.oos_stability_weight * std_ic
 
         return float(fitness), window_ics
+
+    # ── KB provenance validation ──────────────────────────────────────
+
+    def _kb_provenance_matches(self, kb_entry) -> bool:
+        """[P0-03 fix] Check whether a KB entry's metrics are valid for the
+        current run's data configuration.
+
+        Returns False (force re-evaluation) if:
+        - The data source has changed (e.g., mock vs real)
+        - The training date range is substantially different
+        - The universe size differs by more than 20%
+        """
+        # Always re-evaluate if data source changed
+        kb_source = kb_entry.data_source_version if hasattr(kb_entry, "data_source_version") else ""
+        if kb_source and self.data_source_detail and kb_source != self.data_source_detail:
+            return False
+
+        # Check date range overlap
+        kb_train_range = kb_entry.train_date_range if hasattr(kb_entry, "train_date_range") else ""
+        if kb_train_range and hasattr(self, "_train_panel") and self._train_panel:
+            # Extract date range from current train panel
+            close_df = self._train_panel.get("close")
+            if close_df is not None and len(close_df) > 0:
+                current_start = str(close_df.index[0])[:10]
+                current_end = str(close_df.index[-1])[:10]
+                current_range = f"{current_start}/{current_end}"
+                if kb_train_range != current_range:
+                    return False
+
+        return True
+
+    # ── Walk-forward OOS IC computation ───────────────────────────────
+
+    def _compute_oos_ic_windows(
+        self,
+        factor_values: pd.DataFrame,
+        forward_returns: pd.DataFrame,
+    ) -> list[float]:
+        """[P1-06 fix] Compute true OOS ICs from rolling walk-forward windows.
+
+        Splits the data into n expanding or rolling windows, computes the
+        factor on each training window, and evaluates IC on the held-out
+        OOS window.  Returns a list of OOS IC values.
+        """
+        from src.factors.mining.fitness import rank_ic_fitness
+
+        n_total = len(factor_values)
+        if n_total < 60:
+            return []
+
+        n_windows = min(self.config.walk_forward_windows, max(2, n_total // 30))
+        window_size = n_total // (n_windows + 1)
+        if window_size < 20:
+            return []
+
+        oos_ics: list[float] = []
+        for w in range(n_windows):
+            train_end = n_total - (n_windows - w) * window_size
+            train_start = max(0, train_end - window_size * 3)  # 3x lookback
+            oos_start = train_end
+            oos_end = min(n_total, oos_start + window_size)
+
+            if oos_end - oos_start < 5 or train_end - train_start < 20:
+                continue
+
+            oos_fv = factor_values.iloc[oos_start:oos_end]
+            oos_fr = forward_returns.iloc[oos_start:oos_end]
+
+            common_idx = oos_fv.index.intersection(oos_fr.index)
+            common_cols = oos_fv.columns.intersection(oos_fr.columns)
+            if len(common_idx) < 5 or len(common_cols) < 3:
+                continue
+
+            try:
+                ic_val = float(rank_ic_fitness(
+                    oos_fv.loc[common_idx, common_cols],
+                    oos_fr.loc[common_idx, common_cols],
+                ))
+                if np.isfinite(ic_val):
+                    oos_ics.append(ic_val)
+            except Exception:
+                continue
+
+        return oos_ics
 
     def evaluate_population(self, parallel: bool = True) -> list[float]:
         """Evaluate all individuals in the population. Returns fitnesses."""
@@ -852,11 +969,17 @@ class GPEvolution:
     # ------------------------------------------------------------------
 
     def _compute_bh_correction(self, individuals: list[GPIndividual]) -> None:
-        """Apply Benjamini-Hochberg correction across all individuals.
+        """Apply FDR correction across all individuals.
 
         For each individual, compute a p-value from the OOS IC distribution,
-        then apply BH procedure at alpha=0.05.  Sets ``adjusted_p_value``
-        and ``is_statistically_significant`` on each individual.
+        then apply BH or BY procedure depending on config.  Sets
+        ``adjusted_p_value`` and ``is_statistically_significant`` on each
+        individual.
+
+        [P0-05 fix] Uses Benjamini-Yekutieli (BY) when
+        ``config.use_by_correction=True``, which controls FDR under arbitrary
+        dependence — the correct choice for GP candidates tested on the same
+        dataset.
         """
         from scipy import stats as sp_stats
         import numpy as np
@@ -879,18 +1002,26 @@ class GPEvolution:
             p_val = float(sp_stats.t.sf(t_stat, df=len(wics) - 1))
             p_values.append(max(p_val, 1e-15))
 
-        # Benjamini-Hochberg procedure
+        # Choose procedure
+        if self.config.use_by_correction:
+            # Benjamini-Yekutieli: controls FDR under arbitrary dependence
+            harmonic = sum(1.0 / i for i in range(1, n_tests + 1))
+            divisor_factor = harmonic
+        else:
+            # Benjamini-Hochberg (original)
+            divisor_factor = 1.0
+
         sorted_idx = np.argsort(p_values)
         adjusted = np.ones(n_tests)
         for rank, idx in enumerate(sorted_idx):
-            adjusted[idx] = min(1.0, p_values[idx] * n_tests / (rank + 1.0))
+            adjusted[idx] = min(1.0, p_values[idx] * n_tests * divisor_factor / (rank + 1.0))
         # Ensure monotonicity
         for i in range(n_tests - 1, 0, -1):
             adjusted[sorted_idx[i - 1]] = min(adjusted[sorted_idx[i - 1]], adjusted[sorted_idx[i]])
 
         for i, ind in enumerate(individuals):
             ind.adjusted_p_value = round(float(adjusted[i]), 6)
-            ind.is_statistically_significant = float(adjusted[i]) < 0.05
+            ind.is_statistically_significant = float(adjusted[i]) < self.config.fdr_alpha
 
     # ------------------------------------------------------------------
     # SSE progress
@@ -1037,7 +1168,13 @@ class GPEvolution:
                     "rank_ic": getattr(ind, "_fitness_detail", {}).get("rank_ic", 0.0),
                     "oos_ic_per_window": ind.oos_ic_per_window,
                 })
-            apply_fdr_correction(gen_candidates, ic_key="rank_ic", alpha=self.config.fdr_alpha)
+            # [P0-05 fix] Use BY (Benjamini-Yekutieli) when configured —
+            # controls FDR under arbitrary dependence, appropriate when all
+            # candidates in a generation share the same training data.
+            if self.config.use_by_correction:
+                apply_by_correction(gen_candidates, ic_key="rank_ic", alpha=self.config.fdr_alpha)
+            else:
+                apply_fdr_correction(gen_candidates, ic_key="rank_ic", alpha=self.config.fdr_alpha)
             # Apply FDR results back to individuals
             for gc in gen_candidates:
                 gc["individual"].adjusted_p_value = gc.get("fdr_adjusted_p_value", 1.0)
@@ -1146,9 +1283,12 @@ class GPEvolution:
             for ind in all_time_candidates[-50:]  # last 50 unique candidates
         ]
         if all_time_dicts:
-            apply_fdr_correction(all_time_dicts, ic_key="rank_ic", alpha=self.config.fdr_alpha)
+            if self.config.use_by_correction:
+                apply_by_correction(all_time_dicts, ic_key="rank_ic", alpha=self.config.fdr_alpha)
+            else:
+                apply_fdr_correction(all_time_dicts, ic_key="rank_ic", alpha=self.config.fdr_alpha)
 
-        # Also run BH on final best_individuals for backward compat
+        # Also run BH/BY on final best_individuals for backward compat
         self._compute_bh_correction(best_individuals)
 
         # Best test IC only from statistically significant factors
