@@ -12,7 +12,8 @@ PAPER_TRADING promotion gate.
 from __future__ import annotations
 
 import logging
-import signal
+import signal  # noqa: F401 — kept for any legacy callers; evaluate_with_guard now uses threading
+import threading
 import time
 from typing import Any
 
@@ -207,29 +208,41 @@ class RuntimeCircuitBreaker:
         """Evaluate a factor with resource limits.
 
         On timeout or OOM, returns an empty DataFrame and logs a warning.
+
+        [P2-07 fix] Uses ``threading.Thread`` + ``join(timeout)`` instead of
+        ``signal.SIGALRM`` for the timeout.  SIGALRM only works on the Unix
+        main thread — it raises ``ValueError`` in worker threads (e.g., during
+        GP parallel evaluation), causing the circuit breaker to silently fail
+        and return an empty DataFrame.  The threading approach is portable and
+        thread-safe.
         """
         result = None
         error = None
 
-        def _timeout_handler(signum, frame):
-            raise TimeoutError(f"Factor evaluation exceeded {self.max_seconds}s limit")
+        def _target():
+            nonlocal result, error
+            try:
+                result = compute_fn(panel)
+            except MemoryError:
+                error = f"Factor evaluation exceeded {self.max_memory_mb}MB memory limit"
+            except Exception as e:
+                error = f"Factor evaluation failed: {e}"
 
-        try:
-            signal.signal(signal.SIGALRM, _timeout_handler)
-            signal.alarm(self.max_seconds)
-            result = compute_fn(panel)
-        except TimeoutError as e:
-            error = str(e)
-            logger.warning("Factor evaluation timed out, circuit breaker tripped")
-        except MemoryError:
-            error = f"Factor evaluation exceeded {self.max_memory_mb}MB memory limit"
-            logger.warning("Factor evaluation OOM, circuit breaker tripped")
-        except Exception as e:
-            error = f"Factor evaluation failed: {e}"
-        finally:
-            signal.alarm(0)
+        worker = threading.Thread(target=_target, daemon=True)
+        worker.start()
+        worker.join(timeout=self.max_seconds)
+
+        if worker.is_alive():
+            # Thread is still running — timeout exceeded.
+            # We cannot kill the thread safely in Python, but we mark it as
+            # failed and return empty.  The daemon thread will be cleaned up
+            # when the process exits.
+            error = f"Factor evaluation exceeded {self.max_seconds}s limit"
+            logger.warning("Factor evaluation timed out (%.1fs), circuit breaker tripped",
+                           self.max_seconds)
 
         if error:
+            logger.warning("Circuit breaker: %s", error)
             return pd.DataFrame()
 
         return result if result is not None else pd.DataFrame()

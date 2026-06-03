@@ -180,6 +180,15 @@ class BacktestDriver:
                 if df is not None and len(df) > 0:
                     last_ts = df.index[-1]
                     if ts >= last_ts:
+                        # [P1-05 fix] Check if position still exists — it may
+                        # have been closed during on_bar() by a stop-loss or
+                        # take-profit on this same bar.
+                        if c not in engine.positions:
+                            logger.debug(
+                                "Delisting close skipped for %s: position already "
+                                "exited during bar processing at %s", c, ts,
+                            )
+                            continue
                         trade = engine.force_close_symbol(c, "delisted")
                         if trade:
                             logger.info("Delisting close: %s at %s (last bar)", c, ts)
@@ -308,11 +317,18 @@ class BacktestDriver:
                 engine.on_bar(bar, ts)  # full pipeline: signal → execute
 
             # Delisting detection for simulation mode
+            # [P1-05 fix] Check position still exists before force-closing
             for c in list(engine.positions.keys()):
                 df = data_map.get(c)
                 if df is not None and len(df) > 0:
                     last_ts = df.index[-1]
                     if ts >= last_ts:
+                        if c not in engine.positions:
+                            logger.debug(
+                                "Delisting close skipped for %s: already exited at %s",
+                                c, ts,
+                            )
+                            continue
                         engine.force_close_symbol(c, "delisted")
 
         engine.force_close_all("end_of_backtest")

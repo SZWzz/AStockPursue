@@ -94,10 +94,16 @@ class DataLoader:
     requires_auth = False
 
     def is_available(self) -> bool:
+        # [P2-06 fix] Check actual API reachability instead of just import.
+        # Previously always returned True, breaking the fallback chain.
         try:
-            import requests  # noqa: F401
+            import requests
+            resp = requests.head(
+                "https://push2his.eastmoney.com/api/qt/stock/kline/get",
+                timeout=2.0,
+            )
             return True
-        except ImportError:
+        except Exception:
             return False
 
     def __init__(self) -> None:

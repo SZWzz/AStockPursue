@@ -45,10 +45,20 @@ class DataLoader:
     requires_auth = False
 
     def is_available(self) -> bool:
+        # [P2-06 fix] Check actual API reachability instead of just import.
+        # Previously always returned True when requests was installed, even
+        # when the Baidu Finance API was unreachable, breaking the fallback
+        # chain in _fetch_auto().
         try:
-            import requests  # noqa: F401
+            import requests
+            # Quick connectivity check to the API endpoint with short timeout
+            resp = requests.head(
+                "https://finance.pae.baidu.com/selfselect/openapi/v2",
+                timeout=2.0,
+            )
+            # Accept any response (even 404 means the server is reachable)
             return True
-        except ImportError:
+        except Exception:
             return False
 
     def fetch(

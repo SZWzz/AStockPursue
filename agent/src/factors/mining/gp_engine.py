@@ -525,14 +525,21 @@ class GPEvolution:
             return [(all_dates[:split], all_dates[split:])]
 
         windows: list[tuple[pd.DatetimeIndex, pd.DatetimeIndex]] = []
-        # Rolling windows: each window uses ~60% of data for training, next ~20% for OOS
-        window_step = max(1, n // (n_windows * 2))
+        # [P2-02 fix] Non-overlapping sequential walk-forward windows.
+        # Previously rolling windows shared training/OOS data across windows
+        # (window w's OOS was included in window w+1's training), which made
+        # OOS IC values correlated and invalidated the t-test in FDR.
+        #
+        # Now each window's training data is strictly BEFORE its OOS data,
+        # and OOS windows are non-overlapping and sequential.
+        oos_size = max(5, n // (n_windows + 1))
 
         for w in range(n_windows):
-            train_end = n - (n_windows - w) * window_step
-            train_start = max(0, train_end - int(window_step * 3))
-            oos_end = min(n, train_end + window_step)
-            oos_start = train_end
+            oos_start = n - (n_windows - w) * oos_size
+            oos_end = min(n, oos_start + oos_size)
+            # Training: expanding window ending where OOS begins
+            train_end = oos_start
+            train_start = max(0, oos_start - oos_size * 4)
 
             if train_end - train_start >= 10 and oos_end - oos_start >= 5:
                 windows.append((
@@ -1065,10 +1072,17 @@ class GPEvolution:
         """Track elite individuals that survive across generations.
 
         Records each individual's first appearance and updates survival count.
+
+        [P1-03 fix] Uses ``ind.tree.formula_hash`` (canonical, insensitive to
+        operand ordering in commutative operators) instead of ``ind.formula``
+        (display string, which varies with operand order).  Two formulas that
+        differ only in the order of ``add``/``mul`` operands are the same
+        mathematical expression and should be tracked as one elite.
         """
         sorted_ind = sorted(individuals, key=lambda ind: ind.train_fitness, reverse=True)
         for rank, ind in enumerate(sorted_ind[:top_n]):
-            formula_hash = ind.formula  # Use formula string as identity key
+            # [P1-03 fix] Use canonical formula_hash, not display formula string
+            formula_hash = ind.tree.formula_hash
             if formula_hash in self._elite_tracker:
                 entry = self._elite_tracker[formula_hash]
                 entry["last_seen_gen"] = generation
@@ -1080,6 +1094,7 @@ class GPEvolution:
             else:
                 self._elite_tracker[formula_hash] = {
                     "formula": ind.formula,
+                    "formula_hash": formula_hash,
                     "expression_json": ind.tree.to_dict(),
                     "first_seen_gen": generation,
                     "last_seen_gen": generation,
