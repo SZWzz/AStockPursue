@@ -75,9 +75,9 @@ class GPEvolutionConfig(BaseModel):
     # ── Legacy fitness config (kept for backward compat) ──
     fitness_metric: Literal["ic_mean", "rank_ic", "sharpe", "composite"] = "composite"
     complexity_penalty: Literal["aic", "bic", "none"] = "bic"
-    train_start: str = "2023-01-01"
-    train_end: str = "2024-12-31"
-    test_start: str = "2025-01-01"
+    train_start: str = "2024-01-01"   # within free source range (~2-3yr lookback)
+    train_end: str = "2025-12-31"
+    test_start: str = "2025-01-01"    # last year for OOS validation
     test_end: str = "2025-12-31"
     universe: list[str] = Field(default_factory=list, description="Stock codes to include")
     max_workers: int = Field(default=4, ge=1, le=16)
