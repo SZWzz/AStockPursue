@@ -207,7 +207,10 @@ export function StockInput({ value, onChange, placeholder = "600519.SH", multi =
                   ? "bg-primary/10 text-primary"
                   : "hover:bg-muted text-foreground"
               )}
-              onClick={() => addSymbol(s)}
+              onMouseDown={(e) => {
+                e.preventDefault();  // prevent input blur from swallowing the selection
+                addSymbol(s);
+              }}
               onMouseEnter={() => setSelectedIndex(i)}
             >
               <div className="flex items-center gap-2 min-w-0">
