@@ -133,6 +133,38 @@ Charts: ECharts via `CandlestickChart` / `EquityChart` components. Monaco Editor
 
 Per-user: orders (PG `user_id` FK), broker context (independent FutuOpenD cache), WS subscriptions, notify/indices/optimize config. JWT auth with PBKDF2 password hashing.
 
+## Development Rules
+
+### Changelog Maintenance
+
+**Every change must be recorded in `CHANGELOG.md`.**  This is non-negotiable.  The changelog follows [Keep a Changelog](https://keepachangelog.com/) conventions:
+
+- `### Added` — new features, capabilities, files
+- `### Changed` — changes to existing functionality
+- `### Fixed` — bug fixes (reference the defect ID where applicable, e.g., P0-1)
+- `### Removed` — deprecated or removed features
+
+Each entry should include the scope (e.g., `[Engine]`, `[FactorMining]`, `[Frontend]`, `[Docs]`) and a concise description of what changed and why.  Group related changes under a version header with the date: `## [YYYY.M.D] - YYYY-MM-DD`.
+
+### Documentation Requirements
+
+**Critical implementation code MUST carry documentation.**  "Critical" means:
+
+1. **Security boundaries** — AST sandboxes, code validators, input sanitizers, auth flows
+2. **Financial correctness** — P&L calculations, position sizing, commission/slippage models, price-limit logic
+3. **Data integrity** — look-ahead bias prevention, data alignment, survivorship-bias guards
+4. **Concurrency** — thread-safe access, parallel evaluation, shared mutable state
+5. **Algorithmic complexity** — GP evolution, factor evaluation, FDR correction, walk-forward windows
+
+Minimum documentation for critical code:
+
+- **Module-level docstring**: Purpose, key abstractions, and cross-references to related modules
+- **Class docstring**: Role in the architecture, ownership of state, lifecycle
+- **Public/private method docstrings**: One-line summary + `Args`/`Returns` for any method with non-trivial logic
+- **Inline comments**: Explain *why* for non-obvious decisions, especially ordering constraints, magic numbers, and workarounds
+
+Non-critical code (simple CRUD, data transformation, route wiring) should have at minimum a one-line docstring describing intent.
+
 ## Known Defect History
 
 This codebase has undergone 5 rounds of P0-P3 defect fixes (see git log `39c4294` through `1f24383`). Key patterns to avoid reintroducing:
