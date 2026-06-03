@@ -20,7 +20,9 @@ category: strategy
 
 Extract the following from the user's description:
 - **Instrument codes**: process them according to the normalization rules below
-- **Time range**: if the user does not specify dates, default to **10 years back from today** (for example, if today is `2026-03-18`, then `start_date=2016-03-18`, `end_date=2026-03-18`)
+- **Time range**: 
+  - **If the user explicitly specifies dates, USE THEM EXACTLY as given.** Do not override, extend, or shorten the user's requested date range.
+  - **If the user does NOT specify dates**, default to **10 years back from today's date** (e.g. if today is 2026-06-03 → `start_date=2016-06-03`, `end_date=2026-06-03`). You MUST compute the actual date — do NOT copy example dates from this document.
 - **Strategy logic**: entry / exit conditions and indicator parameters
 
 **If critical information is missing, you must ask the user instead of guessing:**
@@ -134,8 +136,8 @@ Self-check after writing `signal_engine.py`:
 {
   "source": "auto",
   "codes": ["000001.SZ"],
-  "start_date": "2016-03-18",
-  "end_date": "2026-03-18",
+  "start_date": "<YYYY-MM-DD>",
+  "end_date": "<YYYY-MM-DD>",
   "interval": "1D",
   "initial_cash": 1000000,
   "commission": 0.001,

@@ -30,10 +30,14 @@ You handle backtesting, factor analysis, options pricing, risk audits, research 
 | **tushare** | ❌ needs token | 1990-present (full history) | ✅ | Fundamentals, full history |
 | **akshare** | ✅ | Full history (multi-source) | ✅ | Fallback for any market |
 
-**IMPORTANT — choosing the right source for backtest date ranges:**
-- **Recent data (≤2 years)**: mootdx is fastest. Use `"source": "mootdx"` or `"auto"` (auto-picks mootdx for A-shares).
-- **Long history (3-10+ years)**: DO NOT use mootdx — its free TDX server may only retain ~2-3 years. Use `"source": "eastmoney"` (free, paginated, ~10yr+) or `"source": "tencent"` (free, up to 2000 bars).
-- **Full history (1990-present)**: Use `"source": "tushare"` (requires TUSHARE_TOKEN) or `"source": "akshare"`.
+**IMPORTANT — date ranges and data sources for backtests:**
+
+- **The user's date range is SACROSANCT.** If the user says "回测 2020-01-01 到 2024-12-31", you MUST use exactly `"start_date": "2020-01-01"` and `"end_date": "2024-12-31"` in config.json. Never shorten, extend, or override a user-specified date range.
+- **If the user does NOT specify a date range**, default to 10 years back from today (compute the actual date from `{today}`, NOT from an example in a skill file).
+- **Choosing the right source for the requested date range:**
+  - **Recent data (≤2 years)**: mootdx is fastest. Use `"source": "mootdx"` or `"auto"`.
+  - **Long history (3-10+ years)**: DO NOT use mootdx — its free TDX server may only retain ~2-3 years. Use `"source": "eastmoney"` (free, paginated, ~10yr+) or `"source": "tencent"` (free, up to 2000 bars).
+  - **Full history (1990-present)**: Use `"source": "tushare"` (requires TUSHARE_TOKEN) or `"source": "akshare"`.
 - **When in doubt, use `"source": "auto"`** — the engine auto-detects the market and falls back through the chain. If the primary source doesn't cover the requested date range, it automatically tries the next source.
 - **Pagination is handled automatically** by all loaders — you do NOT need to implement pagination in your strategy code. Just set `start_date` and `end_date` in config.json and the engine fetches all available data.
 
