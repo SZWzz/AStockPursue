@@ -8,9 +8,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends
+
+from src.auth.dependencies import require_auth
 
 logger = logging.getLogger(__name__)
 
@@ -22,26 +25,46 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 # ---------------------------------------------------------------------------
 
 async def _fetch_market_overview() -> dict[str, Any] | None:
-    """Market indices + VIX + fear/greed index."""
+    """Market indices snapshot — fetches latest bar for key benchmark indices."""
     try:
-        return {
-            "indices": [
-                {"name": "沪深300", "code": "000300.SH", "price": 3892.0, "change_pct": -0.3},
-                {"name": "S&P 500", "code": "SPY.US", "price": 5985.0, "change_pct": 0.8},
-                {"name": "恒生指数", "code": "HSI.HK", "price": 18234.0, "change_pct": 1.2},
-            ],
-            "vix": 15.2,
-            "fear_greed": {"value": 62, "label": "贪婪"},
-        }
+        from backtest.data_store import DataStore
+
+        store = DataStore()
+        indices = [
+            ("000300.SH", "沪深300"),
+            ("000905.SH", "中证500"),
+            ("399006.SZ", "创业板指"),
+        ]
+        result = []
+        for code, name in indices:
+            try:
+                df = store.get_ohlcv(code, interval="1d", limit=2)
+                if df is not None and len(df) >= 1:
+                    latest = df.iloc[-1]
+                    prev = df.iloc[-2] if len(df) >= 2 else latest
+                    change_pct = (float(latest["close"]) / float(prev["close"]) - 1) * 100
+                    result.append({
+                        "name": name,
+                        "code": code,
+                        "price": round(float(latest["close"]), 2),
+                        "change_pct": round(change_pct, 2),
+                    })
+                else:
+                    result.append({"name": name, "code": code, "price": 0, "change_pct": 0})
+            except Exception:
+                result.append({"name": name, "code": code, "price": 0, "change_pct": 0})
+
+        return {"indices": result, "vix": None, "fear_greed": None}
     except Exception as exc:
         logger.debug("_fetch_market_overview failed: %s", exc)
         return None
 
 
 async def _fetch_datasource_health() -> dict[str, Any] | None:
-    """Data source availability + cache stats."""
+    """Data source availability snapshot."""
     try:
         from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
+
         _ensure_registered()
         sources = []
         for name, cls in sorted(LOADER_REGISTRY.items()):
@@ -56,28 +79,60 @@ async def _fetch_datasource_health() -> dict[str, Any] | None:
                 "requires_auth": getattr(cls, "requires_auth", False),
                 "available": available,
             })
-        return {"sources": sources, "cache_hit_rate": 0.87, "api_calls_today": 23}
+
+        available_count = sum(1 for s in sources if s["available"])
+        return {
+            "sources": sources,
+            "available_count": available_count,
+            "total_count": len(sources),
+            "cache_hit_rate": None,
+            "api_calls_today": None,
+        }
     except Exception as exc:
         logger.debug("_fetch_datasource_health failed: %s", exc)
         return None
 
 
 async def _fetch_sentiment_overview() -> dict[str, Any] | None:
-    """Market sentiment + trending topics + headlines."""
+    """Market sentiment snapshot — fetches recent news and scores them."""
     try:
+        from src.db.sentiment_store import get_recent_news
+        from src.services.sentiment_analyzer import SentimentAnalyzer
+
+        analyzer = SentimentAnalyzer()
+        # Fetch recent news from DB (cached from news endpoints)
+        articles = get_recent_news(limit=20, hours=24)
+        if not articles:
+            return {"overall_sentiment": None, "sentiment_label": None, "trend": None,
+                    "trending_topics": [], "recent_headlines": []}
+
+        scores = []
+        headlines = []
+        for a in articles:
+            title = a.get("title", "")
+            if title:
+                score = analyzer.analyze_text(title)
+                scores.append(score)
+                headlines.append(title)
+
+        if not scores:
+            return {"overall_sentiment": None, "sentiment_label": None, "trend": None,
+                    "trending_topics": [], "recent_headlines": []}
+
+        avg_score = round(sum(scores) / len(scores), 2)
+
+        # Extract trending topics via the analyzer's built-in method
+        from src.services.sentiment_analyzer import SentimentResult
+        dummy_results = [SentimentResult(title=h, sentiment_score=s) for h, s in zip(headlines, scores)]
+        topic_list = analyzer.trending_topics(dummy_results, top_n=5)
+        topics = [{"topic": t.topic, "count": t.count} for t in topic_list]
+
         return {
-            "overall_sentiment": 0.62,
-            "sentiment_label": "偏乐观",
-            "trend": "rising",
-            "trending_topics": [
-                {"topic": "美联储利率", "count": 83},
-                {"topic": "AI芯片", "count": 67},
-                {"topic": "新能源车", "count": 45},
-            ],
-            "recent_headlines": [
-                "美联储暗示6月暂停加息",
-                "NVDA突破$1200 创历史新高",
-            ],
+            "overall_sentiment": avg_score,
+            "sentiment_label": "偏乐观" if avg_score > 0.55 else ("偏悲观" if avg_score < 0.45 else "中性"),
+            "trend": "stable",
+            "trending_topics": topics,
+            "recent_headlines": headlines[:5],
         }
     except Exception as exc:
         logger.debug("_fetch_sentiment_overview failed: %s", exc)
@@ -87,28 +142,34 @@ async def _fetch_sentiment_overview() -> dict[str, Any] | None:
 async def _fetch_papertrading_runtime(user_id: int) -> dict[str, Any] | None:
     """Active paper trading strategies with live P&L."""
     try:
+        from papertrade.repository import PaperTradeRepository
+
+        repo = PaperTradeRepository()
+        rows = repo.list_runs(user_id=user_id, limit=20)
+
+        strategies = []
+        for r in rows:
+            config = r.get("config", {})
+            initial_cap = float(config.get("initial_capital", 100_000))
+            current_cap = float(r.get("current_capital", initial_cap))
+            total_return_pct = ((current_cap - initial_cap) / initial_cap * 100) if initial_cap > 0 else 0.0
+
+            positions = repo.get_positions(r["id"])
+            position_codes = [p.get("symbol", "") for p in positions]
+
+            strategies.append({
+                "name": r.get("run_name", r["id"][:12]),
+                "status": r.get("status", "unknown"),
+                "total_return_pct": round(total_return_pct, 2),
+                "sharpe": None,
+                "daily_pnl_pct": None,
+                "max_drawdown_pct": None,
+                "positions": position_codes,
+            })
+
         return {
-            "strategies": [
-                {
-                    "name": "momentum_live",
-                    "status": "running",
-                    "total_return_pct": 3.2,
-                    "sharpe": 1.82,
-                    "daily_pnl_pct": 0.4,
-                    "max_drawdown_pct": -8.1,
-                    "positions": ["AAPL", "GOOGL", "MSFT", "NVDA"],
-                },
-                {
-                    "name": "mean_reversion",
-                    "status": "running",
-                    "total_return_pct": -1.5,
-                    "sharpe": 0.41,
-                    "daily_pnl_pct": -0.3,
-                    "max_drawdown_pct": -15.2,
-                    "positions": ["000001.SZ", "600519.SH"],
-                },
-            ],
-            "count": 2,
+            "strategies": strategies,
+            "count": len(strategies),
         }
     except Exception as exc:
         logger.debug("_fetch_papertrading_runtime failed: %s", exc)
@@ -119,16 +180,43 @@ async def _fetch_factor_pipeline(user_id: int) -> dict[str, Any] | None:
     """Factor pipeline status: mining → candidates → zoo → production."""
     try:
         from src.factors.mining.factor_kb import get_kb
+
         kb = get_kb(user_id=user_id)
         guidance = kb.get_mining_guidance()
+        all_entries = kb.list_all()
+
+        # Count active GP runs from the job registry
+        active_gp_runs = 0
+        try:
+            from src.api.factor_mining_routes import _jobs
+            active_gp_runs = sum(1 for j in _jobs.values() if j.get("status") == "running")
+        except Exception:
+            pass
+
+        # Real candidate breakdown from KB
+        status_counts: dict[str, int] = {}
+        for e in all_entries:
+            s = e.status or "unknown"
+            status_counts[s] = status_counts.get(s, 0) + 1
 
         return {
-            "mining": {"active_gp_runs": 2, "active_llm_agents": 1},
-            "candidates": {"pending_validation": 12, "pending_review": 5, "passed": 3, "redundant": 4},
-            "zoo": {"total_factors": len(kb), "themes": len(guidance.get("theme_health", {})),
-                    "last_bench": "2026-05-30", "alive": guidance.get("total_active", 0),
-                    "reversed": 8, "dead": guidance.get("total_dead", 0)},
-            "production": {"alive": guidance.get("total_active", 0), "reversed": 8, "dead": guidance.get("total_dead", 0)},
+            "mining": {
+                "active_gp_runs": active_gp_runs,
+                "active_llm_agents": 0,
+            },
+            "candidates": {
+                "pending_validation": status_counts.get("discovered", 0) + status_counts.get("validating", 0),
+                "pending_review": status_counts.get("validating", 0),
+                "passed": status_counts.get("approved", 0) + status_counts.get("production", 0),
+                "redundant": status_counts.get("deprecated", 0) + status_counts.get("archived", 0),
+            },
+            "zoo": {
+                "total_factors": len(all_entries),
+                "themes": len(guidance.get("theme_health", {})),
+                "alive": guidance.get("total_active", 0),
+                "reversed": status_counts.get("deprecated", 0),
+                "dead": guidance.get("total_dead", 0),
+            },
             "theme_health": guidance.get("theme_health", {}),
         }
     except Exception as exc:
@@ -136,11 +224,12 @@ async def _fetch_factor_pipeline(user_id: int) -> dict[str, Any] | None:
         return None
 
 
-async def _fetch_factor_lab() -> dict[str, Any] | None:
-    """Factor lab: recent discoveries + theme health."""
+async def _fetch_factor_lab(user_id: int) -> dict[str, Any] | None:
+    """Factor lab: recent discoveries from KB."""
     try:
         from src.factors.mining.factor_kb import get_kb
-        kb = get_kb()
+
+        kb = get_kb(user_id=user_id)
         recent = sorted(kb.list_all(), key=lambda e: e.discovered_at, reverse=True)[:5]
         return {
             "recent_discoveries": [
@@ -153,19 +242,52 @@ async def _fetch_factor_lab() -> dict[str, Any] | None:
         return None
 
 
-async def _fetch_recent_activity(user_id: int, limit: int = 15) -> dict[str, Any] | None:
-    """Recent system activity feed."""
+_active_events: list[dict[str, str]] = []
+
+
+def log_activity(event: str, user_id: int | None = None) -> None:
+    """Record a dashboard activity event (in-memory, recent only)."""
+    timestamp = datetime.now().strftime("%H:%M")
+    prefix = f"[user:{user_id}] " if user_id else ""
+    _active_events.insert(0, {"time": timestamp, "event": f"{prefix}{event}"})
+    # Keep at most 30 most-recent events
+    while len(_active_events) > 30:
+        _active_events.pop()
+
+
+async def _fetch_recent_activity(user_id: int) -> dict[str, Any] | None:
+    """Recent system activity feed — augmented with live paper-trading events."""
     try:
-        return {
-            "events": [
-                {"time": "09:28", "event": "模拟盘 momentum_live 开仓 AAPL 200股 @$198.5"},
-                {"time": "09:25", "event": "GP 演化 #a3f2 完成 → 发现 8 个候选因子"},
-                {"time": "09:15", "event": "舆情: NVDA 情绪飙升"},
-                {"time": "08:00", "event": "Alpha Zoo bench 完成"},
-                {"time": "昨天", "event": "sentiment_02 晋升 Zoo"},
-                {"time": "昨天", "event": "数据缓存刷新 1,247 条"},
-            ],
-        }
+        events = list(_active_events)
+
+        # Augment with real paper trading status changes
+        try:
+            from papertrade.repository import PaperTradeRepository
+            repo = PaperTradeRepository()
+            rows = repo.list_runs(user_id=user_id, limit=5)
+            for r in rows:
+                status = r.get("status", "")
+                name = r.get("run_name", r["id"][:12])
+                if status == "running":
+                    last_bar = r.get("last_bar_time", "")
+                    if last_bar:
+                        events.append({
+                            "time": str(last_bar)[-8:-3] if len(str(last_bar)) >= 8 else "",
+                            "event": f"模拟盘 {name} 运行中 @ {last_bar}",
+                        })
+        except Exception:
+            pass
+
+        # Sort by time descending and deduplicate roughly
+        seen = set()
+        deduped = []
+        for e in sorted(events, key=lambda x: x["time"], reverse=True):
+            key = e["time"] + e["event"]
+            if key not in seen:
+                seen.add(key)
+                deduped.append(e)
+
+        return {"events": deduped[:20]}
     except Exception as exc:
         logger.debug("_fetch_recent_activity failed: %s", exc)
         return None
@@ -176,12 +298,17 @@ async def _fetch_recent_activity(user_id: int, limit: int = 15) -> dict[str, Any
 # ---------------------------------------------------------------------------
 
 @router.get("/overview")
-async def dashboard_overview(user_id: int = 1) -> dict[str, Any]:
+async def dashboard_overview(
+    user_id: int | None = None,
+    auth: dict = Depends(require_auth),
+) -> dict[str, Any]:
     """Aggregate all dashboard data in one request.
 
     8 modules are fetched in parallel with 5s timeout each.
     Failed modules return None — frontend handles graceful degradation.
     """
+    uid = user_id or int(auth.get("user_id", 1))
+
     async def _safe_fetch(name: str, coro):
         try:
             return await asyncio.wait_for(coro, timeout=5.0)
@@ -196,10 +323,10 @@ async def dashboard_overview(user_id: int = 1) -> dict[str, Any]:
         _safe_fetch("market", _fetch_market_overview()),
         _safe_fetch("datasource", _fetch_datasource_health()),
         _safe_fetch("sentiment", _fetch_sentiment_overview()),
-        _safe_fetch("papertrading", _fetch_papertrading_runtime(user_id)),
-        _safe_fetch("pipeline", _fetch_factor_pipeline(user_id)),
-        _safe_fetch("lab", _fetch_factor_lab()),
-        _safe_fetch("activity", _fetch_recent_activity(user_id)),
+        _safe_fetch("papertrading", _fetch_papertrading_runtime(uid)),
+        _safe_fetch("pipeline", _fetch_factor_pipeline(uid)),
+        _safe_fetch("lab", _fetch_factor_lab(uid)),
+        _safe_fetch("activity", _fetch_recent_activity(uid)),
     )
 
     return {

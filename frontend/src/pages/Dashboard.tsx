@@ -64,7 +64,7 @@ export function Dashboard() {
     setLoading(true);
     setError(null);
     try {
-      const json = await request<DashboardData>("/dashboard/overview?user_id=1");
+      const json = await request<DashboardData>("/dashboard/overview");
       setData(json);
     } catch (e: any) {
       setError(e.message || t.dashStale);
@@ -185,8 +185,8 @@ function DataSourceCard({ data, t }: { data: DashboardData["datasource"]; t: any
         ))}
       </div>
       <div className="text-xs text-muted-foreground space-y-1">
-        <div>{t.dashCacheHit}: {(data.cache_hit_rate ?? 0) * 100}%</div>
-        <div>{t.dashApiCalls}: {data.api_calls_today ?? 0}</div>
+        <div>{t.dashCacheHit}: {data.cache_hit_rate != null ? `${(data.cache_hit_rate * 100).toFixed(0)}%` : "—"}</div>
+        <div>{t.dashApiCalls}: {data.api_calls_today != null ? data.api_calls_today : "—"}</div>
       </div>
       <Link to="/data-sources" className="text-xs text-blue-500 hover:underline mt-2 inline-block">
         {t.dashManageDataSources}
@@ -197,19 +197,22 @@ function DataSourceCard({ data, t }: { data: DashboardData["datasource"]; t: any
 
 function SentimentCard({ data, t }: { data: DashboardData["sentiment"]; t: any }) {
   if (!data) return <Card><p className="text-muted-foreground text-sm">{t.dashMarketSentiment} —</p></Card>;
-  const isPositive = (data.overall_sentiment ?? 0.5) > 0.5;
+  const hasSentiment = data.overall_sentiment != null;
+  const isPositive = hasSentiment && data.overall_sentiment! > 0.5;
   return (
     <Card>
       <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
         <Newspaper className="w-4 h-4 text-violet-500" /> {t.dashMarketSentiment}
       </h3>
       <div className="flex items-center gap-2 mb-2">
-        <span className={cn("text-2xl font-bold", isPositive ? "text-green-600" : "text-red-600")}>
-          {(data.overall_sentiment ?? 0).toFixed(2)}
+        <span className={cn("text-2xl font-bold", hasSentiment ? (isPositive ? "text-green-600" : "text-red-600") : "text-muted-foreground")}>
+          {hasSentiment ? (data.overall_sentiment!).toFixed(2) : "—"}
         </span>
-        <span className={cn("text-sm px-2 py-0.5 rounded-full", isPositive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
-          {data.sentiment_label || (isPositive ? t.dashBullish : t.dashBearish)}
-        </span>
+        {hasSentiment && (
+          <span className={cn("text-sm px-2 py-0.5 rounded-full", isPositive ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700")}>
+            {data.sentiment_label || (isPositive ? t.dashBullish : t.dashBearish)}
+          </span>
+        )}
         {data.trend === "rising" && <TrendingUp className="w-4 h-4 text-green-500" />}
       </div>
       <div className="space-y-1">
@@ -255,9 +258,9 @@ function PaperTradingCard({ data, t }: { data: DashboardData["papertrading"]; t:
             </div>
             <div className="grid grid-cols-4 gap-2 text-xs">
               <div><span className="text-muted-foreground">{t.ptReturn}</span><br/><span className={cn("font-semibold", (s.total_return_pct ?? 0) >= 0 ? "text-green-600" : "text-red-600")}>{(s.total_return_pct ?? 0) >= 0 ? "+" : ""}{s.total_return_pct?.toFixed(1)}%</span></div>
-              <div><span className="text-muted-foreground">Sharpe</span><br/><span className="font-semibold">{s.sharpe?.toFixed(2)}</span></div>
-              <div><span className="text-muted-foreground">Today</span><br/><span className={cn("font-semibold", (s.daily_pnl_pct ?? 0) >= 0 ? "text-green-600" : "text-red-600")}>{(s.daily_pnl_pct ?? 0) >= 0 ? "+" : ""}{s.daily_pnl_pct?.toFixed(2)}%</span></div>
-              <div><span className="text-muted-foreground">MaxDD</span><br/><span className="font-semibold text-red-600">{s.max_drawdown_pct?.toFixed(1)}%</span></div>
+              <div><span className="text-muted-foreground">Sharpe</span><br/><span className="font-semibold">{s.sharpe != null ? s.sharpe.toFixed(2) : "—"}</span></div>
+              <div><span className="text-muted-foreground">Today</span><br/><span className={cn("font-semibold", (s.daily_pnl_pct ?? 0) >= 0 ? "text-green-600" : "text-red-600")}>{s.daily_pnl_pct != null ? `${(s.daily_pnl_pct ?? 0) >= 0 ? "+" : ""}${s.daily_pnl_pct.toFixed(2)}%` : "—"}</span></div>
+              <div><span className="text-muted-foreground">MaxDD</span><br/><span className="font-semibold text-red-600">{s.max_drawdown_pct != null ? `${s.max_drawdown_pct.toFixed(1)}%` : "—"}</span></div>
             </div>
             {s.positions && s.positions.length > 0 && (
               <div className="mt-2 flex gap-1 flex-wrap">
