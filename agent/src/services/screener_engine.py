@@ -186,9 +186,25 @@ class ScreenerEngine:
         start_date = (pd.Timestamp(end_date) - pd.Timedelta(days=70)).strftime("%Y-%m-%d")
 
         try:
+            import concurrent.futures
             from backtest.data_store import get_data_store
             store = get_data_store()
-            data_map = store.get_multi_ohlcv(universe, start_date, end_date, interval="1D")
+
+            # Load data with a hard timeout — fetching OHLCV for a large
+            # universe can take 30+ seconds across multiple fallback sources.
+            # If exceeded, fall back to mock data with a clear reason.
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(
+                    store.get_multi_ohlcv, universe, start_date, end_date,
+                    interval="1D",
+                )
+                try:
+                    data_map = future.result(timeout=20)
+                except concurrent.futures.TimeoutError:
+                    logger.warning("Screener data loading timed out for %d symbols", len(universe))
+                    return {}, "mock"
+                except Exception as exc:
+                    raise  # re-raise for the outer except handler
 
             if data_map:
                 # Build panel: {col → wide DataFrame}
@@ -227,20 +243,25 @@ class ScreenerEngine:
         top_n: int = 50,
         weights: dict[str, float] | None = None,
     ) -> pd.DataFrame:
-        """Execute stock screening.
+        """Execute stock screening."""
+        try:
+            return self._execute_impl(conditions, universe, date, mode, top_n, weights)
+        except Exception as exc:
+            logger.exception("Screener execute failed")
+            return pd.DataFrame({
+                "symbol": [], "name": [], "_data_source": ["error"],
+                "_error": [f"Screening failed: {str(exc)[:200]}"],
+            })
 
-        Args:
-            conditions: List of screening conditions or scoring factors.
-            universe: Stock symbols to screen. Defaults to mock symbols if empty.
-            date: Reference date for screening (latest if None).
-            mode: ``"filter"`` (hard conditions), ``"rank"`` (Z-score composite ranking),
-                  or ``"score"`` (weighted scoring).
-            top_n: Number of top results to return (for rank/score modes).
-            weights: Per-field weights for ``"score"`` mode.
-
-        Returns:
-            DataFrame with symbol, name, and field values for matched/ranked stocks.
-        """
+    def _execute_impl(
+        self,
+        conditions: list[ScreenCondition],
+        universe: list[str] | None = None,
+        date: str | None = None,
+        mode: str = "filter",
+        top_n: int = 50,
+        weights: dict[str, float] | None = None,
+    ) -> pd.DataFrame:
         # Validate all conditions first
         for c in conditions:
             self._validate_condition(c)
