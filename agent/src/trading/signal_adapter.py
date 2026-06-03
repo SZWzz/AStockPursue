@@ -18,7 +18,11 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 _EPSILON = 1e-9
-_MAX_HISTORY = 1000  # bound DataFrame size in batch mode to avoid O(n²) concat
+# [P2-1 fix] Increased from 1000 to 5000 to avoid silently dropping history
+# for long-window factors (e.g. correlation(..., 230) needs 230+ bars).
+# Still provides an upper bound to prevent unbounded memory growth in
+# very long backtests (~20 years of daily data).
+_MAX_HISTORY = 5000
 
 
 @runtime_checkable
@@ -81,12 +85,18 @@ class SignalAdapter:
         self,
         bar: dict[str, pd.Series],
         data_map: dict[str, pd.DataFrame],
+        *,
+        skip_append: bool = False,
     ) -> dict[str, float]:
-        """Generate signal from *existing* data, then append the new bar.
+        """Generate signal from *existing* data, then optionally append the new bar.
 
         The strategy never sees the current bar — it only has access to data
         up to the previous bar.  This prevents look-ahead bias by construction:
         the signal that drives execution at bar T is computed from data[0..T-1].
+
+        When ``skip_append=True`` (used by TradingEngine._record_bars), bar
+        appending is deferred to the caller, avoiding double-append when the
+        engine handles recording separately.
         """
         # 1. Generate signals using only existing data (strategy cannot see new bar)
         signal_map = self._engine.generate(data_map)
@@ -100,20 +110,26 @@ class SignalAdapter:
                 continue
             result[code] = val
 
-        # 2. Append the new bar for future calls
-        for code, row in bar.items():
-            if code in data_map:
-                df = data_map[code]
-                if hasattr(row, "name") and row.name is not None:
-                    ts = row.name
-                elif len(df) > 0:
-                    ts = df.index[-1] + pd.Timedelta(days=1)
-                else:
-                    ts = pd.Timestamp.now()
-                new_row = pd.DataFrame([row], index=[ts])
-                data_map[code] = pd.concat([df, new_row])
-                if len(data_map[code]) > _MAX_HISTORY:
-                    data_map[code] = data_map[code].iloc[-_MAX_HISTORY:]
+        # 2. Append the new bar for future calls (unless caller handles it)
+        if not skip_append:
+            for code, row in bar.items():
+                if code in data_map:
+                    df = data_map[code]
+                    if hasattr(row, "name") and row.name is not None:
+                        ts = row.name
+                    elif len(df) > 0:
+                        ts = df.index[-1] + pd.Timedelta(days=1)
+                    else:
+                        ts = pd.Timestamp.now()
+                    new_row = pd.DataFrame([row], index=[ts])
+                    data_map[code] = pd.concat([df, new_row])
+                    if len(data_map[code]) > _MAX_HISTORY:
+                        data_map[code] = data_map[code].iloc[-_MAX_HISTORY:]
+                        logger.warning(
+                            "Data history for %s truncated to %d bars — "
+                            "long-window factors may be affected",
+                            code, _MAX_HISTORY,
+                        )
 
         return result
 

@@ -188,6 +188,12 @@ class TradingEngine:
             self._last_bar_time = last_ts
             self._bar_idx = sum(len(df) for df in data_map.values()) // max(len(data_map), 1)
 
+        # [P1-1 fix] Seed _last_bar_prices from historical data so gap/suspension
+        # detection works correctly on the very first live bar.
+        for code, df in data_map.items():
+            if len(df) > 0:
+                self._last_bar_prices[code] = float(df["close"].iloc[-1])
+
         logger.info(
             "TradingEngine initialised: mode=%s, codes=%s, last_bar=%s",
             self._signal.mode,
@@ -275,6 +281,10 @@ class TradingEngine:
             if not is_flat and self._suspended.get(c):
                 self._suspended[c] = False
                 self._consecutive_flat[c] = 0
+                # [P1-2 fix] Update _last_bar_prices on resume so gap detection
+                # doesn't see a stale pre-suspension close and misidentify the
+                # resume jump as an overnight gap.
+                self._last_bar_prices[c] = close_val
                 logger.info("Symbol %s resumed from suspension", c)
 
         # 0.5 Run per-bar market hooks (funding fees, liquidation checks, etc.)
@@ -282,6 +292,11 @@ class TradingEngine:
         for c in self.codes:
             if c in bar:
                 self._market.on_bar(c, bar[c], timestamp)
+
+        # [P1-2 fix] Record ALL bars for data continuity — even suspended stocks.
+        # Previously only active bars were appended, so a stock resuming from
+        # suspension had a gap in its data_map history, breaking rolling windows.
+        self._record_bars(bar)
 
         # 1. Generate signals (or use precomputed).  Suspended symbols are filtered
         #    so the strategy never sees them and cannot generate trades on halted stock.
@@ -296,18 +311,28 @@ class TradingEngine:
         if self._optimizer is not None and weights:
             weights = self._optimizer.apply(weights, bar)
 
+        # [P0-1 fix] Cache equity BEFORE risk exits update _last_bar_prices with
+        # today's close.  This ensures position sizing in _process_signals uses
+        # yesterday's close prices, not today's — eliminating look-ahead bias
+        # where today's unrealised PnL influenced trade sizes at today's open.
+        equity_for_sizing = self._calc_equity()
+
         # 2. Risk-scan existing positions (forced exits)
+        #    NOTE: _check_risk_exits updates _last_bar_prices[symbol] = close
+        #    for each position it checks.  This is correct for risk management
+        #    (trailing stops need the latest price) but we must not use these
+        #    updated prices for position sizing — see P0-1 fix above.
         forced_trades: list[Any] = []
         if self._risk is not None:
             forced_trades = self._check_risk_exits(bar, timestamp, today_str)
 
         # 3. Process new signals (blocked if daily-loss circuit breaker tripped)
         signal_trades: list[Any] = []
-        daily_loss_blocked = self._risk is not None and self._risk.check_daily_loss()
+        daily_loss_blocked = self._risk is not None and self._risk.check_daily_loss(equity_for_sizing)
         if daily_loss_blocked:
             logger.warning("Daily loss limit hit — blocking new entries")
         else:
-            signal_trades = self._process_signals(weights, bar, timestamp)
+            signal_trades = self._process_signals(weights, bar, timestamp, equity_for_sizing)
 
         all_trades = suspension_trades + gap_trades + forced_trades + signal_trades
         signals = self._weights_to_signal_dicts(weights, timestamp)
@@ -377,7 +402,42 @@ class TradingEngine:
         if self._signal.mode == "tick":
             return self._signal.on_bar_tick(bar, self._tick_state)
         else:
-            return self._signal.on_bar_batch(bar, self._data_map)
+            # skip_append=True: bar recording is handled by _record_bars()
+            # which records ALL bars (including suspended) for data continuity.
+            return self._signal.on_bar_batch(bar, self._data_map, skip_append=True)
+
+    # ── Internal: bar recording (data continuity) ────────────────────
+
+    def _record_bars(self, bar: dict[str, pd.Series]) -> None:
+        """Append all bars to _data_map regardless of suspension status.
+
+        [P1-2 fix] Previously only active (non-suspended) bars were appended,
+        creating data gaps that broke rolling-window calculations when a
+        suspended stock resumed trading.
+        """
+        if self._signal.mode != "batch":
+            return
+        # Use the same bound as SignalAdapter to stay consistent
+        _MAX_HISTORY = 5000
+        for code, row in bar.items():
+            if code not in self._data_map:
+                continue
+            df = self._data_map[code]
+            if hasattr(row, "name") and row.name is not None:
+                ts = row.name
+            elif len(df) > 0:
+                ts = df.index[-1] + pd.Timedelta(days=1)
+            else:
+                ts = pd.Timestamp.now()
+            new_row = pd.DataFrame([row], index=[ts])
+            self._data_map[code] = pd.concat([df, new_row])
+            if len(self._data_map[code]) > _MAX_HISTORY:
+                self._data_map[code] = self._data_map[code].iloc[-_MAX_HISTORY:]
+                logger.warning(
+                    "Data history for %s truncated to %d bars — "
+                    "long-window factors may be affected",
+                    code, _MAX_HISTORY,
+                )
 
     # ── Internal: risk exits ────────────────────────────────────────
 
@@ -433,6 +493,7 @@ class TradingEngine:
         weights: dict[str, float],
         bar: dict[str, pd.Series],
         timestamp: pd.Timestamp,
+        equity: float | None = None,
     ) -> list[TradeRecord]:
         trades: list[TradeRecord] = []
         today = (
@@ -487,14 +548,21 @@ class TradingEngine:
                     if not self._market.can_execute(symbol, target_dir, bar[symbol]):
                         continue
 
-                    trade = self._open_position(symbol, target_dir, price, weight, timestamp)
+                    trade = self._open_position(symbol, target_dir, price, weight, timestamp, equity)
                     if trade:
                         trades.append(trade)
                         if self._sm:
                             self._sm.transition(target_state)
             except Exception:
-                logger.warning(
-                    "Signal processing failed for %s at %s", symbol, timestamp, exc_info=True,
+                # [P0-3 fix] Log at ERROR level (not WARNING) with full traceback so
+                # signal-processing failures are visible and debuggable.  We still
+                # don't re-raise — one bad symbol shouldn't kill the entire bar —
+                # but the elevated log level ensures operators notice.
+                logger.error(
+                    "Signal processing failed for %s at %s (bar data: %s)",
+                    symbol, timestamp,
+                    {k: float(bar[symbol].get(k, 0)) for k in ("open", "close", "volume")},
+                    exc_info=True,
                 )
 
         return trades
@@ -508,11 +576,18 @@ class TradingEngine:
         price: float,
         weight: float,
         timestamp: pd.Timestamp,
+        equity: float | None = None,
     ) -> Position | None:
-        """Open a position using the market engine's sizing rules."""
+        """Open a position using the market engine's sizing rules.
+
+        [P0-1 fix] ``equity`` should be pre-computed from *yesterday's* close
+        prices (cached before _check_risk_exits updated _last_bar_prices).
+        This prevents today's unrealised PnL from influencing trade sizes.
+        """
         self._market._active_symbol = symbol
         leverage = getattr(self._market, "default_leverage", 1.0)
-        equity = self._calc_equity()
+        if equity is None:
+            equity = self._calc_equity()
         target_notional = abs(weight) * equity * leverage
 
         if self._risk and not self._risk.check_position_size(target_notional, equity):

@@ -224,10 +224,19 @@ class ZooSignalEngine:
 
         Returns:
             Position panel with the same shape, NaN treated as 0 (no position).
+
+        [P0-2 fix] Uses ``method="average"`` instead of ``method="first"`` for
+        deterministic ranking.  ``method="first"`` breaks ties by DataFrame
+        column order, which is non-deterministic across runs (dict insertion
+        order, though stable in Python 3.7+, is not guaranteed by the caller).
+        With ``method="average"``, tied scores get identical ranks, and the
+        ``le(top_n)`` mask selects ALL tied stocks at the boundary — this may
+        occasionally pick more than ``top_n`` names, which is the correct
+        behaviour when scores are genuinely equal.
         """
         positions = pd.DataFrame(0.0, index=composite.index, columns=composite.columns)
-        ranks_desc = composite.rank(axis=1, method="first", ascending=False, na_option="bottom")
-        ranks_asc = composite.rank(axis=1, method="first", ascending=True, na_option="bottom")
+        ranks_desc = composite.rank(axis=1, method="average", ascending=False, na_option="bottom")
+        ranks_asc = composite.rank(axis=1, method="average", ascending=True, na_option="bottom")
         # Rows that have zero valid names take no positions at all.
         valid_row = composite.notna().any(axis=1)
 

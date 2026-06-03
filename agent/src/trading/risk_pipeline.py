@@ -51,7 +51,12 @@ class RiskPipeline:
         self._take_profit_pct = abs(config.take_profit_pct) / 100.0
         self._trailing_stop_pct = abs(config.trailing_stop_pct) / 100.0 if config.trailing_stop_pct > 0 else 0.0
         self._trailing_enabled = self._trailing_stop_pct > 1e-9
-        self._max_daily_loss = initial_capital * abs(config.max_daily_loss_pct) / 100.0
+        # [P2-6 fix] Store the percentage so daily loss limit can be recalculated
+        # dynamically against current equity, not just initial_capital.
+        self._max_daily_loss_pct = abs(config.max_daily_loss_pct) / 100.0
+        self._initial_capital = initial_capital
+        # Seed with initial capital; check_daily_loss(equity=...) updates it dynamically.
+        self._max_daily_loss = initial_capital * self._max_daily_loss_pct
         self._max_position_pct = abs(config.max_position_pct) / 100.0
 
         self._use_intraday = config.use_intraday_stop
@@ -158,11 +163,13 @@ class RiskPipeline:
         prev_close: float,
         bar_open: float,
     ) -> tuple[str | None, float | None]:
-        """Check whether the overnight gap penetrates stop-loss or take-profit.
+        """Check whether the overnight gap penetrates stop-loss, trailing-stop,
+        or take-profit.
 
         Called before processing a new bar.  If the gap from ``prev_close``
-        to ``bar_open`` crosses the stop or target level, return the exit
-        reason and execution price (at open).  Priority: stop > target.
+        to ``bar_open`` crosses the stop, trailing, or target level, return
+        the exit reason and execution price (at open).
+        Priority: stop > trailing > target.
 
         Returns ``(reason, exec_price)`` or ``(None, None)``.
         """
@@ -175,8 +182,29 @@ class RiskPipeline:
         stop_gapped = (direction == 1 and bar_open <= stop_p) or (direction == -1 and bar_open >= stop_p)
         target_gapped = (direction == 1 and bar_open >= target_p) or (direction == -1 and bar_open <= target_p)
 
+        # [P1-3 fix] Check trailing_stop gap as well, using the trailing high
+        # from _trailing_highs (tracked in check_position / check_position_intraday).
+        trail_gapped = False
+        if self._trailing_enabled and symbol in self._trailing_highs:
+            high = self._trailing_highs[symbol]
+            trail_p = high * (1.0 - direction * self._trailing_stop_pct)
+            trail_gapped = (
+                (direction == 1 and bar_open <= trail_p)
+                or (direction == -1 and bar_open >= trail_p)
+            )
+        elif self._trailing_enabled:
+            # No trailing high yet — use entry_price as initial high
+            trail_p = entry_price * (1.0 - direction * self._trailing_stop_pct)
+            trail_gapped = (
+                (direction == 1 and bar_open <= trail_p)
+                or (direction == -1 and bar_open >= trail_p)
+            )
+
+        # Priority: stop > trail > target (risk-first)
         if stop_gapped:
             return "gap_stop", bar_open
+        if trail_gapped:
+            return "gap_trail", bar_open
         if target_gapped:
             return "gap_target", bar_open
 
@@ -184,7 +212,17 @@ class RiskPipeline:
 
     # ── Daily loss ──────────────────────────────────────────────────
 
-    def check_daily_loss(self) -> bool:
+    def check_daily_loss(self, equity: float | None = None) -> bool:
+        """Return True if daily realised loss exceeds the circuit-breaker threshold.
+
+        [P2-6 fix] When ``equity`` is provided, the daily loss limit is
+        recalculated as a percentage of *current* equity rather than the
+        fixed ``initial_capital``.  This prevents the threshold from being
+        too tight when the account is in profit, or too loose when it's in
+        drawdown.
+        """
+        if equity is not None and equity > 0:
+            self._max_daily_loss = equity * self._max_daily_loss_pct
         return self._daily_pnl <= -self._max_daily_loss
 
     def accumulate_daily(self, pnl: float, date: str) -> None:
