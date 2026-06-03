@@ -17,6 +17,13 @@ export function OptimizationPanel({ symbol }: Props) {
   const [running, setRunning] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
+  const cancelledRef = useRef(false);
+
+  // Reset cancelled flag on mount; mark cancelled on unmount
+  useEffect(() => {
+    cancelledRef.current = false;
+    return () => { cancelledRef.current = true; };
+  }, []);
 
   const stopSSE = useCallback(() => {
     if (eventSourceRef.current) {
@@ -46,6 +53,8 @@ export function OptimizationPanel({ symbol }: Props) {
       // Connect SSE
       try {
         const url = await api.optimizeStreamUrl(jId);
+        // Guard against unmount during async gap
+        if (cancelledRef.current) return;
         const es = new EventSource(url);
         eventSourceRef.current = es;
         es.onmessage = (e) => {

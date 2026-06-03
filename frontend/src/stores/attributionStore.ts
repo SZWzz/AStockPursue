@@ -34,9 +34,9 @@ export const useAttributionStore = create<AttributionState>((set, get) => ({
     if (!id) return;
     set({ loading: true });
     try {
-      const r = await (api as any).attributionBrinson({ run_id: id });
+      const r = await api.attributionBrinson({ run_id: id }) as Record<string, unknown> | null;
       set({ brinsonResult: r });
-    } catch { /* ignore */ }
+    } catch (e) { console.warn("[attribution] Brinson compute failed:", e); }
     set({ loading: false });
   },
   computeFactor: async () => {
@@ -44,9 +44,9 @@ export const useAttributionStore = create<AttributionState>((set, get) => ({
     if (!id) return;
     set({ loading: true });
     try {
-      const r = await (api as any).attributionFactor({ run_id: id, factors: [] });
+      const r = await api.attributionFactor({ run_id: id, factors: [] }) as Record<string, unknown> | null;
       set({ factorResult: r });
-    } catch { /* ignore */ }
+    } catch (e) { console.warn("[attribution] Factor attr compute failed:", e); }
     set({ loading: false });
   },
   computeSector: async () => {
@@ -54,9 +54,9 @@ export const useAttributionStore = create<AttributionState>((set, get) => ({
     if (!id) return;
     set({ loading: true });
     try {
-      const r = await (api as any).attributionSector({ run_id: id, classification: "sw" });
+      const r = await api.attributionSector({ run_id: id, classification: "sw" }) as Record<string, unknown> | null;
       set({ sectorResult: r });
-    } catch { /* ignore */ }
+    } catch (e) { console.warn("[attribution] Sector compute failed:", e); }
     set({ loading: false });
   },
   computeDecomp: async () => {
@@ -64,9 +64,9 @@ export const useAttributionStore = create<AttributionState>((set, get) => ({
     if (!id) return;
     set({ loading: true });
     try {
-      const r = await (api as any).attributionDecomp({ run_id: id });
+      const r = await api.attributionDecomp({ run_id: id }) as Record<string, unknown> | null;
       set({ decompResult: r });
-    } catch { /* ignore */ }
+    } catch (e) { console.warn("[attribution] Decomp compute failed:", e); }
     set({ loading: false });
   },
   computeFull: async () => {
@@ -74,9 +74,17 @@ export const useAttributionStore = create<AttributionState>((set, get) => ({
     if (!id) return;
     set({ loading: true });
     try {
-      const r = await (api as any).attributionFull({ run_id: id });
-      set({ fullReport: r, brinsonResult: (r as any)?.brinson, factorResult: (r as any)?.factor, sectorResult: (r as any)?.sector, decompResult: (r as any)?.time_series });
-    } catch { /* ignore */ }
+      const r = await api.attributionFull({ run_id: id }) as Record<string, unknown> | null;
+      // Only overwrite fields that are present in the response — preserve
+      // individually-computed results that the full report may omit.
+      const patch: Partial<AttributionState> = { fullReport: r, loading: false };
+      if ((r as any)?.brinson) patch.brinsonResult = (r as any).brinson;
+      if ((r as any)?.factor) patch.factorResult = (r as any).factor;
+      if ((r as any)?.sector) patch.sectorResult = (r as any).sector;
+      if ((r as any)?.time_series) patch.decompResult = (r as any).time_series;
+      set(patch);
+      return;
+    } catch (e) { console.warn("[attribution] Full report compute failed:", e); }
     set({ loading: false });
   },
 }));

@@ -72,12 +72,24 @@ export const usePaperTradingStore = create<PaperTradingState>((set, get) => ({
     set,
     get,
     {
-      /* After a trade event, refresh the run detail so tables update. */
-      onTrade: (runId: string) => {
-        if (get().activeRunId === runId) {
-          get().selectRun(runId);
-        }
-      },
+      /* After a trade event, refresh the run detail so tables update.
+         Debounce to avoid request cascade during rapid trading activity. */
+      onTrade: (() => {
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        let latestRunId: string | null = null;
+        return (runId: string) => {
+          latestRunId = runId;
+          if (timer) return;  // already scheduled
+          timer = setTimeout(() => {
+            timer = null;
+            const rid = latestRunId;
+            latestRunId = null;
+            if (rid && get().activeRunId === rid) {
+              get().selectRun(rid);
+            }
+          }, 500);
+        };
+      })(),
       /* After a status event, refresh the run list. */
       onStatus: () => {
         get().fetchRuns();

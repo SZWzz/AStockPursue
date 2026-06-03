@@ -211,7 +211,7 @@ export function createSSEActions(
         try {
           const data = JSON.parse(e.data);
           if (data.status === "stopped" || data.status === "error") {
-            set({ sseStatus: "disconnected", reconnectCount: 0 });
+            set({ sseStatus: "disconnected", eventSource: null, reconnectCount: 0 });
             es.close();
           }
         } catch {
@@ -224,11 +224,15 @@ export function createSSEActions(
       es.onerror = () => {
         const { eventSource } = get();
         if (!eventSource || eventSource !== es) return;
-        es.close();
+        // Check readyState BEFORE close() — close() sets it to CLOSED
         if (es.readyState === EventSource.CLOSED) {
-          set({ sseStatus: "disconnected", reconnectCount: 0 });
+          set({ sseStatus: "disconnected", eventSource: null, reconnectCount: 0 });
           return;
         }
+        // readyState === CONNECTING or OPEN → browser will auto-reconnect,
+        // but we prefer our own backoff strategy.
+        es.close();
+        set({ eventSource: null });
         reconnectCount += 1;
         const delayMs = calcReconnectDelay(reconnectCount);
         set({

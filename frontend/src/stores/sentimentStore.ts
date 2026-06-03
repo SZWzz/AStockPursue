@@ -148,7 +148,8 @@ export const useSentimentStore = create<SentimentState>()(
         trendingTopics: state.trendingTopics,
         marketSentiment: state.marketSentiment,
         stockSentiments: state.stockSentiments,
-        liveNews: state.liveNews,
+        // Exclude liveNews — SSE stream can push 100+ articles rapidly,
+        // easily exceeding the 5 MB sessionStorage quota.
         sourceFilter: state.sourceFilter,
       }),
     },

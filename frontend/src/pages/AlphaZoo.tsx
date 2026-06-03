@@ -599,6 +599,8 @@ function BenchView() {
   const [formError, setFormError] = useState<string | null>(null);
   const sourceRef = useRef<EventSource | null>(null);
   const doneRef = useRef(false);
+  const cancelledRef = useRef(false);
+  useEffect(() => { return () => { cancelledRef.current = true; }; }, []);
 
   // History
   const [history, setHistory] = useState<BenchHistoryItem[]>([]);
@@ -644,6 +646,7 @@ function BenchView() {
     setFormError(null);
     doneRef.current = false;
     sourceRef.current?.close();
+    sourceRef.current = null;
     const safeTop = Number.isFinite(top) && top > 0 ? top : 20;
     try {
       const res = await api.createAlphaBench({
@@ -652,6 +655,8 @@ function BenchView() {
         period,
         top: safeTop,
       });
+      // Guard against unmount during async gap
+      if (cancelledRef.current) return;
       setJobId(res.job_id);
       attachStream(res.job_id);
     } catch (err: unknown) {

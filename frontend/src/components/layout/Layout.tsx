@@ -61,7 +61,7 @@ export function Layout() {
       .finally(() => setSessionsLoading(false));
   };
 
-  const isAgentPage = pathname === "/";
+  const isAgentPage = pathname === "/agent";
   useEffect(() => { loadSessions(); }, [isAgentPage, activeSessionId]);
 
   const [sessionFilter, setSessionFilter] = useState("");
@@ -171,7 +171,7 @@ export function Layout() {
                 {t.sessions}
               </span>
               <Link
-                to="/"
+                to="/agent"
                 className="btn-ghost p-1 rounded-md"
                 title={t.newChat}
               >
@@ -222,7 +222,7 @@ export function Layout() {
                       />
                     ) : (
                       <Link
-                        to={`/?session=${s.session_id}`}
+                        to={`/agent?session=${s.session_id}`}
                         className={cn(
                           "flex-1 min-w-0 pl-3 pr-16 py-2 rounded-lg text-sm transition-all duration-150 truncate block",
                           isActive

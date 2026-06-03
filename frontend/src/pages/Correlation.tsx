@@ -77,7 +77,7 @@ export function Correlation() {
       await api.sendMessage(session.session_id, content);
       setSessionMsg(t.correlationSavedToSession);
       // Navigate to agent with this session
-      navigate(`/?session=${session.session_id}`);
+      navigate(`/agent?session=${session.session_id}`);
     } catch (e) {
       setSessionMsg(`${t.correlationSaveFailed}: ${e}`);
     } finally {
@@ -93,7 +93,7 @@ export function Correlation() {
       }
     }
     localStorage.setItem("vr_pending_prompt", `分析以下资产相关性矩阵（${days}天 ${method}）：\n${pairs.join("；")}\n\n请分析：哪些资产正相关/负相关最强？如何利用这个相关性构建对冲组合？`);
-    navigate("/");
+    navigate("/agent");
   };
 
   return (

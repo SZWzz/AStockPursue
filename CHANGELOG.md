@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026.6.3 — P0-P3 Deep Audit + Documentation + Test Fixes
+
+### Fixed
+
+- **[Engine] P0 前瞻性偏差回归修复** (`39c4294`) — `TradingEngine._record_bars()` 必须在 `_generate_signals()` 之后执行，防止策略通过 `_data_map` 访问当前 bar；`equity_for_sizing` 必须在风险检查前缓存，避免 `_last_bar_prices` 被今日收盘价更新后用于 sizing 计算
+- **[Engine] P0 跳空检测漏单** (`39c4294`) — `RiskPipeline.check_gap()` 现在对开盘价穿透止损/止盈价的情况正确触发退出，之前仅对收盘价检查导致跳空止损完全失效
+- **[GP] P0 排名确定性** (`39c4294`) — GP 锦标赛选择改用稳定排序（先按 fitness 降序，再按 `formula_hash` 字典序），消除同分个体的非确定性 shuffle
+- **[Engine] P0 佣金费率修正** (`ed02abe`) — A 股佣金从 0.3 bps 修正为 3 bps（万三），之前少算一个数量级导致回测收益虚高
+- **[Engine] P1 列对齐错误** (`ed02abe`) — `np.where()` 配合 `.values` 使用会丢失列标签，引入 `_safe_if_else()` 辅助函数替代，修复并行评估中 DataFrame 列混乱
+- **[FactorKB] P1 pgvector 降级处理** (`ed02abe`) — `factor_kb_store.py` 在 PostgreSQL 不可用时优雅降级为本地 JSON 存储，不再抛异常中断整个因子挖掘流程
+- **[Engine] P1 日内时间戳推断** (`ed02abe`) — bar 间隔计算从 `Timedelta(days=1)` 硬编码改为 `pd.infer_freq()` 动态推断，修复周线/4 周线/2 小时线等非日线周期的年化系数错误
+- **[GP] P0 线程安全** (`3628d70`) — 并行 GP 评估中所有 KB 访问必须持有 `self._kb_lock`，修复 `factor_kb.register()` 并发写入导致的 SQLite 数据库锁竞争和数据损坏
+- **[GP] P0 KB 溯源校验** (`3628d70`) — 复用 KB 中缓存的因子指标前必须校验 `data_source_version` 和 `train_date_range`，防止不同数据集/时间范围的指标被错误复用
+- **[GP] P1 FDR 校正方法** (`3628d70`) — 多重假设检验校正从 Benjamini-Hochberg (BH) 改为 Benjamini-Yekutieli (BY)，因 GP 候选因子高度相关，BH 的独立性假设不成立
+- **[GP] P1 OOS 评估窗口** (`3628d70`) — Walk-forward 窗口从重叠滑动改为非重叠滚动窗口，确保各窗口 OOS IC 相互独立，消除自相关导致的显著性虚高
+- **[GP] P1 Elite Tracker 哈希** (`36c2279`) — Elite 个体追踪器改用 `formula_hash` 而非对象 id，修复重启后 tracker 无法识别同一公式的问题
+- **[Security] P1 SIGALRM 替代** (`36c2279`) — `SafetyValidator` 的运行时断路器从 `signal.SIGALRM` 改为 `threading.Thread + join(timeout)`，SIGALRM 仅在 Unix 主线程可用，子线程中会静默失效
+- **[Data] P1 加载器可用性检测** (`36c2279`) — `is_available()` 必须执行真实网络连通性检查，不能仅 `import requests` 就返回 True，修复离线环境下 loader 误报可用
+- **[Engine] P1 退市检测** (`36c2279`) — `BacktestDriver` 检测到标的 K 线数据提前终止时触发 `force_close_symbol(code, "delisted")`，修复退市股票在回测中永远持有到最后的问题
+- **[Data] P2 截断阈值** (`1f24383`) — Baidu loader 截断检测阈值从固定 2000 bar 改为动态计算（预期 bar 数的 95%），消除不同频率下的误报/漏报
+- **[Metrics] P2 Scale NaN** (`1f24383`) — `calc_metrics()` 在全部收益为零时 scale 计算产生 NaN，添加 `np.where` 保护返回 0.0
+- **[Engine] P2 预热期** (`1f24383`) — 回测指标计算跳过前 N 个 bar 的预热期（默认 21 交易日），避免初始空仓期污染夏普/最大回撤等统计量
+- **[Metrics] P2 年化系数** (`1f24383`) — `calc_bars_per_year()` 补齐所有 interval 的年化系数映射（1W→52, 4W→13, 2d→126, 2h→756），修复非日线回测指标年化错误
+- **[FactorKB] P3 主题归一化** (`1f24383`) — KB 主题标签从自由文本改为小写归一化 + 去重，修复同一主题因大小写/空格变体被识别为不同主题的问题
+
+- **[Tests] MockSignalAdapter 签名更新** — `on_bar_batch()` 增加 `*, skip_append=False` 参数以匹配 `SignalAdapter` 生产代码签名的变更，修复 4 个测试用例的 `TypeError`
+
+### Added
+
+- **[Docs] CLAUDE.md** (`187513c`) — 项目开发指南：架构总览（TradingEngine 管道 / Backtest 引擎继承体系 / 数据加载 3 层架构 / 因子挖掘系统 / 前端状态管理 / Skills 系统）、构建/测试/运行命令、已知缺陷模式（8 类避免引入的 bug 模式）
+- **[Docs] 核心代码文档** (`24cd40f`) — 9 个关键文件新增 1025+ 行 docstring（模块级/类级/方法级），覆盖安全边界/金融计算/数据完整性/并发/算法复杂度 5 类关键代码
+- **[Docs] 开发规则** (`3624909`) — CLAUDE.md 新增 Changelog 维护规范（每次改动必须记录，Keep a Changelog 格式）和文档要求（5 类关键代码必须携带完整文档）
+- **[Infra] Docker 数据卷** (`d7b917e`) — `docker-compose.yml` 新增 `/opt/data` 卷挂载，持久化 PostgreSQL 数据
+
+### Changed
+
+- **[Docs] CHANGELOG.md** — 按 CLAUDE.md 规范新增 `2026.6.3` 条目，详细记录 5 轮 P0-P3 缺陷修复
+
 ## 2026.6.1 (Phase C: LLM+GP+FactorKB + P0-P3 Full Stack)
 
 ### Added

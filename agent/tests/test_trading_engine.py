@@ -13,7 +13,7 @@ class MockSignalAdapter:
     def init_batch(self, data_map):
         return data_map
 
-    def on_bar_batch(self, bar, data_map):
+    def on_bar_batch(self, bar, data_map, *, skip_append=False):
         n = len(bar)
         w = 1.0 / n if n > 0 else 0.0
         return {code: w for code in bar}

@@ -88,8 +88,8 @@ export const useFactorMiningStore = create<FactorMiningState>((set, get) => ({
       await api.cancelGpRun(gpJobId);
       set({ gpStatus: "cancelled" });
       get().unsubscribeFromJob();
-    } catch {
-      // ignore
+    } catch (e) {
+      console.warn("[factorMining] Cancel GP run failed:", e);
     }
   },
 
@@ -97,8 +97,8 @@ export const useFactorMiningStore = create<FactorMiningState>((set, get) => ({
     try {
       const data = await api.getGenerationHistory(jobId);
       set({ gpGenerations: data });
-    } catch {
-      // ignore
+    } catch (e) {
+      console.warn("[factorMining] Fetch GP generations failed:", e);
     }
   },
 
@@ -106,8 +106,8 @@ export const useFactorMiningStore = create<FactorMiningState>((set, get) => ({
     try {
       const data = await api.getGpResult(jobId);
       set({ gpResult: data });
-    } catch {
-      // ignore
+    } catch (e) {
+      console.warn("[factorMining] Fetch GP result failed:", e);
     }
   },
 
@@ -191,8 +191,13 @@ export const useFactorMiningStore = create<FactorMiningState>((set, get) => ({
   },
 
   promoteCandidate: async (id: string, zoo: string, theme: string, name: string, desc: string) => {
-    await api.promoteCandidate(id, { zoo, theme, name, description: desc });
-    await get().fetchCandidates();
+    try {
+      await api.promoteCandidate(id, { zoo, theme, name, description: desc });
+      await get().fetchCandidates();
+    } catch (e) {
+      console.warn("[factorMining] Promote candidate failed:", e);
+      throw e;  // re-throw so the UI can show a toast
+    }
   },
 
   deleteCandidate: async (id: string) => {
@@ -206,8 +211,8 @@ export const useFactorMiningStore = create<FactorMiningState>((set, get) => ({
     try {
       const data = await api.fetchMiningHistory();
       set({ miningHistory: data.runs || [] });
-    } catch {
-      // ignore
+    } catch (e) {
+      console.warn("[factorMining] Fetch mining history failed:", e);
     }
   },
 
@@ -219,6 +224,9 @@ export const useFactorMiningStore = create<FactorMiningState>((set, get) => ({
       sseSource.close();
     }
 
+    // Read JWT from sessionStorage at connection time; for long-running jobs
+    // the server should accept a short-lived SSE token or the SSE endpoint
+    // should be backed by an httpOnly cookie (set by the backend auth middleware).
     const jwt = sessionStorage.getItem("vt_token") || "";
     const url = `/v1/factor-mining/gp/${jobId}/stream?jwt=${encodeURIComponent(jwt)}`;
     const es = new EventSource(url);
@@ -292,7 +300,10 @@ export const useFactorMiningStore = create<FactorMiningState>((set, get) => ({
     });
 
     es.addEventListener("error", () => {
-      // Will auto-reconnect
+      // Browser will auto-reconnect; log the error for diagnostics.
+      // Long-running GP jobs may fail if the JWT expires mid-stream —
+      // use unsubscribeFromJob / subscribeToJob to manually reconnect.
+      console.warn("[factorMining] GP SSE error — connection may be lost");
     });
 
     set({ sseSource: es });

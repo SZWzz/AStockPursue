@@ -47,41 +47,43 @@ export const useSchedulerStore = create<SchedulerState>((set, get) => ({
   loadTasks: async () => {
     set({ loading: true });
     try {
-      const data = await (api as any).listSchedulerTasks();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data: any = await api.listSchedulerTasks();
       set({ tasks: data?.tasks || [], loading: false });
     } catch { set({ loading: false }); }
   },
 
   createTask: async (t) => {
-    await (api as any).createSchedulerTask(t);
+    await api.createSchedulerTask(t);
     await get().loadTasks();
   },
 
   updateTask: async (id, u) => {
-    await (api as any).updateSchedulerTask(id, u);
+    await api.updateSchedulerTask(id, u);
     await get().loadTasks();
   },
 
   deleteTask: async (id) => {
-    await (api as any).deleteSchedulerTask(id);
+    await api.deleteSchedulerTask(id);
     await get().loadTasks();
   },
 
   toggleTask: async (id, enabled) => {
-    if (enabled) await (api as any).resumeSchedulerTask(id);
-    else await (api as any).pauseSchedulerTask(id);
+    if (enabled) await api.resumeSchedulerTask(id);
+    else await api.pauseSchedulerTask(id);
     await get().loadTasks();
   },
 
   runNow: async (id) => {
-    await (api as any).runSchedulerTaskNow(id);
+    await api.runSchedulerTaskNow(id);
     await get().loadExecutions(id);
   },
 
   loadExecutions: async (taskId) => {
     set({ executionsLoading: true });
     try {
-      const data = await (api as any).getSchedulerTaskHistory(taskId);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data: any = await api.getSchedulerTaskHistory(taskId);
       set({ executions: data?.executions || [], executionsLoading: false });
     } catch { set({ executionsLoading: false }); }
   },

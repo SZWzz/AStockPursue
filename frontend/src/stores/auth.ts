@@ -37,6 +37,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        set({ loading: false });
         return body.detail || "Login failed";
       }
       const data = await res.json();
@@ -63,6 +64,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        set({ loading: false });
         return body.detail || "Registration failed";
       }
       set({ loading: false });

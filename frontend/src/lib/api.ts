@@ -138,14 +138,20 @@ export async function errorFromResponse(res: Response): Promise<ApiError> {
 }
 
 export async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const { headers, ...rest } = options ?? {};
-  const mergedHeaders: Record<string, string> = { "Content-Type": "application/json", ...authHeaders() };
+  const { headers, body, ...rest } = options ?? {};
+  // Detect FormData — browser sets correct Content-Type with boundary automatically
+  const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
+  const mergedHeaders: Record<string, string> = isFormData
+    ? { ...authHeaders() }
+    : { "Content-Type": "application/json", ...authHeaders() };
   if (headers) {
     new Headers(headers).forEach((value, key) => {
       mergedHeaders[key] = value;
     });
   }
   const res = await fetch(`${BASE}${path}`, {
+    body,
+    ...rest,
     ...rest,
     headers: mergedHeaders,
   });
@@ -441,7 +447,7 @@ export const api = {
   getGenerationHistory: (jobId: string) => request<import("@/types/api").GenerationSnapshot[]>(`/factor-mining/gp/${jobId}/generations`),
   cancelGpRun: (jobId: string) => request<{ status: string }>(`/factor-mining/gp/${jobId}/cancel`, { method: "POST" }),
   llmExtractText: (text: string) => request<{ candidates: import("@/types/api").FactorCandidate[]; count: number }>("/factor-mining/llm/extract", { method: "POST", body: JSON.stringify({ text }) }),
-  llmExtractPdf: (formData: FormData) => request<{ candidates: import("@/types/api").FactorCandidate[]; count: number }>("/factor-mining/llm/extract-pdf", { method: "POST", body: formData, headers: {} }),
+  llmExtractPdf: (formData: FormData) => request<{ candidates: import("@/types/api").FactorCandidate[]; count: number }>("/factor-mining/llm/extract-pdf", { method: "POST", body: formData }),
   llmDebate: (candidateIds: string[]) => request<{ filtered: import("@/types/api").FactorCandidate[]; original_count: number; filtered_count: number }>("/factor-mining/llm/debate", { method: "POST", body: JSON.stringify({ candidate_ids: candidateIds }) }),
   hybridStart: (config: Record<string, unknown>) => request<{ job_id: string; status: string }>("/factor-mining/hybrid/start", { method: "POST", body: JSON.stringify(config) }),
   fetchCandidates: () => request<{ candidates: import("@/types/api").FactorCandidate[]; total: number }>("/factor-mining/candidates"),

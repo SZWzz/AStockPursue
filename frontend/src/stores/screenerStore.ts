@@ -84,7 +84,8 @@ export const useScreenerStore = create<ScreenerState>((set, get) => ({
     set({ loading: true });
     try {
       const { conditions, universe, mode, topN } = get();
-      const data = await (api as any).runScreener({ conditions, universe, mode, top_n: topN });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const data: any = await api.runScreener({ conditions, universe, mode, top_n: topN });
       set({ results: data?.results || [], dataSource: data?.data_source || "", loading: false });
     } catch { set({ loading: false }); }
   },
@@ -92,39 +93,39 @@ export const useScreenerStore = create<ScreenerState>((set, get) => ({
   loadPresets: async () => {
     set({ presetsLoading: true });
     try {
-      const data = await (api as any).listScreenerPresets();
+      const data = await api.listScreenerPresets();
       set({ presets: Array.isArray(data) ? data : [], presetsLoading: false });
     } catch { set({ presetsLoading: false }); }
   },
 
   savePreset: async (name) => {
     const { conditions, universe } = get();
-    await (api as any).saveScreenerPreset({ name, conditions, universe });
+    await api.saveScreenerPreset({ name, conditions, universe });
     await get().loadPresets();
   },
 
   deletePreset: async (id) => {
-    await (api as any).deleteScreenerPreset(id);
+    await api.deleteScreenerPreset(id);
     await get().loadPresets();
   },
 
   aiRecommend: async () => {
-    const data = await (api as any).aiRecommendScreener();
+    const data = await api.aiRecommendScreener();
     return data || [];
   },
 
   batchAddWatchlist: async (symbols) => {
-    await (api as any).screenerBatch({ action: "add_watchlist", symbols });
+    await api.screenerBatch({ action: "add_watchlist", symbols });
   },
 
   batchBacktest: async (symbols) => {
-    await (api as any).screenerBatch({ action: "backtest_basket", symbols });
+    await api.screenerBatch({ action: "backtest_basket", symbols });
   },
 
   loadFields: async () => {
     set({ fieldsLoading: true });
     try {
-      const data = await (api as any).getScreenerFields();
+      const data = await api.getScreenerFields();
       set({ fields: Array.isArray(data) ? data : [], fieldsLoading: false });
     } catch { set({ fieldsLoading: false }); }
   },
