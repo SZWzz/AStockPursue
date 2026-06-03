@@ -33,14 +33,38 @@ _USER_CONFIGS_DIR = Path(__file__).resolve().parent.parent.parent / ".user_confi
 
 
 def _notify_config_path(user_id: int) -> Path:
+    """Return the filesystem path to a user's notification config JSON.
+
+    Args:
+        user_id: Authenticated user ID.
+
+    Returns:
+        ``Path`` to ``.user_configs/<user_id>/notify_config.json``.
+    """
     return _USER_CONFIGS_DIR / str(user_id) / "notify_config.json"
 
 
 def _indices_config_path(user_id: int) -> Path:
+    """Return the filesystem path to a user's indices config JSON.
+
+    Args:
+        user_id: Authenticated user ID.
+
+    Returns:
+        ``Path`` to ``.user_configs/<user_id>/indices_config.json``.
+    """
     return _USER_CONFIGS_DIR / str(user_id) / "indices_config.json"
 
 
 def _load_json(path: Path) -> dict:
+    """Load a JSON file, returning an empty dict on any error.
+
+    Args:
+        path: Filesystem path to the JSON file.
+
+    Returns:
+        Parsed dict, or ``{}`` if the file does not exist or is malformed.
+    """
     try:
         return json.loads(path.read_text(encoding="utf-8"))
     except Exception:
@@ -48,6 +72,12 @@ def _load_json(path: Path) -> dict:
 
 
 def _save_json(path: Path, data: dict) -> None:
+    """Save a dict to a JSON file, creating parent directories as needed.
+
+    Args:
+        path: Filesystem path for the output file.
+        data: Dict to serialize as JSON.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -61,7 +91,15 @@ _COLS = "id, user_id, symbol, side, order_type, qty, price, status, filled_qty, 
 
 
 def _order_row_to_dict(row: tuple) -> dict:
-    """Convert a DB row tuple to a dict matching the TradingOrder TS interface."""
+    """Convert a DB row tuple to a JSON-safe dict matching the TradingOrder TypeScript interface.
+
+    Args:
+        row: Tuple from ``SELECT id, user_id, symbol, side, order_type,
+            qty, price, status, filled_qty, avg_price, created_at, updated_at``.
+
+    Returns:
+        Dict with camelCase-friendly keys ready for JSON serialization.
+    """
     return {
         "id": row[0],
         "user_id": row[1],
@@ -78,6 +116,14 @@ def _order_row_to_dict(row: tuple) -> dict:
 
 
 def _get_user_id(auth: dict) -> int:
+    """Extract the authenticated user ID from the auth dependency dict.
+
+    Args:
+        auth: Auth payload from ``require_auth`` dependency.
+
+    Returns:
+        Integer user ID for multi-tenant data isolation.
+    """
     return int(auth["user_id"])
 
 
@@ -196,8 +242,17 @@ def _get_broker_ctx(user_id: int) -> Any:
     """Return a cached Futu OpenSecTradeContext for *user_id*, or create one.
 
     Each user may point to a different FutuOpenD instance by setting
-    FUTU_HOST / FUTU_PORT in their per-user env config.  Falls back to the
-    global env vars.
+    ``FUTU_HOST`` / ``FUTU_PORT`` in their per-user env config.  Falls
+    back to the global env vars.  Reuses cached connections; if the
+    host/port changes for a user the old context is closed and a new one
+    is created.
+
+    Args:
+        user_id: Authenticated user ID used as the cache key.
+
+    Returns:
+        An ``OpenSecTradeContext`` instance, or ``None`` if the ``futu``
+        package is not installed.
     """
     host = os.getenv("FUTU_HOST", "127.0.0.1")
     port = int(os.getenv("FUTU_PORT", "11111"))
@@ -279,7 +334,18 @@ async def broker_positions(user: dict = Depends(require_auth)):
 
 
 def _pandas_row_to_dict(row) -> dict:
-    """Convert a pandas Series/row to a plain dict with JSON-safe values."""
+    """Convert a pandas Series/row to a plain dict with JSON-safe values.
+
+    Handles ``pd.Timestamp`` (converted to ISO string), ``NaN`` floats
+    (converted to ``None``), and other non-serialisable types.
+
+    Args:
+        row: A pandas Series, DataFrame row, or plain dict.
+
+    Returns:
+        A plain ``dict`` suitable for JSON serialization.  Returns an
+        empty dict if *row* is ``None`` or cannot be converted.
+    """
     import pandas as pd
     if row is None:
         return {}
@@ -392,7 +458,17 @@ async def start_optimize(request: Request, user: dict = Depends(require_auth)):
 
 
 def _build_param_combinations(params: dict) -> list[dict]:
-    """Build all grid-search combinations from {name: [values]}."""
+    """Build all Cartesian-product combinations for grid-search optimization.
+
+    Args:
+        params: Dict mapping parameter names to lists of candidate values,
+            e.g. ``{"lookback": [10, 20], "threshold": [0.5, 0.8]}``.
+
+    Returns:
+        List of param dicts, each representing one grid point, e.g.
+        ``[{"lookback": 10, "threshold": 0.5}, {"lookback": 10,
+        "threshold": 0.8}, ...]``.  Returns ``[{}]`` if *params* is empty.
+    """
     if not params:
         return [{}]
     import itertools
@@ -405,7 +481,20 @@ def _build_param_combinations(params: dict) -> list[dict]:
 
 
 def _inject_params(strategy_code: str, params: dict) -> str:
-    """Inject parameter values into strategy code by replacing top-level assignments."""
+    """Inject parameter values into strategy code by replacing top-level assignments.
+
+    Uses regex to find module-level assignments like ``LOOKBACK = 20``
+    and replace the value with the optimised parameter.
+
+    Args:
+        strategy_code: Python source code of the strategy.
+        params: Dict mapping parameter names to values, e.g.
+            ``{"LOOKBACK": 15, "THRESHOLD": 0.75}``.
+
+    Returns:
+        Modified strategy code with injected parameter values.  Float
+        values are formatted to 4 decimal places.
+    """
     import re
     code = strategy_code
     for name, value in params.items():
@@ -421,7 +510,15 @@ def _inject_params(strategy_code: str, params: dict) -> str:
 
 
 async def _run_optimize(job_id: str) -> None:
-    """Background optimisation worker — grid search over parameter space."""
+    """Background optimisation worker — grid search over parameter space.
+
+    Iterates over all parameter combinations, runs a backtest for each,
+    and tracks the best-scoring combination.  Progress updates are pushed
+    to the job's ``asyncio.Queue`` for SSE streaming.
+
+    Args:
+        job_id: UUID identifying the optimisation job in ``_OPTIMIZE_JOBS``.
+    """
     job = _OPTIMIZE_JOBS.get(job_id)
     if not job:
         return
@@ -502,7 +599,19 @@ async def _run_optimize(job_id: str) -> None:
 
 
 def _check_optimize_job_owner(job_id: str, user_id: int) -> dict:
-    """Raise 404 if job not found or belongs to another user."""
+    """Verify job ownership for multi-tenant isolation.
+
+    Args:
+        job_id: UUID of the optimisation job.
+        user_id: Authenticated user ID to check against.
+
+    Returns:
+        The job dict if the user owns it.
+
+    Raises:
+        HTTPException 404: If the job does not exist or belongs to
+            another user.
+    """
     job = _OPTIMIZE_JOBS.get(job_id)
     if not job or job["user_id"] != user_id:
         raise HTTPException(status_code=404, detail="Job not found")

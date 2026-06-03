@@ -321,40 +321,96 @@ class FactorKnowledgeBase:
     # ------------------------------------------------------------------
 
     def get(self, alpha_id: str) -> FactorEntry | None:
-        """Retrieve a factor by its alpha_id."""
+        """Retrieve a factor by its unique alpha_id.
+
+        Args:
+            alpha_id: Unique factor identifier.
+
+        Returns:
+            ``FactorEntry`` if found, ``None`` otherwise.
+        """
         return self._entries.get(alpha_id)
 
     def get_by_hash(self, formula_hash: str) -> FactorEntry | None:
-        """Retrieve a factor by its formula_hash."""
+        """Retrieve a factor by its SHA256 formula hash.
+
+        Args:
+            formula_hash: The first 16 hex chars of the SHA256 digest
+                of the normalized formula.
+
+        Returns:
+            ``FactorEntry`` if a factor with this hash exists, ``None``
+            otherwise.
+        """
         alpha_id = self._by_hash.get(formula_hash)
         if alpha_id:
             return self._entries.get(alpha_id)
         return None
 
     def list_by_status(self, status: str) -> list[FactorEntry]:
-        """List all factors with a given lifecycle status."""
+        """List all factors with a given lifecycle status.
+
+        Args:
+            status: One of the ``FactorStatus`` constants (e.g.
+                ``FactorStatus.APPROVED``, ``FactorStatus.PRODUCTION``).
+
+        Returns:
+            List of ``FactorEntry`` objects in registration order.
+        """
         ids = self._by_status.get(status, [])
         return [self._entries[i] for i in ids if i in self._entries]
 
     def list_active(self) -> list[FactorEntry]:
-        """List all active (approved/paper_trading/production) factors."""
+        """List all active factors across approved, paper_trading, and production.
+
+        Active factors are those whose lifecycle status is ``APPROVED``,
+        ``PAPER_TRADING``, or ``PRODUCTION`` — these are the factors
+        eligible for inclusion in the Alpha Zoo.
+
+        Returns:
+            List of ``FactorEntry`` objects across all three active states,
+            in registration order within each status group.
+        """
         result: list[FactorEntry] = []
         for s in (FactorStatus.APPROVED, FactorStatus.PAPER_TRADING, FactorStatus.PRODUCTION):
             result.extend(self.list_by_status(s))
         return result
 
     def list_by_source(self, source: str) -> list[FactorEntry]:
-        """List factors by their source (gp_engine / llm_miner / manual)."""
+        """List factors by their origin source.
+
+        Args:
+            source: Source identifier — ``"gp_engine"``, ``"llm_miner"``,
+                or ``"manual"``.
+
+        Returns:
+            List of ``FactorEntry`` objects from the given source,
+            in registration order.
+        """
         return [e for e in self._entries.values() if e.source == source]
 
     def list_all(self) -> list[FactorEntry]:
-        """List all registered factors."""
+        """List all registered factors regardless of status.
+
+        Returns:
+            List of every ``FactorEntry`` in the knowledge base,
+            in registration order.
+        """
         return list(self._entries.values())
 
     def __len__(self) -> int:
+        """Return the total number of registered factors."""
         return len(self._entries)
 
     def __contains__(self, alpha_id: str) -> bool:
+        """Check whether a factor with the given alpha_id exists.
+
+        Args:
+            alpha_id: Unique factor identifier.
+
+        Returns:
+            ``True`` if the factor is registered in the knowledge base.
+        """
         return alpha_id in self._entries
 
     # ------------------------------------------------------------------
@@ -416,6 +472,14 @@ class FactorKnowledgeBase:
 
         This is a heuristic — in production, the actual IC would come
         from periodic snapshots in ``vt_factor_performance_snapshots``.
+
+        Args:
+            ic_threshold: Absolute IC below which a factor is considered
+                decayed (default 0.01).
+            consecutive_months: Number of consecutive months of low IC
+                before deprecation (reserved for future snapshot-based
+                detection; current implementation uses the latest
+                ``test_ic`` only).
 
         Returns:
             List of alpha_ids that were deprecated.
@@ -628,7 +692,14 @@ class FactorKnowledgeBase:
         return [e.to_dict() for e in self._entries.values()]
 
     def save(self, path: str) -> None:
-        """Persist the knowledge base to a JSON file."""
+        """Persist the knowledge base to a JSON file.
+
+        Serializes all entries (including their ``ExpressionTree``) so
+        that the full KB can be reconstructed later via ``load()``.
+
+        Args:
+            path: Filesystem path for the output JSON file.
+        """
         import json
         data = {
             "user_id": self._user_id,
@@ -640,7 +711,19 @@ class FactorKnowledgeBase:
 
     @classmethod
     def load(cls, path: str, user_id: int = 1) -> FactorKnowledgeBase:
-        """Load the knowledge base from a JSON file."""
+        """Reconstruct the knowledge base from a JSON file saved via ``save()``.
+
+        Rebuilds all internal indexes (by hash, by status, by source
+        version) and reconstructs ``ExpressionTree`` objects from their
+        serialized dicts.  Corrupt entries are skipped with a warning.
+
+        Args:
+            path: Filesystem path to the JSON file.
+            user_id: User ID to associate with the reconstructed KB.
+
+        Returns:
+            A fully populated ``FactorKnowledgeBase`` instance.
+        """
         import json
         kb = cls(user_id=user_id)
         with open(path, "r", encoding="utf-8") as f:

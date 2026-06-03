@@ -36,6 +36,15 @@ class FactorKBStore:
             self._connect()
 
     def _connect(self) -> None:
+        """Establish a PostgreSQL connection for FactorKB persistence.
+
+        Uses the DSN provided at construction time.  On failure the store
+        remains in degraded (in-memory-only) mode — all public methods
+        gracefully become no-ops.
+
+        Sets ``self._available`` to indicate whether the connection is
+        usable.
+        """
         try:
             self._conn = psycopg2.connect(self._dsn)
             self._conn.autocommit = False
@@ -54,10 +63,25 @@ class FactorKBStore:
     # ------------------------------------------------------------------
 
     def save_entry(self, entry_dict: dict[str, Any]) -> bool:
-        """Insert or update a factor entry in PostgreSQL.
+        """Insert or update a factor entry in PostgreSQL using upsert logic.
 
-        [P0-06 fix] Now includes description_embedding and formula_embedding
-        columns so pgvector semantic search actually works.
+        Uses ``ON CONFLICT (formula_hash) DO UPDATE`` so that re-mining
+        the same formula updates the existing row rather than creating a
+        duplicate.  On conflict the row's ``last_validated_at``,
+        ``test_ic``, and ``status`` are refreshed while existing embedding
+        vectors are preserved via ``COALESCE`` (new embeddings only
+        overwrite if non-null).  This ensures pgvector semantic search
+        (``description_embedding`` / ``formula_embedding`` columns)
+        continues to work across updates.
+
+        Args:
+            entry_dict: Factor entry as a dict (from ``FactorEntry.to_dict()``
+                or the in-memory KB).  Must include ``formula_hash``,
+                ``alpha_id``, and all metric columns.
+
+        Returns:
+            ``True`` if the upsert succeeded, ``False`` on any error
+            (connection lost, constraint violation, etc.).
         """
         if not self.available:
             return False
@@ -98,7 +122,17 @@ class FactorKBStore:
             return False
 
     def load_all_entries(self) -> list[dict[str, Any]]:
-        """Load all active factor entries from PostgreSQL."""
+        """Load all non-archived factor entries from PostgreSQL.
+
+        Excludes entries with ``status = 'archived'`` and returns rows
+        ordered by ``discovered_at DESC`` so that the newest factors
+        appear first.
+
+        Returns:
+            List of factor entry dicts ready for ``FactorEntry.from_dict()``.
+            Returns an empty list if the store is unavailable or the
+            query fails.
+        """
         if not self.available:
             return []
         try:
@@ -115,7 +149,23 @@ class FactorKBStore:
             return []
 
     def update_status(self, alpha_id: str, new_status: str, reason: str = "") -> bool:
-        """Update a factor's lifecycle status."""
+        """Update a factor's lifecycle status in PostgreSQL.
+
+        When transitioning to ``'archived'`` the ``archived_at`` timestamp
+        and ``archived_reason`` are set automatically.  Other transitions
+        leave those columns unchanged.
+
+        Args:
+            alpha_id: Unique factor identifier.
+            new_status: Target lifecycle status (e.g. ``'approved'``,
+                ``'production'``, ``'archived'``).
+            reason: Human-readable reason for the transition (stored in
+                ``archived_reason`` on archive).
+
+        Returns:
+            ``True`` if at least one row was updated, ``False`` if the
+            factor was not found or the store is unavailable.
+        """
         if not self.available:
             return False
         try:

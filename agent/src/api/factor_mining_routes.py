@@ -34,10 +34,24 @@ _candidates_store: dict[str, list[dict[str, Any]]] = {}  # user_id -> candidates
 
 
 def _get_user_id(auth: dict) -> int:
+    """Extract the authenticated user ID from the auth dependency dict.
+
+    Args:
+        auth: Auth payload from ``require_auth`` dependency, containing
+            at least ``"user_id"``.
+
+    Returns:
+        Integer user ID for multi-tenant isolation.
+    """
     return int(auth["user_id"])
 
 
 def _now_iso() -> str:
+    """Return the current UTC timestamp as an ISO-8601 string.
+
+    Returns:
+        ISO-8601 formatted datetime string (e.g. ``"2025-06-03T12:34:56.789+00:00"``).
+    """
     return datetime.now(timezone.utc).isoformat()
 
 
@@ -83,7 +97,17 @@ class DebateRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 def _save_candidates_to_db(user_id: int, candidates: list[dict[str, Any]], run_id: str = "") -> None:
-    """Persist candidates to PostgreSQL."""
+    """Persist mined factor candidates to the PostgreSQL candidates table.
+
+    Inserts one row per candidate into ``vt_factor_mining_candidates``
+    with the associated ``run_id`` for traceability.  Failures are
+    logged at warning level and do not interrupt the API response.
+
+    Args:
+        user_id: Owner of the candidates.
+        candidates: List of candidate dicts (from GP or LLM output).
+        run_id: Job ID linking these candidates to a specific mining run.
+    """
     try:
         from src.db.pool import init_pool
         from src.db.pool import get_connection as pg_get_connection
@@ -114,7 +138,20 @@ def _save_candidates_to_db(user_id: int, candidates: list[dict[str, Any]], run_i
 
 
 def _load_candidates_from_db(user_id: int) -> list[dict[str, Any]]:
-    """Load candidates from PostgreSQL."""
+    """Load previously mined factor candidates from PostgreSQL.
+
+    Queries ``vt_factor_mining_candidates`` for the given user, ordered
+    by ``created_at DESC`` so the newest appear first.  Returns an empty
+    list on any error (DB unavailable, table missing, etc.).
+
+    Args:
+        user_id: Owner whose candidates to load.
+
+    Returns:
+        List of candidate dicts with keys ``id``, ``run_id``, ``name``,
+        ``formula``, ``expression_json``, performance metrics, and
+        promotion status.
+    """
     try:
         from src.db.pool import init_pool
         from src.db.pool import get_connection as pg_get_connection
@@ -156,7 +193,33 @@ def _load_candidates_from_db(user_id: int) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------------------
 
 async def _sse_from_queue(q: queue.Queue[dict[str, Any]], request: Request):
-    """Yield SSE frames from a Python queue (bridge from sync threads)."""
+    """Yield SSE frames from a thread-safe ``queue.Queue`` — bridging sync threads to async.
+
+    **SSE bridge pattern**:
+    Background work (GP evolution, hybrid mining) runs in synchronous
+    daemon threads.  Those threads push progress dicts into a shared
+    ``queue.Queue``.  This async generator polls that queue via
+    ``loop.run_in_executor`` (which offloads the blocking ``Queue.get``
+    to a thread-pool worker) and yields each message as an SSE frame.
+
+    A heartbeat is emitted every ~2 seconds to keep the SSE connection
+    alive during quiet periods.  The generator exits when the client
+    disconnects (detected via ``request.is_disconnected()``).
+
+    Args:
+        q: Thread-safe queue receiving progress dicts from the background
+            worker thread.  Each dict should have at least a ``"type"``
+            key used as the SSE event name.
+        request: The FastAPI ``Request`` object, used to detect client
+            disconnection.
+
+    Yields:
+        SSE-formatted strings::
+
+            event: <type>
+            data: <JSON payload>
+
+    """
     loop = asyncio.get_event_loop()
     while True:
         if await request.is_disconnected():

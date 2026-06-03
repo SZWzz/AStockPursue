@@ -552,11 +552,23 @@ class GPEvolution:
     def _evaluate_individual(self, ind: GPIndividual) -> float:
         """Evaluate a single individual's fitness.
 
-        P0: Uses ``composite_fitness()`` — multiplicative composite with
-        A-share cost penalty, orthogonality check against KB core factors,
-        cross-time stability, and complexity discount.
+        Uses ``composite_fitness()`` for a multiplicative composite score
+        that incorporates rank IC, A-share cost penalty, orthogonality
+        check against KB core factors, cross-time stability, and
+        complexity discount.
 
-        Also tracks OOS IC per window for FDR correction.
+        Also tracks OOS IC per window for FDR correction and checks the
+        KB for duplicate formulas before evaluating.
+
+        Args:
+            ind: The GP individual to evaluate.  Its ``train_fitness``,
+                ``oos_ic_per_window``, and ``_fitness_detail`` attributes
+                are set in-place.
+
+        Returns:
+            The composite fitness score (float).  Returns ``0.0`` when the
+            factor cannot be computed (e.g., invalid expression,
+            insufficient data, or KB dedup hit with matching provenance).
         """
         # ── P0: KB dedup check (skip evaluation if duplicate) ──
         if self._kb is not None and self.config.use_kb:
@@ -632,10 +644,24 @@ class GPEvolution:
         return float(fitness)
 
     def _evaluate_individual_wf(self, ind: GPIndividual) -> tuple[float, list[float]]:
-        """Walk-forward evaluation using composite_fitness in each OOS window.
+        """Walk-forward fitness evaluation using rank IC in each OOS window.
 
-        Retained for backward compatibility.  The primary fitness path is
-        now ``_evaluate_individual`` which uses composite_fitness directly.
+        Splits the training period into sequential OOS windows, evaluates the
+        individual's factor values on each window via ``rank_ic_fitness``,
+        and derives a fitness score as ``mean_IC - oos_stability_weight * std_IC``.
+
+        Args:
+            ind: The GP individual to evaluate.
+
+        Returns:
+            A tuple of ``(fitness, window_ics)`` where:
+            - *fitness* is ``mean_IC - oos_stability_weight * std_IC``.
+            - *window_ics* is the list of per-window OOS IC values.
+
+        Note:
+            Retained for backward compatibility.  The primary fitness path is
+            now ``_evaluate_individual`` which uses ``composite_fitness``
+            directly.  Returns ``(0.0, [])`` when insufficient data is available.
         """
         windows = self._get_walk_forward_windows()
 
@@ -797,7 +823,22 @@ class GPEvolution:
         fitnesses: list[float],
         k: int | None = None,
     ) -> int:
-        """Tournament selection: pick the best among k randomly chosen individuals."""
+        """Tournament selection algorithm.
+
+        Randomly samples ``k`` individuals without replacement and returns
+        the index of the one with the highest fitness.
+
+        Args:
+            fitnesses: List of fitness values, aligned with the population.
+            k: Tournament size. Defaults to ``config.tournament_size``.
+
+        Returns:
+            Index of the winning individual in the population list.
+
+        Note:
+            If the population is smaller than ``k``, the tournament is
+            drawn from the entire population.
+        """
         k = k or self.config.tournament_size
         candidates = self.rng.sample(range(len(self._population)), min(k, len(self._population)))
         best_idx = max(candidates, key=lambda i: fitnesses[i])
@@ -819,8 +860,27 @@ class GPEvolution:
         child_tree: ExpressionTree,
         generation: int,
     ) -> ExpressionTree:
-        """Mutate a tree, ensuring the result only uses allowed operators
-        for the current generation tier."""
+        """Tier-aware mutation with allowed-operator filtering.
+
+        Attempts to mutate the tree up to 10 times until a valid result is
+        produced that uses only operators unlocked at the current generation
+        tier. Falls back to returning the original tree if no valid mutation
+        is found within the retry budget.
+
+        Args:
+            child_tree: The expression tree to mutate.
+            generation: Current generation number (determines which operator
+                tiers are unlocked).
+
+        Returns:
+            A mutated tree using only tier-allowed operators, or the original
+            tree if no valid mutation was found within the retry budget.
+
+        Note:
+            When tiered operators are disabled
+            (``use_tiered_operators=False``), this falls through to standard
+            ``child_tree.mutate()`` without operator filtering.
+        """
         allowed_ops = self._get_allowed_ops_for_gen(generation)
         if allowed_ops is None:
             # All operators allowed — standard mutation
@@ -890,9 +950,23 @@ class GPEvolution:
     # ------------------------------------------------------------------
 
     def validate(self, individual: GPIndividual) -> dict[str, float]:
-        """Validate an individual on the test set using walk-forward windows.
+        """Out-of-sample validation on the test set using walk-forward windows.
 
-        Returns {ic, ir, oos_ic_per_window}.
+        Evaluates the individual's factor values on the configured test
+        period, splitting data into rolling OOS windows.  Falls back to a
+        single evaluation when test data is insufficient for walk-forward.
+
+        Args:
+            individual: The GP individual to validate.  Its
+                ``oos_ic_per_window`` attribute is updated in-place.
+
+        Returns:
+            A dict with keys:
+            - ``ic``: Mean IC across all test OOS windows.
+            - ``ir``: Annualised information ratio
+              (``mean_IC / std_IC * sqrt(252)``).
+            - ``oos_ic_per_window``: List of per-window IC values for this
+              individual.
         """
         if self._test_returns is None or self._test_returns.empty:
             return {"ic": 0.0, "ir": 0.0, "oos_ic_per_window": []}
@@ -976,17 +1050,25 @@ class GPEvolution:
     # ------------------------------------------------------------------
 
     def _compute_bh_correction(self, individuals: list[GPIndividual]) -> None:
-        """Apply FDR correction across all individuals.
+        """Apply FDR multiple testing correction (supports BH and BY procedures).
 
-        For each individual, compute a p-value from the OOS IC distribution,
-        then apply BH or BY procedure depending on config.  Sets
-        ``adjusted_p_value`` and ``is_statistically_significant`` on each
-        individual.
+        For each individual, derives a raw p-value from a one-sample t-test
+        on its OOS IC windows, then applies the Benjamini-Hochberg (BH) or
+        Benjamini-Yekutieli (BY) procedure depending on
+        ``config.use_by_correction``.
 
-        [P0-05 fix] Uses Benjamini-Yekutieli (BY) when
-        ``config.use_by_correction=True``, which controls FDR under arbitrary
-        dependence — the correct choice for GP candidates tested on the same
-        dataset.
+        Sets ``adjusted_p_value`` and ``is_statistically_significant``
+        in-place on every individual.
+
+        Args:
+            individuals: List of GP individuals whose OOS IC windows are used
+                to compute p-values.
+
+        Note:
+            BY controls FDR under arbitrary dependence and is the default
+            (``config.use_by_correction=True``) — appropriate when all GP
+            candidates are tested on the same dataset, which makes IC values
+            correlated across individuals.
         """
         from scipy import stats as sp_stats
         import numpy as np
@@ -1035,11 +1117,26 @@ class GPEvolution:
     # ------------------------------------------------------------------
 
     def _emit_progress(self, event_type: str, data: dict[str, Any]) -> None:
-        """Push a progress event to the SSE queue."""
+        """Push a progress event to the SSE queue for live frontend updates.
+
+        Args:
+            event_type: A string label for the event (e.g., ``"progress"``,
+                ``"data_source"``, ``"generation_complete"``, ``"done"``).
+            data: Dictionary of event payload fields.  Merged with
+                ``{"type": event_type}`` before enqueuing.
+        """
         self._progress_queue.put({"type": event_type, **data})
 
     def _get_generation_diversity(self, fitnesses: list[float]) -> float:
-        """Measure population diversity as std of fitness."""
+        """Measure population diversity as the standard deviation of fitness.
+
+        Args:
+            fitnesses: List of fitness values for the current population.
+
+        Returns:
+            Population standard deviation (``ddof=1``) of the fitness values.
+            Returns ``0.0`` when fewer than two fitness values are available.
+        """
         if len(fitnesses) < 2:
             return 0.0
         return float(np.std(fitnesses, ddof=1))
@@ -1047,7 +1144,19 @@ class GPEvolution:
     def _get_fitness_distribution(self, fitnesses: list[float], n_bins: int = 10) -> dict[str, Any]:
         """Compute fitness distribution histogram for frontend visualization.
 
-        Returns bins and counts for a histogram, plus summary stats.
+        Bins finite fitness values and returns a histogram along with
+        summary statistics (min, max, median, quartiles).
+
+        Args:
+            fitnesses: List of fitness values for the current population.
+            n_bins: Desired number of histogram bins (clamped to a reasonable
+                fraction of the available data size).
+
+        Returns:
+            A dict with keys ``bins``, ``counts``, ``min``, ``max``,
+            ``median``, ``q25``, ``q75``.  Non-finite values are filtered
+            before binning.  Returns an empty/default dict when no finite
+            fitness values exist.
         """
         if not fitnesses:
             return {"bins": [], "counts": [], "min": 0, "max": 0, "median": 0, "q25": 0, "q75": 0}
@@ -1364,9 +1473,17 @@ class GPEvolution:
 # ---------------------------------------------------------------------------
 
 def _tree_uses_only_allowed_ops(root: ExpressionNode, allowed_ops: set[str]) -> bool:
-    """Check recursively that every operator in the tree is in *allowed_ops*.
+    """Check recursively that every operator in the tree is in ``allowed_ops``.
 
-    Leaf nodes (feature references / constants) are always allowed.
+    Leaf nodes (feature references / constants) are always permitted.
+
+    Args:
+        root: The root node of the expression (sub)tree to validate.
+        allowed_ops: Set of operator keys that are permitted.
+
+    Returns:
+        ``True`` if every operator node in the tree uses only keys
+        present in *allowed_ops*; ``False`` otherwise.
     """
     if root.is_leaf:
         return True
@@ -1381,11 +1498,21 @@ def _random_tree_with_ops(
     max_depth: int = 3,
     max_attempts: int = 100,
 ) -> ExpressionTree:
-    """Generate a random tree using only the given operator set.
+    """Generate a random expression tree using only the given operator set.
 
-    Repeatedly generates random trees and filters for those using only
-    allowed operators.  Falls back to a single feature reference if no
-    valid tree is found within max_attempts.
+    Repeatedly generates random trees via ``_random_tree_restricted`` and
+    filters for those within the complexity limit.  Falls back to a single
+    feature-reference leaf if no valid tree is found within *max_attempts*.
+
+    Args:
+        rng: Random number generator instance.
+        allowed_ops: List of permitted operator keys (from the tier system).
+        max_depth: Maximum tree depth for the generated tree.
+        max_attempts: Number of retries before falling back to a leaf.
+
+    Returns:
+        An ``ExpressionTree`` using only the supplied operators and
+        respecting ``MAX_COMPLEXITY``.
     """
     # Filter the global operator registry to allowed ops
     from src.factors.mining.expression_tree import UNARY_OPS, BINARY_OPS, TERNARY_OPS
@@ -1415,7 +1542,25 @@ def _random_tree_restricted(
     ternary_ops: list[str],
     max_depth: int,
 ) -> ExpressionTree:
-    """Generate a random tree from restricted operator sets."""
+    """Generate a random expression tree from restricted operator sets.
+
+    Recursively builds a tree of up to *max_depth* levels, choosing
+    operators from the supplied unary, binary, and ternary lists.  At each
+    internal node there is a 30% chance of producing a leaf instead,
+    promoting diverse tree shapes.
+
+    Args:
+        rng: Random number generator instance.
+        unary_ops: List of allowed unary operator keys.
+        binary_ops: List of allowed binary operator keys.
+        ternary_ops: List of allowed ternary operator keys.
+        max_depth: Maximum depth of the generated tree.  At depth 0 a leaf
+            is always returned.
+
+    Returns:
+        An ``ExpressionTree`` whose nodes use only the supplied operator
+        lists.
+    """
     from src.factors.mining.expression_tree import WINDOW_OPTIONS
 
     if max_depth <= 0:

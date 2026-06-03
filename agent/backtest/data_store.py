@@ -169,6 +169,26 @@ class DataStore:
         self, code: str, interval: str, start: str, end: str,
         max_age_hours: int = 24,
     ) -> pd.DataFrame | None:
+        """Attempt to load OHLCV data from the PostgreSQL cache layer.
+
+        Queries the per-bar SQL cache table for the given code, interval,
+        and date range.  If the latest cached bar is older than
+        *max_age_hours* and the requested *end* date falls within that
+        freshness window, the cache is bypassed so the caller can fetch
+        fresher data from the API.
+
+        Args:
+            code: Stock symbol (e.g. ``600519.SH``).
+            interval: Bar interval (``1D``, ``1H``, etc.).
+            start: Start date string ``YYYY-MM-DD``.
+            end: End date string ``YYYY-MM-DD``.
+            max_age_hours: Maximum age of cached data before bypassing.
+
+        Returns:
+            DataFrame if cache hit and fresh enough, ``None`` otherwise.
+            Once any query fails the cache layer is permanently disabled
+            for this DataStore instance.
+        """
         if self._cache_ok is False:
             return None
         try:
@@ -196,6 +216,21 @@ class DataStore:
         return None
 
     def _try_store(self, code: str, interval: str, start: str, end: str) -> pd.DataFrame | None:
+        """Attempt to load OHLCV data from the Parquet file store.
+
+        Loads per-code, per-interval Parquet files and filters to the
+        requested date range.
+
+        Args:
+            code: Stock symbol.
+            interval: Bar interval.
+            start: Start date string.
+            end: End date string.
+
+        Returns:
+            DataFrame if found with at least 5 rows, ``None`` otherwise.
+            Once any query fails the store layer is permanently disabled.
+        """
         if self._store_ok is False:
             return None
         try:
@@ -211,6 +246,23 @@ class DataStore:
     def _try_api(
         self, code: str, start: str, end: str, interval: str, source: str,
     ) -> pd.DataFrame | None:
+        """Fetch OHLCV data from external API loaders via the fallback chain.
+
+        Looks up the loader registry and tries each loader in the fallback
+        chain for the detected market.  If *source* is ``"auto"``, the
+        market is auto-detected from the stock code and its full fallback
+        chain is tried.  Otherwise only the named loader is tried.
+
+        Args:
+            code: Stock symbol.
+            start: Start date string.
+            end: End date string.
+            interval: Bar interval.
+            source: Loader name or ``"auto"`` for market fallback chain.
+
+        Returns:
+            DataFrame if any loader succeeds, ``None`` if all fail.
+        """
         try:
             from backtest.loaders.registry import (
                 LOADER_REGISTRY, FALLBACK_CHAINS, _ensure_registered,
@@ -245,6 +297,22 @@ class DataStore:
     def _try_api_multi(
         self, codes: list[str], start: str, end: str, interval: str, source: str,
     ) -> dict[str, pd.DataFrame]:
+        """Fetch OHLCV data for multiple codes via API loaders.
+
+        Groups codes by market and tries each market's fallback chain,
+        using concurrent fetching where the loader supports it.
+
+        Args:
+            codes: List of stock symbols.
+            start: Start date string.
+            end: End date string.
+            interval: Bar interval.
+            source: Loader name or ``"auto"``.
+
+        Returns:
+            ``{code: DataFrame}`` for every successfully fetched code.
+            Failed codes are simply omitted from the result dict.
+        """
         try:
             from backtest.loaders.registry import (
                 LOADER_REGISTRY, FALLBACK_CHAINS, _ensure_registered,
@@ -287,6 +355,16 @@ class DataStore:
             return {}
 
     def _write_cache(self, code: str, interval: str, df: pd.DataFrame) -> None:
+        """Write fetched OHLCV data back to the PostgreSQL cache layer.
+
+        Called automatically after every successful API fetch so
+        subsequent requests hit the hot cache.
+
+        Args:
+            code: Stock symbol.
+            interval: Bar interval.
+            df: DataFrame to persist.  Failures are silently ignored.
+        """
         try:
             from backtest.loaders.cache import write_cache
             write_cache(code, interval, df)
@@ -294,6 +372,17 @@ class DataStore:
             pass
 
     def _write_store(self, code: str, interval: str, df: pd.DataFrame) -> None:
+        """Write fetched OHLCV data back to the Parquet file store.
+
+        Called automatically after every successful API fetch so
+        subsequent requests (including from other processes) hit the
+        cold store.
+
+        Args:
+            code: Stock symbol.
+            interval: Bar interval.
+            df: DataFrame to persist.  Failures are silently ignored.
+        """
         try:
             from backtest.loaders.store import update_store
             update_store(code, interval, df)

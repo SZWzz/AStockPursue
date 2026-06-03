@@ -399,6 +399,23 @@ class TradingEngine:
     # ── Internal: signal generation ─────────────────────────────────
 
     def _generate_signals(self, bar: dict[str, pd.Series]) -> dict[str, float]:
+        """Generate target weights from the signal adapter for the current bar.
+
+        Dispatches to the tick-mode or batch-mode handler depending on
+        the adapter's configured mode.  In batch mode, ``skip_append=True``
+        prevents the adapter from recording the current bar — bar
+        recording is handled separately by ``_record_bars()`` to ensure
+        all bars (including suspended stocks) are appended for data
+        continuity.
+
+        Args:
+            bar: ``{code: Series}`` for the current timestamp.  Only
+                non-suspended codes are passed through.
+
+        Returns:
+            ``{code: target_weight}`` where weight is typically in
+            ``[-1.0, 1.0]``.
+        """
         if self._signal.mode == "tick":
             return self._signal.on_bar_tick(bar, self._tick_state)
         else:
@@ -706,12 +723,30 @@ class TradingEngine:
         return eq, total_unrealized
 
     def _calc_equity(self) -> float:
+        """Calculate total equity from the last known bar prices.
+
+        Returns:
+            Total equity = capital + sum(margin + unrealized PnL across
+            all open positions), using ``_last_bar_prices`` for valuation.
+        """
         eq, _ = self._equity_from_prices(self._last_bar_prices)
         return eq
 
     def _calc_equity_and_unrealized(
         self, bar: dict[str, pd.Series]
     ) -> tuple[float, float]:
+        """Calculate total equity and unrealised PnL from the current bar.
+
+        Updates ``_last_bar_prices`` for all open positions using the
+        close price from the current bar, then delegates to
+        ``_equity_from_prices``.
+
+        Args:
+            bar: ``{code: Series}`` for the current timestamp.
+
+        Returns:
+            ``(total_equity, total_unrealized_pnl)`` tuple.
+        """
         # Update last_bar_prices from current bar, then calculate
         for sym in self._market.positions:
             if sym in bar:
@@ -722,12 +757,30 @@ class TradingEngine:
 
     @staticmethod
     def _get_sm_flat_state():
+        """Return the FLAT state enum value for the state machine.
+
+        Used to force the state machine back to flat when all positions
+        are closed (risk exits, manual closes, etc.).
+
+        Returns:
+            ``StrategyState.FLAT``.
+        """
         from src.trading.state_machine import StrategyState
         return StrategyState.FLAT
 
     def _weights_to_signal_dicts(
         self, weights: dict[str, float], timestamp: pd.Timestamp
     ) -> list[dict]:
+        """Convert a weight map to a list of signal dicts for the BarResult.
+
+        Args:
+            weights: ``{code: target_weight}`` map.
+            timestamp: Current bar timestamp.
+
+        Returns:
+            List of dicts with keys ``symbol``, ``weight``, ``direction``,
+            and ``timestamp``.
+        """
         return [
             {
                 "symbol": symbol,

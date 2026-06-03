@@ -167,12 +167,31 @@ class BacktestConfigSchema(BaseModel):
 def _load_module_from_file(file_path: Path, module_name: str):
     """Load a Python module from a file path via importlib.
 
+    This function **must** only be called on user-supplied strategy code
+    (*signal_engine.py*) that has already passed the AST sandbox validation
+    performed by :func:`_validate_signal_engine_source`.  That validator blocks
+    import-time executable statements (imports, function/class definitions, and
+    literal constants are allowed), so executing the module is reasonably safe.
+    However, the signal engine's method bodies will still run on instantiation
+    inside the backtest driver — the AST sandbox does **not** inspect method
+    bodies, only the top level.
+
     Args:
-        file_path: Path to the ``.py`` file.
-        module_name: Logical module name.
+        file_path: Path to the ``.py`` file.  Must be inside an allowed run
+            root (enforced by :func:`safe_run_dir` before this is called).
+        module_name: Logical module name (e.g. ``"signal_engine"``).
 
     Returns:
-        Loaded module object.
+        Loaded module object — typically interrogated for a ``SignalEngine``
+        class.
+
+    Security:
+        - The caller **must** have already called
+          :func:`_validate_signal_engine_source` on *file_path*.
+        - The loaded module is inserted into ``sys.modules`` so cached imports
+          elsewhere will return the same object.  This is intentional (allows
+          the signal engine to import its own helpers from the run directory)
+          but could be fragile if the same module name is reused across runs.
     """
     _validate_signal_engine_source(file_path)
     spec = importlib.util.spec_from_file_location(module_name, file_path)
@@ -183,7 +202,30 @@ def _load_module_from_file(file_path: Path, module_name: str):
 
 
 def _is_literal_node(node: ast.AST) -> bool:
-    """Return whether an AST node is made only from literal values."""
+    """Return ``True`` if *node* is composed entirely of literal values.
+
+    A literal node has no side-effects at import time — it cannot execute
+    code, call functions, or access attributes.  This is the foundational
+    allow-list check used by the AST sandbox to decide whether a top-level
+    assignment, function default argument, or annotation is safe.
+
+    Recognized literal forms:
+        - Constants (``True``, ``False``, ``None``, numbers, strings, bytes)
+        - Tuples, lists, and sets whose elements are all literals
+        - Dicts whose keys (if not ``None`` / dictionary unpacking) and values
+          are all literals
+
+    Args:
+        node: Any AST node produced by :func:`ast.parse`.
+
+    Returns:
+        ``True`` if the subtree contains only literal values.
+
+    Security:
+        This is a **whitelist** — any node type **not** explicitly recognized
+        (e.g. ``ast.Call``, ``ast.Name``, ``ast.Attribute``) returns ``False``.
+        The sandbox relies on this conservative stance.
+    """
     if isinstance(node, ast.Constant):
         return True
     if isinstance(node, (ast.Tuple, ast.List, ast.Set)):
@@ -197,7 +239,24 @@ def _is_literal_node(node: ast.AST) -> bool:
 
 
 def _is_safe_constant_assignment(node: ast.AST) -> bool:
-    """Return whether a top-level assignment is literal-only."""
+    """Return ``True`` if *node* is an assignment whose value is literal-only.
+
+    Covers both plain (``x = 42``) and annotated (``x: int = 42`` or
+    ``x: int`` without a value) assignments.  Such assignments run no code
+    at import time and are therefore safe in user-supplied strategy files.
+
+    Args:
+        node: A top-level AST statement node.
+
+    Returns:
+        ``True`` for safe assignments; ``False`` for anything else (function
+        calls, attribute access, comprehensions, etc.).
+
+    Security:
+        Delegates to :func:`_is_literal_node` for the value check.  An
+        annotated assignment with no value (``value is None``) is always
+        considered safe because it produces no runtime effect at import time.
+    """
     if isinstance(node, ast.Assign):
         return _is_literal_node(node.value)
     if isinstance(node, ast.AnnAssign):
@@ -206,7 +265,36 @@ def _is_safe_constant_assignment(node: ast.AST) -> bool:
 
 
 def _is_safe_reference(node: ast.AST | None) -> bool:
-    """Return whether an annotation/base expression cannot call code."""
+    """Return ``True`` if *node* is a passive type reference with no callable side-effects.
+
+    Used to validate function **annotations** and class **base classes** in
+    user-supplied strategy code.  A safe reference can name or subscript
+    types but cannot invoke functions, construct objects, or run arbitrary
+    expressions.
+
+    Allowed forms:
+        - ``None`` (no annotation / base)
+        - ``Name`` (e.g. ``int``, ``pd.DataFrame`` — but ``pd.DataFrame`` is
+          actually an ``Attribute`` node, also allowed)
+        - ``Attribute`` (e.g. ``pd.DataFrame``)
+        - ``Subscript`` (e.g. ``List[int]``) — both container and index are
+          recursively checked
+        - ``Tuple`` (e.g. ``Tuple[int, str]``)
+        - ``BinOp`` with ``|`` (PEP 604 union, e.g. ``int | None``)
+
+    Args:
+        node: An AST expression node (or ``None``) from a function annotation,
+            return annotation, or class base list.
+
+    Returns:
+        ``True`` if the expression is a passive type reference.
+
+    Security:
+        This is also a **whitelist**: ``ast.Call``, ``ast.Lambda``,
+        ``ast.ListComp``, ``ast.NamedExpr``, etc. are all rejected.  The
+        sandbox blocks annotations like ``x: eval("__import__('os').system('ls')")``
+        because ``ast.Call`` is not in the allowed set.
+    """
     if node is None:
         return True
     if isinstance(node, (ast.Name, ast.Attribute, ast.Constant)):
@@ -221,7 +309,36 @@ def _is_safe_reference(node: ast.AST | None) -> bool:
 
 
 def _validate_function_def(node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-    """Reject import-time execution in function definitions."""
+    """Validate a function definition node, rejecting any import-time side-effects.
+
+    Functions (and async functions) are **allowed** in user-supplied strategy
+    code, but only when their definition alone is inert.  This validator
+    ensures the definition does not execute code at import time through:
+
+    * **Decorators** — Rejected entirely.  ``@some_decorator`` calls
+      ``some_decorator`` at definition time.
+    * **Default arguments** — Must be literal-only (checked via
+      :func:`_is_literal_node`).  ``def f(x=some_func())`` would execute
+      ``some_func()`` at import time.
+    * **Annotations** (parameters and return type) — Must be passive type
+      references (checked via :func:`_is_safe_reference`).
+
+    Args:
+        node: An ``ast.FunctionDef`` or ``ast.AsyncFunctionDef`` node from a
+            parsed strategy file.
+
+    Raises:
+        ValueError: If any decorator, non-literal default, or unsafe
+            annotation is found.
+
+    Security:
+        This function inspects the function **signature only**, not the body.
+        Users can write arbitrary code inside function bodies; those bodies
+        only execute when the function is called (typically by the backtest
+        engine), not at import time.  Validation of class-level executable
+        statements inside method bodies is deferred to
+        :func:`_validate_class_body`.
+    """
     if node.decorator_list:
         raise ValueError(f"Decorators are not allowed on function {node.name!r}")
     for default in [*node.args.defaults, *[d for d in node.args.kw_defaults if d]]:
@@ -239,7 +356,38 @@ def _validate_function_def(node: ast.FunctionDef | ast.AsyncFunctionDef) -> None
 
 
 def _validate_class_body(node: ast.ClassDef) -> None:
-    """Reject import-time execution inside class bodies."""
+    """Validate a class definition node, rejecting import-time execution.
+
+    Class definitions are **allowed** in user-supplied strategy code, but
+    their body may only contain inert statements.  This validator walks the
+    class body and permits only:
+
+    * **Docstrings** — ``ast.Expr`` wrapping an ``ast.Constant`` string.
+    * **Function definitions** — Validated recursively via
+      :func:`_validate_function_def`.
+    * **Safe constant assignments** — Literal-only class variables checked
+      via :func:`_is_safe_constant_assignment`.
+    * **Pass statements** — ``pass`` or ``...``.
+
+    Additionally enforces:
+    * **No class decorators** — A decorator is executed at definition time.
+    * **No unsafe base classes** — Bases must be passive type references
+      (checked via :func:`_is_safe_reference`).
+    * **No metaclass keywords** — ``class Foo(metaclass=...)`` is rejected.
+
+    Args:
+        node: An ``ast.ClassDef`` node from a parsed strategy file.
+
+    Raises:
+        ValueError: If any disallowed class-level statement, decorator,
+            unsafe base, or keyword argument is found.
+
+    Security:
+        Every class body statement that is **not** in the explicit allow-list
+        raises ``ValueError``.  This includes ``ast.Expr`` that is not a
+        docstring (e.g. standalone function calls like ``print("pwned")``
+        would be ``ast.Expr`` wrapping ``ast.Call`` — rejected).
+    """
     if node.decorator_list:
         raise ValueError(f"Decorators are not allowed on class {node.name!r}")
     for base in node.bases:
@@ -263,7 +411,52 @@ def _validate_class_body(node: ast.ClassDef) -> None:
 
 
 def _validate_signal_engine_source(file_path: Path) -> None:
-    """Reject import-time executable statements before loading signal_engine.py."""
+    """AST sandbox: validate user-submitted strategy code before execution.
+
+    This is the **primary security gate** for user-supplied *signal_engine.py*
+    files.  It parses the file into an AST and rejects any top-level statement
+    that could execute code at import time.  Only the following top-level
+    constructs are allowed:
+
+    * **Docstrings / string expressions** — ``ast.Expr`` wrapping an
+      ``ast.Constant`` string.
+    * **Import statements** — ``import`` and ``from ... import ...`` (both
+      ``ast.Import`` and ``ast.ImportFrom``).
+    * **Function definitions** — Validated via
+      :func:`_validate_function_def` (no decorators, literal-only defaults,
+      safe annotations).
+    * **Class definitions** — Validated via :func:`_validate_class_body`
+      (no decorators, safe bases, inert body).
+    * **Safe constant assignments** — Literal-only top-level variables
+      checked via :func:`_is_safe_constant_assignment`.
+
+    Args:
+        file_path: Path to the ``signal_engine.py`` file to validate.
+
+    Raises:
+        ValueError: If the file contains a ``SyntaxError``, or any
+            disallowed AST node type at the top level, or any violation
+            found by the recursive validators for functions/classes.
+
+    Security:
+        This is a **conservative whitelist**.  Any AST node type at the
+        module body level that is **not** in the explicit allow-list raises
+        ``ValueError`` and blocks loading.  Notable blocked constructs:
+
+        * ``ast.Call`` / ``ast.Lambda`` — arbitrary function calls
+        * ``ast.For`` / ``ast.While`` / ``ast.With`` / ``ast.Try`` — loops
+          and context managers
+        * ``ast.If`` / ``ast.Match`` — conditional execution
+        * ``ast.Delete`` / ``ast.Raise`` / ``ast.Assert`` / ``ast.Global`` /
+          ``ast.Nonlocal`` — side-effecting statements
+        * ``ast.AugAssign`` / ``ast.AnnAssign`` with a callable value —
+          assignments that run code
+
+        **Known limitation**: method bodies are not inspected.  The sandbox
+        allows arbitrary code inside function/method bodies because those
+        bodies only execute when the function is called.  The signal engine's
+        methods are called by the backtest driver, which is trusted context.
+    """
     try:
         tree = ast.parse(file_path.read_text(encoding="utf-8"), filename=str(file_path))
     except SyntaxError as exc:
@@ -306,26 +499,41 @@ _MARKET_TO_SOURCE = {
 
 
 def _detect_source(code: str) -> str:
-    """Infer legacy source name from symbol (back-compat for metrics/engine).
+    """Infer legacy source name from a symbol for back-compat with metrics/engine selection.
+
+    Looks up the detected market type in ``_MARKET_TO_SOURCE`` to map
+    market categories to traditional source names.  This is used by older
+    code paths (e.g. annualization, engine hints) that still reason in
+    terms of sources rather than market types.
 
     Args:
-        code: Ticker / symbol string.
+        code: Ticker / symbol string (e.g. ``"000001.SZ"``, ``"AAPL"``,
+            ``"BTC-USDT"``).
 
     Returns:
-        Source name (mootdx/yfinance/okx/ccxt/...).
+        Legacy source name (``"mootdx"``, ``"yfinance"``, ``"okx"``,
+        ``"ccxt"``, ``"akshare"``, etc.).  Defaults to ``"mootdx"`` for
+        unrecognized market types.
     """
     market = _detect_market(code)
     return _MARKET_TO_SOURCE.get(market, "mootdx")
 
 
 def _group_codes_by_market(codes: List[str]) -> Dict[str, List[str]]:
-    """Group symbols by detected market type.
+    """Group symbols by detected market type for per-market data fetching.
+
+    Each code is classified via :func:`_detect_market` (which uses the
+    regex patterns from ``_market_hooks``).  Codes with the same market
+    type are batched together so they can be fetched from the same loader.
 
     Args:
-        codes: List of symbol strings.
+        codes: List of symbol strings (mixed markets allowed).
 
     Returns:
-        Mapping market_type -> list of codes.
+        ``{market_type: [code, ...]}`` mapping.  Market types include
+        ``"a_share"``, ``"us_equity"``, ``"hk_equity"``, ``"crypto"``,
+        ``"futures"``, ``"forex"``, ``"fund"``, ``"macro"``, ``"index"``,
+        and ``"commodity"``.
     """
     groups: Dict[str, List[str]] = {}
     for code in codes:
@@ -335,13 +543,18 @@ def _group_codes_by_market(codes: List[str]) -> Dict[str, List[str]]:
 
 
 def _group_codes_by_source(codes: List[str]) -> Dict[str, List[str]]:
-    """Group symbols by inferred source (back-compat).
+    """Group symbols by inferred legacy source name for back-compat reporting.
+
+    Delegates to :func:`_detect_source` per symbol, which maps market type
+    to legacy source name via ``_MARKET_TO_SOURCE``.  Used by the run card
+    to report which effective sources were used in auto mode.
 
     Args:
         codes: List of symbol strings.
 
     Returns:
-        Mapping source -> list of codes.
+        ``{source_name: [code, ...]}`` mapping.  Source names are legacy
+        identifiers like ``"mootdx"``, ``"yfinance"``, ``"okx"``, etc.
     """
     groups: Dict[str, List[str]] = {}
     for code in codes:
@@ -351,13 +564,25 @@ def _group_codes_by_source(codes: List[str]) -> Dict[str, List[str]]:
 
 
 def _get_loader(source: str):
-    """Return a DataLoader class for a source name, with fallback.
+    """Return a DataLoader **class** for a source name, with automatic fallback.
+
+    Uses ``get_loader_cls_with_fallback`` to walk the source's fallback
+    chain and return the first available loader.  If the chain is exhausted,
+    falls back to ``tushare`` as a last resort (when registered).
 
     Args:
-        source: Source name (mootdx/eastmoney/tencent/baidu/tushare/yfinance/akshare/okx/ccxt/...).
+        source: Source name (``"mootdx"``, ``"eastmoney"``, ``"tencent"``,
+            ``"baidu"``, ``"tushare"``, ``"yfinance"``, ``"akshare"``,
+            ``"okx"``, ``"ccxt"``, ``"twelvedata"``, ``"finnhub"``,
+            ``"futu"``, ``"coingecko"``, etc.).
 
     Returns:
-        DataLoader class.
+        A **DataLoader class** (not an instance).  The caller is expected
+        to instantiate it.
+
+    Raises:
+        NoAvailableSourceError: If no source in the chain is available and
+            ``tushare`` is not registered.
     """
     try:
         return get_loader_cls_with_fallback(source)
@@ -369,14 +594,19 @@ def _get_loader(source: str):
 
 
 def _normalize_codes(codes: List[str], source: str) -> List[str]:
-    """Normalize symbol strings for a source.
+    """Normalize symbol strings for a specific data source's API format.
+
+    Most sources accept codes as-is, but crypto exchanges (OKX, CCXT)
+    expect dash-separated pairs (``"BTC-USDT"``) rather than slash-separated
+    (``"BTC/USDT"``).  This function applies the appropriate transformation.
 
     Args:
-        codes: Raw code list.
-        source: Data source.
+        codes: Raw code list as entered by the user.
+        source: Data source name.
 
     Returns:
-        Normalized codes.
+        Normalized codes.  For ``okx`` / ``ccxt``: slashes replaced with
+        dashes and uppercased.  For all other sources: returned unchanged.
     """
     if source in ("okx", "ccxt"):
         return [c.replace("/", "-").upper() for c in codes]
@@ -551,16 +781,45 @@ def main(run_dir: Path) -> None:
 def _create_market_engine(source: str, config: dict, codes: List[str]):
     """Create the appropriate market engine based on **market type**.
 
-    Routing priority:
-      1. Detect market type from symbol patterns (futures, forex, etc.)
-      2. A-share market → ChinaAEngine (works for ALL A-share loaders:
-         mootdx, tushare, eastmoney, tencent, futu, baidu, twelvedata, akshare)
-      3. Crypto → CryptoEngine
-      4. US/HK equity → GlobalEquityEngine
+    This function routes a set of symbols to the correct trading engine by
+    classifying each code's market (A-share, US equity, crypto, futures,
+    forex, fund, macro, etc.) and picking the corresponding engine class.
 
-    The *source* name is only used as a hint for crypto (okx/ccxt) and for
-    distinguishing China vs global futures.  All other routing is market-driven
-    so new A-share loaders work without modifying this function.
+    **Routing priority (first match wins):**
+
+    1. **Cross-market** — Multiple market types detected →
+       ``CompositeEngine`` (delegates per-market).
+    2. **Futures** — ``ChinaFuturesEngine`` for Chinese futures symbols,
+       ``GlobalFuturesEngine`` otherwise.
+    3. **Forex** — ``ForexEngine``.
+    4. **A-share** — ``ChinaAEngine`` (covers all A-share loaders:
+       mootdx, tushare, eastmoney, tencent, futu, baidu, twelvedata, akshare).
+    5. **Crypto** — ``CryptoEngine`` (detected from symbol patterns, not
+       source name).
+    6. **US/HK equity** — ``GlobalEquityEngine`` (sub-market parameter set
+       via ``_detect_submarket``).
+    7. **Fund / Macro** — ``ChinaAEngine`` (Chinese fund/macro indices).
+    8. **Index / Commodity** — ``GlobalEquityEngine`` with ``market="us"``.
+    9. **Fallback** — If the source name is ``"okx"`` or ``"ccxt"`` →
+       ``CryptoEngine``.  Otherwise defaults to ``ChinaAEngine`` (the
+       safest assumption for the predominantly Chinese user base).
+
+    Args:
+        source: Effective source name (may be the config value or the
+            auto-detected primary source from :func:`_detect_primary_source`).
+        config: Backtest config dict (passed through to the engine constructor).
+        codes: All symbols for this backtest run.
+
+    Returns:
+        An engine instance (``ChinaAEngine``, ``CryptoEngine``,
+        ``GlobalEquityEngine``, ``CompositeEngine``, ``ChinaFuturesEngine``,
+        ``GlobalFuturesEngine``, or ``ForexEngine``).
+
+    Note:
+        The *source* name is only used as a hint in steps 2 and 9
+        (distinguishing China vs global futures, and crypto source-name
+        fallback).  All other routing is market-driven, so new A-share
+        loaders work without modifying this function.
     """
     # Detect dominant market type from codes
     markets = {_detect_market(c) for c in codes} if codes else set()
@@ -621,14 +880,22 @@ def _create_market_engine(source: str, config: dict, codes: List[str]):
 
 
 def _detect_primary_source(codes: List[str], source: str) -> str:
-    """Pick primary source for annualization (e.g. bars per year).
+    """Pick the dominant data source for annualization calculations.
+
+    When ``source="auto"``, different symbols may use different loaders
+    (e.g. A-shares via mootdx, crypto via okx).  This function identifies
+    the source covering the most symbols so that metrics like bars-per-year
+    can use appropriate trading-calendar assumptions.
 
     Args:
-        codes: All symbols.
-        source: Config ``source`` field.
+        codes: All symbols for the backtest.
+        source: Config ``source`` field.  If not ``"auto"``, it is returned
+            unchanged.
 
     Returns:
-        Dominant source name.
+        Dominant source name.  In single-source mode this is just *source*.
+        In auto mode with mixed sources, the source with the most symbols
+        wins (ties broken by ``max`` iteration order).
     """
     if source != "auto":
         return source
@@ -640,17 +907,46 @@ def _detect_primary_source(codes: List[str], source: str) -> str:
 
 
 def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
-    """Auto mode: route each market group through fallback chain.
+    """Auto mode: route each market group through its optimal data source chain.
 
-    Uses PG cache when available and concurrent fetching for multi-code groups.
+    When ``source="auto"`` in the backtest config, each symbol is classified
+    by market type (A-share, US equity, crypto, futures, etc.) and routed
+    through the appropriate loader with fallback.  This avoids the need to
+    manually split symbols by source.
+
+    **Pipeline per market group:**
+
+    1. **PG cache check** — Each code is looked up in PostgreSQL cache.
+       Codes with at least 5 cached bars skip fetching entirely.
+    2. **Loader resolution** — ``resolve_loader(market)`` picks the best
+       available source for the market type.  Falls back to a legacy source
+       (via ``_MARKET_TO_SOURCE``) if the chain is exhausted.
+    3. **Concurrent fetch** — All uncached codes for a market are fetched
+       in parallel via ``fetch_concurrent``.
+    4. **Runtime fallback** — If the primary source returns empty or does
+       not cover the requested ``start_date`` (checked via
+       :func:`_data_covers_range`), remaining sources in the market's fallback
+       chain are tried in order.
+    5. **Cache write-back** — Fetched data is written to both PG cache
+       and Parquet cold storage for future runs.
+    6. **Coverage warning** — If even the best source does not cover
+       ``start_date``, a warning is appended to ``config["_warnings"]``.
 
     Args:
-        codes: All symbols.
-        config: Backtest config dict.
-        interval: Bar interval string.
+        codes: All symbols from the backtest config.
+        config: Backtest config dict (mutated in-place: ``_warnings`` may be
+            appended and ``_run_card_effective_sources`` is set by the caller).
+        interval: Bar interval string (``"1D"``, ``"1H"``, etc.).
 
     Returns:
-        Merged ``code -> DataFrame`` map.
+        ``{code: DataFrame}`` map covering all symbols that could be fetched.
+        Symbols that failed across all sources are silently omitted; the
+        caller (:func:`main`) handles survivorship-bias reporting.
+
+    Note:
+        This function mutates *config* in-place: it appends coverage-gap
+        warnings to ``config["_warnings"]``.  The caller is responsible for
+        setting ``config["_run_card_effective_sources"]`` afterward.
     """
     from backtest.loaders.base import fetch_concurrent
 
@@ -782,6 +1078,12 @@ class _AutoLoader:
     """Dummy loader for auto mode: returns pre-fetched data maps."""
 
     def __init__(self, data_map: dict):
+        """Initialize with a pre-built code-to-DataFrame mapping.
+
+        Args:
+            data_map: ``{code: DataFrame}`` mapping produced by
+                :func:`_fetch_auto`.  Stored by reference (no copy).
+        """
         self._data = data_map
 
     def fetch(self, codes, start_date, end_date, fields=None, interval="1D"):

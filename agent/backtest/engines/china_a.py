@@ -129,7 +129,18 @@ class ChinaAEngine(BaseEngine):
 
 
 def _bar_date(bar: pd.Series):
-    """Extract date from bar, handling various column names."""
+    """Extract the trade date from a bar Series, handling various column names.
+
+    Tries ``trade_date`` and ``date`` columns first (common in tushare
+    and EastMoney data).  Falls back to the Series name (index timestamp).
+
+    Args:
+        bar: A pandas Series representing one OHLCV bar.
+
+    Returns:
+        A ``datetime.date`` object, or ``None`` if no date can be
+        extracted.
+    """
     for col in ("trade_date", "date"):
         if col in bar.index:
             val = bar[col]
@@ -149,7 +160,19 @@ def _bar_date(bar: pd.Series):
 # settle/pre_settle (futures-native); see those modules for the
 # futures-specific logic.
 def _calc_pct_change(bar: pd.Series):
-    """Calculate price change percentage from bar data."""
+    """Calculate price change percentage from a bar Series.
+
+    Prefers the ``pct_chg`` column (returned by tushare as percentage
+    points, e.g. 5.0 = +5%).  Falls back to computing ``(close - pre_close)
+    / pre_close`` if ``pct_chg`` is missing.
+
+    Args:
+        bar: A pandas Series representing one OHLCV bar.
+
+    Returns:
+        Price change as a decimal fraction (e.g. 0.05 = +5%), or
+        ``None`` if neither column is available.
+    """
     if "pct_chg" in bar.index:
         val = bar["pct_chg"]
         if pd.notna(val):
@@ -163,13 +186,17 @@ def _calc_pct_change(bar: pd.Series):
 
 
 def _price_limit(symbol: str) -> float:
-    """Determine price limit based on board.
+    """Determine the daily price limit based on board membership.
 
     Args:
-        symbol: Stock code (e.g. 300001.SZ, 688001.SH, 000001.SZ).
+        symbol: Stock code (e.g. ``300001.SZ``, ``688001.SH``,
+            ``000001.SZ``).
 
     Returns:
-        Limit as fraction (0.10, 0.20, or 0.05).
+        Limit as a decimal fraction:
+            - 0.20 for ChiNext (300xxx) and STAR (688xxx)
+            - 0.30 for Beijing Exchange (8xxxxx)
+            - 0.10 for main board and everything else
     """
     code = symbol.split(".")[0] if "." in symbol else symbol
     # ChiNext (300xxx) / STAR (688xxx): ±20%
