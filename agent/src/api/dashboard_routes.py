@@ -25,34 +25,45 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 # ---------------------------------------------------------------------------
 
 async def _fetch_market_overview() -> dict[str, Any] | None:
-    """Market indices snapshot — fetches latest bar for key benchmark indices."""
-    try:
-        from backtest.data_store import DataStore
+    """Market indices snapshot — uses Tencent real-time quote API.
 
-        store = DataStore()
-        indices = [
-            ("000300.SH", "沪深300"),
-            ("000905.SH", "中证500"),
-            ("399006.SZ", "创业板指"),
+    The Tencent API supports A-share index codes natively (e.g.
+    ``sh000300`` for CSI300).  DataStore OHLCV loaders don't handle
+    index codes, so we fetch live quotes directly.
+    """
+    try:
+        import requests
+
+        # Tencent API index code mapping
+        index_map = [
+            ("sh000300", "沪深300"),
+            ("sh000905", "中证500"),
+            ("sz399006", "创业板指"),
         ]
+        codes = ",".join(c for c, _ in index_map)
+        url = f"https://qt.gtimg.cn/q={codes}"
+        resp = requests.get(url, timeout=5, headers={"Referer": "https://qt.gtimg.cn/"})
+        resp.encoding = "gbk"
+
         result = []
-        for code, name in indices:
+        for qt_code, name in index_map:
+            price = 0.0
+            change_pct = 0.0
             try:
-                df = store.get_ohlcv(code, interval="1d", limit=2)
-                if df is not None and len(df) >= 1:
-                    latest = df.iloc[-1]
-                    prev = df.iloc[-2] if len(df) >= 2 else latest
-                    change_pct = (float(latest["close"]) / float(prev["close"]) - 1) * 100
-                    result.append({
-                        "name": name,
-                        "code": code,
-                        "price": round(float(latest["close"]), 2),
-                        "change_pct": round(change_pct, 2),
-                    })
-                else:
-                    result.append({"name": name, "code": code, "price": 0, "change_pct": 0})
+                text = resp.text or ""
+                # Tencent returns one line per code: v_sh000300="1~沪深300~3892.50~..."
+                marker = f'v_{qt_code}="'
+                idx = text.index(marker) + len(marker)
+                end = text.index('"', idx)
+                parts = text[idx:end].split("~")
+                if len(parts) >= 4:
+                    price = float(parts[3])   # current price
+                    prev_close = float(parts[4]) if len(parts) > 4 else price
+                    if prev_close > 0:
+                        change_pct = round((price / prev_close - 1) * 100, 2)
             except Exception:
-                result.append({"name": name, "code": code, "price": 0, "change_pct": 0})
+                pass
+            result.append({"name": name, "code": qt_code, "price": price, "change_pct": change_pct})
 
         return {"indices": result, "vix": None, "fear_greed": None}
     except Exception as exc:
@@ -94,14 +105,40 @@ async def _fetch_datasource_health() -> dict[str, Any] | None:
 
 
 async def _fetch_sentiment_overview() -> dict[str, Any] | None:
-    """Market sentiment snapshot — fetches recent news and scores them."""
-    try:
-        from src.db.sentiment_store import get_recent_news
-        from src.services.sentiment_analyzer import SentimentAnalyzer
+    """Market sentiment snapshot — fetches recent news and scores them.
 
+    Tries cached DB news first, falls back to a quick DuckDuckGo search
+    for Chinese financial headlines so the dashboard card is never blank.
+    """
+    try:
+        from src.services.sentiment_analyzer import SentimentAnalyzer
         analyzer = SentimentAnalyzer()
-        # Fetch recent news from DB (cached from news endpoints)
-        articles = get_recent_news(limit=20, hours=24)
+
+        articles: list[dict[str, Any]] = []
+        # Try DB cache first
+        try:
+            from src.db.sentiment_store import get_recent_news
+            articles = list(get_recent_news(limit=20, hours=48))
+        except Exception:
+            pass
+
+        # Fallback: quick web search for recent financial headlines
+        if not articles:
+            try:
+                import requests
+                from duckduckgo_search import DDGS
+                with DDGS() as ddgs:
+                    raw = list(ddgs.news("A股 股市", max_results=8))
+                for r in raw:
+                    articles.append({
+                        "title": r.get("title", ""),
+                        "url": r.get("url", ""),
+                        "source": r.get("source", ""),
+                        "published_at": r.get("date", ""),
+                    })
+            except Exception:
+                pass
+
         if not articles:
             return {"overall_sentiment": None, "sentiment_label": None, "trend": None,
                     "trending_topics": [], "recent_headlines": []}
