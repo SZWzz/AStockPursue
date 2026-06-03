@@ -157,11 +157,15 @@ class DataLoader:
                 # the runner can fall back to another source.
                 raw_earliest = df.index.min()
                 requested_start = pd.Timestamp(start_date)
-                if raw_earliest is not pd.NaT and raw_earliest > requested_start + pd.Timedelta(days=60):
+                # [P2-01 fix] Reduced threshold from 60 to 10 days.  60 days was
+                # far too permissive — a source returning 59 days late passed
+                # silently, effectively hiding data truncation.  10 days is a
+                # reasonable tolerance for weekends/holidays.
+                if raw_earliest is not pd.NaT and raw_earliest > requested_start + pd.Timedelta(days=10):
                     logger.warning(
-                        "Baidu data for %s may be truncated: "
-                        "requested %s, earliest available bar is %s. "
-                        "Baidu free API may not retain full history. "
+                        "Baidu data for %s appears truncated: "
+                        "requested %s, earliest available bar is %s "
+                        "(gap=%d days). Baidu free API may not retain full history. "
                         "Consider using eastmoney, tencent, tushare, or akshare for longer histories.",
                         code, start_date, raw_earliest.strftime("%Y-%m-%d"),
                     )

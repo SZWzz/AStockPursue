@@ -296,6 +296,18 @@ class Registry:
         if meta.get("requires_sector") and "sector" not in panel:
             raise SkipAlpha(f"{alpha_id}: panel missing sector tag")
 
+        # [P2-7 fix] Enforce min_warmup_bars — reject computation when the
+        # panel has fewer rows than the factor requires.  Previously this was
+        # silently ignored, producing all-NaN output in early backtest bars.
+        ref = panel.get("close")
+        if ref is not None:
+            min_warmup = meta.get("min_warmup_bars", 0)
+            if min_warmup > 0 and len(ref) < min_warmup:
+                raise SkipAlpha(
+                    f"{alpha_id}: panel has {len(ref)} rows, "
+                    f"requires at least {min_warmup} (min_warmup_bars)"
+                )
+
         try:
             module = self._load_module(alpha)
         except Exception as exc:  # noqa: BLE001 — isolate import failure

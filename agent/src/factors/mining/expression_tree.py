@@ -93,7 +93,11 @@ OPERATOR_REGISTRY: dict[str, tuple[int, Callable[..., pd.DataFrame], str]] = {
     # --- cross-sectional (unary, row-wise) ---
     "rank":     (1, lambda x: x.rank(axis=1, method="average", pct=True, na_option="keep"), "rank"),
     "cs_zscore":(1, lambda x: ((x.subtract(x.mean(axis=1, skipna=True), axis=0)).div(x.std(axis=1, skipna=True).replace(0, np.nan), axis=0)).replace([np.inf, -np.inf], np.nan), "csz"),
-    "scale":    (1, lambda x: (lambda s: x.div(s.where(s > 0), axis=0))(x.abs().sum(axis=1, skipna=True)), "scale"),
+    # [P2-03 fix] Add epsilon (1e-12) to prevent all-NaN rows when abs-sum is
+    # zero.  Previously s.where(s > 0) produced NaN for zero-sum rows, and
+    # x.div(NaN) silenced the entire row — the factor produced NaN output
+    # with no warning that it was degenerate at that date.
+    "scale":    (1, lambda x: (lambda s: x.div(s.where(s > 1e-12, 1e-12), axis=0))(x.abs().sum(axis=1, skipna=True).clip(lower=1e-12)), "scale"),
     "abs":      (1, lambda x: x.abs(), "abs"),
     "log":      (1, lambda x: np.log(x.clip(lower=1e-12)), "log"),
     "sqrt":     (1, lambda x: np.sqrt(x.clip(lower=0)), "sqrt"),

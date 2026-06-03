@@ -279,12 +279,15 @@ class FactorKnowledgeBase:
             counter += 1
 
         # ── Create entry ──
+        # [P3-02 fix] Normalize themes to lowercase so "Momentum" and
+        # "momentum" are treated as the same theme across registrations
+        # and get_mining_guidance() comparisons.
         entry = FactorEntry(
             alpha_id=alpha_id,
             tree=tree,
             name=name or alpha_id,
-            theme=theme or [],
-            semantic_tags=semantic_tags or [],
+            theme=[t.lower() for t in (theme or [])],
+            semantic_tags=[t.lower() for t in (semantic_tags or [])],
             source=source,
             source_prompt=source_prompt,
             economic_rationale=economic_rationale,

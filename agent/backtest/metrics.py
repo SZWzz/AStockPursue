@@ -5,12 +5,15 @@ Provides annualisation helpers, trade statistics, and full metric calculation.
 
 from __future__ import annotations
 
+import logging
 from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
 from backtest.models import TradeRecord
+
+logger = logging.getLogger(__name__)
 
 # ─── Annualisation factor mapping ───
 
@@ -43,21 +46,47 @@ for _iv, _sub in _BARS_PER_DAY.items():
             _sub[_src] = _A_SHARE_BARS.get(_iv, 1)
 
 
-def calc_bars_per_year(interval: str = "1D", source: str = "tushare") -> int:
+def calc_bars_per_year(
+    interval: str = "1D",
+    source: str = "tushare",
+    *,
+    override_bars_per_year: int | None = None,
+) -> int:
     """Number of bars per year for annualisation.
 
     Args:
         interval: Bar size (1m / 5m / 15m / 30m / 1H / 4H / 1D).
         source: Data source (tushare / yfinance / okx).
+        override_bars_per_year: Explicit override for custom data sources
+            not in the lookup table.  When None and the source is unknown,
+            a warning is logged and A-share defaults are used.
 
     Returns:
         Bars per year.
     """
+    if override_bars_per_year is not None and override_bars_per_year > 0:
+        return override_bars_per_year
+
+    # [P2-5 fix] Log warning for unknown sources — silenty defaulting to
+    # 252 trading days can produce ~20% error in annualized metrics
+    # (e.g., crypto with 365 vs A-share with 252).
+    if source not in _TRADING_DAYS:
+        logger.warning(
+            "Unknown data source %r — defaulting to 252 trading days. "
+            "Annualized metrics (Sharpe, etc.) may be incorrect. "
+            "Use override_bars_per_year= to set explicitly.",
+            source,
+        )
     trading_days = _TRADING_DAYS.get(source, 252)
 
     # Known intervals: lookup from table
     if interval in _BARS_PER_DAY:
         bars_per_day = _BARS_PER_DAY[interval].get(source, 1)
+        if source not in _BARS_PER_DAY[interval]:
+            logger.debug(
+                "Unknown source %r for interval %r — using 1 bar/day default",
+                source, interval,
+            )
         return trading_days * bars_per_day
 
     # Fallback for non-standard intervals (e.g. "2h", "1W", "4W")
