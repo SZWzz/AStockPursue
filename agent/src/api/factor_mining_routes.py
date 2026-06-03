@@ -284,6 +284,12 @@ async def start_gp_evolution(req: GPSetupRequest, auth: dict = Depends(require_a
         try:
             result = gp.run()
             _jobs[job_id]["status"] = "completed"
+            try:
+                from src.api.dashboard_routes import log_activity
+                n_candidates = len(result.best_individuals) if result.best_individuals else 0
+                log_activity(f"GP 演化 #{job_id} 完成 → 发现 {n_candidates} 个候选因子", user_id)
+            except Exception:
+                pass
             _jobs[job_id]["result"] = {
                 "best_individuals": [ind.to_dict() for ind in result.best_individuals],
                 "generation_history": [
@@ -310,9 +316,19 @@ async def start_gp_evolution(req: GPSetupRequest, auth: dict = Depends(require_a
             logger.exception("GP run failed")
             _jobs[job_id]["status"] = "failed"
             _jobs[job_id]["error"] = str(e)
+            try:
+                from src.api.dashboard_routes import log_activity
+                log_activity(f"GP 演化 #{job_id} 失败: {str(e)[:80]}", user_id)
+            except Exception:
+                pass
 
     t = threading.Thread(target=_run, daemon=True)
     t.start()
+    try:
+        from src.api.dashboard_routes import log_activity
+        log_activity(f"GP 演化 #{job_id} 已启动", user_id)
+    except Exception:
+        pass
 
     return {"job_id": job_id, "status": "running"}
 
@@ -530,6 +546,11 @@ async def start_hybrid_mining(req: HybridSetupRequest, auth: dict = Depends(requ
 
     t = threading.Thread(target=_run, daemon=True)
     t.start()
+    try:
+        from src.api.dashboard_routes import log_activity
+        log_activity(f"Hybrid 演化 #{job_id} 已启动", user_id)
+    except Exception:
+        pass
 
     return {"job_id": job_id, "status": "running"}
 

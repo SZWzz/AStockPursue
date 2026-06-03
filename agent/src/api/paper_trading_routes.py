@@ -90,6 +90,11 @@ async def create_run(
         risk_config=req.risk_config.model_dump(),
         user_id=user_id,
     )
+    try:
+        from src.api.dashboard_routes import log_activity
+        log_activity(f"模拟盘 {req.run_name} 已创建", user_id)
+    except Exception:
+        pass
     return {"id": run_id, "message": "Run created"}
 
 
@@ -239,6 +244,13 @@ async def start_run(
     except Exception as e:
         logger.exception("Failed to start run %s", run_id)
         raise HTTPException(status_code=500, detail=safe_error(e))
+    try:
+        from src.api.dashboard_routes import log_activity
+        row = _repo.get_run(run_id) if hasattr(_repo, "get_run") else None
+        name = (row.get("run_name") if row else None) or run_id[:12]
+        log_activity(f"模拟盘 {name} 已启动", user_id)
+    except Exception:
+        pass
     return {"message": "Run started", "run_id": run_id}
 
 
@@ -258,6 +270,13 @@ async def stop_run(
     except Exception as e:
         logger.exception("Failed to stop run %s", run_id)
         raise HTTPException(status_code=500, detail=safe_error(e))
+    try:
+        from src.api.dashboard_routes import log_activity
+        row = _repo.get_run(run_id) if hasattr(_repo, "get_run") else None
+        name = (row.get("run_name") if row else None) or run_id[:12]
+        log_activity(f"模拟盘 {name} 已停止", user_id)
+    except Exception:
+        pass
     return {"message": "Run stopped", "run_id": run_id}
 
 
