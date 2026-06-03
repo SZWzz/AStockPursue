@@ -137,10 +137,18 @@ Per-user: orders (PG `user_id` FK), broker context (independent FutuOpenD cache)
 
 ### Version Date Check
 
-**Before every commit and push, verify that the project version matches the current date.**  The version string is defined in `frontend/src/components/layout/Layout.tsx` as `APP_VERSION` (format: `vYYYY.M.D`).  Update it to match today's date if it is stale.  For example, if today is 2026-06-03, the version should be `v2026.6.3`.
+**Before every commit and push, verify that the project version matches the current date.**  The version is defined in three places and must be kept in sync:
+
+1. `frontend/src/components/layout/Layout.tsx` — `APP_VERSION` (format: `vYYYY.M.D`)
+2. `README.md` — version badge in the top badge strip
+3. `README_zh.md` — version badge in the top badge strip
+
+Update all three to match today's date if stale.  For example, if today is 2026-06-03, the version should be `v2026.6.3`.
 
 ```
 APP_VERSION = "v2026.6.3"   // <-- update before commit if today's date doesn't match
+README.md badge:             Version-v2026.6.3-blueviolet
+README_zh.md badge:          版本-v2026.6.3-blueviolet
 ```
 
 This ensures the version number reflects when the code was actually shipped.
