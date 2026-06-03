@@ -1281,7 +1281,17 @@ class GPEvolution:
                 "message": f"Generation {gen + 1}/{total_generations}: evaluating...",
             })
 
-            fitnesses = self.evaluate_population()
+            try:
+                fitnesses = self.evaluate_population()
+            except Exception as e:
+                logger.exception("Evaluate population failed at generation %d — skipping", gen + 1)
+                self._emit_progress("generation_error", {
+                    "generation": gen + 1,
+                    "error": f"Evaluation failed: {str(e)[:120]}",
+                    "total_generations": total_generations,
+                })
+                # Evolve anyway with flat fitness so the run can continue
+                fitnesses = [0.0] * len(self._population)
 
             # ── P0: FDR correction on this generation ──
             # Build candidate dicts for FDR
@@ -1385,7 +1395,17 @@ class GPEvolution:
 
             # Evolve (unless last generation)
             if gen < total_generations - 1:
-                self._population = self.evolve(fitnesses, generation=gen + 1)
+                try:
+                    self._population = self.evolve(fitnesses, generation=gen + 1)
+                except Exception as e:
+                    logger.exception("Evolve population failed at generation %d — keeping current population", gen + 1)
+                    self._emit_progress("generation_error", {
+                        "generation": gen + 1,
+                        "error": f"Evolution failed: {str(e)[:120]}",
+                        "total_generations": total_generations,
+                    })
+                    # Keep current population for next generation
+
 
         # Final validation of top individuals
         best_individuals: list[GPIndividual] = []

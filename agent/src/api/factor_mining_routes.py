@@ -221,14 +221,20 @@ async def _sse_from_queue(q: queue.Queue[dict[str, Any]], request: Request):
 
     """
     loop = asyncio.get_event_loop()
+    first_item = True
     while True:
-        if await request.is_disconnected():
+        # On some ASGI transports request.is_disconnected() can return True
+        # spuriously right after connection.  We require at least one
+        # successful read from the queue before trusting the disconnect check,
+        # so that buffered generation_complete events are delivered.
+        if not first_item and await request.is_disconnected():
             break
         try:
             data = await asyncio.wait_for(
                 loop.run_in_executor(None, lambda: q.get(timeout=2)),
                 timeout=2.5,
             )
+            first_item = False
             yield f"event: {data.get('type', 'message')}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
         except (queue.Empty, asyncio.TimeoutError):
             # Send heartbeat
