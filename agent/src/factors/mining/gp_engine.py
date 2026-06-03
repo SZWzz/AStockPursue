@@ -238,6 +238,11 @@ class GPEvolution:
 
         Sets self.data_source to 'real' on success, 'mock' on fallback.
         Emits data source status via SSE so the frontend can show a badge.
+
+        When the primary source returns data that doesn't cover the
+        requested date range, walks the market fallback chain to find a
+        source with better coverage — matching the behaviour of
+        ``backtest/runner.py``.
         """
         try:
             from backtest.data_store import get_data_store
@@ -252,7 +257,6 @@ class GPEvolution:
 
         universe = self.config.universe
         if not universe:
-            # Default: use some A-share stocks
             universe = [
                 "000001.SZ", "000002.SZ", "000858.SZ", "002415.SZ",
                 "600000.SH", "600036.SH", "600519.SH", "601318.SH",
@@ -277,6 +281,49 @@ class GPEvolution:
                 self._emit_progress("data_source", {"source": "mock", "detail": self.data_source_detail})
                 self._load_mock_data()
                 return
+
+            # ── Coverage fallback: when primary source returns data but it
+            # doesn't cover the train_start (e.g. mootdx free server only
+            # keeps ~3 months), walk the fallback chain to find a source
+            # with better coverage.  Without this, the train panel ends up
+            # empty and all individuals get fitness=0.
+            from backtest.loaders.registry import (
+                FALLBACK_CHAINS, LOADER_REGISTRY, _ensure_registered,
+            )
+            from backtest.runner import _data_covers_range, _detect_market
+
+            _ensure_registered()
+            needs_fallback = not _data_covers_range(data_map, train_start)
+            if needs_fallback and universe:
+                market = _detect_market(universe[0])
+                for fb_name in FALLBACK_CHAINS.get(market, []):
+                    if fb_name not in LOADER_REGISTRY:
+                        continue
+                    try:
+                        fb_loader = LOADER_REGISTRY[fb_name]()
+                    except Exception:
+                        continue
+                    if not fb_loader.is_available():
+                        continue
+                    try:
+                        fb_data_map = fb_loader.fetch(
+                            universe, full_start, full_end, interval="1D",
+                        )
+                    except Exception:
+                        continue
+                    if fb_data_map and _data_covers_range(fb_data_map, train_start):
+                        logger.info(
+                            "GP data: switched from primary to %s (better coverage)", fb_name,
+                        )
+                        data_map = fb_data_map
+                        break
+                    elif fb_data_map and not data_map:
+                        data_map = fb_data_map
+                if needs_fallback and not _data_covers_range(data_map, train_start):
+                    logger.warning(
+                        "GP data: all sources have insufficient coverage for train_start=%s. "
+                        "Train panel may be empty.", train_start,
+                    )
 
             # Build panel: {col_name -> wide DataFrame}
             panels: dict[str, dict[str, pd.DataFrame]] = {"train": {}, "test": {}}
@@ -311,6 +358,28 @@ class GPEvolution:
             train_bars = len(self._train_panel.get("close", pd.DataFrame()))
             test_bars = len(self._test_panel.get("close", pd.DataFrame()))
             n_stocks = len(self._train_panel.get("close", pd.DataFrame()).columns) if train_bars > 0 else 0
+
+            # If train panel is empty after all the fallback attempts,
+            # the requested date range is simply not available from any
+            # configured source.  Fall back to mock data with a clear
+            # reason so the user can adjust dates.
+            if train_bars < 10 or n_stocks < 2:
+                logger.warning(
+                    "GP data: train panel too small (bars=%d, stocks=%d) after "
+                    "fallback chain.  Falling to mock data.  Try shorter date "
+                    "range or enable more data sources.", train_bars, n_stocks,
+                )
+                self.data_source = "mock"
+                self.data_source_detail = (
+                    f"Train panel too small ({train_bars} bars × {n_stocks} stocks). "
+                    f"Requested {train_start}→{train_end}. "
+                    f"Available data only covers {full_start}→{full_end} with limited depth. "
+                    f"Try a more recent date range (e.g. last 2 years) or enable "
+                    f"eastmoney/tushare for long history."
+                )
+                self._emit_progress("data_source", {"source": "mock", "detail": self.data_source_detail})
+                self._load_mock_data()
+                return
 
             self.data_source = "real"
             self.data_source_detail = f"{n_stocks} stocks, train={train_bars} bars, test={test_bars} bars"

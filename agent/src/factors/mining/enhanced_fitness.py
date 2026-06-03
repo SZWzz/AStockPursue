@@ -483,37 +483,33 @@ def composite_fitness(
 
     # ── 1. Base signal: Rank IC (robust to outliers) ──
     rank_ic = rank_ic_fitness(factor_values, forward_returns)
+
+    # Soft threshold: when IC is near zero, still return a tiny proportional
+    # fitness so tournament selection has a gradient.  Without this, every
+    # individual below 0.001 gets fitness=0.0, selection becomes random,
+    # and the population collapses to a single degenerate formula.
     if abs(rank_ic) <= ic_threshold:
+        tiny_fitness = abs(rank_ic) * 0.1  # e.g. IC=0.0009 → fitness=0.00009
         return {
-            "fitness": 0.0,
+            "fitness": max(tiny_fitness, 1e-8),
             "rank_ic": round(rank_ic, 6),
-            "reason": "IC below threshold",
+            "reason": "IC below threshold (soft fallback)",
             "components": {},
         }
 
     # ── 2. Trading cost penalty ──
     cost_pen = a_share_cost_penalty(factor_values)
+    # Clamp cost penalty to a tiny minimum instead of returning 0.0
     if cost_pen <= 0.0:
-        return {
-            "fitness": 0.0,
-            "rank_ic": round(rank_ic, 6),
-            "reason": "extreme trading cost",
-            "annual_turnover": estimate_annual_turnover(factor_values),
-            "components": {"cost_penalty": cost_pen},
-        }
+        cost_pen = 1e-8
 
     # ── 3. Orthogonality penalty ──
     ortho_pen, residual_ic, ortho_diag = orthogonality_penalty(
         factor_values, forward_returns, core_factors,
     )
+    # Clamp to tiny minimum instead of hard-zero cutoff
     if ortho_pen <= 0.0:
-        return {
-            "fitness": 0.0,
-            "rank_ic": round(rank_ic, 6),
-            "reason": "fully redundant with core factors",
-            "orthogonality": ortho_diag,
-            "components": {"cost_penalty": cost_pen, "orthogonality_penalty": ortho_pen},
-        }
+        ortho_pen = 1e-8
 
     # ── 4. A-share specific penalties ──
     ashare_pen = a_share_specific_penalty(factor_values, panel, tree)
