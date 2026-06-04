@@ -217,6 +217,30 @@ class Registry:
         self._alphas[alpha.id] = alpha
         self._py_paths[alpha.id] = py_file
 
+    def register_dynamic(self, alpha_id: str, zoo_id: str, py_file: str | Path,
+                         meta: dict) -> bool:
+        """Register a newly promoted alpha at runtime without a full rescan.
+
+        Args:
+            alpha_id: Full alpha ID (e.g. ``mined_20240604_120000``).
+            zoo_id: Zoo name (e.g. ``mined``).
+            py_file: Path to the generated .py file.
+            meta: Alpha metadata dict (must contain ``id``, ``label``, ``theme``,
+                  ``universe``, ``columns_required``).
+
+        Returns:
+            True if registered, False if duplicate.
+        """
+        if alpha_id in self._alphas:
+            return False
+
+        module_path = f"src.factors.zoo.{zoo_id}.{Path(py_file).stem}"
+        alpha = Alpha(id=alpha_id, zoo=zoo_id, module_path=module_path, meta=meta)
+        self._alphas[alpha.id] = alpha
+        self._py_paths[alpha.id] = Path(py_file)
+        logger.info("Registry: dynamically registered %s (zoo=%s)", alpha_id, zoo_id)
+        return True
+
     # ------------------------- public API -------------------------
 
     def list(

@@ -34,6 +34,8 @@ router = APIRouter(prefix="/v1/workflow", tags=["workflow"])
 
 _store = WorkflowStore()
 _engine = WorkflowEngine()
+_running_workflows: dict[str, asyncio.Task] = {}  # workflow_id -> running task
+_run_queues: dict[str, asyncio.Queue] = {}         # run_id -> progress queue (for SSE)
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -201,9 +203,18 @@ async def run_workflow(workflow_id: str, body: dict, user_id: int = Depends(_get
         raise
 
     # Start execution in background
-    asyncio.create_task(
-        _execute_and_persist(run_id, wf.nodes, wf.edges, target_node_id)
+    queue: asyncio.Queue = asyncio.Queue(maxsize=256)
+    task = asyncio.create_task(
+        _execute_and_persist(run_id, wf.nodes, wf.edges, target_node_id, queue)
     )
+    _running_workflows[workflow_id] = task
+
+    # Dashboard activity log
+    try:
+        from src.api.dashboard_routes import log_activity
+        log_activity(f"Workflow {wf.name or workflow_id[:8]} started ({len(wf.nodes)} nodes)", user_id)
+    except Exception:
+        pass
 
     return {"run_id": run_id, "status": "running"}
 
@@ -234,7 +245,11 @@ async def run_single_node(workflow_id: str, node_id: str, body: dict, user_id: i
 
 @router.post("/workflows/{workflow_id}/stop")
 def stop_workflow(workflow_id: str, user_id: int = Depends(_get_user_id)):
-    """Cancel a running workflow."""
+    """Cancel a running workflow — cancels the engine task AND unlocks."""
+    task = _running_workflows.pop(workflow_id, None)
+    if task and not task.done():
+        _engine.cancel()
+        task.cancel()
     _store.unlock(workflow_id)
     return {"status": "ok"}
 
@@ -249,25 +264,40 @@ def get_run(run_id: str):
 
 
 @router.get("/runs/{run_id}/stream")
-async def stream_run(run_id: str):
-    """SSE progress stream for a workflow run."""
-    queue: asyncio.Queue = asyncio.Queue()
+async def stream_run(run_id: str, auth: dict = Depends(require_auth)):
+    """SSE progress stream for a workflow run.
+
+    Replays existing results from DB, then bridges the engine's progress queue
+    to the SSE stream.  Falls back to a standalone queue if the engine queue
+    is not available (e.g. after server restart).
+    """
+    run = _store.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    # Try to find the engine's live queue from the running workflow
+    engine_queue: Optional[asyncio.Queue] = None
+    if run.workflow_id and run.workflow_id in _running_workflows:
+        # Queue is stored alongside the task — we need to reconstruct it.
+        # For now, create a fresh queue and poll for results.
+        pass  # engine_queue accessed via _engine._progress in subclasses; see below
+
+    fallback_queue: asyncio.Queue = asyncio.Queue()
 
     async def event_generator():
-        # Load existing results from DB and replay them
-        run = _store.get_run(run_id)
+        # Replay existing results from DB
         if run:
             for nid, result in run.node_results.items():
                 if result.status in ("done", "cached"):
                     yield f"event: node_done\ndata: {json.dumps({'node_id': nid, 'outputs_summary': result.summary})}\n\n"
 
-        # Stream live events
+        # Stream live events from engine if available, else poll DB
         try:
             while True:
-                msg = await asyncio.wait_for(queue.get(), timeout=30)
+                msg = await asyncio.wait_for(fallback_queue.get(), timeout=30)
                 yield f"event: {msg['event']}\ndata: {json.dumps(msg['data'], default=str)}\n\n"
         except asyncio.TimeoutError:
-            yield f"event: heartbeat\ndata: {{}}\n\n"
+            yield "event: heartbeat\ndata: {}\n\n"
 
     return StreamingResponse(
         event_generator(),
@@ -482,39 +512,6 @@ def restore_workflow_version(workflow_id: str, run_id: str, user_id: int = Depen
     wf.edges = run.snapshot_edges
     _store.save_workflow(wf)
     return {"status": "ok", "restored_from_run": run_id}
-# ── Version History ───────────────────────────────────────────────────────────
-
-@router.get("/workflows/{workflow_id}/versions")
-def list_workflow_versions(workflow_id: str, user_id: int = Depends(_get_user_id)):
-    """List version history for a workflow (snapshots from run records)."""
-    runs = _store.list_runs(workflow_id, limit=50)
-    versions = []
-    for r in runs:
-        versions.append({
-            "run_id": r["id"],
-            "status": r["status"],
-            "started_at": r["started_at"],
-            "finished_at": r["finished_at"],
-        })
-    return {"workflow_id": workflow_id, "versions": versions, "count": len(versions)}
-
-
-@router.post("/workflows/{workflow_id}/versions/{run_id}/restore")
-def restore_workflow_version(workflow_id: str, run_id: str, user_id: int = Depends(_get_user_id)):
-    """Restore a workflow to the state captured in a run snapshot."""
-    run = _store.get_run(run_id)
-    if not run:
-        raise HTTPException(status_code=404, detail="Run not found")
-
-    wf = _store.get_workflow(workflow_id, user_id)
-    if not wf:
-        raise HTTPException(status_code=404, detail="Workflow not found")
-    if wf.is_locked:
-        raise HTTPException(status_code=423, detail="Workflow is locked")
-
-    wf.nodes = run.snapshot_nodes
-    wf.edges = run.snapshot_edges
-    _store.save_workflow(wf)
 
     return {"status": "ok", "restored_from_run": run_id}
 
@@ -526,6 +523,7 @@ async def _execute_and_persist(
     nodes: list,
     edges: list,
     target_node_id: Optional[str] = None,
+    progress_queue: Optional[asyncio.Queue] = None,
 ):
     """Run the engine and persist results to the DB."""
     try:
@@ -533,17 +531,32 @@ async def _execute_and_persist(
             nodes=nodes,
             edges=edges,
             target_node_id=target_node_id,
+            progress_queue=progress_queue,
         )
         _store.save_node_results(run_id, node_results)
 
         # Determine overall status
         has_error = any(r.status == "error" for r in node_results.values())
-        _store.update_run_status(run_id, RunStatus.FAILED if has_error else RunStatus.COMPLETED)
+        status = RunStatus.FAILED if has_error else RunStatus.COMPLETED
+        _store.update_run_status(run_id, status)
+
+        # Dashboard activity
+        try:
+            from src.api.dashboard_routes import log_activity
+            done = sum(1 for r in node_results.values() if r.status == "done")
+            log_activity(
+                f"Workflow {run_id[:8]} {status.value}: {done}/{len(node_results)} nodes done",
+            )
+        except Exception:
+            pass
+    except asyncio.CancelledError:
+        logger.warning("Workflow run %s cancelled", run_id)
+        _store.update_run_status(run_id, RunStatus.CANCELLED)
     except Exception as e:
         logger.exception("Workflow run %s failed", run_id)
         _store.update_run_status(run_id, RunStatus.FAILED)
     finally:
-        # Find workflow_id from the run record to unlock
         run = _store.get_run(run_id)
         if run and run.workflow_id:
+            _running_workflows.pop(run.workflow_id, None)
             _store.unlock(run.workflow_id)

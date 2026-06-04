@@ -2,32 +2,62 @@
 
 ## [2026.6.4] - 2026-06-04
 
+### 新增
+
+- **[Workflow] 15 个新节点，节点总数从 11 → 26**
+  - **计算节点（10）**：`IndicatorNode`（技术指标计算）、`CorrelationNode`（相关性矩阵）、`ComparisonNode`（策略对比统计检验）、`GPEvolutionNode`（GP 进化因子挖掘）、`NewsSentimentNode`（新闻情绪评分）、`MacroSentimentNode`（宏观情绪指标）、`OrderNode`（下单/撤单）、`FundamentalsNode`（基本面数据拉取）、`OptionsNode`（期权定价与希腊字母）、`SectorMapNode`（行业分类）
+  - **Output 节点（5）**：`ReportGeneratorNode`（结构化报告 Markdown/JSON/Text）、`NotifyNode`（Webhook/邮件/控制台通知）、`ExportNode`（CSV/JSON/Parquet 导出）、`ChartDataNode`（前端 ECharts 图表数据：K 线、权益曲线、交易标记、指标面板）、`FactorPersistNode`（因子入库，formula_hash 自动去重，可选晋升 Alpha Zoo）
+  - 新增 `PortType`：TECHNICAL_INDICATOR、CORRELATION_MATRIX、SENTIMENT、COMPARISON_RESULT
+
+- **[Workflow] Output 节点完整覆盖因子管线**
+  - `FactorPersistNode`：FactorKB 注册（SHA256 去重）→ Auto-Promote Top-N → Registry 动态注册（`register_dynamic()`），Alpha Zoo 立即可搜索，无需重启
+  - `ChartDataNode`：汇总回测+行情+指标数据，产出前端 CandlestickChart/EquityChart 兼容的 JSON
+
+- **[Workflow] 架构修复（P0-P3）**
+  - **P0**：SSE 实时进度队列桥接引擎 → 前端（之前断裂）、`stop_workflow` 真正 cancel asyncio Task、CPU 节点通过 `ProcessPoolExecutor`（8 workers）并行执行，不再阻塞 event loop
+  - **P1**：画布 Delete 键清理孤立边（`onNodesDelete` → `removeNode`）、`runSingleNode` 收集上游输入传 body、Run 前 auto-save（`isDirty` 检测）、删除重复路由定义
+  - **P2**：节点超时机制（默认 600s + `timeout_seconds` 属性）、SSE endpoint 鉴权（`require_auth`）
+  - **P3**：BaseNode 生命周期钩子（`on_init`/`on_validate`/`on_cleanup`/`on_cancel` + `version` 字段）、`_profile_sems` 竞态锁修复
+
+- **[Workflow] AgentNode 增强**
+  - 上游数据**结构化上下文注入**：自动检测 PortType（BACKTEST_RESULT → 指标表格、FACTOR_RESULT → 因子列表、CORRELATION_MATRIX → 摘要统计、COMPARISON_RESULT → 胜者分析等），非原始 dump
+  - **Prompt 模板**：`{prompt}` 和 `{context}` 占位符，用户可自定义模板
+  - 直接 config 输入 prompt（ChatInput 节点变为可选）
+
+- **[Workflow] OHLCVLoaderNode 增强**
+  - 新增 `source` 下拉选择 14 种数据源（auto/mootdx/tushare/eastmoney/tencent/futu/baidu/yfinance/twelvedata/finnhub/akshare/okx/ccxt/coingecko）+ `force_refresh` 开关
+
+- **[Workflow] PaperTradingNode 增强**
+  - 从纯校验 stub 改为可选「模拟交易」模式，真正调用 `LiveDriver` 运行 TradingEngine 逐笔管线，输出 equity/sharpe/max_drawdown
+
+- **[Workflow] AttributionNode 增强**
+  - 从 thin stub 改为调用 `AttributionEngine`：Brinson 分解、因子归因、行业归因、TCA
+
+- **[前端] 侧边栏恢复 Dashboard 入口**
+  - `/` 路由从 Projects 改为 Dashboard，`/projects` 保持独立
+  - Dashboard 全面重构样式（`section-card rounded-2xl`、hover 过渡）
+  - Quick Navigation 精简为侧边栏匹配项 + Workflow 快捷入口
+  - 侧边栏新增 Dashboard（LayoutDashboard），Projects 改用 FolderOpen
+
+- **[前端] Workflow 画布 i18n 全覆盖**
+  - 26 个节点 label + description + 9 个分类 + 15 个 UI 字符串中英文翻译
+  - NodePalette/NodePanel 自动切换，翻译键 `wfNode_{type}` / `wfCat_{category}`
+
+- **[前端] StockInput 集成进 Workflow**
+  - NodePanel 支持 `stock_codes` / `stock_code` 自定义字段类型
+  - StockUniverseNode custom_codes 改用搜索补全组件（替换纯文本框）
+
+- **[Dashboard] 活动事件接入 Workflow**
+  - Workflow 启动/完成/失败时写入 Dashboard activity log
+  - 自动 60s 刷新，配合模拟盘和因子挖掘事件
+
 ### 变更
 
 - **[前端] 全局 UI 重构 —「精准金融界面」设计语言**
-  - **排版**：正文字体从 Inter 替换为 **DM Sans**（更具几何感、更专业的无衬线字体），等宽字体保留 JetBrains Mono
-  - **色彩**：品牌色从 `hsl(27, 90%, 52%)` 调整为 `hsl(24, 94%, 54%)`（更深邃的琥珀色），表面层级从 2 级扩展到 4 级（background → surface-1 → card → surface-3），新增 cyan/emerald/rose/violet/amber 强调色令牌用于数据可视化
-  - **组件**：按钮改为 `rounded-lg` + `duration-200 ease-out` 流畅过渡，卡片改为 `rounded-xl` + hover 时微上浮效果（`-translate-y-0.5`），新增 `.card-metric`/`.data-table`/`.skeleton-shimmer`/`.page-enter-stagger`/`.surface-glass`/`.focus-ring` 组件类
-  - **动画**：新增 4 个关键帧（`fade-in-up`/`fade-in-down`/`slide-in-left`/`shimmer`），页面加载时子元素交错入场，骨架屏渐变闪烁替代脉冲动画
-  - **布局**：侧边栏从浮动式改为贴边锚定（移除 `my-3 ml-3` 边距），导航项激活态改为 2px 左侧色条指示器，品牌区域更精致
-  - **页面**：Dashboard/Projects/Login/Settings 页面接入新组件类和动画
-  - **图表**：优化暗色模式网格线可见度，改进 tooltip 对比度
-  - 零新依赖，纯 CSS 实现，不影响任何功能逻辑
-
-## 2026.6.4 — 工作流架构重构
-
-### 新增
-
-- **[工作流] 第二阶段：6 个核心节点实现**
-  - `StockUniverseNode`、`OHLCVLoaderNode`、`AlphaZooNode`、`StrategyNode`、`BacktestNode`、`AttributionNode`
-  - 适配器类：`InMemoryLoader`、`StaticSignalEngine`
-  - 修复：移除 BaseNode 上的 @dataclass
-  - 测试：76 个通过（47 + 29）
-
-- **[工作流] 第三阶段：Agent + 控制流节点 + 错误恢复**
-  - `AgentNode` — 包装 `run_agent_sync()` ReAct 循环；完整 LLM 支持 89 个技能 + 工具；输入=prompt+context，输出=analysis+code+factor_suggestion
-  - `ChatInputNode`、`IFNode`、`MergeNode`、`SubWorkflowNode`、`ParameterScanNode`、`LoopNode`、`ScreenerNode`、`PaperTradingNode`
-  - 前端：错误恢复 — 失败节点重试按钮、底部错误预览、重新运行支持
+  - 正文字体 Inter → DM Sans，品牌色调整，表面层级 2→4 级，新增强调色令牌
+  - 按钮 rounded-lg 流畅过渡，卡片 rounded-xl + hover 微上浮，新增 6 个组件类
+  - 4 个关键帧动画，页面交错入场，骨架屏渐变闪烁
+  - 侧边栏贴边锚定，导航项 2px 左侧色条指示器
   - 测试：92 个通过（76 + 16 新增）
 
 - **[工作流] 第四阶段：以项目为中心的导航 + 全编辑器集成**

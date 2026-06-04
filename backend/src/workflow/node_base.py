@@ -13,6 +13,12 @@ class BaseNode(ABC):
 
     Subclasses override class-level attributes.  No dataclass — class attrs
     are read directly from the subclass in :meth:`get_definition`.
+
+    Lifecycle hooks (all optional, all async):
+        on_init()        — called once before execute(), for resource acquisition
+        on_validate()    — called before execute(), should raise on invalid config
+        on_cleanup()     — called after execute() or on cancel, for resource release
+        on_cancel()      — called when the engine cancels this node mid-execution
     """
 
     node_type: str = ""
@@ -24,6 +30,29 @@ class BaseNode(ABC):
     outputs: List[NodePort] = []
     config_schema: Dict[str, Any] = {}
     resource_profile: str = "default"  # default | cpu_bound | io_bound
+
+    version: int = 1                      # bump when node implementation changes (invalidates cache)
+    timeout_seconds: float = 600          # per-node timeout override (0 = no timeout)
+
+    # ── Lifecycle hooks (override in subclasses) ─────────────────────────────
+
+    async def on_init(self, config: Dict[str, Any]) -> None:
+        """Called once before execute().  Acquire resources here."""
+        pass
+
+    async def on_validate(self, inputs: Dict[str, Any], config: Dict[str, Any]) -> None:
+        """Called before execute().  Raise ValueError if inputs/config are invalid."""
+        pass
+
+    async def on_cleanup(self) -> None:
+        """Called after execute() or on cancel.  Release resources here."""
+        pass
+
+    async def on_cancel(self) -> None:
+        """Called when the engine cancels this node mid-execution."""
+        pass
+
+    # ── Core ─────────────────────────────────────────────────────────────────
 
     @abstractmethod
     async def execute(self, inputs: Dict[str, Any], config: Dict[str, Any]) -> Dict[str, Any]:

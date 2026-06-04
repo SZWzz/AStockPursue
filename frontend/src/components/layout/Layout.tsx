@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, Bot, Database, LayoutDashboard, Menu, Moon, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, LogIn, LogOut, User, Users, X } from "lucide-react";
+import { BarChart3, Bot, Database, FolderOpen, LayoutDashboard, Menu, Moon, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, LogIn, LogOut, User, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useDarkMode } from "@/hooks/useDarkMode";
@@ -13,7 +13,8 @@ import { PostLoginSetup } from "@/components/layout/PostLoginSetup";
 const APP_VERSION = "v2026.6.4";
 
 const MAIN_NAV = [
-  { to: "/projects", icon: LayoutDashboard, label: "Projects" },
+  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
+  { to: "/projects", icon: FolderOpen, label: "Projects" },
   { to: "/agent", icon: Bot, label: "Agent" },
   { to: "/data-sources", icon: Database, label: "Data Sources" },
   { to: "/settings", icon: Settings, label: "Settings" },
@@ -109,7 +110,7 @@ export function Layout() {
         {/* Nav */}
         <nav className={cn("py-2", collapsed ? "px-2" : "px-0")}>
           {MAIN_NAV.map(({ to, icon: Icon, label }) => {
-            const active = to === "/projects" ? pathname.startsWith("/projects") : to === "/agent" ? pathname.startsWith("/agent") : pathname.startsWith(to);
+            const active = to === "/" ? (pathname === "/" || pathname === "/dashboard") : to === "/projects" ? pathname.startsWith("/projects") : to === "/agent" ? pathname.startsWith("/agent") : pathname.startsWith(to);
             return (
               <Link
                 key={to}

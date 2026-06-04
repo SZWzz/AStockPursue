@@ -52,6 +52,11 @@ class PortType(str, Enum):
     BACKTEST_RESULT = "backtest_result"
     ATTRIBUTION = "attribution"
 
+    TECHNICAL_INDICATOR = "technical_indicator"    # IndicatorNode output
+    CORRELATION_MATRIX = "correlation_matrix"      # CorrelationNode output
+    SENTIMENT = "sentiment"                         # NewsSentimentNode output
+    COMPARISON_RESULT = "comparison_result"         # ComparisonNode output
+
     ANY = "any"                        # Wildcard — accepts anything
 
 

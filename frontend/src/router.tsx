@@ -64,6 +64,9 @@ const Options = lazy(() =>
 const Sentiment = lazy(() =>
   import("@/pages/Sentiment").then((m) => ({ default: m.Sentiment })),
 );
+const Dashboard = lazy(() =>
+  import("@/pages/Dashboard").then((m) => ({ default: m.Dashboard })),
+);
 const Projects = lazy(() =>
   import("@/pages/Projects").then((m) => ({ default: m.default })),
 );
@@ -95,7 +98,8 @@ export const router = createBrowserRouter([
   {
     element: <AuthGuard><Layout /></AuthGuard>,
     children: [
-      { path: "/", element: wrap(Projects) },
+      { path: "/", element: wrap(Dashboard) },
+      { path: "/dashboard", element: wrap(Dashboard) },
       { path: "/projects", element: wrap(Projects) },
       { path: "/agent", element: wrap(Agent) },
       { path: "/settings", element: wrap(Settings) },

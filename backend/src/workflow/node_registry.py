@@ -76,3 +76,12 @@ def init_workflow_nodes():
     from src.workflow.nodes import analysis_nodes   # noqa: F401
     from src.workflow.nodes import thin_nodes       # noqa: F401
     from src.workflow.nodes import control_nodes    # noqa: F401
+    from src.workflow.nodes import correlation_nodes   # noqa: F401
+    from src.workflow.nodes import indicator_nodes     # noqa: F401
+    from src.workflow.nodes import comparison_nodes    # noqa: F401
+    from src.workflow.nodes import sentiment_nodes     # noqa: F401
+    from src.workflow.nodes import mining_nodes        # noqa: F401
+    from src.workflow.nodes import trading_nodes       # noqa: F401
+    from src.workflow.nodes import options_nodes       # noqa: F401
+    from src.workflow.nodes import sector_nodes        # noqa: F401
+    from src.workflow.nodes import output_nodes        # noqa: F401

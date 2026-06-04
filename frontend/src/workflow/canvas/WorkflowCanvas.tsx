@@ -99,6 +99,17 @@ function CanvasInner() {
     selectNode(null);
   }, [selectNode]);
 
+  // Handle Delete/Backspace key — remove nodes and their edges
+  const removeNode = useWorkflowStore((s) => s.removeNode);
+  const onNodesDelete = useCallback(
+    (deletedNodes: any[]) => {
+      for (const node of deletedNodes) {
+        removeNode(node.id);
+      }
+    },
+    [removeNode]
+  );
+
   // Node click
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: any) => {
@@ -121,6 +132,7 @@ function CanvasInner() {
       onDrop={onDrop}
       onPaneClick={onPaneClick}
       onNodeClick={onNodeClick}
+      onNodesDelete={onNodesDelete}
       nodeTypes={nodeTypes}
       defaultViewport={viewport}
       fitView

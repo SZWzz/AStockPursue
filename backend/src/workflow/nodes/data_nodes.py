@@ -54,7 +54,7 @@ class StockUniverseNode(BaseNode):
     outputs = [BaseNode.out_port("codes", PortType.STOCK_LIST)]
     config_schema = {
         "preset": {"title": "Universe", "type": "string", "enum": ["csi300", "csi500", "active_a_share", "custom"], "default": "csi300"},
-        "custom_codes": {"title": "Custom Tickers (comma-separated)", "type": "string", "default": ""},
+        "custom_codes": {"title": "Custom Tickers", "type": "stock_codes", "default": "", "description": "搜索股票代码，多个用逗号分隔"},
     }
 
     async def execute(self, inputs: dict, config: dict) -> dict:
@@ -77,6 +77,17 @@ class OHLCVLoaderNode(BaseNode):
         "start_date": {"title": "Start Date", "type": "string", "default": "2024-01-01"},
         "end_date": {"title": "End Date", "type": "string", "default": "2025-12-31"},
         "interval": {"title": "Interval", "type": "string", "enum": ["1D", "1H", "4H", "1W"], "default": "1D"},
+        "source": {
+            "title": "Data Source", "type": "string",
+            "enum": ["auto", "mootdx", "tushare", "eastmoney", "tencent", "futu", "baidu",
+                     "yfinance", "twelvedata", "finnhub", "akshare", "okx", "ccxt", "coingecko"],
+            "default": "auto",
+            "description": "auto = market-appropriate fallback chain; select a specific loader to force it",
+        },
+        "force_refresh": {
+            "title": "Force Refresh", "type": "boolean", "default": False,
+            "description": "Bypass cache and store, fetch directly from API",
+        },
     }
 
     async def execute(self, inputs: dict, config: dict) -> dict:
@@ -88,8 +99,15 @@ class OHLCVLoaderNode(BaseNode):
         if not codes:
             return {"ohlcv_data": {}}
 
-        start, end, interval = config.get("start_date", "2024-01-01"), config.get("end_date", "2025-12-31"), config.get("interval", "1D")
+        start = config.get("start_date", "2024-01-01")
+        end = config.get("end_date", "2025-12-31")
+        interval = config.get("interval", "1D")
+        source = config.get("source", "auto")
+        force_refresh = config.get("force_refresh", False)
         store = get_data_store()
-        data_map = store.get_multi_ohlcv(codes=codes, start_date=start, end_date=end, interval=interval)
-        logger.info("OHLCV: %d/%d codes loaded", len(data_map), len(codes))
+        data_map = store.get_multi_ohlcv(
+            codes=codes, start_date=start, end_date=end, interval=interval,
+            source=source, force_refresh=force_refresh,
+        )
+        logger.info("OHLCV: %d/%d codes loaded (source=%s)", len(data_map), len(codes), source)
         return {"ohlcv_data": data_map}

@@ -319,8 +319,18 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   // ── Execution ───────────────────────────────────────────────────────────
 
   runWorkflow: async (targetNodeId?: string) => {
-    const { workflowId } = get();
+    const { workflowId, isDirty } = get();
     if (!workflowId) return;
+
+    // Auto-save if dirty to prevent running stale workflow
+    if (isDirty) {
+      try {
+        await get().saveWorkflow();
+      } catch (e) {
+        console.warn("Auto-save before run failed:", e);
+        // Continue anyway — user was warned by isDirty indicator
+      }
+    }
 
     set({ runStatus: "running", executionLog: [], nodeResults: {} });
 
@@ -396,14 +406,25 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   runSingleNode: async (nodeId: string) => {
-    const { workflowId, nodes } = get();
+    const { workflowId, nodes, edges, nodeResults } = get();
     if (!workflowId) return;
 
     const node = nodes.find((n) => n.id === nodeId);
     if (!node) return;
 
+    // Gather inputs from upstream edges using previous run results
+    const inputs: Record<string, unknown> = {};
+    const incomingEdges = edges.filter((e) => e.target === nodeId);
+    for (const edge of incomingEdges) {
+      const upstreamResult = nodeResults[edge.source];
+      if (upstreamResult && upstreamResult.summary && edge.targetHandle) {
+        // Try to find the specific output port's data
+        inputs[edge.targetHandle] = upstreamResult.summary;
+      }
+    }
+
     try {
-      const data = await api.runSingleNode(workflowId, nodeId);
+      const data = await api.runSingleNode(workflowId, nodeId, { inputs });
       get().addLog(nodeId, `Single run completed`, "success");
       return data;
     } catch (e) {

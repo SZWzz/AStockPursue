@@ -10,18 +10,40 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { ExternalLink } from "lucide-react";
 import { useWorkflowStore } from "@/workflow/store/workflowStore";
+import { useI18n } from "@/lib/i18n";
+import { StockInput } from "@/components/indicator-lab/StockInput";
+
+// ── i18n helpers ──────────────────────────────────────────────────────────────
+
+function tNode(t: Record<string, string>, nodeType: string, fallback: string): string {
+  const key = `wfNode_${nodeType}`;
+  return (t as any)[key] || fallback;
+}
+function tNodeDesc(t: Record<string, string>, nodeType: string, fallback: string): string {
+  const key = `wfNode_${nodeType}_desc`;
+  return (t as any)[key] || fallback;
+}
 
 // ── Node type → full-screen editor page mapping ──────────────────────────────
 const FULL_EDITOR_MAP: Record<string, { label: string; path: string }> = {
   strategy: { label: "Strategy Lab", path: "/strategy-lab" },
   alpha_zoo: { label: "Alpha Zoo", path: "/alpha-zoo" },
-  factor_mining: { label: "Factor Mining", path: "/factor-mining" },
+  gp_evolution: { label: "Factor Mining", path: "/factor-mining" },
   indicator: { label: "Indicator Lab", path: "/indicator-lab" },
   screener: { label: "Screener", path: "/screener" },
   attribution: { label: "Attribution", path: "/attribution" },
   paper_trading: { label: "Paper Trading", path: "/paper-trading" },
   agent: { label: "Agent", path: "/agent" },
   backtest: { label: "Run Detail", path: "" },  // dynamic path
+  correlation: { label: "Correlation", path: "/correlation" },
+  comparison: { label: "Compare", path: "/compare" },
+  news_sentiment: { label: "Sentiment", path: "/sentiment" },
+  macro_sentiment: { label: "Sentiment", path: "/sentiment" },
+  order: { label: "Trading", path: "/trading" },
+  options_pricing: { label: "Options", path: "/options" },
+  chart_data: { label: "Strategy Lab", path: "/strategy-lab" },
+  report: { label: "Agent", path: "/agent" },
+  factor_persist: { label: "Factor Mining", path: "/factor-mining" },
 };
 
 function getFullEditorPath(nodeType: string, _nodeData: any): string | null {
@@ -41,6 +63,7 @@ export default function NodePanel() {
   const nodes = useWorkflowStore((s) => s.nodes);
   const updateNodeConfig = useWorkflowStore((s) => s.updateNodeConfig);
   const edges = useWorkflowStore((s) => s.edges);
+  const { t } = useI18n();
 
   const selectedNode = useMemo(
     () => nodes.find((n) => n.id === selectedNodeId),
@@ -50,7 +73,7 @@ export default function NodePanel() {
   if (!selectedNode) {
     return (
       <div className="h-full flex items-center justify-center border-l bg-card text-sm text-muted-foreground p-4 text-center">
-        Select a node on the canvas to configure it
+        {((t as any).wfNode_selectHint || "Select a node on the canvas to configure it")}
       </div>
     );
   }
@@ -59,6 +82,11 @@ export default function NodePanel() {
   const def = nodeData.definition;
   const config = nodeData.config || {};
   const status = nodeData.status || "pending";
+  const nodeType = nodeData.node_type || def?.node_type || "";
+
+  // Translate label & description
+  const displayLabel = nodeData.label || tNode(t, nodeType, def?.label || nodeType);
+  const displayDesc = tNodeDesc(t, nodeType, def?.description || "");
 
   // Find connected inputs
   const connectedInputs = edges
@@ -72,13 +100,13 @@ export default function NodePanel() {
         <div className="flex items-center gap-2">
           <span>{def?.icon || "○"}</span>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold">{nodeData.label || def?.label || nodeData.node_type}</h3>
-            <p className="text-[11px] text-muted-foreground">{def?.description}</p>
+            <h3 className="text-sm font-semibold">{displayLabel}</h3>
+            <p className="text-[11px] text-muted-foreground">{displayDesc}</p>
           </div>
         </div>
         <div className="mt-2 flex items-center gap-2">
           <span className="text-[11px] px-1.5 py-0.5 rounded bg-muted">
-            {status}
+            {status === "error" ? ((t as any).wfNode_error || "error") : status}
           </span>
           {/* Open in Full Editor */}
           {(() => {
@@ -88,10 +116,10 @@ export default function NodePanel() {
                 <button
                   onClick={() => navigate(editorPath)}
                   className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                  title={`Open in ${FULL_EDITOR_MAP[nodeData.node_type]?.label || "full editor"}`}
+                  title={`${((t as any).wfNode_fullEditor || "Full Editor")}: ${FULL_EDITOR_MAP[nodeData.node_type]?.label || ""}`}
                 >
                   <ExternalLink className="h-3 w-3" />
-                  Full Editor
+                  {((t as any).wfNode_fullEditor || "Full Editor")}
                 </button>
               );
             }
@@ -106,7 +134,7 @@ export default function NodePanel() {
       {/* Config form */}
       {def?.config_schema && Object.keys(def.config_schema).length > 0 && (
         <div className="p-3 border-b">
-          <h4 className="text-xs font-semibold mb-2 uppercase text-muted-foreground">Configuration</h4>
+          <h4 className="text-xs font-semibold mb-2 uppercase text-muted-foreground">{((t as any).wfNode_configuration || "Configuration")}</h4>
           {Object.entries(def.config_schema as Record<string, any>).map(([key, schema]) => (
             <div key={key} className="mb-2">
               <label className="text-xs text-muted-foreground block mb-0.5">{schema.title || key}</label>
@@ -120,6 +148,20 @@ export default function NodePanel() {
                     <option key={v} value={v}>{v}</option>
                   ))}
                 </select>
+              ) : schema.type === "stock_codes" ? (
+                <StockInput
+                  value={(config[key] as string) || schema.default || ""}
+                  onChange={(val) => updateNodeConfig(selectedNodeId!, { ...config, [key]: val })}
+                  multi={true}
+                  placeholder={schema.description || "搜索或输入代码..."}
+                />
+              ) : schema.type === "stock_code" ? (
+                <StockInput
+                  value={(config[key] as string) || schema.default || ""}
+                  onChange={(val) => updateNodeConfig(selectedNodeId!, { ...config, [key]: val })}
+                  multi={false}
+                  placeholder={schema.description || "搜索或输入代码..."}
+                />
               ) : schema.type === "number" || schema.type === "integer" ? (
                 <input
                   type="number"
@@ -145,14 +187,18 @@ export default function NodePanel() {
       {/* Input mapping */}
       {def?.inputs && def.inputs.length > 0 && (
         <div className="p-3 border-b">
-          <h4 className="text-xs font-semibold mb-2 uppercase text-muted-foreground">Inputs</h4>
+          <h4 className="text-xs font-semibold mb-2 uppercase text-muted-foreground">{((t as any).wfNode_inputs || "Inputs")}</h4>
           {def.inputs.map((port: any) => (
             <div key={port.name} className="flex items-center justify-between text-xs mb-1">
               <span className={port.required ? "font-medium" : "text-muted-foreground"}>
                 {port.name}
               </span>
               <span className="text-[10px] text-muted-foreground">
-                {connectedInputs.includes(port.name) ? "Connected" : port.required ? "⚠ Required" : "Optional"}
+                {connectedInputs.includes(port.name)
+                  ? ((t as any).wfNode_connected || "Connected")
+                  : port.required
+                    ? ((t as any).wfNode_required || "⚠ Required")
+                    : ((t as any).wfNode_optional || "Optional")}
               </span>
             </div>
           ))}
@@ -162,7 +208,7 @@ export default function NodePanel() {
       {/* Output preview */}
       {status === "done" && nodeData.summary && (
         <div className="p-3">
-          <h4 className="text-xs font-semibold mb-2 uppercase text-muted-foreground">Output</h4>
+          <h4 className="text-xs font-semibold mb-2 uppercase text-muted-foreground">{((t as any).wfNode_output || "Output")}</h4>
           <pre className="text-[10px] bg-muted p-2 rounded overflow-x-auto max-h-40">
             {JSON.stringify(nodeData.summary, null, 1)}
           </pre>
@@ -176,14 +222,18 @@ export default function NodePanel() {
             onClick={() => useWorkflowStore.getState().runSingleNode(selectedNodeId!)}
             className="w-full py-1 text-xs rounded bg-amber-500 text-white hover:bg-amber-600 transition-colors"
           >
-            ⟳ Retry This Node
+            {((t as any).wfNode_retryThis || "⟳ Retry This Node")}
           </button>
         )}
         <button
           onClick={() => useWorkflowStore.getState().runSingleNode(selectedNodeId!)}
           className="w-full py-1 text-xs rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
         >
-          {status === "error" ? "Run Again" : status === "done" ? "Re-run" : "Run This Node"}
+          {status === "error"
+            ? ((t as any).wfNode_runAgain || "Run Again")
+            : status === "done"
+              ? ((t as any).wfNode_reRun || "Re-run")
+              : ((t as any).wfNode_runThis || "Run This Node")}
         </button>
       </div>
     </div>
