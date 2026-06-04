@@ -25,7 +25,7 @@ from src.workflow.schema import (
     WorkflowRun,
     is_compatible,
 )
-from src.workflow.workflow_engine import QueueProgressEmitter, WorkflowEngine
+from src.workflow.workflow_engine import WorkflowEngine
 from src.workflow.workflow_store import WorkflowStore
 
 logger = logging.getLogger(__name__)
