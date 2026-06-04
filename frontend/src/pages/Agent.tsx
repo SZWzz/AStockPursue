@@ -290,7 +290,7 @@ export function Agent() {
             s.addMessage({
               id: "", type: "run_complete", content: "", runId,
               metrics: runData.metrics && Object.keys(runData.metrics).length > 0 ? runData.metrics : undefined,
-              equityCurve: runData.equity_curve?.map(e => ({ time: e.time, equity: e.equity })),
+              equityCurve: runData.equity_curve?.map((e: { time: string; equity: number }) => ({ time: e.time, equity: e.equity })),
               shadowId,
               timestamp: Date.now(),
             });

@@ -57,7 +57,7 @@ function PortHandle({ port, side }: { port: NodePort; side: "left" | "right" }) 
 
 // ── Quick metrics footer ────────────────────────────────────────────────────
 
-function NodeFooter({ status, durationMs, summary }: { status: string; durationMs?: number; summary?: Record<string, unknown> }) {
+function NodeFooter({ status, durationMs, summary, errorMessage }: { status: string; durationMs?: number; summary?: Record<string, unknown>; errorMessage?: string }) {
   if (status === "done" && summary) {
     const entries = Object.entries(summary).slice(0, 2);
     return (
@@ -71,10 +71,10 @@ function NodeFooter({ status, durationMs, summary }: { status: string; durationM
       </div>
     );
   }
-  if (status === "error" && (nodeData as any).error_message) {
+  if (status === "error" && errorMessage) {
     return (
       <div className="border-t px-2 py-1 text-[10px] text-red-500 bg-red-50 dark:bg-red-950/30">
-        {(nodeData as any).error_message.slice(0, 60)}
+        {errorMessage.slice(0, 60)}
       </div>
     );
   }
@@ -86,7 +86,7 @@ function NodeFooter({ status, durationMs, summary }: { status: string; durationM
 const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
   const nodeData = data as unknown as WorkflowNodeData & { definition?: NodeDefinition };
   const def = nodeData.definition;
-  const status = nodeData.status || "pending";
+  const status = (nodeData as any).status || "pending";
 
   return (
     <div
@@ -118,7 +118,7 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
       </div>
 
       {/* Footer */}
-      <NodeFooter status={status} durationMs={nodeData.duration_ms} summary={(nodeData as any).summary} />
+      <NodeFooter status={status} durationMs={(nodeData as any).duration_ms} summary={(nodeData as any).summary} errorMessage={(nodeData as any).error_message} />
     </div>
   );
 });

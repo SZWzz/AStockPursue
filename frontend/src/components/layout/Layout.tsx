@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, BookOpen, Bot, ChevronDown, Database, GitCompare, LayoutDashboard, Menu, Moon, Newspaper, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users, X, Microscope, Filter, PieChart, Clock, Store, CircleDollarSign, Workflow } from "lucide-react";
+import { BarChart3, Bot, Database, LayoutDashboard, Menu, Moon, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, LogIn, LogOut, User, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useDarkMode } from "@/hooks/useDarkMode";

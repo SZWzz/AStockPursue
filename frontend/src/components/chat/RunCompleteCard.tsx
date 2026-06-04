@@ -25,7 +25,7 @@ export const RunCompleteCard = memo(function RunCompleteCard({ msg }: Props) {
   useEffect(() => {
     if (!curve && msg.runId) {
       api.getRun(msg.runId).then(r => {
-        if (r.equity_curve) setCurve(r.equity_curve.map(e => ({ time: e.time, equity: e.equity })));
+        if (r.equity_curve) setCurve(r.equity_curve.map((e: { time: string; equity: number }) => ({ time: e.time, equity: e.equity })));
       }).catch(() => {});
     }
   }, [msg.runId, curve]);

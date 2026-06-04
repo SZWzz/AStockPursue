@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { History, Clock, MoreHorizontal } from "lucide-react";
+import { History, Clock } from "lucide-react";
 import { useWorkflowStore } from "@/workflow/store/workflowStore";
 import { api } from "@/lib/api";
 import WorkflowCanvas from "@/workflow/canvas/WorkflowCanvas";
@@ -199,7 +199,7 @@ export default function WorkflowPage() {
           {versions.length === 0 ? (
             <p className="text-muted-foreground">No versions yet — run the workflow to create snapshots</p>
           ) : (
-            versions.map((v: any, i: number) => (
+            versions.map((v: any) => (
               <div key={v.run_id} className="flex items-center justify-between py-0.5">
                 <span>Run {v.run_id.slice(0, 8)} — {v.status} — {v.started_at?.slice(0, 16) || "unknown"}</span>
                 <button

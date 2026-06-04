@@ -26,7 +26,7 @@ import type {
   WorkflowEdgeData,
   WorkflowNodeData,
 } from "@/workflow/types/workflow";
-import { isCompatible, PortType } from "@/workflow/types/workflow";
+import { isCompatible } from "@/workflow/types/workflow";
 
 type Viewport = { x: number; y: number; zoom: number };
 
@@ -448,7 +448,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   getCompatibleNodes: (portType: string): NodeDefinition[] => {
     return get().nodeDefinitions.filter((def) =>
-      def.inputs.some((p) => isCompatible(portType, p.port_type))
+      def.inputs.some((p) => isCompatible(portType as any, p.port_type))
     );
   },
 

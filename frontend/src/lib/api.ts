@@ -473,7 +473,7 @@ export const api = {
   runWorkflow: (id: string, body?: { target_node_id?: string }) => request<any>(`/workflow/workflows/${id}/run`, { method: "POST", body: JSON.stringify(body || {}) }),
   runSingleNode: (wfId: string, nodeId: string, body?: { inputs?: any }) => request<any>(`/workflow/workflows/${wfId}/run/${nodeId}`, { method: "POST", body: JSON.stringify(body || {}) }),
   stopWorkflow: (id: string) => request<any>(`/workflow/workflows/${id}/stop`, { method: "POST" }),
-  getRun: (runId: string) => request<any>(`/workflow/runs/${runId}`),
+  getWorkflowRun: (runId: string) => request<any>(`/workflow/runs/${runId}`),
   getNodeResult: (runId: string, nodeId: string) => request<any>(`/workflow/runs/${runId}/node/${nodeId}`),
   // Registry
   listNodeTypes: () => request<any[]>("/workflow/node-types"),
