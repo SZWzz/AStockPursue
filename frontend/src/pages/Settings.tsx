@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { ChevronDown, ChevronRight, Database, KeyRound, Layers, Loader2, RotateCcw, Save, Server, SlidersHorizontal, Trash2, Upload, User } from "lucide-react";
+import { ChevronDown, ChevronRight, Database, KeyRound, Layers, Loader2, RefreshCw, RotateCcw, Save, Server, SlidersHorizontal, Trash2, Upload, User } from "lucide-react";
 import { toast } from "sonner";
-import { api, type DataSourceSettings, type LLMProviderOption, type LLMSettings } from "@/lib/api";
+import { api, request, type DataSourceSettings, type LLMProviderOption, type LLMSettings } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { useAuthStore } from "@/stores/auth";
 
@@ -247,6 +247,9 @@ export function Settings() {
   const [clearTwelvedata, setClearTwelvedata] = useState(false);
   const [finnhubApiKey, setFinnhubApiKey] = useState("");
   const [clearFinnhub, setClearFinnhub] = useState(false);
+  const [modelList, setModelList] = useState<{ id: string; owned_by: string }[] | null>(null);
+  const [modelListLoading, setModelListLoading] = useState(false);
+  const [modelListError, setModelListError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dataSaving, setDataSaving] = useState(false);
@@ -287,6 +290,29 @@ export function Settings() {
       model_name: provider.default_model,
       base_url: provider.default_base_url,
     });
+  };
+
+  const fetchModels = async () => {
+    if (!form) return;
+    const provider = form.provider;
+    const baseUrl = form.base_url || selectedProvider?.default_base_url || "";
+    const key = apiKey.trim() || "";
+    setModelList(null);
+    setModelListError(null);
+    setModelListLoading(true);
+    try {
+      const params = new URLSearchParams({ provider, base_url: baseUrl });
+      if (key) params.set("api_key", key);
+      const res = await request<{ models: { id: string; owned_by: string }[]; error?: string }>(
+        `/settings/llm/models?${params}`
+      );
+      if (res.error) { setModelListError(res.error); setModelList(null); }
+      else { setModelList(res.models || []); }
+    } catch (e: any) {
+      setModelListError(e.message || "Failed to fetch models");
+    } finally {
+      setModelListLoading(false);
+    }
   };
 
   const onProviderChange = (name: string) => {
@@ -530,17 +556,41 @@ export function Settings() {
                   onChange={(event) => setForm({ ...form, model_name: event.target.value })}
                   className={fieldClass}
                   required
+                  list="llm-model-list"
                 />
                 <button
                   type="button"
-                  onClick={() => applyProviderDefaults()}
+                  onClick={fetchModels}
+                  disabled={modelListLoading}
                   className="btn-sm btn-outline shrink-0"
+                  title="Fetch available models from provider"
+                >
+                  {modelListLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyProviderDefaults()}
+                  className="btn-sm btn-ghost shrink-0"
                   title={t.llmUseProviderDefaults}
                 >
                   <RotateCcw className="h-4 w-4" />
-                  <span className="hidden sm:inline">{t.llmUseProviderDefaults}</span>
                 </button>
               </div>
+              {modelListError && <span className="text-xs text-danger">{modelListError}</span>}
+              {modelList && modelList.length > 0 && (
+                <select
+                  value=""
+                  onChange={(e) => { if (e.target.value) { setForm({ ...form, model_name: e.target.value }); setModelList(null); } }}
+                  className={fieldClass + " mt-1"}
+                  size={Math.min(modelList.length, 8)}
+                >
+                  <option value="" disabled>— Select a model ({modelList.length} available) —</option>
+                  {modelList.map(m => (
+                    <option key={m.id} value={m.id}>{m.id}{m.owned_by ? ` (${m.owned_by})` : ""}</option>
+                  ))}
+                </select>
+              )}
               <span className={hintClass}>{t.llmModelHint}</span>
             </label>
 

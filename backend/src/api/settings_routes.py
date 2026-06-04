@@ -8,6 +8,8 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import httpx
+
 from src.auth.dependencies import require_auth as _require_auth
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Security, UploadFile, status
 from pydantic import BaseModel, Field
@@ -654,6 +656,46 @@ async def update_llm_settings(payload: UpdateLLMSettingsRequest, auth: dict = De
     _apply_llm_config_to_env(db_updates)
 
     return _build_llm_settings_response(db_config=db_updates)
+
+
+@router.get("/settings/llm/models")
+async def list_llm_models(
+    provider: str = Query(..., description="Provider name, e.g. openai, deepseek"),
+    base_url: str = Query(..., description="Provider base URL"),
+    api_key: str = Query("", description="API key (optional for ollama)"),
+    auth: dict = Depends(_require_auth),
+):
+    """Proxy the provider's GET /v1/models to let users browse available models.
+
+    The frontend calls this when the user clicks "Refresh" next to the model
+    input — it passes the currently-configured base URL and API key so the
+    call is authenticated by the user's own credentials.
+    """
+    url = base_url.rstrip("/") + "/models"
+    headers: Dict[str, str] = {"Content-Type": "application/json"}
+    if api_key.strip():
+        headers["Authorization"] = f"Bearer {api_key.strip()}"
+
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
+            resp = await client.get(url, headers=headers)
+            if resp.status_code == 401:
+                return {"models": [], "error": "Authentication failed — check your API key"}
+            if resp.status_code == 403:
+                return {"models": [], "error": "Forbidden — this provider may not expose /v1/models"}
+            resp.raise_for_status()
+            data = resp.json()
+            # OpenAI-compatible: {"object": "list", "data": [{"id": "gpt-4.1", ...}, ...]}
+            raw = data.get("data", [])
+            models = [{"id": m.get("id", ""), "owned_by": m.get("owned_by", "")} for m in raw]
+            return {"models": models}
+    except httpx.ConnectError:
+        return {"models": [], "error": f"Cannot reach {url} — check the base URL or network"}
+    except httpx.TimeoutException:
+        return {"models": [], "error": "Request timed out — the provider may be slow or unreachable"}
+    except Exception as exc:
+        return {"models": [], "error": str(exc)}
+
 
 # ------------------------------------------------------------------------
 # Data source settings
