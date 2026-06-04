@@ -2,8 +2,8 @@
 
 Provides Shenwan (申万) industry classifications for A-share stocks.
 
-Primary source: embedded static mapping covering CSI 300 + CSI 500 + major stocks.
-Enhanced by: akshare THS/EM APIs when available (refreshes the cache).
+Primary source: tushare ``stock_basic`` (returns CSRC industry for all listed stocks).
+Fallback: embedded static mapping covering CSI 300 + CSI 500.
 
 Results are cached in memory for the session.
 """
@@ -11,6 +11,7 @@ Results are cached in memory for the session.
 from __future__ import annotations
 
 import logging
+import os
 from typing import Optional
 
 logger = logging.getLogger(__name__)
@@ -304,37 +305,173 @@ _STATIC_SW_MAPPING: dict[str, str] = {
 # Total: ~1000+ stocks mapped across major sectors
 
 
+# ── CSRC → SW crosswalk ────────────────────────────────────────────
+# Maps tushare's 110 CSRC (证监会) industries → 31 Shenwan sectors
+
+_CSRC_TO_SW: dict[str, str] = {
+    # Financials
+    "银行": "银行", "保险": "非银金融", "证券": "非银金融", "多元金融": "非银金融",
+    # Real Estate & Construction
+    "全国地产": "房地产", "区域地产": "房地产", "房产服务": "房地产",
+    "园区开发": "房地产", "建筑工程": "建筑装饰", "装修装饰": "建筑装饰",
+    # Food & Beverage
+    "食品": "食品饮料", "白酒": "食品饮料", "啤酒": "食品饮料",
+    "红黄酒": "食品饮料", "软饮料": "食品饮料", "乳制品": "食品饮料",
+    "调味品": "食品饮料",  # fallback for any future rename
+    # Pharma & Biotech
+    "化学制药": "医药生物", "生物制药": "医药生物", "中成药": "医药生物",
+    "医疗保健": "医药生物", "医药商业": "医药生物",
+    # Electronics & IT
+    "半导体": "电子", "元器件": "电子", "电器仪表": "电子",
+    "IT设备": "计算机", "软件服务": "计算机", "互联网": "计算机",
+    "电信运营": "通信", "通信设备": "通信",
+    # Media
+    "影视音像": "传媒", "出版业": "传媒", "广告包装": "传媒",
+    # Electrical & Machinery
+    "电气设备": "电力设备", "新型电力": "电力设备",
+    "专用机械": "机械设备", "工程机械": "机械设备", "机械基件": "机械设备",
+    "机床制造": "机械设备", "轻工机械": "机械设备", "农用机械": "机械设备",
+    "化工机械": "机械设备", "纺织机械": "机械设备",
+    # Defense
+    "航空": "国防军工", "船舶": "国防军工",
+    # Auto
+    "汽车整车": "汽车", "汽车配件": "汽车", "汽车服务": "汽车",
+    "摩托车": "汽车",
+    # Chemicals & Materials
+    "化工原料": "基础化工", "化学制药": "医药生物",
+    "农药化肥": "基础化工", "日用化工": "基础化工",
+    "塑料": "基础化工", "橡胶": "基础化工", "化纤": "基础化工",
+    "染料涂料": "基础化工",
+    # Energy
+    "石油开采": "石油石化", "石油加工": "石油石化", "石油贸易": "石油石化",
+    "煤炭开采": "煤炭", "焦炭加工": "煤炭",
+    # Metals
+    "普钢": "钢铁", "特种钢": "钢铁", "钢加工": "钢铁",
+    "小金属": "有色金属", "黄金": "有色金属", "铜": "有色金属",
+    "铝": "有色金属", "铅锌": "有色金属",
+    # Building Materials
+    "水泥": "建筑材料", "玻璃": "建筑材料", "陶瓷": "建筑材料",
+    "其他建材": "建筑材料",
+    # Agriculture
+    "农业综合": "农林牧渔", "种植业": "农林牧渔", "渔业": "农林牧渔",
+    "饲料": "农林牧渔", "林业": "农林牧渔",
+    # Utilities
+    "水力发电": "公用事业", "火力发电": "公用事业",
+    "供气供热": "公用事业", "新型电力": "电力设备",
+    "水务": "公用事业",
+    # Environmental
+    "环境保护": "环保",
+    # Transportation
+    "空运": "交通运输", "机场": "交通运输", "铁路": "交通运输",
+    "公路": "交通运输", "水运": "交通运输", "港口": "交通运输",
+    "公共交通": "交通运输", "仓储物流": "交通运输",
+    # Retail & Services
+    "百货": "商贸零售", "超市连锁": "商贸零售", "商贸代理": "商贸零售",
+    "批发业": "商贸零售", "其他商业": "商贸零售", "商品城": "商贸零售",
+    # Social Services
+    "旅游景点": "社会服务", "旅游服务": "社会服务", "酒店餐饮": "社会服务",
+    "文教休闲": "社会服务",
+    # Consumer Goods
+    "服饰": "纺织服饰", "纺织": "纺织服饰",
+    "家用电器": "家用电器", "家居用品": "轻工制造",
+    "造纸": "轻工制造",
+    # Mining
+    "矿物制品": "有色金属",
+    # Misc
+    "综合类": "综合", "路桥": "建筑装饰",
+    # Extra CSRC industries
+    "电器连锁": "商贸零售", "运输设备": "交通运输",
+    "房产服务": "房地产",
+}
+
+
+def _get_tushare_token() -> str | None:
+    """Get tushare token from environment, DB config, or .env file."""
+    # 1. Environment variable
+    token = os.getenv("TUSHARE_TOKEN", "").strip()
+    if token and token not in ("your-tushare-token", ""):
+        return token
+
+    # 2. Try reading from .env file
+    for env_path in [
+        os.path.join(os.path.dirname(__file__), "..", "..", "..", ".env"),  # backend/.env
+        os.path.expanduser("~/.AStockPursue/.env"),
+    ]:
+        try:
+            with open(env_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("TUSHARE_TOKEN="):
+                        val = line.split("=", 1)[1].strip().strip('"').strip("'")
+                        if val and val not in ("your-tushare-token", ""):
+                            return val
+        except FileNotFoundError:
+            continue
+
+    # 3. Try user DB config
+    try:
+        from src.db.pool import init_pool, get_connection
+        init_pool()
+        with get_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT config_value FROM vt_user_config WHERE config_key = 'tushare_token' LIMIT 1"
+                )
+                row = cur.fetchone()
+                if row and row[0]:
+                    val = str(row[0]).strip()
+                    if val and val not in ("your-tushare-token", ""):
+                        return val
+    except Exception:
+        pass
+
+    return None
+
+
 def _load_sw_sectors() -> dict[str, str]:
-    """Return the static mapping, optionally augmented by akshare THS data."""
-    mapping = dict(_STATIC_SW_MAPPING)
+    """Load stock→sector mapping from tushare, falling back to static data.
 
-    # Try to augment with live THS data (different API, more reliable)
-    try:
-        import akshare as ak
-        # Use THS industry names (proven working)
-        df_names = ak.stock_board_industry_name_ths()
-        if df_names is not None and not df_names.empty:
-            logger.info("akshare THS returned %d industry names (for reference)", len(df_names))
-    except Exception as e:
-        logger.debug("THS industry names unavailable (non-critical): %s", e)
+    tushare ``stock_basic`` returns ``industry`` (CSRC/证监会 classification)
+    for every listed A-share stock.  This is the most authoritative source.
+    """
+    mapping: dict[str, str] = {}
 
-    # Try loading live stock→sector data from Eastmoney (fragile, best-effort)
-    try:
-        import akshare as ak
-        df = ak.stock_board_industry_name_em()
-        if df is not None and not df.empty and "板块名称" in df.columns:
-            live_count = 0
-            for _, row in df.iterrows():
-                industry = str(row.get("板块名称", ""))
-                stock_list_str = str(row.get("板块个股", ""))
-                if industry and stock_list_str and stock_list_str != "nan":
-                    codes = [c.strip() for c in stock_list_str.split(",") if c.strip()]
-                    for code in codes:
-                        mapping[_normalise_code(code)] = industry
-                        live_count += 1
-            logger.info("Live akshare EM augmented mapping with %d entries (total: %d)", live_count, len(mapping))
-    except Exception as e:
-        logger.debug("Live EM industry data unavailable, using static mapping: %s", e)
+    token = _get_tushare_token()
+    if token:
+        try:
+            import tushare as ts
+            api = ts.pro_api(token)
+            df = api.stock_basic(
+                exchange="", list_status="L",
+                fields="ts_code,industry"
+            )
+            if df is not None and not df.empty:
+                for _, row in df.iterrows():
+                    code = str(row.get("ts_code", ""))
+                    industry = str(row.get("industry", ""))
+                    if code and industry and industry != "nan" and industry:
+                        # tushare returns ts_code like "000001.SZ"
+                        norm = _normalise_code(code)
+                        # Map CSRC → SW for compatibility with Brinson sectors
+                        sw_sector = _CSRC_TO_SW.get(industry, industry)
+                        if norm not in mapping:
+                            mapping[norm] = sw_sector
+                logger.info(
+                    "tushare stock_basic loaded %d stock→sector entries (%d unique sectors)",
+                    len(mapping),
+                    len(set(mapping.values())),
+                )
+        except Exception as e:
+            logger.warning("tushare stock_basic failed: %s, falling back to static", e)
+
+    # Merge static mapping as fallback/supplement
+    static_count = 0
+    for code, sector in _STATIC_SW_MAPPING.items():
+        if code not in mapping:
+            mapping[code] = sector
+            static_count += 1
+    if static_count > 0:
+        logger.info("Static mapping added %d entries (tushare had %d)", static_count, len(mapping) - static_count)
 
     logger.info("Sector mapper loaded %d stock→sector entries", len(mapping))
     return mapping
