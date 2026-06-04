@@ -28,6 +28,9 @@ class TestStrategyNode:
         n = StrategyNode()
         assert n.node_type == "strategy"
         assert len(n.inputs) == 2
+        # strategy_code output has been removed — only signal output remains
+        assert len(n.outputs) == 1
+        assert n.outputs[0].name == "signal"
 
     def test_empty_data(self):
         n = StrategyNode()
@@ -80,6 +83,8 @@ class TestBacktestNode:
     def test_attributes(self):
         n = BacktestNode()
         assert n.node_type == "backtest"
+        # strategy_code input has been removed — only signal, ohlcv_data, codes
+        assert len(n.inputs) == 3
 
     def test_empty_data(self):
         n = BacktestNode()
@@ -90,9 +95,30 @@ class TestBacktestNode:
         finally:
             loop.close()
 
-    def test_bars_per_year(self):
+    def test_no_signal_returns_error(self):
         n = BacktestNode()
-        assert n._mk_engine("equity_cn", 100000) is not None
+        dates = pd.date_range("2024-01-01", periods=10, freq="B")
+        import numpy as np
+        ohlcv = {"000001.SZ": pd.DataFrame({
+            "open": np.random.randn(10).cumsum() + 100,
+            "high": np.random.randn(10).cumsum() + 101,
+            "low": np.random.randn(10).cumsum() + 99,
+            "close": np.random.randn(10).cumsum() + 100,
+            "volume": np.random.randint(1000, 10000, 10),
+        }, index=dates)}
+        loop = asyncio.new_event_loop()
+        try:
+            r = loop.run_until_complete(n.execute({"ohlcv_data": ohlcv, "signal": {}}, {}))
+            assert "error" in r["backtest_result"]
+        finally:
+            loop.close()
+
+    def test_create_market_engine_via_helper(self):
+        """Verify _create_market_engine works for A-share codes."""
+        from backtest.runner import _create_market_engine
+        cfg = {"initial_capital": 1_000_000, "initial_cash": 1_000_000}
+        engine = _create_market_engine("tushare", cfg, ["000001.SZ", "600519.SH"])
+        assert engine is not None
 
 
 class TestAttributionNode:

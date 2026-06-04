@@ -575,14 +575,28 @@ class ChartDataNode(BaseNode):
 
     @staticmethod
     def _build_equity(bt: dict, ohlcv: dict) -> dict | None:
-        """Build equity curve + drawdown series."""
+        """Build equity curve + drawdown series.
+
+        Handles multiple equity data formats:
+        - New format: list of {"time": ..., "equity": ...} dicts from BacktestNode
+        - Legacy: flat number list, pd.Series, or np.ndarray
+        - Fallback: naive buy-and-hold approximation from OHLCV close prices
+        """
         equity = None
+        equity_times = None
 
         # Try backtest equity curve first
         if isinstance(bt, dict):
             eq = bt.get("equity_curve") or bt.get("equity")
             if isinstance(eq, list) and len(eq) > 0:
-                equity = eq
+                first = eq[0]
+                if isinstance(first, dict) and "equity" in first:
+                    # New format: [{time, equity}] dicts from BacktestNode
+                    equity = [float(p["equity"]) for p in eq]
+                    equity_times = [p.get("time") for p in eq]
+                else:
+                    # Flat number list
+                    equity = [float(v) for v in eq]
             elif isinstance(eq, pd.Series):
                 equity = eq.tolist()
             elif isinstance(eq, np.ndarray):
@@ -610,11 +624,12 @@ class ChartDataNode(BaseNode):
             dd = (v - peak) / peak if peak > 0 else 0
             drawdown.append(round(dd, 4))
 
-        # Build EquityPoint-style data
+        # Build EquityPoint-style data with real timestamps
         points = []
         for i, (eq_val, dd_val) in enumerate(zip(equity, drawdown)):
+            time_label = equity_times[i] if equity_times and i < len(equity_times) else f"T{i}"
             points.append({
-                "time": f"T{i}",
+                "time": time_label,
                 "equity": round(float(eq_val), 2),
                 "drawdown": dd_val,
             })

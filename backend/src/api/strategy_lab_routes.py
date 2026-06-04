@@ -83,7 +83,7 @@ class StrategyBacktestRequest(BaseModel):
     start_date: str = Field(default="2024-01-01")
     end_date: str = Field(default="2025-12-31")
     interval: str = Field(default="1D", pattern=r"^(1m|5m|15m|30m|1H|4H|1D|1W|4W)$")
-    initial_cash: float = Field(default=100_000.0, ge=1000.0)
+    initial_cash: float = Field(default=1_000_000.0, ge=1000.0)
     leverage: float = Field(default=1.0, ge=1.0, le=20.0)
     slippage: float | None = Field(default=None, ge=0.0, le=0.05, description="Slippage rate (0.001 = 0.1%)")
     slippage_mode: str = Field(default="fixed", pattern=r"^(fixed|volume)$")

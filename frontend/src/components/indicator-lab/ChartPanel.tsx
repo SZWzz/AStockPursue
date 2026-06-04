@@ -144,7 +144,7 @@ export function ChartPanel({
           </div>
           <div>
             <label className={labelClass}>{t.ptInitialCapital}</label>
-            <input type="number" min={1000} step={10000} value={initialCash} onChange={(e) => onInitialCashChange(Number(e.target.value) || 100000)} className={inputClass} style={{width: 100}} disabled={busy} />
+            <input type="number" min={1000} step={10000} value={initialCash} onChange={(e) => onInitialCashChange(Number(e.target.value) || 1000000)} className={inputClass} style={{width: 100}} disabled={busy} />
           </div>
           <div>
             <label className={labelClass}>滑点</label>

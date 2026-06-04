@@ -650,7 +650,7 @@ export function StrategyLab() {
   const [chartEndDate, setChartEndDate] = useState("2025-12-31");
   const [chartSource, setChartSource] = useState("auto");
   const [chartInterval, setChartInterval] = useState("1D");
-  const [initialCash, setInitialCash] = useState(100000);
+  const [initialCash, setInitialCash] = useState(1000000);
   const [slippage, setSlippage] = useState(0.1);
   const [slippageMode, setSlippageMode] = useState<"fixed" | "volume">("fixed");
   const [chartTitle, setChartTitle] = useState("");

@@ -3,6 +3,11 @@
 ## [2026.6.5] - 2026-06-05
 
 ### 修复
+- **[Workflow] 回测结果与策略实验室不一致** — 三个根因：① strategy_code 路径实例化 SignalEngine 失败回退至 StaticSignalEngine（存在前瞻偏差）；删除 strategy_code 端口，只用 signal 模式（BacktestDriver._run_fast 已有逐根 K 线截断防前瞻）。② BacktestNode 未输出 equity_curve，ChartDataNode 退化为买入持有近似值；现从 engine.equity_snapshots 提取真实权益曲线。③ BacktestNode._mk_engine 仅覆盖 4 种市场且硬编码 bars_per_year；改用 _create_market_engine 和 calc_bars_per_year 与策略实验室对齐
+- **[Workflow] BacktestNode 初始资金与策略实验室不一致** — 统一默认 1,000,000（策略实验室从 100,000 → 1,000,000）
+- **[Workflow] 回测交易记录只有入场没有出场** — 改为入场+出场配对输出，出场记录含 exit_time、exit_price、exit_reason、pnl
+- **[Workflow] ChartDataNode 权益曲线用"T0,T1"假时间戳** — 改用 equity_snapshots 真实时间戳
+- **[Strategy] 策略实验室 initial_cash 默认值从 100,000 改为 1,000,000** — 与 BacktestNode 对齐
 - **[Workflow] 路由双 /v1 前缀导致 /projects 页面空白** — workflow_routes.py prefix 从 `/v1/workflow` 改为 `/workflow`
 - **[Workflow] CSS @keyframes fade-in-up 缺失导致页面内容不可见** — 所有使用 page-enter-stagger 的页面内容卡在 opacity:0
 - **[Workflow] 前端 dist 文件残缺导致所有页面白屏** — Docker 构建缓存问题，旧 index.html 引用已删除的 JS chunk

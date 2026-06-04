@@ -87,7 +87,7 @@ def run_strategy_backtest(
     end_date: str = "2025-12-31",
     source: str = "auto",
     interval: str = "1D",
-    initial_cash: float = 100_000.0,
+    initial_cash: float = 1_000_000.0,
     leverage: float = 1.0,
     slippage: float | None = None,
     slippage_mode: str = "fixed",
