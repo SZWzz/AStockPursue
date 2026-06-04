@@ -19,9 +19,20 @@ export default {
         info: "hsl(var(--info))",
         up: "hsl(var(--up))",
         down: "hsl(var(--down))",
+        surface: {
+          1: "hsl(var(--surface-1))",
+          3: "hsl(var(--surface-3))",
+        },
+        accent: {
+          cyan: "hsl(var(--accent-cyan))",
+          emerald: "hsl(var(--accent-emerald))",
+          rose: "hsl(var(--accent-rose))",
+          violet: "hsl(var(--accent-violet))",
+          amber: "hsl(var(--accent-amber))",
+        },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["DM Sans", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "ui-monospace", "monospace"],
       },
       borderRadius: {
@@ -39,19 +50,39 @@ export default {
           "0%": { opacity: "0", transform: "translateY(-4px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        "fade-in-up": {
+          "0%": { opacity: "0", transform: "translateY(12px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        "fade-in-down": {
+          "0%": { opacity: "0", transform: "translateY(-8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
         "slide-in-right": {
           "0%": { opacity: "0", transform: "translateX(8px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        "slide-in-left": {
+          "0%": { opacity: "0", transform: "translateX(-8px)" },
           "100%": { opacity: "1", transform: "translateX(0)" },
         },
         "scale-in": {
           "0%": { opacity: "0", transform: "scale(0.96)" },
           "100%": { opacity: "1", transform: "scale(1)" },
         },
+        shimmer: {
+          "0%": { backgroundPosition: "200% 0" },
+          "100%": { backgroundPosition: "-200% 0" },
+        },
       },
       animation: {
-        "fade-in": "fade-in 0.2s ease-out",
+        "fade-in": "fade-in 0.25s ease-out",
+        "fade-in-up": "fade-in-up 0.3s ease-out",
+        "fade-in-down": "fade-in-down 0.2s ease-out",
         "slide-in-right": "slide-in-right 0.2s ease-out",
-        "scale-in": "scale-in 0.15s ease-out",
+        "slide-in-left": "slide-in-left 0.2s ease-out",
+        "scale-in": "scale-in 0.2s ease-out",
+        shimmer: "shimmer 2s infinite linear",
       },
     },
   },

@@ -455,4 +455,42 @@ export const api = {
   promoteCandidate: (id: string, data: { zoo: string; theme: string; name: string; description: string }) => request<{ ok: boolean; alpha_id: string; message: string }>(`/factor-mining/candidates/${id}/promote`, { method: "POST", body: JSON.stringify(data) }),
   deleteCandidate: (id: string) => request<{ ok: boolean }>(`/factor-mining/candidates/${id}`, { method: "DELETE" }),
   fetchMiningHistory: () => request<{ runs: import("@/types/api").MiningRunSummary[]; total: number }>("/factor-mining/history"),
+
+  // --- Workflow ---
+  // Projects
+  listProjects: () => request<any[]>("/workflow/projects"),
+  createProject: (body: { name: string; description?: string }) => request<any>("/workflow/projects", { method: "POST", body: JSON.stringify(body) }),
+  updateProject: (id: string, body: { name?: string; description?: string }) => request<any>(`/workflow/projects/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteProject: (id: string) => request<any>(`/workflow/projects/${id}`, { method: "DELETE" }),
+  // Workflows
+  listWorkflows: (projectId: string) => request<any[]>(`/workflow/projects/${projectId}/workflows`),
+  createWorkflow: (projectId: string, body: { name: string; description?: string }) => request<any>(`/workflow/projects/${projectId}/workflows`, { method: "POST", body: JSON.stringify(body) }),
+  getWorkflow: (id: string) => request<any>(`/workflow/workflows/${id}`),
+  saveWorkflow: (id: string, body: any) => request<any>(`/workflow/workflows/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteWorkflow: (id: string) => request<any>(`/workflow/workflows/${id}`, { method: "DELETE" }),
+  duplicateWorkflow: (id: string, body: { name: string }) => request<any>(`/workflow/workflows/${id}/duplicate`, { method: "POST", body: JSON.stringify(body) }),
+  // Execution
+  runWorkflow: (id: string, body?: { target_node_id?: string }) => request<any>(`/workflow/workflows/${id}/run`, { method: "POST", body: JSON.stringify(body || {}) }),
+  runSingleNode: (wfId: string, nodeId: string, body?: { inputs?: any }) => request<any>(`/workflow/workflows/${wfId}/run/${nodeId}`, { method: "POST", body: JSON.stringify(body || {}) }),
+  stopWorkflow: (id: string) => request<any>(`/workflow/workflows/${id}/stop`, { method: "POST" }),
+  getRun: (runId: string) => request<any>(`/workflow/runs/${runId}`),
+  getNodeResult: (runId: string, nodeId: string) => request<any>(`/workflow/runs/${runId}/node/${nodeId}`),
+  // Registry
+  listNodeTypes: () => request<any[]>("/workflow/node-types"),
+  getNodeType: (type: string) => request<any>(`/workflow/node-types/${type}`),
+  // Validation
+  validateWorkflow: (id: string) => request<any>(`/workflow/workflows/${id}/validate`, { method: "POST" }),
+  validateConnection: (body: { source_type: string; target_type: string }) => request<any>("/workflow/validate-connection", { method: "POST", body: JSON.stringify(body) }),
+  suggestNext: (body: { source_type: string }) => request<any>("/workflow/suggest-next", { method: "POST", body: JSON.stringify(body) }),
+  // Templates
+  listTemplates: (category?: string) => request<any[]>(`/workflow/templates${category ? `?category=${category}` : ""}`),
+  getTemplate: (id: string) => request<any>(`/workflow/templates/${id}`),
+  instantiateTemplate: (id: string, body: { project_id: string; name?: string }) => request<any>(`/workflow/templates/${id}/instantiate`, { method: "POST", body: JSON.stringify(body) }),
+  // Version History
+  listWorkflowVersions: (id: string) => request<any>(`/workflow/workflows/${id}/versions`),
+  restoreWorkflowVersion: (wfId: string, runId: string) => request<any>(`/workflow/workflows/${wfId}/versions/${runId}/restore`, { method: "POST" }),
+  // Schedule
+  scheduleWorkflow: (id: string, body: { cron_expression: string; name?: string }) => request<any>(`/workflow/workflows/${id}/schedule`, { method: "POST", body: JSON.stringify(body) }),
+  // Cleanup
+  cleanupWorkflowData: () => request<any>("/workflow/cleanup", { method: "POST" }),
 };

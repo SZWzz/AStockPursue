@@ -10,14 +10,14 @@
   <img src="https://img.shields.io/badge/Factors-450+-orange?style=flat-square" alt="Alpha Factors">
   <img src="https://img.shields.io/badge/Data_Sources-23-blue?style=flat-square" alt="Data Sources">
   <img src="https://img.shields.io/badge/AI_Skills-89-purple?style=flat-square" alt="AI Skills">
-  <img src="https://img.shields.io/badge/MCP_Tools-35-teal?style=flat-square" alt="MCP Tools">
-  <img src="https://img.shields.io/badge/Version-2026.6.3-blueviolet?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/Workflow_Nodes-12-teal?style=flat-square" alt="Workflow Nodes">
+  <img src="https://img.shields.io/badge/Version-v2026.6.4-blueviolet?style=flat-square" alt="Version">
 </p>
 
 <h1 align="center">🚀 AStockPursue</h1>
-<p align="center"><strong>AI-Powered Quantitative Trading Research Platform</strong></p>
+<p align="center"><strong>AI-Powered Quantitative Research Workflow Platform</strong></p>
 <p align="center">
-  <sub>Natural language → Strategy generation → Backtest → Optimization → Paper trading — all in one platform</sub>
+  <sub>n8n-style visual pipeline editor — drag, connect, and run your entire quant research workflow</sub>
   <br>
   <sub><a href="README_zh.md">📖 中文文档</a> · <a href="CHANGELOG.md">📋 Changelog</a></sub>
 </p>
@@ -26,226 +26,135 @@
 
 Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT License).
 
-> ⚠️ **Disclaimer**: This software is for **research and educational purposes only**. It does not constitute investment advice, financial advice, trading advice, or any other type of advice. The authors and contributors assume no responsibility for any trading losses, financial damages, or legal liabilities incurred through the use of this software. **Past performance does not guarantee future results. All trading involves risk. Trade at your own risk.**
+> ⚠️ **Disclaimer**: This software is for **research and educational purposes only**. It does not constitute investment advice. The authors assume no responsibility for any trading losses. **Past performance does not guarantee future results.**
 
-## ✨ Features
+## ✨ Architecture
 
-<table>
-<tr>
-<td width="50%" valign="top">
+AStockPursue is an **n8n-style visual workflow platform** for quantitative research. Instead of jumping between 19 disconnected pages, you compose your entire research pipeline on a single canvas:
 
-### 🤖 AI Agent
-- **Natural Language Strategy Generation** — Describe your strategy in plain English/Chinese, AI generates the SignalEngine code, runs backtests, and iterates in real time
-- **SSE Streaming** — Watch the agent think, call tools, and generate results step by step
-- **89 Skill Packs** — Covering the full quant stack: A-shares, crypto, options, macro, risk management, factor analysis, behavioral finance, market microstructure, and more
-- **Multi-Agent Swarm** — 29 preset teams (quant desk, macro forum, sector rotation, etc.) for collaborative research
-- **Agent Memory** — Persistent file-based memory across sessions
-- **11 LLM Providers** — OpenAI · OpenRouter · DeepSeek · Moonshot · MiniMax · Zhipu · Qwen · Gemini · Groq · Ollama · Anthropic
+```
+Projects  ──▶  Workflow Canvas  ──▶  Execute & Analyze
+                 │
+                 ├── Stock Universe ──▶ OHLCV Loader ──▶ Alpha Zoo ──▶ Strategy ──▶ Backtest ──▶ Attribution
+                 │
+                 └── Chat Input ──▶ AI Agent ──▶ Strategy ──▶ Backtest ──▶ IF (Sharpe > 1?) ──▶ Paper Trading
+```
 
-### 📊 Trading Dashboard *(NEW)*
-- **Unified Trading Interface** — Left: stock search + watchlist · Right: K-line / minute-line chart + multi-function tabs
-- **Stock Search Box** — Code/name/pinyin search at watchlist top, select to add, 10s auto-refresh prices
-- **Intraday Minute-Line Chart** — Per-minute price trace via MooTDX, volume bars, pre-close reference line, lunch-break shading, crosshair tooltip
-- **One-Click K-Line / Minute Toggle** — Switch between OHLCV candlestick and intraday price trace
-- **OMS Panel** — Place market/limit orders, view active & historical orders, cancel with one click
-- **Broker Panel** — FutuOpenD connection status, account info, positions table
-- **Notify Panel** — Per-channel enable/disable, add webhook/email/SMS, test-send
-- **Optimization Panel** — Grid/Random/Bayesian search, SSE progress bar, result display
-- **Index Ticker Bar** — Customizable scrolling market index bar with editing popover
+**Every tool** (Strategy Lab, Factor Mining, Screener, etc.) is available as a **typed node** on the canvas, with full-screen editor access for deep dives.
 
-### 🔐 Multi-User Isolation
-- **Per-User Orders** — PostgreSQL `vt_trading_orders` with `user_id` foreign key, parameterized SQL
-- **Per-User Broker Context** — Independent `OpenSecTradeContext` cache per user, different FutuOpenD instances
-- **Per-User WS Subscriptions** — Isolated symbol subscription sets
-- **Per-User Config** — Notify/indices/optimize all scoped to authenticated user
+## ✨ Key Features
 
-</td>
-<td width="50%" valign="top">
+### 🎨 Visual Workflow Engine
+- **12 typed node types** — data loading, alpha computation, strategy building, backtesting, attribution, screening, paper trading, and AI agents — each with typed input/output ports
+- **Drag-and-drop canvas** — compose pipelines visually, connections validate type compatibility in real time
+- **Concurrent execution** — Kahn's algorithm + asyncio schedules independent nodes in parallel with per-resource semaphores
+- **Runtime snapshots** — every run captures the full DAG state; results are always reproducible
+- **Node-level execution** — run individual nodes to inspect intermediate outputs before continuing
+- **Error recovery** — retry failed nodes, skip non-critical errors, resume from breakpoints
+- **Version history** — restore workflows to any previous run state
 
-### 📈 Trading Engine
-- **Unified Engine** — Backtest and paper trading share the same `TradingEngine.on_bar()` pipeline. Write a SignalEngine once, run in both modes
-- **Paper Trading** — 3-column layout (library + editor + chart), real-time trade markers on K-line, monthly return heatmap, clone runs, pre-deploy validation, SSE live streaming
-- **Lookahead Bias Protection** — Progressive signal generation + data truncation + intraday stop detection + open-price limit checks + survivorship-bias warnings
-- **6-State OMS** — PENDING → SUBMITTED → PARTIAL → FILLED / CANCELLED / REJECTED lifecycle with callback hooks
-- **Futu Broker** — Order placement, cancellation, position & account queries via FutuOpenD
-- **Alert Engine** — Webhook (WeChat/DingTalk/Discord/Slack) + SMTP email, 5 alert types (stop-loss/take-profit/daily-loss/drawdown/anomaly)
+### 🤖 AI Agent (89 Skills)
+- **Natural language → strategy code** — "Build a momentum strategy for CSI 300" generates and backtests a complete SignalEngine
+- **AgentNode on canvas** — AI is a workflow node with typed ports: receives prompts + context, outputs code + analysis + factor suggestions
+- **ReAct loop** — full tool access across 89 skill packs covering A-shares, crypto, options, macro, risk, factor analysis
+- **11 LLM providers** — OpenAI · Anthropic · DeepSeek · Gemini · Moonshot · Zhipu · Grok · Ollama · MiniMax · Qwen · OpenRouter
 
-### 🧪 Strategy & Indicator Dev
-- **Strategy Lab** — SignalEngine contract editor, K-line backtest with benchmark comparison (β / IR / excess return), configurable slippage, 10 templates, backtest history
-- **Indicator Lab** — Python indicator IDE (Monaco), sandbox execution, code quality analysis, Alpha Zoo conversion
-- **Custom Mode** — No-code visual builder — configure entry/exit rules and risk parameters via dropdowns and sliders, compile to code in one click
+### 📊 Trading Engine
+- **Unified bar-by-bar pipeline** — same engine for backtest and live trading
+- **9 market engines** — China A-share (T+1, price limits), US/HK equity, crypto perpetuals, forex, futures (China + global), options
+- **Risk pipeline** — stop-loss, trailing-stop, take-profit, max daily loss, position size limits
+- **Live trading** — Futu broker integration, real-time WebSocket feeds, OMS
 
-### 🧬 Factors & Data
-- **Alpha Zoo** — 450+ quantitative factors across 4 families (Alpha101 / GTJA191 / Qlib158 / Academic), user-defined promotion, benchmark scoring with IC/IR
-- **23 Data Sources** — CN / HK / US / Crypto / Futures / Forex / Indices / Commodities
-- **8-Source A-Share Intelligent Fallback** — `mootdx → tushare → eastmoney → tencent → futu → baidu → twelvedata → akshare`; auto-fallback when data range insufficient
-- **Source History Depth Guide** — mootdx ~2-3yr (fastest), eastmoney ~10yr+ (free long history), tencent ~10yr+ (real-time quotes), tushare 1990-present (needs token)
-- **3-Tier Data Access** — PostgreSQL cache → Parquet local store → API, with incremental updates and health-aware auto-routing
-- **Non-OHLCV Data** — Dragon Tiger Board / lockup expiry / margin trading / block trades / fund flow (minute + 120d daily) / hot stocks + theme attribution / northbound capital / market sentiment
-- **Correlation Matrix** — Cross-market correlation (Pearson/Spearman), AI analysis + save to session
+### 🧬 Alpha Factory
+- **450+ pre-built factors** — alpha101 (101), gtja191 (191), qlib158 (158), academic, mined
+- **GP evolution engine** — genetic programming with composite fitness (IC × complexity × orthogonality), FDR correction, walk-forward validation
+- **LLM factor mining** — extract alpha formulas from research papers, debate candidates, hybrid GP+LLM pipeline
+
+### 🔍 Research Tools
+- **Smart Screener** — multi-condition stock filtering (AND / rank / score modes) with Alpha Zoo factor integration
+- **Performance Attribution** — Brinson, factor, and sector decomposition
+- **Strategy Comparison** — statistical tests (paired t, bootstrap, White's reality check), equity overlay
+- **News Sentiment** — multi-source aggregation (EastMoney, Wallstreetcn, Sina, Xueqiu), Chinese NLP scoring
 
 ### 🏗 Platform
-- **User System** — JWT login/register, per-user LLM/Data Source/Skill config, PBKDF2 hashing, admin panel
-- **PostgreSQL Persistence** — Sessions, messages, backtest results, strategies, indicators, orders — all in PG with full-text search and auto incremental migration
-- **Dark Mode** — Light/dark themes with CSS variable surface system
-- **Red-Up/Green-Down** — Chinese market color convention auto-switched per locale (`html[lang="zh"]`)
-- **i18n** — 170+ translation keys (Chinese / English), auto-detect browser language
-- **Card UI** — Rounded card-based layout (`rounded-2xl`), soft modern aesthetic
-- **MCP Server** — 31 MCP tools exposed for Claude Desktop / Cursor integration
-- **Mobile Responsive** — Adaptive sidebar, bottom nav bar, touch-friendly inputs
-
-</td>
-</tr>
-</table>
-
-### 🧬 AI Factor Mining — Phase C: LLM+GP+FactorKB Trinity *(Major Upgrade)*
-- **Genetic Programming Engine** — 27 operators × 3-tier progressive unlocking (basic→advanced→alternative), tournament selection, subtree crossover & mutation, hybrid skeleton initialization (30% known structures + 40% mutations + 30% random)
-- **Multiplicative Composite Fitness** — `IC × cost_penalty × orthogonality × A-share_specific × stability × complexity_discount` — one bad dimension zeros the entire fitness
-- **A-Share Specific Penalties** — T+1 intraday signal ×0.5, annual turnover >200× → ×0.3, small-cap extreme exposure ×0.7
-- **FDR Every Generation** — Benjamini-Hochberg correction (q=0.05) applied to the full population each generation
-- **FactorKB Knowledge Base** — Factor registration with SHA256 formula_hash dedup, semantic tag search, lifecycle state machine (discovered→validating→approved→paper_trading→production→deprecated→archived)
-- **LLM-Guided Evolution** — LLM analyzes population every 5 generations, 7 intervention actions (seed injection/theme redirect/mutation adjustment/dedup); ablation study framework (Baseline vs LLM vs Placebo) validates LLM's real contribution
-- **ExpressionTree Single Source of Truth** — `formula_hash`/`normalized_formula`/SignalEngine code all derived from the same tree — zero formula inconsistency
-- **Walk-Forward 24-Window** — Purged cross-validation with 5-day gap, semi-annual OOS, >60% windows must pass
-- **PAPER_TRADING Gate** — ≥21 trading days, Sharpe>0.5, turnover gap<1.5×, positive P&L, slippage<15bps before production promotion
-- **3-Layer Safety Defence** — AST whitelist → type signature validation → runtime circuit breaker (512MB/30s)
-- **MCP Tools** — `factor_kb_search` / `factor_review` / `factor_mining_start_gp` / `factor_kb_list`
-- **Live Evolution Chart** — Real-time IC curve per generation via SSE + KB registration stats + operator tier progress
-
-### 🔍 Smart Stock Screener *(NEW)*
-- **Multi-Condition Filtering** — 450+ Alpha Zoo factors + 11 technical indicators as filterable fields
-- **Whitelist Validation** — All field names and operators validated against strict whitelists to prevent injection
-- **Parameterized SQL** — Safe query construction with `%s` placeholders; `statement_timeout` protection
-- **AI-Recommended Presets** — Top-N factor combinations ranked by recent IC
-- **Batch Operations** — Add results to watchlist, export CSV, create equal-weight basket backtest
-
-### 📊 Performance Attribution *(NEW)*
-- **Brinson Attribution** — Decompose excess return into allocation effect + selection effect + interaction effect per sector
-- **Factor Attribution** — Cross-sectional regression on Alpha Zoo factors; factor contribution breakdown
-- **Sector Attribution** — SW industry classification with P&L per sector and concentration HHI
-- **Time-Series Decomposition** — Trend / seasonal / residual decomposition of portfolio returns
-
-### 🔬 Strategy Comparison *(NEW)*
-- **Statistical Tests** — Paired t-test, Bootstrap Sharpe CI (10,000 samples), White's Reality Check
-- **Rolling Window Sharpe** — Stability analysis with dual-series overlay chart
-- **CAPM/FF3 Regression** — Jensen's alpha with t-test, beta, R-squared
-- **Overlaid Equity Curves** — Side-by-side visual comparison
-
-### ⏰ Scheduled Tasks *(NEW)*
-- **Cron Engine** — 6 task types: auto_backtest, data_health_check, watchlist_alert, signal_report, factor_mining, screener_run
-- **Task Management UI** — Create/edit/pause/resume/delete with execution history and log viewer
-- **Visual Cron Builder** — Dropdown-based cron expression builder with next-run preview
-- **Notification Integration** — Task results pushed via existing webhook/email channels
-
-### 📰 News Sentiment *(NEW)*
-- **Chinese NLP** — SnowNLP-based sentiment scoring with keyword fallback; 0-1 score with positive/neutral/negative labels
-- **Standalone Sentiment Page** — Trending topics ranking with sentiment-weighted heat bars, market sentiment gauge cards (VIX/DXY/Yield Spread/Fear & Greed), live news feed via SSE
-- **Stock-Level Aggregation** — Per-symbol sentiment mean/std/news_count/trending score; generated from real-time news fetched via DuckDuckGo/Finnhub
-- **Trending Topics** — Keyword-based topic extraction (10 categories: monetary policy, EV, semiconductors, pharma, real estate, AI, etc.) with sentiment-weighted heat ranking
-- **Real-Time SSE Stream** — Cross-worker live news push via PostgreSQL LISTEN/NOTIFY (SSEBus); per-symbol or market-wide subscription with auto-reconnect on frontend
-- **Enhanced Trading Dashboard** — News tab shows per-article sentiment score badges, stock sentiment summary bar (mean/std/count/heat), and SSE live indicator; articles auto-prepend with URL dedup
-
-### 🔄 Strategy Version Control *(NEW)*
-- **Auto-Versioning** — Every save creates a new version with unified diff from previous
-- **Diff Viewer** — Side-by-side or unified diff with syntax-colored +/- lines
-- **Version Comparison** — Select any two versions to diff
-- **One-Click Rollback** — Revert to any previous version (creates a new version entry)
-
-### 🛒 Strategy Marketplace *(NEW)*
-- **Publish/Browse/Install** — Share strategies publicly, browse by market/category, one-click install to Strategy Lab
-- **5-Star Rating** — Per-user rating with average display
-- **Install Count** — Popularity ranking
-
-### 📈 Options Analysis *(NEW)*
-- **Black-Scholes Pricing** — Analytical pricing with full Greeks (Δ, Γ, Θ, ν, ρ)
-- **Binomial Tree** — Cox-Ross-Rubinstein n-step lattice pricing
-- **Implied Volatility** — Newton-Raphson solver from market price
-- **Volatility Surface** — Smile/skew pattern generation across strikes and expiries
-
-### 🚀 Live Trading Bridge *(NEW)*
-- **Pre-Flight Checks** — 5-step validation: broker connectivity, risk config, strategy performance, position limits, account balance
-- **Paper → Live Promotion** — Promote validated paper trading strategies to live with risk limits
-- **Override Mode** — Force-promote for trusted strategies
-
-### 🎓 Onboarding Wizard *(NEW)*
-- **6-Step Guided Setup** — Welcome → LLM → Data Sources → Watchlist → First Strategy → Ready
-- **Auto-Detect** — Checks existing LLM and data source config, skips completed steps
-- **Dismissible** — One-click skip, persisted in localStorage
+- **Multi-user isolation** — JWT auth, per-user data, broker context, config
+- **Scheduled tasks** — cron-based auto-backtest, data health checks, watchlist alerts, workflow scheduling
+- **Strategy marketplace** — publish, browse, install, and rate community strategies
+- **Version control** — full diff history for strategies, one-click rollback
 
 ## 🛠 Tech Stack
 
-| Layer | Stack |
-|-------|-------|
-| **Backend** | Python 3.11+ · FastAPI · LangChain · Pandas · NumPy · SciPy · PostgreSQL · DuckDB · Pydantic |
-| **Frontend** | React 19 · TypeScript · Tailwind CSS · ECharts · Monaco Editor · Zustand · Vite |
-| **Data** | MooTDX · Tushare · EastMoney · AKShare · Baidu · Tencent · yfinance · OKX · CCXT · Twelve Data · Finnhub · CoinGecko · Futu · Global Indices · Commodities · THS · Northbound · Tiingo |
-| **Trading** | Unified Engine · OMS (6-state) · Futu Broker · Risk Pipeline · WebSocket Feed · Alert Engine (Webhook/Email) |
-| **Optimize** | Grid / Random / Bayesian Search · Walk-Forward · Monte Carlo · Bootstrap · Black-Litterman · VaR / CVaR · Stress Test |
-| **MCP** | FastMCP · 31 tools exposed |
-| **Deploy** | Docker · Docker Compose |
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | React 19, TypeScript, @xyflow/react (canvas), Zustand (state), ECharts, Monaco Editor, Tailwind CSS |
+| **Backend** | Python 3.11+, FastAPI, asyncio, PostgreSQL, psycopg2 |
+| **AI/ML** | PyTorch, scikit-learn, SnowNLP, pgvector, LangChain |
+| **Data** | pandas, NumPy, Parquet, DuckDB, PostgreSQL cache |
+| **Infra** | Docker Compose, Nginx, SSE streaming, JWT auth |
 
 ## 🚀 Quick Start
 
 ```bash
-git clone https://github.com/SZWzz/AStockPursue.git
-cd AStockPursue
-bash setup.sh                     # optionally auto-deploy PostgreSQL
-docker compose up -d --build      # start services
+# Full deploy
+docker compose up -d --build              # backend (8899) + MCP (8900)
+docker compose --profile pg up -d --build # also auto-deploy PostgreSQL
+docker compose --profile frontend up -d   # frontend dev server (5899)
+
+# Backend dev
+cd backend && pip install -r requirements.txt
+cp .env.example .env
+python api_server.py --port 8899          # FastAPI server
+python mcp_server.py                      # MCP (stdio)
+
+# Frontend dev
+cd frontend && npm install && npx vite --port 5899
+
+# Tests
+cd backend && python -m pytest tests/ -x -q
+cd frontend && npx tsc --noEmit && npx vitest run
 ```
-
-> For auto-deployed PostgreSQL: `docker compose --profile pg up -d --build`
-
-Visit `http://localhost:8899`, login with `admin` / `admin123`, configure LLM and data sources in Settings.
 
 ## 📁 Project Structure
 
 ```
-AStockPursue/
-├── agent/                          # Python backend
-│   ├── api_server.py               #   FastAPI main entry (v1 API, 14 route modules)
-│   ├── mcp_server.py               #   MCP Server (31 tools)
-│   ├── backtest/                   #   Multi-market backtest engine
-│   │   ├── engines/                #     Market-specific engines (CN/US/HK/Crypto/Futures)
-│   │   ├── loaders/                #     23 data source loaders
-│   │   ├── optimizers/             #     5 portfolio optimizers (MV/RP/MD/EV/BL)
-│   │   ├── data_store.py           #     3-tier DataStore (cache → store → API)
-│   │   ├── portfolio_risk.py       #     VaR/CVaR/Kelly/concentration
-│   │   ├── stress_test.py          #     6 preset + custom stress scenarios
-│   │   └── report.py               #     HTML→PDF report generator
-│   ├── papertrade/                 #   Paper trading engine + scheduler + risk
+astockpursue/
+├── backend/                         # Python backend
+│   ├── api_server.py              # FastAPI entry point
 │   ├── src/
-│   │   ├── agent/                  #   SkillsLoader + ContextBuilder
-│   │   ├── api/                    #   14 FastAPI route modules
-│   │   ├── auth/                   #   JWT auth + per-user encrypted config
-│   │   ├── db/                     #   PG pool + AES encryption + auto migrate
-│   │   ├── factors/                #   Alpha factor registry + 4 zoo families
-│   │   ├── lab/                    #   Strategy/Indicator lab (compiler/repo/sandbox/quality)
-│   │   ├── session/                #   Session management (PG + file dual store)
-│   │   ├── skills/                 #   89 AI skill packs (SKILL.md)
-│   │   ├── swarm/                  #   Multi-agent collaboration presets
-│   │   ├── tools/                  #   MCP tool implementations
-│   │   ├── notify/                 #   Alert engine (webhook/email, 5 alert types)
-│   │   ├── optimize/               #   Param optimization (grid/random/bayesian + walk-forward)
-│   │   ├── trading/                #   Unified engine (OMS + brokers/WS feed/risk pipeline)
-│   │   └── shadow_account/         #   Trade journal analyzer + shadow account
-│   └── migrations/                 #   DB migrations (incremental SQL)
-├── frontend/                       # React frontend
+│   │   ├── workflow/              # ★ Workflow engine (n8n-style)
+│   │   │   ├── schema.py          #   typed ports, DAG models
+│   │   │   ├── node_base.py       #   BaseNode abstract class
+│   │   │   ├── node_registry.py   #   node type registry
+│   │   │   ├── workflow_engine.py #   Kahn + asyncio executor
+│   │   │   ├── workflow_store.py  #   PostgreSQL persistence
+│   │   │   └── nodes/             #   12 node implementations
+│   │   │       ├── data_nodes.py  #     StockUniverse, OHLCVLoader
+│   │   │       ├── alpha_nodes.py #     AlphaZoo
+│   │   │       ├── strategy_nodes.py #  Strategy, Backtest
+│   │   │       ├── analysis_nodes.py #  Attribution
+│   │   │       ├── thin_nodes.py  #     Screener, PaperTrading
+│   │   │       └── control_nodes.py #   ChatInput, Agent, IF
+│   │   ├── trading/               # Trading engine + backtest driver
+│   │   ├── factors/               # Alpha Zoo + GP mining engine
+│   │   ├── services/              # Attribution, screener, sentiment, etc.
+│   │   ├── backend/                 # ReAct agent loop, tools, memory
+│   │   ├── skills/                # 89 domain skill packs
+│   │   └── api/                   # FastAPI route modules (24 routes)
+│   ├── backtest/                  # Data store, loaders, engines
+│   └── migrations/                # PostgreSQL migrations
+├── frontend/                      # React TypeScript frontend
 │   └── src/
-│       ├── pages/                  #   14 pages (Agent/Trading/PTP/IndicatorLab/StrategyLab/...)
-│       ├── components/             #   7 component groups (chat/trading/paper-trading/charts/...)
-│       ├── stores/                 #   Zustand state management (5 stores)
-│       ├── services/               #   API service layer
-│       ├── hooks/                  #   Custom hooks (SSE/dark mode/backtest)
-│       └── lib/                    #   Utils + i18n (170+ keys) + API client + chart-theme
-├── setup.sh                        # One-click init script
-├── docker-compose.yml              # Deploy config (with PG profile)
-├── CHANGELOG.md                    # Detailed changelog
-├── README.md                       # English documentation
-└── README_zh.md                    # 中文文档
+│       ├── workflow/              # ★ Workflow canvas + store
+│       │   ├── canvas/            #   @xyflow/react DAG editor
+│       │   ├── store/             #   Zustand state management
+│       │   └── types/             #   TypeScript type definitions
+│       ├── pages/                 # Page components
+│       ├── components/            # Shared UI components
+│       ├── stores/                # Zustand stores
+│       └── lib/                   # API client, i18n, utilities
+└── docs/                          # Documentation
 ```
 
 ## 📄 License
 
-MIT License. Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS).
-
-Strategy templates in `agent/src/lab/templates.json` originate from [QuantDinger](https://github.com/QuantDinger/QuantDinger) (Apache License 2.0).
+MIT License. Built on [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT License).

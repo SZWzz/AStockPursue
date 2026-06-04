@@ -34,9 +34,11 @@ export function Login() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background">
       <div className="w-full max-w-sm space-y-6 p-8">
-        <div className="text-center space-y-2">
-          <BarChart3 className="mx-auto h-10 w-10 text-primary" />
-          <h1 className="text-xl font-bold">AStockPursue</h1>
+        <div className="text-center space-y-3">
+          <div className="h-14 w-14 rounded-xl bg-primary flex items-center justify-center mx-auto shadow-sm shadow-primary/20">
+            <BarChart3 className="h-7 w-7 text-primary-foreground" />
+          </div>
+          <h1 className="display">AStockPursue</h1>
           <p className="text-sm text-muted-foreground">
             {isRegister ? t.registerTitle : t.loginTitle}
           </p>
@@ -45,20 +47,20 @@ export function Login() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label htmlFor="login-username" className="text-sm font-medium">{t.username}</label>
-            <input id="login-username" value={username} onChange={(e) => setUsername(e.target.value)} className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder={t.usernamePlaceholder} required autoFocus />
+            <input id="login-username" value={username} onChange={(e) => setUsername(e.target.value)} className="input" placeholder={t.usernamePlaceholder} required autoFocus />
           </div>
           <div className="space-y-1.5">
             <label htmlFor="login-password" className="text-sm font-medium">{t.password}</label>
-            <input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder={t.passwordPlaceholder} required />
+            <input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="input" placeholder={t.passwordPlaceholder} required />
           </div>
           {isRegister && (
             <div className="space-y-1.5">
               <label htmlFor="login-email" className="text-sm font-medium">{t.emailOptional}</label>
-              <input id="login-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-md border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" placeholder={t.emailPlaceholder} />
+              <input id="login-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="input" placeholder={t.emailPlaceholder} />
             </div>
           )}
-          {error && (<div role="alert" className="rounded-md bg-danger/10 px-3 py-2 text-xs text-danger">{error}</div>)}
-          <button type="submit" disabled={loading} className="flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition hover:opacity-90 disabled:opacity-70">
+          {error && (<div role="alert" className="rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">{error}</div>)}
+          <button type="submit" disabled={loading} className="btn btn-primary w-full">
             {loading && <Loader2 className="h-4 w-4 animate-spin" />}
             {isRegister ? t.registerButton : t.loginButton}
           </button>

@@ -106,7 +106,7 @@ include = ["src*", "backtest*", "papertrade*", "migrations*"]
 "src.factors" = ["zoo/**/*.yaml", "zoo/**/*.md", "zoo/**/NOTICE"]
 
 [tool.pytest.ini_options]
-testpaths = ["agent/tests"]
+testpaths = ["backend/tests"]
 pythonpath = ["agent"]
 markers = [
     "unit: Unit tests (fast, no network)",
@@ -127,4 +127,4 @@ ignore = ["E501"]
 # Alpha zoo files import the full src.factors.base surface verbatim
 # to match research-paper formulas. F401 (unused-import) is noise here;
 # F841 (unused-local-variable) stays active to catch real formula bugs.
-"agent/src/factors/zoo/**/*.py" = ["F401"]
+"backend/src/factors/zoo/**/*.py" = ["F401"]

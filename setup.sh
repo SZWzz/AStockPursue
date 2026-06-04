@@ -10,32 +10,32 @@ cd "$(dirname "$0")"
 
 # ── Step 1: Create .env from template ─────────────────────────────────────
 
-if [ -f agent/.env ]; then
-    echo "[!] agent/.env already exists, skipping template copy."
-    echo "    Remove it manually if you want to start fresh: rm agent/.env"
+if [ -f backend/.env ]; then
+    echo "[!] backend/.env already exists, skipping template copy."
+    echo "    Remove it manually if you want to start fresh: rm backend/.env"
 else
-    cp agent/.env.example agent/.env
-    echo "[✓] Created agent/.env from template"
+    cp backend/.env.example backend/.env
+    echo "[✓] Created backend/.env from template"
 fi
 
 # ── Step 2: Generate secrets ──────────────────────────────────────────────
 
-if ! grep -q "^JWT_SECRET=" agent/.env 2>/dev/null; then
+if ! grep -q "^JWT_SECRET=" backend/.env 2>/dev/null; then
     JWT_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-    echo "JWT_SECRET=$JWT_SECRET" >> agent/.env
+    echo "JWT_SECRET=$JWT_SECRET" >> backend/.env
     echo "[✓] Generated JWT secret"
 else
     echo "[✓] JWT secret already configured"
 fi
 
-if ! grep -q "^USER_CONFIG_ENCRYPTION_KEY=" agent/.env 2>/dev/null; then
+if ! grep -q "^USER_CONFIG_ENCRYPTION_KEY=" backend/.env 2>/dev/null; then
     USER_KEY=$(python3 -c "from src.db.crypto import generate_key_b64; print(generate_key_b64())" 2>/dev/null || python3 -c "
 import base64, os
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 key = AESGCM.generate_key(bit_length=256)
 print(base64.b64encode(key).decode('ascii'))
 ")
-    echo "USER_CONFIG_ENCRYPTION_KEY=$USER_KEY" >> agent/.env
+    echo "USER_CONFIG_ENCRYPTION_KEY=$USER_KEY" >> backend/.env
     echo "[✓] Generated user config encryption key"
 else
     echo "[✓] User config encryption key already configured"
@@ -99,7 +99,7 @@ print(f'{key}|{enc}')
         # Update .env with DB settings
         python3 -c "
 import re
-path = 'agent/.env'
+path = 'backend/.env'
 with open(path) as f:
     content = f.read()
 for old, new in [
@@ -120,7 +120,7 @@ with open(path, 'w') as f:
     else
         echo "[!] Encryption failed (cryptography not installed?). Saving plain text."
         python3 -c "
-path = 'agent/.env'
+path = 'backend/.env'
 with open(path) as f:
     content = f.read()
 for old, new in [
@@ -149,7 +149,7 @@ echo "============================================"
 echo ""
 if [ "$USE_AUTO_PG" = true ]; then
     echo "  Next steps:"
-    echo "    1. Review agent/.env and edit if needed"
+    echo "    1. Review backend/.env and edit if needed"
     echo "    2. docker compose --profile pg up -d --build"
     echo "    3. Open http://localhost:8899"
     echo ""
@@ -157,7 +157,7 @@ if [ "$USE_AUTO_PG" = true ]; then
     echo "  To stop: docker compose --profile pg down"
 else
     echo "  Next steps:"
-    echo "    1. Review agent/.env and edit if needed"
+    echo "    1. Review backend/.env and edit if needed"
     echo "    2. docker compose up -d --build"
     echo "    3. Open http://localhost:8899"
 fi

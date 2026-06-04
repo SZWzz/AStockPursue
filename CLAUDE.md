@@ -11,7 +11,7 @@ docker compose --profile pg up -d --build # also auto-deploy PostgreSQL
 docker compose --profile frontend up -d   # frontend dev server (5899)
 
 # Backend dev
-cd agent && pip install -r requirements.txt
+cd backend && pip install -r requirements.txt
 cp .env.example .env
 python api_server.py --port 8899          # FastAPI server
 python mcp_server.py                      # MCP (stdio)
@@ -22,7 +22,7 @@ cd frontend && npm install && npx vite --port 5899
 
 # Tests
 cd frontend && npx tsc --noEmit           # TypeScript type-check
-cd agent && python -m pytest tests/ -x -q # backend tests
+cd backend && python -m pytest tests/ -x -q # backend tests
 ```
 
 ## Architecture
@@ -45,7 +45,7 @@ on_bar(bar, ts)
 
 **Critical ordering constraint**: `_record_bars()` MUST run AFTER `_generate_signals()` to prevent look-ahead bias. `equity_for_sizing` MUST be cached BEFORE `_check_risk_exits()` (which updates `_last_bar_prices` with today's close).
 
-Key files: `agent/src/trading/engine.py`, `agent/src/trading/risk_pipeline.py`, `agent/src/trading/signal_adapter.py`
+Key files: `backend/src/trading/engine.py`, `backend/src/trading/risk_pipeline.py`, `backend/src/trading/signal_adapter.py`
 
 ### SignalAdapter Dispatch
 
@@ -83,7 +83,7 @@ A-share 8-source fallback: `mootdx → tushare → eastmoney → tencent → fut
 
 Loaders self-register via `@register` decorator. `is_available()` must do a real connectivity check (not just `import requests`).
 
-Key files: `agent/backtest/data_store.py`, `agent/backtest/loaders/`
+Key files: `backend/backtest/data_store.py`, `backend/backtest/loaders/`
 
 ### Factor Mining System
 
@@ -115,7 +115,7 @@ SafetyValidator (safety_validator.py)
 
 **Key rule**: Always use `ind.tree.formula_hash` for identity, never `ind.formula` (display string varies with operand order for commutative ops).
 
-Key files: `agent/src/factors/mining/`, `agent/src/factors/registry.py`
+Key files: `backend/src/factors/mining/`, `backend/src/factors/registry.py`
 
 ### Frontend State Management
 
@@ -127,7 +127,7 @@ Charts: ECharts via `CandlestickChart` / `EquityChart` components. Monaco Editor
 
 ### Skills System
 
-89 skill packs under `agent/src/skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`, `category`). Auto-discovered on server start. Each skill can include `example_signal_engine.py`, `references/`, `scripts/`. Skills are the AI agent's domain knowledge — they guide LLM behavior for specific trading topics.
+89 skill packs under `backend/src/skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`, `category`). Auto-discovered on server start. Each skill can include `example_signal_engine.py`, `references/`, `scripts/`. Skills are the AI agent's domain knowledge — they guide LLM behavior for specific trading topics.
 
 ### Multi-User Isolation
 

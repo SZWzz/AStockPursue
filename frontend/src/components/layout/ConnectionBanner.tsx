@@ -13,7 +13,7 @@ export function ConnectionBanner({ status, retryAttempt }: Props) {
 
   return (
     <div
-      className="flex items-center gap-2 px-4 py-2 text-xs bg-warning/15 text-warning border-b border-warning/30"
+      className="flex items-center gap-2 px-4 py-2 text-xs bg-warning/10 text-warning border-b border-warning/20 animate-fade-in-down"
       role="alert"
       aria-live="polite"
     >

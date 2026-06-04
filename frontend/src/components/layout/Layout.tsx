@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, BookOpen, Bot, Database, GitCompare, LayoutDashboard, Menu, Moon, Newspaper, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users, X, Microscope, Filter, PieChart, Clock, Store, CircleDollarSign } from "lucide-react";
+import { BarChart3, BookOpen, Bot, ChevronDown, Database, GitCompare, LayoutDashboard, Menu, Moon, Newspaper, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, Layers, FlaskConical, Target, TrendingUp, LogIn, LogOut, User, Users, X, Microscope, Filter, PieChart, Clock, Store, CircleDollarSign, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useDarkMode } from "@/hooks/useDarkMode";
@@ -10,28 +10,13 @@ import { useAuthStore } from "@/stores/auth";
 import { ConnectionBanner } from "@/components/layout/ConnectionBanner";
 import { PostLoginSetup } from "@/components/layout/PostLoginSetup";
 
-const APP_VERSION = "v2026.6.3";
+const APP_VERSION = "v2026.6.4";
 
-const NAV = [
-  { to: "/", icon: LayoutDashboard, key: "home" as const, label: "Dashboard" },
-  { to: "/agent", icon: Bot, key: "home" as const, label: "Agent" },
-  { to: "/indicator-lab", icon: FlaskConical, key: "indicatorLab" as const, label: null },
-  { to: "/strategy-lab", icon: Target, key: "strategyLab" as const, label: null },
-  { to: "/paper-trading", icon: TrendingUp, key: "paperTrading" as const, label: null },
-  { to: "/trading", icon: BarChart3, key: "trading" as const, label: null },
-  { to: "/sentiment", icon: Newspaper, key: "sentiment" as const, label: null },
-  { to: "/compare", icon: GitCompare, key: "compare" as const, label: null },
-  { to: "/correlation", icon: BarChart3, key: "correlation" as const, label: null },
-  { to: "/factor-mining", icon: Microscope, key: "factorMining" as const, label: null },
-  { to: "/screener", icon: Filter, key: "screener" as const, label: null },
-  { to: "/attribution", icon: PieChart, key: "attribution" as const, label: null },
-  { to: "/scheduler", icon: Clock, key: "scheduler" as const, label: null },
-  { to: "/marketplace", icon: Store, key: "marketplace" as const, label: null },
-  { to: "/options", icon: CircleDollarSign, key: "options" as const, label: null },
-  { to: "/docs", icon: BookOpen, key: "docs" as const, label: null },
-  { to: "/alpha-zoo", icon: Layers, key: "alphaZoo" as const, label: null },
-  { to: "/data-sources", icon: Database, key: "dataSources" as const, label: null },
-  { to: "/settings", icon: Settings, key: "settings" as const, label: null },
+const MAIN_NAV = [
+  { to: "/projects", icon: LayoutDashboard, label: "Projects" },
+  { to: "/agent", icon: Bot, label: "Agent" },
+  { to: "/data-sources", icon: Database, label: "Data Sources" },
+  { to: "/settings", icon: Settings, label: "Settings" },
 ];
 
 export function Layout() {
@@ -96,20 +81,20 @@ export function Layout() {
     <div className="flex h-screen bg-background">
       {/* Sidebar */}
       <aside className={cn(
-        "border border-border rounded-r-2xl bg-card/90 backdrop-blur-sm flex-col shrink-0 transition-all duration-200 shadow-sm",
+        "flex-col shrink-0 transition-all duration-300 border-r border-border/60 bg-surface-1",
         mobileOpen
-          ? "fixed inset-y-3 left-3 z-50 flex w-64 my-3 ml-3 overflow-auto"
-          : cn("hidden md:flex my-3 ml-3", collapsed ? "md:w-14" : "md:w-64")
+          ? "fixed inset-y-0 left-0 z-50 flex w-64 overflow-auto shadow-lg"
+          : cn("hidden md:flex", collapsed ? "md:w-14" : "md:w-64")
       )} onClick={() => setMobileOpen(false)}>
         {/* Brand */}
         <Link to="/" className={cn(
-          "flex items-center font-bold tracking-tight border-b border-border/50",
+          "flex items-center font-bold tracking-tight border-b border-border/40",
           collapsed ? "h-12 justify-center" : "h-12 gap-2.5 px-4"
         )}>
-          <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center shrink-0">
-            <BarChart3 className="h-4 w-4 text-primary-foreground" />
+          <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center shrink-0 shadow-sm shadow-primary/20">
+            <BarChart3 className="h-4.5 w-4.5 text-primary-foreground" />
           </div>
-          {!collapsed && <span className="text-base">AStockPursue</span>}
+          {!collapsed && <span className="text-base tracking-[-0.01em]">AStockPursue</span>}
         </Link>
 
         {/* Mobile close button */}
@@ -122,25 +107,24 @@ export function Layout() {
         </button>
 
         {/* Nav */}
-        <nav className={cn("py-2", collapsed ? "px-2" : "px-3")}>
-          {NAV.map(({ to, icon: Icon, key, label }) => {
-            const active = to === "/" ? pathname === "/" : pathname.startsWith(to);
-            const text = label ?? t[key];
+        <nav className={cn("py-2", collapsed ? "px-2" : "px-0")}>
+          {MAIN_NAV.map(({ to, icon: Icon, label }) => {
+            const active = to === "/projects" ? pathname.startsWith("/projects") : to === "/agent" ? pathname.startsWith("/agent") : pathname.startsWith(to);
             return (
               <Link
                 key={to}
                 to={to}
                 className={cn(
-                  "flex items-center rounded-lg transition-all duration-150 mb-0.5",
-                  collapsed ? "justify-center h-9 w-9 mx-auto" : "gap-3 px-3 py-2",
+                  "flex items-center transition-all duration-200 mb-0.5 border-l-2",
+                  collapsed ? "justify-center h-10 w-10 mx-auto rounded-lg border-l-0" : "gap-3 px-4 py-2.5 rounded-r-lg",
                   active
-                    ? "bg-primary/10 text-primary font-medium shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-primary/[0.08] text-primary font-semibold border-l-primary"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border-l-transparent"
                 )}
-                title={collapsed ? text : undefined}
+                title={collapsed ? label : undefined}
               >
-                <Icon className={cn("shrink-0", active ? "h-4.5 w-4.5" : "h-4 w-4")} aria-hidden="true" />
-                {!collapsed && <span className="text-sm">{text}</span>}
+                <Icon className={cn("shrink-0", active ? "h-[18px] w-[18px]" : "h-4 w-4")} aria-hidden="true" />
+                {!collapsed && <span className="text-sm">{label}</span>}
               </Link>
             );
           })}
@@ -148,11 +132,11 @@ export function Layout() {
             <Link
               to="/admin/users"
               className={cn(
-                "flex items-center rounded-lg transition-all duration-150",
-                collapsed ? "justify-center h-9 w-9 mx-auto" : "gap-3 px-3 py-2",
+                "flex items-center transition-all duration-200 border-l-2",
+                collapsed ? "justify-center h-10 w-10 mx-auto rounded-lg border-l-0" : "gap-3 px-4 py-2.5 rounded-r-lg",
                 pathname.startsWith("/admin")
-                  ? "bg-primary/10 text-primary font-medium shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  ? "bg-primary/[0.08] text-primary font-semibold border-l-primary"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60 border-l-transparent"
               )}
               title={collapsed ? t.usersLabel : undefined}
             >
@@ -164,10 +148,10 @@ export function Layout() {
 
         {/* Sessions — hidden when collapsed */}
         {!collapsed && (
-          <div className="flex-1 overflow-hidden border-t flex flex-col">
+          <div className="flex-1 overflow-hidden border-t border-border/40 flex flex-col">
             <div className="flex items-center justify-between px-4 py-2.5">
-              <span className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                <MessageSquare className="h-3.5 w-3.5" />
+              <span className="overline flex items-center gap-1.5">
+                <MessageSquare className="h-3 w-3" />
                 {t.sessions}
               </span>
               <Link
@@ -196,7 +180,7 @@ export function Layout() {
               {sessionsLoading ? (
                 <div className="space-y-1.5 px-1 py-1">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="h-8 rounded-lg bg-muted/50 animate-pulse" />
+                    <div key={i} className="h-8 rounded-lg skeleton-shimmer" />
                   ))}
                 </div>
               ) : filteredSessions.length === 0 ? (
@@ -224,10 +208,10 @@ export function Layout() {
                       <Link
                         to={`/agent?session=${s.session_id}`}
                         className={cn(
-                          "flex-1 min-w-0 pl-3 pr-16 py-2 rounded-lg text-sm transition-all duration-150 truncate block",
+                          "flex-1 min-w-0 pl-3 pr-16 py-2 rounded-r-lg text-sm transition-all duration-200 truncate block border-l-2",
                           isActive
-                            ? "bg-primary/10 text-primary font-medium shadow-sm"
-                            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                            ? "bg-primary/[0.08] text-primary font-semibold border-l-primary"
+                            : "text-muted-foreground hover:bg-muted/60 hover:text-foreground border-l-transparent"
                         )}
                         title={s.title || s.session_id}
                       >
@@ -274,7 +258,7 @@ export function Layout() {
         {collapsed && <div className="flex-1" />}
 
         {/* Footer */}
-        <div className={cn("border-t", collapsed ? "p-1.5 flex flex-col items-center gap-1.5" : "p-3 space-y-2.5")}>
+        <div className={cn("border-t border-border/40", collapsed ? "p-1.5 flex flex-col items-center gap-1.5" : "p-3 space-y-2.5")}>
           {/* User section */}
           {collapsed ? (
             <Link to={user ? "#" : "/login"} className="p-1.5 text-muted-foreground hover:text-foreground rounded-lg transition-colors" title={user ? user.username : t.login}>
@@ -335,7 +319,7 @@ export function Layout() {
                   <ChevronsLeft className="h-4 w-4" />
                 </button>
               </div>
-              <p className="text-[11px] text-muted-foreground/50 font-medium">{APP_VERSION}</p>
+              <p className="text-[10px] text-muted-foreground/40 font-medium">{APP_VERSION}</p>
             </>
           )}
         </div>
@@ -361,7 +345,7 @@ export function Layout() {
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <ConnectionBanner status={sseStatus} retryAttempt={sseRetryAttempt} />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto bg-background">
           <Outlet />
         </main>
       </div>

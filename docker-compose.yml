@@ -5,15 +5,15 @@ services:
       - "8899:8899"
       - "8900:8900"      # MCP Server (SSE transport)
     env_file:
-      - agent/.env
+      - backend/.env
     environment:
       ASTOCKPURSUE_TRUST_DOCKER_LOOPBACK: 1
       ASTOCKPURSUE_ALLOWED_RUN_ROOTS: "/opt/data,/root/.AStockPursue/workspace"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
-      - astockpursue-runs:/app/agent/runs
-      - astockpursue-sessions:/app/agent/sessions
+      - astockpursue-runs:/ap./backend/runs
+      - astockpursue-sessions:/ap./backend/sessions
       - astockpursue-skills:/root/.AStockPursue/skills
       - /opt/data:/opt/data
     restart: unless-stopped
@@ -46,7 +46,7 @@ services:
 
   # Auto-deployed PostgreSQL for users without an existing PG instance.
   # If you already have a PostgreSQL instance, configure DB_HOST/DB_PORT/
-  # DB_NAME/DB_USER/DB_PASSWORD_ENC in agent/.env and skip the pg profile.
+  # DB_NAME/DB_USER/DB_PASSWORD_ENC in backend/.env and skip the pg profile.
   # WARNING: The default password below is for development only.
   # Change it before exposing this service to a network.
   # Set POSTGRES_PASSWORD in a .env file to override:

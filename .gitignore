@@ -13,7 +13,10 @@ CLAUDE.md
 .vscode/
 learn-claude-code-main/
 agent/sessions/
-agent/runs/
+runs/
+cache/
+backend/runs/
+backend/cache/
 agent/.ui_runtime/
 agent/.tasks/
 agent/uploads/

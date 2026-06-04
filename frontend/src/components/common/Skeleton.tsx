@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 export function Skeleton({ className, style }: { className?: string; style?: React.CSSProperties }) {
-  return <div className={cn("animate-pulse rounded-md bg-muted/50", className)} style={style} />;
+  return <div className={cn("skeleton-shimmer", className)} style={style} />;
 }
 
 export function SkeletonMetrics() {

@@ -1,581 +1,427 @@
-# Changelog
+# 更新日志
 
-## 2026.6.3 — P0-P3 Deep Audit + Documentation + Test Fixes
+## [2026.6.4] - 2026-06-04
 
-### Fixed
+### 变更
 
-- **[Engine] P0 前瞻性偏差回归修复** (`39c4294`) — `TradingEngine._record_bars()` 必须在 `_generate_signals()` 之后执行，防止策略通过 `_data_map` 访问当前 bar；`equity_for_sizing` 必须在风险检查前缓存，避免 `_last_bar_prices` 被今日收盘价更新后用于 sizing 计算
-- **[Engine] P0 跳空检测漏单** (`39c4294`) — `RiskPipeline.check_gap()` 现在对开盘价穿透止损/止盈价的情况正确触发退出，之前仅对收盘价检查导致跳空止损完全失效
-- **[GP] P0 排名确定性** (`39c4294`) — GP 锦标赛选择改用稳定排序（先按 fitness 降序，再按 `formula_hash` 字典序），消除同分个体的非确定性 shuffle
-- **[Engine] P0 佣金费率修正** (`ed02abe`) — A 股佣金从 0.3 bps 修正为 3 bps（万三），之前少算一个数量级导致回测收益虚高
-- **[Engine] P1 列对齐错误** (`ed02abe`) — `np.where()` 配合 `.values` 使用会丢失列标签，引入 `_safe_if_else()` 辅助函数替代，修复并行评估中 DataFrame 列混乱
-- **[FactorKB] P1 pgvector 降级处理** (`ed02abe`) — `factor_kb_store.py` 在 PostgreSQL 不可用时优雅降级为本地 JSON 存储，不再抛异常中断整个因子挖掘流程
-- **[Engine] P1 日内时间戳推断** (`ed02abe`) — bar 间隔计算从 `Timedelta(days=1)` 硬编码改为 `pd.infer_freq()` 动态推断，修复周线/4 周线/2 小时线等非日线周期的年化系数错误
-- **[GP] P0 线程安全** (`3628d70`) — 并行 GP 评估中所有 KB 访问必须持有 `self._kb_lock`，修复 `factor_kb.register()` 并发写入导致的 SQLite 数据库锁竞争和数据损坏
-- **[GP] P0 KB 溯源校验** (`3628d70`) — 复用 KB 中缓存的因子指标前必须校验 `data_source_version` 和 `train_date_range`，防止不同数据集/时间范围的指标被错误复用
-- **[GP] P1 FDR 校正方法** (`3628d70`) — 多重假设检验校正从 Benjamini-Hochberg (BH) 改为 Benjamini-Yekutieli (BY)，因 GP 候选因子高度相关，BH 的独立性假设不成立
-- **[GP] P1 OOS 评估窗口** (`3628d70`) — Walk-forward 窗口从重叠滑动改为非重叠滚动窗口，确保各窗口 OOS IC 相互独立，消除自相关导致的显著性虚高
-- **[GP] P1 Elite Tracker 哈希** (`36c2279`) — Elite 个体追踪器改用 `formula_hash` 而非对象 id，修复重启后 tracker 无法识别同一公式的问题
-- **[Security] P1 SIGALRM 替代** (`36c2279`) — `SafetyValidator` 的运行时断路器从 `signal.SIGALRM` 改为 `threading.Thread + join(timeout)`，SIGALRM 仅在 Unix 主线程可用，子线程中会静默失效
-- **[Data] P1 加载器可用性检测** (`36c2279`) — `is_available()` 必须执行真实网络连通性检查，不能仅 `import requests` 就返回 True，修复离线环境下 loader 误报可用
-- **[Engine] P1 退市检测** (`36c2279`) — `BacktestDriver` 检测到标的 K 线数据提前终止时触发 `force_close_symbol(code, "delisted")`，修复退市股票在回测中永远持有到最后的问题
-- **[Data] P2 截断阈值** (`1f24383`) — Baidu loader 截断检测阈值从固定 2000 bar 改为动态计算（预期 bar 数的 95%），消除不同频率下的误报/漏报
-- **[Metrics] P2 Scale NaN** (`1f24383`) — `calc_metrics()` 在全部收益为零时 scale 计算产生 NaN，添加 `np.where` 保护返回 0.0
-- **[Engine] P2 预热期** (`1f24383`) — 回测指标计算跳过前 N 个 bar 的预热期（默认 21 交易日），避免初始空仓期污染夏普/最大回撤等统计量
-- **[Metrics] P2 年化系数** (`1f24383`) — `calc_bars_per_year()` 补齐所有 interval 的年化系数映射（1W→52, 4W→13, 2d→126, 2h→756），修复非日线回测指标年化错误
-- **[FactorKB] P3 主题归一化** (`1f24383`) — KB 主题标签从自由文本改为小写归一化 + 去重，修复同一主题因大小写/空格变体被识别为不同主题的问题
+- **[前端] 全局 UI 重构 —「精准金融界面」设计语言**
+  - **排版**：正文字体从 Inter 替换为 **DM Sans**（更具几何感、更专业的无衬线字体），等宽字体保留 JetBrains Mono
+  - **色彩**：品牌色从 `hsl(27, 90%, 52%)` 调整为 `hsl(24, 94%, 54%)`（更深邃的琥珀色），表面层级从 2 级扩展到 4 级（background → surface-1 → card → surface-3），新增 cyan/emerald/rose/violet/amber 强调色令牌用于数据可视化
+  - **组件**：按钮改为 `rounded-lg` + `duration-200 ease-out` 流畅过渡，卡片改为 `rounded-xl` + hover 时微上浮效果（`-translate-y-0.5`），新增 `.card-metric`/`.data-table`/`.skeleton-shimmer`/`.page-enter-stagger`/`.surface-glass`/`.focus-ring` 组件类
+  - **动画**：新增 4 个关键帧（`fade-in-up`/`fade-in-down`/`slide-in-left`/`shimmer`），页面加载时子元素交错入场，骨架屏渐变闪烁替代脉冲动画
+  - **布局**：侧边栏从浮动式改为贴边锚定（移除 `my-3 ml-3` 边距），导航项激活态改为 2px 左侧色条指示器，品牌区域更精致
+  - **页面**：Dashboard/Projects/Login/Settings 页面接入新组件类和动画
+  - **图表**：优化暗色模式网格线可见度，改进 tooltip 对比度
+  - 零新依赖，纯 CSS 实现，不影响任何功能逻辑
 
-- **[Tests] MockSignalAdapter 签名更新** — `on_bar_batch()` 增加 `*, skip_append=False` 参数以匹配 `SignalAdapter` 生产代码签名的变更，修复 4 个测试用例的 `TypeError`
+## 2026.6.4 — 工作流架构重构
 
-### Added
+### 新增
 
-- **[Docs] CLAUDE.md** (`187513c`) — 项目开发指南：架构总览（TradingEngine 管道 / Backtest 引擎继承体系 / 数据加载 3 层架构 / 因子挖掘系统 / 前端状态管理 / Skills 系统）、构建/测试/运行命令、已知缺陷模式（8 类避免引入的 bug 模式）
-- **[Docs] 核心代码文档** (`24cd40f`) — 9 个关键文件新增 1025+ 行 docstring（模块级/类级/方法级），覆盖安全边界/金融计算/数据完整性/并发/算法复杂度 5 类关键代码
-- **[Docs] 开发规则** (`3624909`) — CLAUDE.md 新增 Changelog 维护规范（每次改动必须记录，Keep a Changelog 格式）和文档要求（5 类关键代码必须携带完整文档）
-- **[Infra] Docker 数据卷** (`d7b917e`) — `docker-compose.yml` 新增 `/opt/data` 卷挂载，持久化 PostgreSQL 数据
+- **[工作流] 第二阶段：6 个核心节点实现**
+  - `StockUniverseNode`、`OHLCVLoaderNode`、`AlphaZooNode`、`StrategyNode`、`BacktestNode`、`AttributionNode`
+  - 适配器类：`InMemoryLoader`、`StaticSignalEngine`
+  - 修复：移除 BaseNode 上的 @dataclass
+  - 测试：76 个通过（47 + 29）
 
-### Changed
+- **[工作流] 第三阶段：Agent + 控制流节点 + 错误恢复**
+  - `AgentNode` — 包装 `run_agent_sync()` ReAct 循环；完整 LLM 支持 89 个技能 + 工具；输入=prompt+context，输出=analysis+code+factor_suggestion
+  - `ChatInputNode`、`IFNode`、`MergeNode`、`SubWorkflowNode`、`ParameterScanNode`、`LoopNode`、`ScreenerNode`、`PaperTradingNode`
+  - 前端：错误恢复 — 失败节点重试按钮、底部错误预览、重新运行支持
+  - 测试：92 个通过（76 + 16 新增）
 
-- **[Docs] CHANGELOG.md** — 按 CLAUDE.md 规范新增 `2026.6.3` 条目，详细记录 5 轮 P0-P3 缺陷修复
+- **[工作流] 第四阶段：以项目为中心的导航 + 全编辑器集成**
+  - 侧边栏简化为 Projects、Agent、Settings；/ 重定向到 Projects 页面
+  - Projects 页面：项目卡片含工作流数量、创建/归档、一键打开
+  - NodePanel「全编辑器」按钮：每个节点类型链接到对应旧页面
+  - 旧路由保留以保证向后兼容；主要导航通过画布进行
 
-## 2026.6.1 (Phase C: LLM+GP+FactorKB + P0-P3 Full Stack)
+- **[工作流] 第五阶段：模板、调度、版本历史、清理**
+  - 模板、定时工作流运行、版本历史（快照 + 恢复）、冷数据清理
+  - SchedulerEngine 现支持 `task_type="workflow_run"` — cron 触发器自动执行工作流
 
-### Added
+- **[工作流] 架构精简（减法重构）**
+  - **删除**：`shared_storage.py`、`templates.py`、`execution_nodes.py`、`filter_nodes.py`、`deploy_nodes.py` — 5 个文件
+  - **删除节点**：SubWorkflow、Merge、Loop、ParameterScan — 4 个占位节点移除
+  - **合并**：BacktestNode → `strategy_nodes.py`；ScreenerNode + PaperTradingNode → `thin_nodes.py`
+  - **schema.py**：移除 DataArtifactRef 类；PortType 从 3 段字符串简化为扁平枚举；同类型或通配符兼容
+  - **node_base.py**：移除 @dataclass；干净的类级别属性继承
+  - **node_registry.py**：显式 `init_workflow_nodes()` 替代自动发现；在 API 服务器启动时调用
+  - **workflow_engine.py**：移除 SharedStorage；`_reset()` 清除每次运行的状态；节点在内存中直接传递 DataFrame
+  - **P0 修复**：启动时节点注册（init_workflow_nodes）、Scheduler 处理 workflow_run、InMemoryLoader 基于时间戳的日期过滤
+  - **P1 修复**：运行间引擎状态重置、AgentNode run_dir 代码提取
+  - **前端**：简化类型（PortType 枚举），移除 DataArtifactRef/ActionRef 类型，内联 Viewport 类型
+  - 结果：后端约 1500 行（原约 2500 行，-40%），前端工作流约 900 行（原约 1500 行，-40%），9 个文件（原 20 个，-55%）
+  - 60 个后端测试通过，12 个前端测试通过，零新增 TS 错误
 
-- **Phase C: LLM + GP + FactorKB Trinity Alpha Factory** — Full implementation plan + core code
-  - `ExpressionTree` as single source of truth: `formula_hash` (SHA256), `normalized_formula`, `to_signalengine_code()`, `to_callable()` all derived from the same tree
-  - 27 operators with 3-tier progressive unlocking (basic/advanced/alternative) to prevent search space explosion
-  - `enhanced_fitness.py`: multiplicative composite fitness — `rank_ic × cost_penalty × orthogonality_penalty × a_share_penalty × stability × complexity_discount`
-  - A-share-specific penalties: T+1 intraday ×0.5, extreme turnover >200x ×0.3, small-cap extreme exposure ×0.7
-  - FDR multiple testing correction (Benjamini-Hochberg, q=0.05) applied every generation
-  - `hybrid_init.py`: skeleton-seeded population initialization (30% known effective structures + 40% mutations + 30% random) with 10 A-share factor skeletons
-  - `factor_kb.py`: FactorKnowledgeBase — register/query/dedup by formula_hash, lifecycle state machine (discovered→validating→approved→paper_trading→production→deprecated→archived), semantic tag search, mining guidance for theme health analysis
-  - `llm_intervention.py`: LLM-guided evolution with 7 intervention actions (inject_seeds/adjust_mutation/theme_redirect/avoid_redundant/no_op/…), structured prompt with few-shot examples + KB context + Zoo feedback
-  - Ablation study framework: 3-group controlled experiment (Baseline/LLM/Placebo) with Welch's t-test to validate LLM's real contribution
-  - `duckdb_evaluator.py`: DuckDB benchmark gate — 10 typical factors benchmarked, migration only proceeds if >5x speedup
-  - `safety_validator.py`: 3-layer defence — AST whitelist validator + Type signature validator + Runtime circuit breaker (512MB/30s)
-  - Walk-Forward 24-window Purged Cross-Validation with 5-day purge
-  - PAPER_TRADING promotion gate: ≥21 trading days, Sharpe>0.5, turnover gap<1.5x, positive P&L, slippage<15bps
-  - `factor_tools.py`: 4 MCP tools (factor_kb_search / factor_review / factor_mining_start_gp / factor_kb_list) + auto-promotion pipeline
-  - PostgreSQL DDL: 7 tables (vt_factor_knowledge + snapshots + similarities + regime_performance + subtree_cache + archive + activity_log)
-  - `factor_kb_store.py`: pgvector semantic search adapter with graceful PostgreSQL degradation
-  - `dashboard_routes.py`: C4 Dashboard aggregation API — 8 modules in parallel with 5s timeout and per-module graceful degradation
+## 2026.6.3 — P0-P3 深度审计 + 文档 + 测试修复
 
-- **Data Source Fixes** — Free A-share data reliability overhaul
-  - Runner fallback logic: now triggers when data doesn't cover requested date range (not just when empty)
-  - `_data_covers_range()` helper with 60-day tolerance for coverage gap detection
-  - `mootdx_loader.py`: already paginated (800-bar chunks, loops until coverage), TDX free server limitation documented
-  - `eastmoney.py`: added `_fetch_one_paginated()` — date-based pagination with `end` parameter, 300-bar chunks, 500-chunk safety cap
-  - `baidu.py`: added truncation detection with warning when server-capped data doesn't cover requested range
-  - System prompt + strategy-generate skill: full data source history depth guide (mootdx ~2-3yr, eastmoney ~10yr+, tencent ~10yr+, etc.)
-  - `pyarrow>=14.0.0` added to requirements for Parquet store support
+### 修复
 
-### Changed
+- **[引擎] P0 前瞻性偏差回归修复** — `TradingEngine._record_bars()` 必须在 `_generate_signals()` 之后执行，防止策略通过 `_data_map` 访问当前 bar；`equity_for_sizing` 必须在风险检查前缓存，避免 `_last_bar_prices` 被今日收盘价更新后用于 sizing 计算
+- **[引擎] P0 跳空检测漏单** — `RiskPipeline.check_gap()` 现在对开盘价穿透止损/止盈价的情况正确触发退出，之前仅对收盘价检查导致跳空止损完全失效
+- **[GP] P0 排名确定性** — GP 锦标赛选择改用稳定排序（先按 fitness 降序，再按 `formula_hash` 字典序），消除同分个体的非确定性 shuffle
+- **[引擎] P0 佣金费率修正** — A 股佣金从 0.3 bps 修正为 3 bps（万三），之前少算一个数量级导致回测收益虚高
+- **[引擎] P1 列对齐错误** — `np.where()` 配合 `.values` 使用会丢失列标签，引入 `_safe_if_else()` 辅助函数替代，修复并行评估中 DataFrame 列混乱
+- **[因子知识库] P1 pgvector 降级处理** — `factor_kb_store.py` 在 PostgreSQL 不可用时优雅降级为本地 JSON 存储，不再抛异常中断整个因子挖掘流程
+- **[引擎] P1 日内时间戳推断** — bar 间隔计算从 `Timedelta(days=1)` 硬编码改为 `pd.infer_freq()` 动态推断，修复周线/4 周线/2 小时线等非日线周期的年化系数错误
+- **[GP] P0 线程安全** — 并行 GP 评估中所有 KB 访问必须持有 `self._kb_lock`，修复 `factor_kb.register()` 并发写入导致的 SQLite 数据库锁竞争和数据损坏
+- **[GP] P0 KB 溯源校验** — 复用 KB 中缓存的因子指标前必须校验 `data_source_version` 和 `train_date_range`，防止不同数据集/时间范围的指标被错误复用
+- **[GP] P1 FDR 校正方法** — 多重假设检验校正从 Benjamini-Hochberg (BH) 改为 Benjamini-Yekutieli (BY)，因 GP 候选因子高度相关，BH 的独立性假设不成立
+- **[GP] P1 OOS 评估窗口** — Walk-forward 窗口从重叠滑动改为非重叠滚动窗口，确保各窗口 OOS IC 相互独立，消除自相关导致的显著性虚高
+- **[GP] P1 Elite Tracker 哈希** — Elite 个体追踪器改用 `formula_hash` 而非对象 id，修复重启后 tracker 无法识别同一公式的问题
+- **[安全] P1 SIGALRM 替代** — `SafetyValidator` 的运行时断路器从 `signal.SIGALRM` 改为 `threading.Thread + join(timeout)`，SIGALRM 仅在 Unix 主线程可用，子线程中会静默失效
+- **[数据] P1 加载器可用性检测** — `is_available()` 必须执行真实网络连通性检查，不能仅 `import requests` 就返回 True，修复离线环境下 loader 误报可用
+- **[引擎] P1 退市检测** — `BacktestDriver` 检测到标的 K 线数据提前终止时触发 `force_close_symbol(code, "delisted")`，修复退市股票在回测中永远持有到最后的问题
+- **[数据] P2 截断阈值** — Baidu loader 截断检测阈值从固定 2000 bar 改为动态计算（预期 bar 数的 95%），消除不同频率下的误报/漏报
+- **[指标] P2 Scale NaN** — `calc_metrics()` 在全部收益为零时 scale 计算产生 NaN，添加 `np.where` 保护返回 0.0
+- **[引擎] P2 预热期** — 回测指标计算跳过前 N 个 bar 的预热期（默认 21 交易日），避免初始空仓期污染夏普/最大回撤等统计量
+- **[指标] P2 年化系数** — `calc_bars_per_year()` 补齐所有 interval 的年化系数映射（1W→52, 4W→13, 2d→126, 2h→756），修复非日线回测指标年化错误
+- **[因子知识库] P3 主题归一化** — KB 主题标签从自由文本改为小写归一化 + 去重，修复同一主题因大小写/空格变体被识别为不同主题的问题
+- **[测试] MockSignalAdapter 签名更新** — `on_bar_batch()` 增加 `*, skip_append=False` 参数以匹配 `SignalAdapter` 生产代码签名的变更，修复 4 个测试用例的 `TypeError`
 
-- **GP Engine P0 Upgrades** (`gp_engine.py`)
-  - `_evaluate_individual()`: switched from additive `evaluate_fitness()` to multiplicative `composite_fitness()` with orthogonality checks against KB core factors
-  - `initialize_population()`: switched from pure random to `hybrid_initialize_population()` with auto-extraction of Zoo survivors as additional skeletons
-  - FactorKB auto-registration: top 5 significant individuals per generation auto-registered to KB with formula dedup
-  - FDR correction applied every generation (was: only on final top 10)
-  - Tiered operator unlocking: `evolve()` now accepts `generation` parameter, mutations filtered by operator tier
-  - `GPEvolutionConfig`: 7 new fields (fitness_metric="composite", use_tiered_operators, use_hybrid_init, skeleton_ratio, mutant_ratio, use_kb, fdr_alpha)
-  - KB mining guidance emitted via SSE every 10 generations
-  - `GPEvolution.__init__()`: accepts optional `kb` parameter, auto-loads core factors for orthogonality
+### 新增
 
-- **ExpressionTree Enhancements** (`expression_tree.py`)
-  - `formula_hash` property: SHA256 of canonical normalized formula for dedup
-  - `normalized_formula` property: deterministic form with commutative op sorting, lowercased features, fixed window encoding
-  - `to_signalengine_code()`: compiles tree → deployable SignalEngine Python class
-  - `OPERATOR_TIERS` dict + `get_allowed_operators()`: progressive operator unlocking by generation progress
-  - `_normalize_node()` + `_compile_to_signalengine()`: canonical form generation and code compilation helpers
+- **[文档] CLAUDE.md** — 项目开发指南：架构总览（TradingEngine 管道 / Backtest 引擎继承体系 / 数据加载 3 层架构 / 因子挖掘系统 / 前端状态管理 / Skills 系统）、构建/测试/运行命令、已知缺陷模式（8 类避免引入的 bug 模式）
+- **[文档] 核心代码文档** — 9 个关键文件新增 1025+ 行 docstring（模块级/类级/方法级），覆盖安全边界/金融计算/数据完整性/并发/算法复杂度 5 类关键代码
+- **[文档] 开发规则** — CLAUDE.md 新增 Changelog 维护规范（每次改动必须记录，Keep a Changelog 格式）和文档要求（5 类关键代码必须携带完整文档）
+- **[基础设施] Docker 数据卷** — `docker-compose.yml` 新增 `/opt/data` 卷挂载，持久化 PostgreSQL 数据
 
-### Test Coverage
-- `test_formula_consistency.py`: 30 tests covering tree→hash consistency, serialization round-trip, SignalEngine code execution, KB dedup, lifecycle state machine, hybrid init, enhanced fitness, operator tiers, and cross-representation execution consistency
-- All existing 976+ tests pass
+### 变更
 
-### Added
+- **[文档] CHANGELOG.md** — 按 CLAUDE.md 规范新增 `2026.6.3` 条目，详细记录 5 轮 P0-P3 缺陷修复
 
-- **AI Factor Mining Engine** — Genetic programming + LLM-guided alpha discovery
-  - Expression tree evolution: 20+ operators, tournament selection, crossover/mutation, complexity penalty (AIC/BIC)
-  - Walk-Forward validation: rolling OOS windows replace simple train/test split; fitness = mean(OOS IC) − w·std(OOS IC)
-  - Benjamini-Hochberg multiple testing correction; `adjusted_p_value` and `is_statistically_significant` on every candidate
-  - LLM factor extraction: PDF research paper → factor formulas via structured JSON Schema output
-  - Multi-LLM debate filter: 3 personas (quant/research/PM) independently score candidates
-  - Hybrid GP+LLM co-evolution: LLM reviews population every ~5 generations, suggests search directions
-  - Factor promotion: auto-generates `__alpha_meta__` + `compute(panel)` code into `zoo/mined/`
-  - SSE live evolution chart: real-time IC curve per generation, expression tree viewer
-  - 13 API endpoints + 4 frontend components (EvolutionChart, ExpressionTreeViewer, CandidatesTable, MiningProgressCard)
-  - DB: `vt_factor_mining_runs`, `vt_factor_mining_candidates`
+## 2026.6.1 — C 阶段：LLM+GP+因子知识库三位一体 Alpha 工厂
 
-- **Smart Stock Screener** — Multi-condition filtering across 450+ Alpha Zoo factors + 11 technical indicators
-  - Whitelist validation: all field names and operators validated against strict frozenset whitelists
-  - Parameterized SQL: `%s` placeholders prevent injection; `statement_timeout` protection
-  - AI-recommended presets based on recent factor IC ranking
-  - Batch operations: add to watchlist, export CSV, equal-weight basket backtest
-  - 8 API endpoints + DB: `vt_screener_presets`, `vt_screener_runs`, `vt_screener_results`
+### 新增
 
-- **Strategy Statistical Comparison** — Paired t-test, Bootstrap Sharpe CI (10k samples), White's Reality Check, CAPM/FF3 regression
-  - Rolling window Sharpe stability analysis
-  - Overlaid equity curves endpoint
-  - 3 API endpoints via `compare_routes.py`
+- **C 阶段：LLM + GP + FactorKB 三位一体 Alpha 工厂** — 完整实施计划 + 核心代码
+  - `ExpressionTree` 作为唯一数据源：`formula_hash` (SHA256)、`normalized_formula`、`to_signalengine_code()`、`to_callable()` 均从同一棵树派生
+  - 27 个算子，3 级渐进式解锁（basic/advanced/alternative），防止搜索空间爆炸
+  - `enhanced_fitness.py`：乘法复合适应度 — `rank_ic × cost_penalty × orthogonality_penalty × a_share_penalty × stability × complexity_discount`
+  - A 股专项惩罚：T+1 日内 ×0.5、极端换手率 >200x ×0.3、小盘极端暴露 ×0.7
+  - FDR 多重检验校正（Benjamini-Hochberg, q=0.05），每代应用
+  - `hybrid_init.py`：基于骨架的种群初始化（30% 已知有效结构 + 40% 变异 + 30% 随机），含 10 个 A 股因子骨架
+  - `factor_kb.py`：FactorKnowledgeBase — 按 formula_hash 注册/查询/去重，生命周期状态机（discovered→validating→approved→paper_trading→production→deprecated→archived），语义标签搜索，主题健康分析的挖掘指导
+  - `llm_intervention.py`：LLM 引导进化，7 种干预动作（inject_seeds/adjust_mutation/theme_redirect/avoid_redundant/no_op/…），结构化提示词含 few-shot 示例 + KB 上下文 + Zoo 反馈
+  - 消融研究框架：3 组对照实验（Baseline/LLM/Placebo），Welch's t-test 验证 LLM 的真实贡献
+  - `duckdb_evaluator.py`：DuckDB 基准门禁 — 10 个典型因子基准测试，仅在 >5x 加速时迁移
+  - `safety_validator.py`：3 层防护 — AST 白名单验证器 + 类型签名验证器 + 运行时断路器（512MB/30s）
+  - Walk-Forward 24 窗口清除交叉验证，5 天清除期
+  - PAPER_TRADING 晋级门禁：≥21 交易日、Sharpe>0.5、换手率差距<1.5x、正收益、滑点<15bps
+  - `factor_tools.py`：4 个 MCP 工具（factor_kb_search / factor_review / factor_mining_start_gp / factor_kb_list）+ 自动晋级管道
+  - PostgreSQL DDL：7 张表（vt_factor_knowledge + snapshots + similarities + regime_performance + subtree_cache + archive + activity_log）
+  - `factor_kb_store.py`：pgvector 语义搜索适配器，支持 PostgreSQL 优雅降级
+  - `dashboard_routes.py`：C4 仪表盘聚合 API — 8 个模块并行，5s 超时，每模块优雅降级
 
-- **Performance Attribution Dashboard** — Brinson (allocation/selection/interaction), factor cross-sectional regression, sector (SW classification), time-series decomposition
-  - Full attribution report endpoint aggregating all 4 dimensions
-  - 5 API endpoints + 4 frontend chart components
+- **数据源修复** — 免费 A 股数据可靠性全面升级
+  - Runner 回退逻辑：现当数据未覆盖请求的日期范围时触发（不仅限于数据为空时）
+  - `_data_covers_range()` 辅助函数，60 天容差用于覆盖缺口检测
+  - `mootdx_loader.py`：已分页（800 bar 块，循环直到覆盖），TDX 免费服务器限制已文档化
+  - `eastmoney.py`：新增 `_fetch_one_paginated()` — 基于日期的分页，使用 `end` 参数，300 bar 块，500 块安全上限
+  - `baidu.py`：新增截断检测，服务器截断数据未覆盖请求范围时发出警告
+  - 系统提示词 + strategy-generate 技能：完整数据源历史深度指南（mootdx ~2-3年、eastmoney ~10年+、tencent ~10年+ 等）
+  - `pyarrow>=14.0.0` 加入依赖，用于 Parquet 存储支持
 
-- **Scheduled Tasks Engine** — 6 task types: auto_backtest, data_health_check, watchlist_alert, signal_report, factor_mining, screener_run
-  - Visual cron builder with next-run preview
-  - Execution history + log viewer
-  - PostgreSQL persistence + notification integration
-  - 9 API endpoints + DB: `vt_scheduled_tasks`, `vt_scheduled_task_executions`
+### 变更
 
-- **News Sentiment Analysis** — Chinese NLP sentiment (SnowNLP), stock-level aggregation, trending topics, market sentiment overview (VIX/DXY/yield/F&G)
-  - Standalone `/sentiment` page: trending topics ranking with sentiment bars, market sentiment gauge cards, live news feed with SSE
-  - Enhanced Trading page news tab: per-article sentiment score badges, stock sentiment summary bar, real-time SSE updates
-  - Real-time SSE news stream via PostgreSQL LISTEN/NOTIFY cross-worker bus (SSEBus); per-symbol or market-wide subscription
-  - Keyword-based topic extraction from Chinese financial news (10 topic categories)
-  - `SentimentAnalyzer` wired into all news endpoints; real news from DuckDuckGo/Finnhub scored on-the-fly
-  - 5 API endpoints: `/news/feed`, `/news/sentiment/{symbol}`, `/news/trending`, `/news/market-sentiment`, `/news/stream`
+- **GP 引擎 P0 升级**（`gp_engine.py`）
+  - `_evaluate_individual()`：从加法 `evaluate_fitness()` 切换为乘法 `composite_fitness()`，含与 KB 核心因子的正交性检查
+  - `initialize_population()`：从纯随机切换为 `hybrid_initialize_population()`，自动提取 Zoo 幸存者作为额外骨架
+  - FactorKB 自动注册：每代前 5 名显著个体自动注册到 KB，含公式去重
+  - FDR 校正每代应用（原：仅对最终前 10 名应用）
+  - 分级算子解锁：`evolve()` 现接受 `generation` 参数，变异按算子等级过滤
+  - `GPEvolutionConfig`：7 个新字段（fitness_metric="composite"、use_tiered_operators、use_hybrid_init、skeleton_ratio、mutant_ratio、use_kb、fdr_alpha）
+  - KB 挖掘指导每 10 代通过 SSE 推送
+  - `GPEvolution.__init__()`：接受可选 `kb` 参数，自动加载核心因子用于正交性检查
 
-- **Strategy Version Control** — Auto-versioning with unified diffs, version comparison, one-click rollback
-  - Diff viewer component with ± syntax coloring
-  - 5 API endpoints + DB: `vt_strategy_versions`
+- **ExpressionTree 增强**（`expression_tree.py`）
+  - `formula_hash` 属性：规范化公式的 SHA256，用于去重
+  - `normalized_formula` 属性：确定性形式，含交换算子排序、小写特征名、固定窗口编码
+  - `to_signalengine_code()`：编译树 → 可部署的 SignalEngine Python 类
+  - `OPERATOR_TIERS` 字典 + `get_allowed_operators()`：按代际进度渐进式解锁算子
+  - `_normalize_node()` + `_compile_to_signalengine()`：规范化形式生成和代码编译辅助函数
 
-- **Strategy Marketplace** — Publish/browse/rate/install strategies
-  - 5-star rating, install count ranking, market/category filtering
-  - 6 API endpoints + DB: `vt_strategy_marketplace`, `vt_strategy_ratings`
+### 测试覆盖
+- `test_formula_consistency.py`：30 个测试，覆盖树→哈希一致性、序列化往返、SignalEngine 代码执行、KB 去重、生命周期状态机、混合初始化、增强适应度、算子等级和跨表示执行一致性
+- 所有现有 976+ 测试通过
 
-- **Options Analysis Module** — Black-Scholes pricing with full Greeks (Δ, Γ, Θ, ν, ρ), binomial tree, implied volatility Newton-Raphson solver, volatility surface generation
-  - 5 API endpoints
+## 2026.6.1 — AI 因子挖掘引擎 + 股票筛选器 + 更多
 
-- **Live Trading Bridge** — 5-step pre-flight validation (broker, risk config, performance, limits, balance), paper→live promotion with risk controls
-  - 2 API endpoints
+### 新增
 
-- **Onboarding Wizard** — 6-step guided setup (Welcome → LLM → Data Sources → Watchlist → Strategy → Done), auto-detect existing config, dismissible
-  - Frontend-only component
+- **AI 因子挖掘引擎** — 遗传规划 + LLM 引导 Alpha 发现
+  - 表达式树进化：20+ 算子，锦标赛选择，交叉/变异，复杂度惩罚（AIC/BIC）
+  - Walk-Forward 验证：滚动 OOS 窗口替代简单训练/测试分割；适应度 = mean(OOS IC) − w·std(OOS IC)
+  - Benjamini-Hochberg 多重检验校正；每个候选因子含 `adjusted_p_value` 和 `is_statistically_significant`
+  - LLM 因子提取：PDF 研究论文 → 因子公式，通过结构化 JSON Schema 输出
+  - 多 LLM 辩论过滤：3 个角色（quant/research/PM）独立评分候选因子
+  - 混合 GP+LLM 协同进化：LLM 约每 5 代审查种群，建议搜索方向
+  - 因子晋级：自动生成 `__alpha_meta__` + `compute(panel)` 代码到 `zoo/mined/`
+  - SSE 实时进化图表：每代 IC 曲线，表达式树查看器
+  - 13 个 API 端点 + 4 个前端组件（EvolutionChart、ExpressionTreeViewer、CandidatesTable、MiningProgressCard）
+  - 数据库：`vt_factor_mining_runs`、`vt_factor_mining_candidates`
 
-- **Mobile Responsive Layout** — Adaptive sidebar (collapsed on mobile + overlay), bottom nav bar, touch-friendly 16px inputs, safe-area-bottom inset
+- **智能股票筛选器** — 450+ Alpha Zoo 因子 + 11 个技术指标的多条件过滤
+  - 白名单验证：所有字段名和算子对照严格 frozenset 白名单验证
+  - 参数化 SQL：`%s` 占位符防注入；`statement_timeout` 保护
+  - 基于最近因子 IC 排名的 AI 推荐预设
+  - 批量操作：加入自选、导出 CSV、等权篮子回测
+  - 8 个 API 端点 + 数据库：`vt_screener_presets`、`vt_screener_runs`、`vt_screener_results`
 
-- **Cross-Worker SSE Bus** — PostgreSQL LISTEN/NOTIFY pub/sub layer with in-process fallback (`services/sse_bus.py`)
+- **策略统计对比** — 配对 t 检验、Bootstrap Sharpe CI（10k 样本）、White's Reality Check、CAPM/FF3 回归
+  - 滚动窗口 Sharpe 稳定性分析
+  - 叠加权益曲线端点
+  - 3 个 API 端点 via `compare_routes.py`
 
-- **GP Performance Profiler** — Per-generation eval timing (p50/p95/p99), data loading + population init tracking (`services/gp_profiler.py`)
+- **业绩归因仪表盘** — Brinson（配置/选择/交互）、因子横截面回归、板块（申万分类）、时间序列分解
+  - 聚合所有 4 个维度的完整归因报告端点
+  - 5 个 API 端点 + 4 个前端图表组件
 
-- **Factor Wide Table ETL** — Daily batch job computing all Alpha Zoo factors into `vt_factor_daily_wide` for fast screening queries (`services/factor_wide_etl.py`)
+- **定时任务引擎** — 6 种任务类型：auto_backtest、data_health_check、watchlist_alert、signal_report、factor_mining、screener_run
+  - 可视化 cron 构建器，含下次运行预览
+  - 执行历史 + 日志查看器
+  - PostgreSQL 持久化 + 通知集成
+  - 9 个 API 端点 + 数据库：`vt_scheduled_tasks`、`vt_scheduled_task_executions`
 
-- **LLM Prompt Cache** — SHA-256 dedup with TTL, cache hit/miss stats (`services/llm_cache.py`)
+- **新闻情绪分析** — 中文 NLP 情绪（SnowNLP）、个股级别聚合、热门话题、市场情绪概览（VIX/DXY/yield/F&G）
+  - 独立 `/sentiment` 页面：热门话题排名含情绪条、市场情绪仪表卡片、实时新闻推送含 SSE
+  - 增强 Trading 页面新闻 tab：每篇文章情绪评分徽章、个股情绪摘要栏、实时 SSE 更新
+  - 通过 PostgreSQL LISTEN/NOTIFY 跨 worker 总线（SSEBus）实时 SSE 新闻流；可按标的或全市场订阅
+  - 基于关键词的中文财经新闻话题提取（10 个话题类别）
+  - `SentimentAnalyzer` 接入所有新闻端点；来自 DuckDuckGo/Finnhub 的真实新闻实时评分
+  - 5 个 API 端点：`/news/feed`、`/news/sentiment/{symbol}`、`/news/trending`、`/news/market-sentiment`、`/news/stream`
 
-- **Data Source Status Optimization** — Cached with 5-min TTL, parallel checks (16 workers), 1s timeout per loader (down from 2s), worst-case 46s → ≤10s
+- **策略版本控制** — 自动版本化，含统一 diff、版本对比、一键回滚
+  - Diff 查看器组件，含 ± 语法着色
+  - 5 个 API 端点 + 数据库：`vt_strategy_versions`
 
-### Changed
+- **策略市场** — 发布/浏览/评分/安装策略
+  - 5 星评分、安装次数排名、市场/类别过滤
+  - 6 个 API 端点 + 数据库：`vt_strategy_marketplace`、`vt_strategy_ratings`
 
-- **LLM Cost Controls** — Rate limiting (10 calls/min), daily token budget (500k), usage tracking via `get_llm_usage_stats()`
-- **Screener Security** — All conditions validated against field/operator whitelists; sanitized field names
-- **GP Fitness** — Walk-forward cross-validation replaces simple train/test split; OOS stability penalty
-- **Factor Candidates** — Added `adjusted_p_value` and `is_statistically_significant` fields
-- **API Server** — 6 new route modules mounted (factor_mining, screener, compare, attribution, scheduler, news)
+- **期权分析模块** — Black-Scholes 定价含完整希腊字母（Δ、Γ、Θ、ν、ρ）、二叉树、隐含波动率 Newton-Raphson 求解器、波动率曲面生成
+  - 5 个 API 端点
 
-### Legal
+- **实盘交易桥接** — 5 步起飞前验证（券商、风控配置、业绩、限额、余额），模拟→实盘晋级含风控
+  - 2 个 API 端点
 
-- **Disclaimer** — Added "for research and educational purposes only, not investment advice" to both README.md and README_zh.md
+- **新手引导向导** — 6 步引导设置（欢迎 → LLM → 数据源 → 自选股 → 策略 → 完成），自动检测已有配置，可关闭
+  - 纯前端组件
+
+- **移动端响应式布局** — 自适应侧边栏（移动端折叠 + 遮罩层）、底部导航栏、触控友好 16px 输入框、safe-area-bottom 内边距
+
+- **跨 Worker SSE 总线** — PostgreSQL LISTEN/NOTIFY 发布/订阅层，含进程内回退（`services/sse_bus.py`）
+
+- **GP 性能分析器** — 每代评估计时（p50/p95/p99），数据加载 + 种群初始化追踪（`services/gp_profiler.py`）
+
+- **因子宽表 ETL** — 每日批量任务，计算所有 Alpha Zoo 因子到 `vt_factor_daily_wide` 用于快速筛选查询（`services/factor_wide_etl.py`）
+
+- **LLM 提示词缓存** — SHA-256 去重含 TTL，缓存命中/未命中统计（`services/llm_cache.py`）
+
+- **数据源状态优化** — 缓存 5 分钟 TTL，并行检查（16 workers），每个 loader 1s 超时（原 2s），最坏情况从 46s → ≤10s
+
+### 变更
+
+- **LLM 成本控制** — 速率限制（10 次/分钟），每日 token 预算（500k），通过 `get_llm_usage_stats()` 使用追踪
+- **筛选器安全** — 所有条件对照字段/算子白名单验证；字段名消毒
+- **GP 适应度** — Walk-forward 交叉验证替代简单训练/测试分割；OOS 稳定性惩罚
+- **因子候选** — 新增 `adjusted_p_value` 和 `is_statistically_significant` 字段
+- **API 服务器** — 挂载 6 个新路由模块（factor_mining、screener、compare、attribution、scheduler、news）
+
+### 法律
+
+- **免责声明** — README.md 和 README_zh.md 均添加「仅供研究和教育目的，不构成投资建议」
 
 ---
 
-## 2026.5.30 (Dashboard)
+## 2026.5.30 — 交易仪表盘
 
-### Added
+### 新增
 
-- **交易 Dashboard** (`/trading`) — 全新的交易统一界面，左侧搜索+自选股 + 右侧 K 线/分时图 + 底部多功能面板
-  - **股票搜索框**：自选股顶部嵌入 `StockInput` 组件，支持代码/名称/拼音搜索，选中即加入自选股，10s 自动刷新实时价格
-  - **分时图** (`MinuteLineChart`)：基于 MooTDX 分时数据的 ECharts 组件，价格折线+渐变填充+成交量柱+昨收虚线+十字光标 tooltip，支持午休遮罩区域
-  - **K 线/分时一键切换**：图表区模式切换，分时模式下显示日期选择器
-  - **12 个 API 端点**：`GET /stock/minute-line`（分时图数据）+ 11 个 trading 端点（OMS 下单/券商状态/通知配置/参数优化 SSE/WS行情/指数配置/研报资讯）
+- **交易仪表盘**（`/trading`）— 全新的交易统一界面，左侧搜索+自选股 + 右侧 K 线/分时图 + 底部多功能面板
+  - 股票搜索框：自选股顶部嵌入 `StockInput` 组件，支持代码/名称/拼音搜索，选中即加入自选股，10s 自动刷新实时价格
+  - 分时图（`MinuteLineChart`）：基于 MooTDX 分时数据的 ECharts 组件，价格折线+渐变填充+成交量柱+昨收虚线+十字光标 tooltip，支持午休遮罩区域
+  - K 线/分时一键切换：图表区模式切换，分时模式下显示日期选择器
+  - 12 个 API 端点：`GET /stock/minute-line`（分时图数据）+ 11 个 trading 端点（OMS 下单/券商状态/通知配置/参数优化 SSE/WS 行情/指数配置/研报资讯）
 - **多用户数据隔离** — 3 层安全加固
-  - **订单 PostgreSQL 持久化**：`vt_trading_orders` 表，参数化 SQL，`WHERE user_id=%s` 全量过滤，服务重启不丢失
-  - **券商上下文隔离**：`OpenSecTradeContext` 按 `user_id` 缓存，不同用户可连接不同 FutuOpenD 实例
-  - **WS 订阅隔离**：每个用户独立 `set[str]` 订阅列表，互不干扰
+  - 订单 PostgreSQL 持久化：`vt_trading_orders` 表，参数化 SQL，`WHERE user_id=%s` 全量过滤，服务重启不丢失
+  - 券商上下文隔离：`OpenSecTradeContext` 按 `user_id` 缓存，不同用户可连接不同 FutuOpenD 实例
+  - WS 订阅隔离：每个用户独立 `set[str]` 订阅列表，互不干扰
   - 通知/指数/优化任务均按用户 JSON 文件或 job ownership 校验隔离
-- **DB 迁移** — `migrations/004_trading_orders.sql`，`run_trading_migration()` 启动时自动建表
+- **数据库迁移** — `migrations/004_trading_orders.sql`，`run_trading_migration()` 启动时自动建表
 
-### Changed
+### 变更
 
-- **i18n 扩展** — 新增 ~27 个 trading 相关翻译键（中英双语），覆盖搜索/图表/下单/券商/通知/优化全界面
-- **导航扩展** — 侧边栏新增「交易」导航入口（BarChart3 图标），路由 `/trading` 懒加载
-- **API 类型扩展** — `types/api.ts` 新增 12 个 TS 接口（MinuteBar/MinuteLineData/TradingOrder/BrokerStatus/NotifyConfig 等）
-- **API 客户端扩展** — `lib/api.ts` 新增 15 个 API 方法（getMinuteLine/listOrders/getBrokerStatus 等）
+- **i18n 扩展** — 新增约 27 个 trading 相关翻译键（中英双语），覆盖搜索/图表/下单/券商/通知/优化全界面
+- **导航扩展** — 侧边栏新增「交易」导航入口，路由 `/trading` 懒加载
+- **API 类型扩展** — `types/api.ts` 新增 12 个 TS 接口
+- **API 客户端扩展** — `lib/api.ts` 新增 15 个 API 方法
 
-## 2026.5.30
+## 2026.5.30 — A 股数据源扩展 + 券商接入
 
-### Added
+### 新增
 
 - **A 股数据源扩展（4 个新加载器）**
   - `mootdx` — TCP 直连通达信，免费 K 线（日/周/月/1m~60m）+ 五档盘口 + 逐笔成交，不封 IP
   - `eastmoney` — 东财 push2 HTTP K 线，免费日线 + 分钟级，国内最稳定免费 HTTP K 线源
   - `baidu` — 百度股市通 K 线（自带 MA5/MA10/MA20）+ 概念/行业/地域三维板块分类
   - `ths_eps` — 同花顺一致预期 EPS（直连 basic.10jqka.com.cn），用于 PEG/PE 消化计算
-- **A 股回退链扩展** — 从 4 源 (`tushare→tencent→twelvedata→akshare`) 扩展为 8 源 (`mootdx→tushare→eastmoney→tencent→futu→baidu→twelvedata→akshare`)
+- **A 股回退链扩展** — 从 4 源扩展为 8 源（`mootdx→tushare→eastmoney→tencent→futu→baidu→twelvedata→akshare`）
 - **PG OHLCV 缓存层** — `cache.py` + `migrations/003_ohlcv_cache.sql`，按 `(code, interval, bar_date)` 缓存 K 线，自动回写
 - **并发数据获取** — `fetch_concurrent()` ThreadPoolExecutor，20 只股票 3-5x 加速
-- **Tencent 2000-bar 截断警告** — 超出上限时 `warnings.warn()` 告知用户
 
-- **订单管理系统 (OMS)** — `src/trading/oms.py`，6 状态订单生命周期 (PENDING→SUBMITTED→PARTIAL→FILLED/CANCELLED/REJECTED)，PG 持久化，回调钩子
-- **富途券商接入** — `src/trading/brokers/futu_broker.py`，下单/撤单/查单/查持仓/查账户，通过 FutuOpenD
+- **订单管理系统 (OMS)** — `src/trading/oms.py`，6 状态订单生命周期（PENDING→SUBMITTED→PARTIAL→FILLED/CANCELLED/REJECTED），PG 持久化
+- **富途券商接入** — `src/trading/brokers/futu_broker.py`，下单/撤单/查单/查持仓/查账户
 - **告警通知系统** — `src/notify/`，Webhook（企业微信/钉钉/Discord/Slack）+ SMTP 邮件，止损/止盈/日亏损/回撤/异常 5 类告警
-- **WebSocket 实时行情** — `src/trading/ws_feed.py`，OKX + 东财 push2 WebSocket，替代 REST 轮询
+- **WebSocket 实时行情** — `src/trading/ws_feed.py`，OKX + 东财 push2 WebSocket
 
 - **信号层/资金面数据源（4 个模块）**
   - `eastmoney_datacenter.py` — 东财统一 API，龙虎榜/解禁/融资融券/大宗交易/股东户数/分红/行业排名
   - `fund_flow.py` — 分钟级 + 120 日日级资金流（主力/大单/中单/小单/超大单）
-  - `ths_hot.py` — 同花顺当日强势股 + 题材归因 reason tags + 词频趋势
+  - `ths_hot.py` — 同花顺当日强势股 + 题材归因
   - `northbound.py` — 沪深股通分钟流向 + 本地 CSV 自缓存历史
-- **回测引擎基于市场选择** — `_create_market_engine` 从硬编码源名改为基于 `markets` 属性动态选择，新 A 股 loader 不再错误路由到 CryptoEngine
-- **`_VALID_SOURCES` 动态校验** — 从 `LOADER_REGISTRY` 动态获取，不再硬编码
-
+- **回测引擎基于市场选择** — `_create_market_engine` 从硬编码源名改为基于 `markets` 属性动态选择
 - **参数优化引擎** — `src/optimize/`，Grid / Random / Bayesian 三种搜索模式，SSE 流式进度
-- **Walk-Forward 分析** — `src/optimize/walk_forward.py`，N 窗口滚动优化 + IS/OOS 一致性 + 参数稳定性
-- **蒙特卡洛扩展** — `validation.py` 新增 Bootstrap 模拟 + 噪声注入模拟，尾部风险分布
-- **数据溯源追踪** — `FetchResult` dict 子类，携带 `meta={source, fetch_time, latency, n_bars}`
-- **Parquet 本地存储** — `store.py`，按 code/interval 存 Parquet，增量更新，PG 热缓存 + Parquet 冷存储
-- **加载器健康度感知** — `health.py`，成功率/延迟/连续失败追踪，`health_aware_resolve()` 智能选择最快健康 loader
-- **统一 DataStore API** — `data_store.py`，`get_ohlcv()` 一行走 PG→Parquet→API 三级回退 + 自动回写
+- **Walk-Forward 分析** — N 窗口滚动优化 + IS/OOS 一致性 + 参数稳定性
+- **投资组合风险度量** — VaR（历史+参数法）/CVaR/Kelly 公式/回撤熔断/行业集中度
+- **Black-Litterman 模型** — 贝叶斯融合均衡收益 + 主观观点 → 均值-方差优化
+- **压力测试** — 6 种预设场景（2008/2015/2020/2024/flash/stagflation）+ 自定义场景
+- **PDF 报告导出** — HTML→PDF（weasyprint），含指标卡片/交易明细/风险度量
+- **数据源状态面板** — 新建 `/data-sources` 页面 + 路由，实时显示所有 loader 可用状态 + 健康度
 
-- **投资组合风险度量** — `portfolio_risk.py`，VaR（历史+参数法）/CVaR/Kelly 公式/回撤熔断/行业集中度
-- **Black-Litterman 模型** — `optimizers/black_litterman.py`，贝叶斯融合均衡收益 + 主观观点 → 均值-方差优化
-- **压力测试** — `stress_test.py`，6 种预设场景（2008/2015/2020/2024/flash/stagflation）+ 自定义场景
-- **PDF 报告导出** — `report.py`，HTML→PDF（weasyprint），含指标卡片/交易明细/风险度量
+### 修复
 
-- **数据源状态面板** — 新建 `/data-sources` 页面 + 路由 + 导航入口，实时显示所有 loader 可用状态 + 健康度
-- **前端修复** — `/compare` 加入侧边栏导航，DataSourceStatus API 挂接，清理死代码引用
+- **会话页切回 loading 卡死** — `Agent.tsx` 的 `loadSessionMessages()` try/catch 改为 try/finally
+- **Docker build 失败** — Dockerfile 仍引用已删除的 `README_EN.md`，改为 `README_zh.md`
 
-### Changed
+### 安全
 
-- **A 股回退链重排** — Futu 从缺失加入链中，mootdx 置顶（免费分钟级+不封IP），eastmoney/baidu 插入
-- **`_create_market_engine` 重构** — 源名硬编码 → 市场类型动态选择，新增任何 A 股 loader 无需改引擎逻辑
-- **`backtest_tool.py` / `benchmark.py` / `metrics.py` / `settings_routes.py` / `ui_services.py`** — 从硬编码源名改为 `LOADER_REGISTRY` 动态查询
-- **`fetch_ohlcv` / `_fetch_auto` 集成缓存 + 溯源** — 先查 PG 缓存 → API 获取 → 自动回写 PG + Parquet + 记录 health
-- **设置页数据源状态** — loader 条目新增 `health` 字段（score/latency/failures），动态遍历 `LOADER_REGISTRY`
+- **强制改密** — `ADMIN_PASSWORD` 未配置时自动生成 16 位随机密码
+- **API 异常屏蔽** — 25 处 `HTTPException(detail=str(e))` 替换为通用消息
+- **补漏认证** — `/swarm/presets` 端点加认证依赖
 
-### Fixed
+---
 
-- **会话页切回 loading 卡死** — `Agent.tsx` 的 `loadSessionMessages()` 内两个 gen-check 提前 return 未重置 `sessionLoading`，切走再切回时 loading 永远卡在 true。`try/catch` 改为 `try/finally`，`finally` 中只在 gen 匹配时重置
-- **Docker build 失败 (README_EN.md not found)** — `Dockerfile:36` + `.dockerignore` 仍引用已删除的 `README_EN.md`，改为 `README_zh.md`
+## 2026.5.27 — 模拟盘增强 + 核心修复
 
-### Security
+### 修复
 
-- **强制改密** — `ADMIN_PASSWORD` 未配置时自动生成 16 位随机密码并打印到控制台，不再使用硬编码 `admin123`
-- **API 异常屏蔽** — 新增 `safe_error()` 函数，25 处 `HTTPException(detail=str(e))` 替换为通用消息，`ASTOCKPURSUE_DEBUG_ERRORS=1` 恢复详细错误
-- **补漏认证** — `/swarm/presets` 端点加 `dependencies=[Depends(require_auth)]`
+- **模拟盘 `use_intraday_stop` 启动报错** — `RiskConfig` 缺少 `use_intraday_stop` 字段
+- **停牌期信号污染** — 位置矩阵移除 ffill，停牌/非交易日仓位归零
+- **幸存者偏差未检测** — 数据拉取后检测无数据的 codes，追加警告到结果
+- **auto source 年化系数漂移** — 补齐 tencent/futu/finnhub/twelvedata/auto 交易日历
+- **非标 interval 年化错误** — 周线 252→52，4W→13 等
 
-### Quality
+### 新增
 
-- **静默吞错修复** — 9 处 `except Exception: pass` 全部加上 `logger.debug(..., exc_info=True)`（`dependencies.py`/`skills.py`/`common.py`/`ui_services.py`）
-- **Watchlist N+1 修复** — `GET /api/watchlist/prices` 从逐 symbol 调 API 改为 `DataStore.get_multi_ohlcv()` 批量获取
-- **配置外部化** — `rate_limit` max/window + `MAX_UPLOAD_SIZE` 改为 env var
-- **缓存 TTL** — `ohlcv_cache` 新增 `cleanup_expired_cache(retention_days=7)` 自动清理
-- **前端 i18n** — PaperTrading.tsx 40+ 硬编码中文字符串全部改为 i18n keys，新增 `pt*` 系列 30 个翻译键
-- **前端类型修复** — 新增 `DataSourceLoaderStatus` 接口，移除 `(api as any)` 逃生舱，`market→markets[0]`
-- **404 页面** — 新增 `NotFound.tsx` + catch-all 路由
+- **模拟盘 K 线实时显示** — SSE 实时追加新蜡烛，不再依赖「快速回测」
+- **基准对比指标** — `calc_metrics()` 新增 `beta` 计算
+- **前端滑点配置** — ChartPanel 新增滑点输入框
+- **核心引擎测试覆盖** — 33 个新测试（RiskPipeline/LiveDriver/TradingEngine）
+- **SSE 重连抖动** — ±25% 随机抖动量，防惊群效应
 
-### Changed
+---
 
-- **硬编码日期 → 动态计算** — `PaperTrading.tsx` 中 `"2026-01-01"` / `"2026-05-24"` 等 3 处改为 `new Date()` 动态计算
-- **AgentLoop 增加 session 日志** — `loop.py` 在 `run()` 入口和出口各加一行 `logger.info`，打印 `session_id` / `status` / `iterations`
-- **RiskConfig 统一定义** — 新增 `RiskConfigFields` frozen dataclass（`src/trading/risk_pipeline.py`），`papertrade/models.py` 的 Pydantic RiskConfig 字段默认值从 `RiskConfigFields` 派生，两处不再分裂
-- **API 路由注册标准化** — `runs_routes` / `sessions_routes` / `settings_routes` / `alpha_routes` 从 `create_router(require_auth)` 工厂函数改为 module-level `router = APIRouter(...)`，`api_server.py` 统一 `v1.include_router(xxx_router)` 模式（auth/system 因混合权限保留工厂）
-- **paperTradingStore 拆分** — 320 行单 store 拆为 `paperTradingRunStore`（run CRUD + detail）+ `paperTradingLiveStore`（SSE + ohlcvData + equity + markers + signalLog），`PaperTrading.tsx` 双 store 订阅
-- **README 默认英文** — `README.md` 改为英文 + `[中文文档](README_zh.md)` 跳转；`README_en.md` 删除
+## 2026.5.26 — 可视化策略构建器 + 前瞻性偏差修复
 
-### Added
+### 新增
 
-- **引擎完善（停牌/跳空/退市/夜盘）**
-  - 停牌检测：连续 2+ bar close 不变且 volume=0 → 标记停牌 → 强制平仓 → `exit_reason="suspended"`
-  - 跳空止损/止盈：`RiskPipeline.check_gap()` 检测 prev_close→bar_open 穿透止损/止盈价 → `exit_reason="gap_stop"/"gap_target"`
-  - 退市强制平仓：`BacktestDriver` 检测 code 数据提前终止 → `engine.force_close_symbol(c, "delisted")`
-  - 夜盘 session：45 个期货品种交易时段配置 + `bar_in_trading_session()` + 分钟级 bar 自动过滤非交易时段
-- **费用模型全面修复**
-  - 中国期货平今仓：IF/IC/IH 15× 费率，黄金白银平今仓免费，螺纹热卷 1.5×
-  - 全球期货保证金：`_MARGIN_PER_CONTRACT` 表接入 `_calc_margin()`
-  - 港股费率修正：拆分 HKEX trading fee + SFC/FRC levy，新增最低佣金配置
-  - 美股 SEC Section 31 费：卖单 $0.000008/notional
-  - 币圈动态资金费率：均值回归随机游走，opt-in via `dynamic_funding: true`
-  - 中国期货交割费：18 个品种每吨费率 + `get_delivery_fee()`
-  - Tushare 复权修复：`daily(adj="qfq")`
-- **集成测试** — `test_backtest_integration.py` 7 tests：A 股 buy-and-hold PnL、期货佣金+平今仓、港股多组件费率、美股 SEC 费、币圈动态资金费率
-- **前端 smoke test** — `paperTrading.test.ts`：验证 `getSSEUrl` 包含正确 BASE prefix
-- **AI Skill 新增 & 更新**
-  - 新 skill：`paper-trading-guide`（模拟盘操作指南）、`paper-trading-diagnose`（模拟盘问题诊断）
-  - 更新：`strategy-generate` config 模板补 slippage/benchmark；`backtest-diagnose` 补 survivorship 警告 + benchmark 参考；`execution-model` 补 config-based slippage 说明
-- **SSE 重连抖动** — `calcReconnectDelay` 新增 ±25% jitter，前端状态栏显示「重连中 (第N次, Xs后)」
-- **pyproject.toml 更新** — version→2026.5.27，description 扩展，keywords +3，classifiers +Python 3.13，urls +Changelog
+- **自定义模式（可视化策略/指标构建器）** — 下拉框/滑块/开关可视化配置入场/出场规则
+- **AI 对话面板** — 自然语言描述，AI 流式生成代码直接写入编辑器
+- **圆角卡片式页面布局** — 新增 `.section-card` CSS 类
 
-### Fixed
+### 修复
 
-- **Docker 容器启动失败** — `start.sh` 找不到 `AStockPursue` / `AStockPursue-mcp` 命令。`pip install --user` 把 CLI 入口装到了 `~/.local/bin/`，但 `sh` 的 `PATH` 不含该目录。在 `start.sh` 顶部补 `export PATH="$HOME/.local/bin:$PATH"`。
-- **Settings 页面卡死 / 数据源状态为空** — 前端请求 `/v1/settings/data-source-status`，但后端未定义该路由。请求落到 SPA fallback 返回 `index.html`（200 OK），前端 JSON 解析失败显示"暂无数据源信息"。新增 `GET /settings/data-source-status` 路由，返回所有已注册 loader 的可用状态。
-- **Settings API 阻塞事件循环导致服务器 hung** — `is_available()` 同步网络调用（mootdx/tushare 等）在 `async def` handler 内直接执行，uvicorn 单 worker 被阻塞。改为 `asyncio.to_thread()` 将 loader 检查移到线程池，每个 loader 独立 `ThreadPoolExecutor(max_workers=1)` + `shutdown(wait=False)` + 2s 超时，避免 hung 线程拖死整个请求。
-- **mootdx 不可用** — `mootdx` 依赖 `httpx<0.26`，与项目 `httpx>=0.28` 冲突，`pip install` 自动解析失败导致包未安装。Dockerfile 中改为 `pip install --no-deps mootdx tdxpy`，复用项目已有新版 httpx（仅基础 HTTP 功能，完全兼容）。
+- **回测引擎前瞻性偏差（4 项改进）** — Fast 模式逐 bar 扩展窗口、Simulation 模式数据截断、止损/止盈支持 bar 内高低价、开盘价涨跌停判断
+- **MCP 服务器设计缺陷（5 项修复）** — 轮询阻塞、文件操作失效、线程泄漏、错误吞没、凭证泄露
+- **Alpha 因子库调用报错** — `df["close"]` → `df[["close"]]`
 
-## 2026.5.27
+### 变更
 
-### Fixed
+- **Lab 模块重组** — sandbox→security、repository→lab/storage
+- **Docker Compose 合并** — pg 配置合并入主文件
+- **API 版本化** — 所有路由挂载 `/v1` 前缀
+- **前端类型拆分** — API 合约类型提取到 `types/api.ts`
+- **前端 UX 全面优化** — 回测指标卡片化、模拟盘代码/预览分离、快速部署、风控保存、自选股实时价格等 15+ 项改进
 
-- **模拟盘 `use_intraday_stop` 启动报错** — `papertrade/models.py` 的 `RiskConfig` 缺少 `use_intraday_stop` 字段，传给 `RiskPipeline` 时抛 `AttributeError` 导致模拟盘启动失败，补上该字段（默认 `True`）与 `src/trading/risk_pipeline.py` 的 `RiskConfig` 对齐
-- **停牌期信号污染（ffill 策略）** — `_align()` 中位置矩阵移除 ffill，停牌/非交易日仓位归零。此前 ffill_limit=5~10 意味着 1-2 周停牌期仍持仓，回测结果虚高。现在非交易日一律零仓位
-- **幸存者偏差未检测** — `runner.py` 和 `strategy_backtest_bridge.py` 在数据拉取后检测无数据的 codes（退市/停牌/错误代码），追加 `_warnings` 到 run_card，API 响应透传 `quality_hints`。回测结果页面显示黄色警告条
-- **auto source 年化系数漂移** — `_TRADING_DAYS` 补全 tencent/futu/finnhub/twelvedata/auto，`strategy_backtest_bridge.py` 从硬编码 `_estimate_bars_per_year` 改为 `calc_bars_per_year()`
-- **非标 interval 年化错误** — 周线 (1W) 年化从 252 修正为 52，4W→13，2 日线→126，2 小时→756。新增 `_estimate_bars_per_year()` fallback
+---
 
-### Added
+## 2026.5.25 — TradingEngine 统一引擎
 
-- **模拟盘 K 线实时显示** — 选中运行中的策略后自动显示历史 K 线，每个交易日通过 SSE 实时追加新蜡烛，不再依赖「快速回测」
-  - `TradingEngine.get_bars()` — 从 `_data_map` 导出 OHLCV 为 JSON 安全格式，支持按品种和条数过滤
-  - `GET /paper-trading/runs/{run_id}/bars` — 新增 API 端点，返回引擎内存中的历史 bar 数据
-  - `BarResult.bars` — 每个 bar 处理完成后携带 `{code: {o,h,l,c,v}}`，供 SSE 推送
-  - SSE `bar` 事件 — 追加 `bars` 字段，前端收到后直接追加到 K 线图表
-  - `paperTradingStore.ohlcvData` — 新增状态 + `fetchBars` action，`selectRun` 自动拉取历史数据
-  - `PaperTrading.tsx` — K 线数据源从 `useBacktest.runQuickBacktest` 改为 `store.ohlcvData`，「快速回测」按钮替换为「刷新K线」
-- **基准对比指标** — `calc_metrics()` 新增 `beta` 计算（Cov/Var 方法），`benchmark_return`/`excess_return`/`information_ratio` 已存在。前端 ChartPanel 回测指标区新增「信息比率」「β」卡片；StrategyLab/IndicatorLab/PaperTrading 结果区同步显示
-- **前端滑点配置** — ChartPanel 回测参数区新增「滑点(%)」数字输入框（默认 0.1%）+ 「固定/分档」下拉。策略实验室/指标实验室回测请求透传 `slippage`/`slippage_mode`；后端 `ChinaAEngine` 新增 `slippage_mode` 参数（`"fixed"` 固定百分比 / `"volume"` 成交量三档分档）
-- **模拟盘数据源标识** — `LiveDriver.loader_name` → API `RunDetail.data_source` → 前端 PaperTrading 运行详情 header 显示实际数据源（如 `akshare`）
-- **核心引擎测试覆盖** — 新建 `test_risk_pipeline.py`（17 tests）、`test_live_driver.py`（7 tests）、`test_trading_engine.py`（9 tests），覆盖 RiskPipeline 止损/止盈/追迹/日内限额/intraday 检测、TradingEngine 初始化和 `get_bars`/`on_bar`、LiveDriver 构造和 seed_historical
-- **SSE 重连抖动** — `calcReconnectDelay` 新增 ±25% 随机抖动量（jitter），防止惊群效应；前端状态栏显示「重连中 (第N次, Xs后)」倒数
-- **AI Skill 新增** — 2 个新 skill（`paper-trading-guide` 模拟盘操作指南、`paper-trading-diagnose` 模拟盘问题诊断）
-- **AI Skill 文档更新** — `strategy-generate` 的 config.json 模板补 `slippage`/`slippage_mode`/`benchmark`；`backtest-diagnose` 新增数据质量警告和基准对比参考；`execution-model` 补 config-based slippage 说明
+### 新增
 
-### Changed
+- **TradingEngine — 统一回测和实盘执行引擎** — 回测和模拟盘共享同一套 `on_bar()` 管道
+  - `TradingEngine` — 统一管道：market hooks → 信号生成 → 优化器 → 风控检查 → 状态机约束 → 撮合执行 → 权益快照
+  - `SignalAdapter` — 自动检测 batch/tick 模式
+  - `BacktestDriver` — 快速模式 + 模拟模式
+  - `LiveDriver` — 异步实盘循环
+  - `OptimizerAdapter` — 滚动窗口在线组合优化
+  - `RiskPipeline` — 止损/止盈/追迹止损/日内亏损限制
+- **前端测试基础设施** — vitest + testing-library + jsdom
 
-- **README 默认英文** — `README.md` 改为英文，新增语言跳转链接 `README_zh.md`（中文），删除 `README_en.md`
-- **RiskConfig 同步提醒** — `papertrade/models.py` 和 `src/trading/risk_pipeline.py` 的 `RiskConfig` 添加 sync note 注释，防止字段不同步
+### 变更
 
-## 2026.5.26
+- **api_server.py 拆分** — 2650 行拆分为 6 个路由模块，缩减 88%
+- **SSE 管理统一** — 提取 `lib/sseClient.ts` 共享工具
 
-### Added
+### 修复
 
-- **自定义模式（可视化策略/指标构建器）** — 策略实验室和指标实验室新增「自定义模式」按钮，弹出 VisualBuilder 模态面板，通过下拉框/滑块/开关可视化配置入场/出场规则、风控参数，编译为 Python 代码并加载到编辑器。策略实验室新增 `/v1/strategy-lab/compile` 端点，compiler 新增 `compile_signal_engine()` 函数
-- **AI 对话面板** — 代码编辑器下方新增可折叠 AiChatPanel，用户输入自然语言描述，AI 流式生成代码直接写入编辑器，完成后自动保存并同步右侧列表。后端内置策略/指标合约系统提示词，无需用户手动编写
-- **圆角卡片式页面布局** — 新增 `.section-card` CSS 类，页面分隔从硬边框 (`border-b`/`border-l`) 改为 `rounded-2xl border shadow-sm` 圆角卡片 + `gap-3 p-3` 间距，视觉更柔和
+- **user_id 硬编码** — 26 处防御性回退替换
+- **auth 端点速率限制** — 5 次/分钟防暴力破解
 
-### Changed
+---
 
-- **AI Generate 按钮移除** — 页面头部的「AI 生成」按钮已由 AiChatPanel 替代，减少按钮拥挤
-- **侧边栏折叠状态持久化** — 两个实验室的侧边栏折叠状态写入 localStorage，切换页面不再丢失
-- **侧边栏列表滚动位置保持** — 点击列表项后不再跳回顶部，useLayoutEffect 自动恢复滚动位置
-- **两个实验室标签汉化** — ChartPanel 中 Symbol→标的、Start→开始、End→结束、Source→数据源、Interval→周期、Load Data→加载数据、初始资金→ptInitialCapital（支持中英切换）
-- **回测「Equity & Drawdown」汉化** — 硬编码英文替换为 i18n `equityDrawdown` 键（净值与回撤）
-- **会话列表空标题** — 新建会话不再显示裸 hex id（`c50f2760bf14`），改为「未命名 #c50f2760」
-- **未输入标的前端禁用回测按钮** — ChartPanel 中 symbol 为空时「加载数据」和「运行回测」按钮置灰不可点击
-- **相关性矩阵移除「API 文档与指南」按钮**
-- **策略实验室默认代码模板汉化** — docstring、注释从英文翻译为中文
-- **i18n 新增 ~30 个键** — aiChat*、customMode、visualBuilder*、chartLoadData、unnamedSession、cancel 等
+## 2026.5.24 (晚间) — 模拟盘 + 技能管理
 
-### Fixed
+### 新增
 
-- **Alpha 因子库调用报错修复** — indicator_lab_routes.py 生成的代码中 `df["close"]`（Series）改为 `df[["close"]]`（单列 DataFrame），修复 `'Series' object has no attribute 'columns'` 错误，alpha 因子的 `compute()` 函数不再崩溃
+- **Skill 管理** — 87 个技能包，每用户独立启用/禁用
+- **MCP 服务设置** — 管理员可见，自动生成配置示例
+- **模拟盘策略库** — 从策略实验室/AI 聊天导入策略
+- **模拟盘增强** — Monaco 编辑器、K 线预览、部署前验证、自动启动、快速回测、月度热力图、运行日志等 15+ 项功能
+- **红涨绿跌全项目覆盖** — `html[lang="zh"]` 自动切换
 
-- **回测引擎前瞻性偏差（4 项改进）** — 审计发现策略可通过 `generate()` 访问未来数据，导致回测虚高
-  - **Fast 模式渐进式信号生成** — `_run_fast()` 将一次性 `generate(data_map)` 替换为逐 bar 扩展窗口调用，策略在时点 T 只能看到 `data[0..T]`，从根源消除未来数据泄漏
-  - **Simulation 模式数据截断** — `on_bar_batch()` 重排序：先 `generate()` 再追加新 bar，策略看不到当前 bar 数据，与 `_align()` shift(1) 语义一致
-  - **止损/止盈支持 bar 内高低价** — `RiskPipeline` 新增 `check_position_intraday()` 方法，使用 bar high/low 检测止损/止盈在 bar 内触及，跳空以开盘价成交；优先级：止损 > 追迹止损 > 止盈
-  - **开盘价涨跌停判断** — `ChinaAEngine.can_execute()` 新增 open-based 涨跌停检查，开盘即封板时直接阻止交易，避免用收盘价判断但开盘价执行的时机不一致
-- **MCP 服务器设计缺陷（5 项修复）**
-  - `run_swarm` 移除 360×5s 轮询阻塞，立即返回 run_id，通过 `get_swarm_status`/`get_run_result` 异步查询
-  - `write_file`/`read_file` 新增 `run_dir` 参数，默认工作目录 `~/.AStockPursue/workspace/`，修复文件操作完全失效的问题
-  - `_run_sync` 替换为持久后台事件循环 `_get_mcp_loop()`，避免每次 MCP 调用创建新线程
-  - `_unresolved` 返回格式从 `[code]` 升级为 `[{code, reason}]`，不再静默吞掉错误原因
-  - MCP 配置文件写入后 `chmod 0o600`，防止凭证泄露
+### 修复
 
-### Changed
+- **TUSHARE_TOKEN 配置被反转清除** — 条件取反 bug
+- **Tencent loader 大小写** — normalize 返回大写，API 只接受小写
+- **策略沙箱 `__import__` 缺失** — 手工构建 `__builtins__` 漏掉关键函数
+- 其他 7 项修复
 
-- **Lab 模块重组** — `sandbox.py` 移至 `src/security/`，`repository.py`/`pg_repository.py` 移至 `src/lab/storage/`，`alpha_bench_store.py` 新建于 `src/db/`
-- **Docker Compose 合并** — `docker-compose.pg.yml` 合并入 `docker-compose.yml`，通过 `--profile pg` 按需启动 PostgreSQL
-- **API 版本化** — 所有路由挂载 `/v1` 前缀，前端 `request()` 统一拼接 `/v1` 前缀
-- **前端类型拆分** — API 合约类型从 `lib/api.ts` 提取到独立 `types/api.ts`
-- **i18n 新增 AlphaZoo/IndicatorLab 相关 key**
-- **前端 UX 全面优化**
-  - **回测指标卡片化** — ChartPanel 回测指标从 K 线图底部文字条移至图表上方网格卡片，不会被工具栏按钮遮挡
-  - **权益曲线 Y 轴修复** — EquityChart grid 边距从 8px 增至 60px，containLabel 不再与绘图区域重叠
-  - **模拟盘代码/预览分离** — PaperTrading `codes` 状态拆分为 `deployCodes`（部署弹窗）和 `previewSymbol`（右侧预览），互不污染
-  - **模拟盘快速部署** — 策略库卡片新增「快速部署」按钮，一键填入代码 + 打开部署弹窗
-  - **模拟盘克隆修复** — 克隆从 `/v1/runs/{runId}/config` API 读取原始 codes
-  - **模拟盘风控保存** — 风控 tab 新增「保存风控配置」按钮，调用 `PUT /v1/runs/{runId}/risk`
-  - **模拟盘 SSE 切换** — 切换运行实例时自动断开旧 SSE 连接，避免事件串扰
-  - **模拟盘 K 线高度自适应** — 选中运行后 K 线图 220→320px，权益曲线 ResizeObserver 动态撑满
-  - **策略实验室移除空壳 Monitor tab** — 删除无实际功能的运行监控面板及跨页面耦合
-  - **策略实验室 AI 取消** — 代码生成按钮旁新增取消按钮（AbortController），可中断长时间 SSE 流
-  - **策略实验室批量删除** — 删除策略前弹出 confirm 确认，防止误删
-  - **useBacktest hook 提取** — PaperTrading/StrategyLab/IndicatorLab 共享回测状态管理，减少 ~200 行重复代码
-  - **自选股搜索输入** — WatchlistPanel 纯文本输入替换为 StockInput 组件，支持代码/名称/拼音搜索
-  - **自选股实时价格** — 新增 10 秒轮询自动刷新价格，无需手动点刷新
-  - **免费数据源卡片** — Settings 页面免费数据源区域加边框卡片 + 内层描边，层级分明
+---
 
-## 2026.5.25
+## 2026.5.24 — 多数据源 + 多用户安全
 
-### Added
+### 新增
 
-- **TradingEngine — 统一回测和实盘执行引擎** — 新建 `agent/src/trading/` 包（6 个模块，~1100 行），回测和模拟盘共享同一套 `on_bar()` 管道，SignalEngine 策略一次编写、两个场景运行
-  - `TradingEngine` — 统一 `on_bar(bar, ts) → BarResult` 管道：market hooks → 信号生成 → 优化器 → 风控检查 → 状态机约束 → 撮合执行 → 权益快照
-  - `SignalAdapter` — 自动检测 batch/tick 模式，batch 模式等价于 `_align()` shift(1)，tick 模式委托 `TickHandler.on_bar()`
-  - `BacktestDriver` — 快速模式（预计算权重，回测结果 100% 向后兼容）+ 模拟模式（逐 bar 增量生成，匹配实盘行为）
-  - `LiveDriver` — 从 `PaperTradingScheduler` 提取异步实盘循环，连续错误熔断 + 心跳 + 种子历史数据
-  - `OptimizerAdapter` — 滚动窗口在线组合优化（Phase 2），支持风险平价等优化器
-  - `RiskPipeline` — 从 `papertrade/risk_manager.py` 迁移，止损/止盈/追迹止损/日内亏损限制
-  - `FlatStateMachine` — 从 `papertrade/state_machine.py` 迁移，强制 flat→long→flat→short 状态转换
-- **回测模拟模式** — `BacktestDriver` 新增 simulation 模式，逐 bar 通过完整 signal pipeline，用于验证策略在真实环境中不会出现未来函数
-- **状态代理模式** — `TradingEngine` 通过 property 代理将 capital/positions/trades 读写穿透到 `BaseEngine`，确保 `CryptoEngine.on_bar()` 等子类 hook 看到一致状态
+- **股票自动联想** — A 股/港股/指数智能搜索
+- **模拟盘交易** — 完整 Paper Trading 引擎
+- **多数据源扩展** — 6 个新加载器（Tencent、Global Indices、Commodities、CoinGecko、Twelve Data、Finnhub）
+- **国际化补齐** — Login、UserManagement 等全部接入 i18n
 
-### Changed
+### 变更
 
-- **回测执行路径重组** — `BaseEngine._execute_bars()` / `_rebalance()` / `run_backtest()` 委托给 `BacktestDriver`；`backtest/runner.py` 直接使用 `BacktestDriver.run()`
-- **模拟盘调度器简化** — `PaperTradingScheduler` 删除内联轮询循环，委托给 `LiveDriver.run()`，调度器只保留 SSE 推送 + DB 持久化
-- **papertrade/ 向后兼容** — `engine.py` / `tick_handler.py` / `risk_manager.py` / `state_machine.py` 改为 re-export，所有外部 import 路径不受影响
-- **api_server.py 拆分** — 2650 行巨型文件拆分为 6 个路由模块（runs/sessions/settings/auth/system）+ 共享工具 common.py，缩减 88%
-- **API 版本化** — 所有路由挂载 `/v1` 前缀，为未来 API 变更预留空间
-- **Docker Compose 合并** — `docker-compose.pg.yml` 合并入 `docker-compose.yml`，通过 `--profile pg` 按需启动 PostgreSQL
-- **Lab/ 模块重组** — `sandbox.py` 移至 `src/security/`，`repository.py`/`pg_repository.py` 移至 `src/lab/storage/`，职责更清晰
-- **前端类型拆分** — API 合约类型从 `lib/api.ts`（508 行）提取到独立 `types/api.ts`（~290 行）
-- **SSE 管理统一** — 提取 `lib/sseClient.ts` 共享工具（LRU 去重 + 指数退避重连），`useSSE` hook 和 `paperTradingStore` 统一使用
-- **前端 request() 去重** — `services/paperTrading.ts` 删除重复的 `request()` 实现，改用 `lib/api.ts` 导出
+- **全局 UI 重构** — 字号体系、间距系统、按钮层级、卡片阴影、Tab 选中态
+- **侧边栏重设计** — 品牌 Logo 橙色圆角底色、导航项 rounded-lg 激活态
 
-### Fixed
+### 修复
 
-- **user_id 硬编码** — 26 处 `auth.get("user_id", 1)` 防御性回退替换为 `auth["user_id"]`，由 `require_auth` 保证存在
-- **auth 端点速率限制** — `/api/auth/login` 和 `/register` 增加内存滑动窗口限流（5 次/分钟），防暴力破解
+- **密码哈希升级** — SHA256→PBKDF2-HMAC-SHA256
+- **JWT_SECRET 持久化** — 解决多 worker 密钥不一致
+- 其他 8 项安全/质量修复
 
-### Added
+---
 
-- **前端测试基础设施** — vitest + testing-library + jsdom，3 个测试文件 17 个测试用例（api/apiAuth/StockInput）
+## 2026.5.24 (早间)
 
-## 2026.5.24 (evening)
+- **PostgreSQL 自动部署** — `setup.sh` 可选自动部署 PG 16
+- **相关性矩阵增强** — 结果 localStorage 持久化
+- **JWT 鉴权合并** — 三个鉴权函数合并为 `require_auth`
+- 其他 10+ 项修复和改进
 
-### Added
+---
 
-- **Skill 管理** — Settings 页面新增「Skill 管理」区块，按类别分组展示 87 个技能包，每用户可独立启用/禁用，下次 AI 对话生效，互不影响
-- **MCP 服务设置（admin）** — Settings 页面新增「MCP 服务设置」区块，仅管理员可见，显示服务状态/传输模式/端口/Shell 工具开关，自动生成 Claude Desktop 配置示例
-- **Skill 导入安装** — 支持上传 .zip 文件导入自定义 Skill 到 `~/.AStockPursue/skills/{user_id}/`，每用户隔离，管理员可查看全局
-- **模拟盘策略库** — 左侧面板新增「策略库」tab，可从策略实验室 / AI 聊天会话导入策略代码，一键部署到模拟盘
-- **模拟盘代码编辑器** — 用 Monaco Editor 替换纯文本 textarea，语法高亮 + 代码补全
-- **模拟盘 K 线预览** — 右侧面板输入标的代码即可预览 K 线图（即使未创建运行），复用 CandlestickChart
-- **模拟盘部署前验证** — 点部署自动调 `/strategy-lab/verify` 验证代码，不通过则弹错误提示，不创建运行
-- **模拟盘自动启动** — 部署弹窗新增「部署后自动启动」checkbox，默认勾选
-- **模拟盘 K 线交易标记** — SSE `"trade"` 事件新增 `entry_time`/`exit_time`，前端实时叠加 BUY/SELL 箭头到 K 线图
-- **模拟盘持仓实时更新** — SSE `"bar"` 事件新增 `positions` 数组，前端无需轮询即可实时刷新持仓表
-- **模拟盘快速回测** — 右侧面板「快速回测」按钮，用当前代码 + 标的直接跑历史回测，指标条即时显示
-- **模拟盘收益统计卡片** — 4 列网格显示当日收益/累计收益/年化收益/最大回撤，前端实时计算
-- **模拟盘月度收益热力图** — 红色=盈利/绿色=亏损，深浅代表幅度，一目了然
-- **模拟盘运行日志** — SSE `"signal"` 事件实时推送信号触发记录 + 成交记录
-- **模拟盘信号统计** — 做多/做空信号数、胜率、总交易、持仓一览
-- **模拟盘克隆运行** — PaperTradingCard 新增「复制」按钮，一键克隆策略 + 配置
-- **模拟盘右侧 Tab 切换** — 持仓/成交/日志/统计/风控 5 个 tab
-- **回测指标条** — ChartPanel 回测完成后在 K 线图上方显示总收益/年化/夏普/最大回撤/胜率/交易/终值/盈亏比/基准/超额
-- **初始资金输入框** — ChartPanel 控制栏新增初始资金输入框，回测时随请求发送
-- **设置页面免费数据源状态** — 展示 AKShare/YFinance/Tencent/CCXT/CoinGecko/Futu/Global Indices/Commodities 8 个免费数据源的可用/不可用状态
-- **设置页面移除 env_path** — 不再显示「保存至: agent/.env」，token 已完全走数据库 + 中间件注入
-- **红涨绿跌全项目覆盖** — 新增 `--up`/`--down` CSS 变量，`html[lang="zh"]` 自动切换红涨绿跌，14 个前端文件 + 4 个后端文件全面替换方向性颜色
-- **i18n 新增 60+ 键** — 覆盖 Agent 首页、RunDetail 面板、Compare 指标表、模拟盘全套、Skill 管理、MCP 设置
-- **股票搜索增强** — 腾讯行情 API（qt.gtimg.cn）动态补全 A 股/港股代码，美股/加密货币自由输入兜底
-- **StockInput 自由输入** — Enter/失焦自动接受不在搜索列表里的股票代码（如 AAPL.US、BTC-USDT）
-
-### Changed
-
-- **Token 集中加载** — `load_user_config()` 移入 `require_auth` 鉴权中间件，所有鉴权端点自动注入用户数据源凭证
-- **模拟盘三栏布局** — 从两栏改为三栏（策略库/运行列表 | 代码编辑器 | K 线图 + 运行状态）
-- **回测报告卡片始终显示** — SSE 实时路径去掉 `hasMetrics` 门槛，回测完成即显示「查看完整报告」链接
-- **AI 对话跨页面保持运行** — 切换到其他页面不再断开 SSE，后端 agent 继续执行，切回自动重连
-- **JSON 解析错误信息改进** — 显示请求路径 + 响应内容前 150 字符 + HTML 提示
-- **数据源下拉列表补齐** — 前端从 4 项扩充到 13 项，与后端 LOADER_REGISTRY 完全对齐
-- **Favicon 重设计** — 蓝色圆角背景 + 上升柱形图 + 趋势箭头
-- **沙箱 import 白名单扩充** — 新增 `typing`/`re`/`warnings`/`dataclasses`/`enum`/`abc` 6 个安全标准库
-- **沙箱注入安全 sys** — `sys.maxsize`/`float_info`/`version_info` 等只读属性直接注入，AI 代码无需 `import sys`
-- **回测 interval 正则扩展** — 后端验证增加 `1W`/`4W`，前端下拉同步补上
-- **SkillsLoader 每用户隔离** — 支持 `user_id` + `disabled_skills` 参数，用户技能目录 `~/.AStockPursue/skills/{user_id}/`
-- **数据库自动增量迁移** — `init_database()` 自动执行 `migrations/` 目录下所有 `.sql` 文件
-
-### Fixed
-
-- **TUSHARE_TOKEN 配置被反转清除** — Settings 保存时条件取反，真实 token 反而被 `os.environ.pop` 删除
-- **Tencent loader 大小写** — `normalize_cn_code`/`normalize_hk_code` 返回大写代码，API 只接受小写
-- **fetch_ohlcv 最小行数阈值** — `>=30` 行要求导致 1 个月内约 21 个交易日的数据被丢弃，改为 `>=5`
-- **策略沙箱 `__import__` 缺失** — `_execute_strategy_code` 手工构建 `__builtins__` 漏掉 `__import__` 和 `__build_class__`
-- **`indicator_series` 嵌套结构** — 后端返回 `{symbol: {name: points}}` 嵌套格式，CandlestickChart 期望 `{name: points}`，未提取第一层导致 `.map()` 崩溃
-- **回退链 loader 初始化异常未捕获** — `_fetch_auto` legacy fallback 和 runtime fallback 中 `LoaderCls()` 无 try/catch
-- **admin 路由路径不匹配** — 后端 `/api/admin/users`，前端调 `/admin/users`，SPA catch-all 返回 index.html
-- **回测历史不记录** — ChartPanel 替换旧弹窗后 localStorage 写入逻辑丢失
-- **ChartPanel 不显示策略名称** — 新增 `title` prop，从侧边栏/模板/AI 生成/保存时自动设置
-- **StockInput 不允许自由输入代码** — Enter/失焦仅接受搜索结果，不在列表里的美股/加密货币无法输入
-
-## 2026.5.24
-
-### Added
-
-- **股票自动联想** — A股/港股/指数 智能搜索，支持代码/名称/拼音，指标实验室、策略实验室、相关性矩阵全接入
-- **Alpha Zoo → 指标实验室转换** — 内置因子一键转换为指标格式，支持直接回测
-- **策略实验室 PG 优先** — 自动检测 PostgreSQL 可用性，优先使用 PG 存储，fallback 到文件系统
-- **Alpha Zoo 合并扫描** — 同时扫描内置 zoo 和 `~/.AStockPursue/zoo/`，指标实验室提升的因子可在大盘中显示
-- **国际化补齐** — Login、PostLoginSetup、UserManagement、Correlation、WelcomeScreen 全部接入 i18n（46 个新 key）
-- **多用户并发安全加固** — 文件存储原子写入（`mkstemp` + `os.replace`）+ JSONL 追加文件锁（`fcntl.flock`）+ 仓库单例双重检查锁
-- **模拟盘交易** — 完整 Paper Trading 引擎，SignalEngine 策略驱动，SSE 实时行情推送，风控管理（止损/止盈/追迹止损/日内止损），权益曲线可视化，持仓/成交记录，PG 持久化
-- **多数据源扩展** — 新增 Tencent（A股/港股）、Global Indices（全球指数）、Commodities（大宗商品）、CoinGecko（加密货币）、Twelve Data（全球全市场）、Finnhub（美股）6 个数据加载器
-- **非 OHLCV 数据支持** — 市场情绪（VIX/DXY/Yield Curve）、基本面增强（PE/PB/ROE）、新闻聚合（搜索+财经日历）3 类新数据能力
-- **Twelve Data / Finnhub / Tiingo API 配置** — Settings 页面新增付费 API 密钥配置区，后端加密存储 + 环境变量注入
-- **数据路由策略重写** — SKILL.md 全面升级，OHLCV / 非OHLCV 数据源矩阵、分市场优先级决策树、index/commodity 新市场类型
-- **新工具 + 技能包** — 市场概览、新闻聚合、市场情绪 3 个新工具，对应 6 个新技能包（coingecko/commodities/fundamentals-enhanced/global-indices/news-aggregation/sentiment/tencent/twelvedata）
-
-### Changed
-
-- **全局 UI 重构** — 字号体系（text-xs→text-sm）、间距系统、按钮层级（btn-primary/secondary/ghost/outline）、卡片阴影、Tab 选中态
-- **侧边栏重设计** — 品牌 Logo 橙色圆角底色、导航项 rounded-lg 激活态、会话列表呼吸感、Footer 排版优化
-- **页面头部统一** — page-header 组件类、图标底色块、描述副文字
-- **回退链全面增强** — A股增加 tencent/twelvedata，美股增加 twelvedata/finnhub，港股增加 tencent，加密货币增加 coingecko，新增 index/commodity 市场类型
-- **Tailwind 配置增强** — boxShadow CSS 变量（亮/暗自适应）、fade-in/slide-in-right/scale-in 动画
-- **IndicatorLab 页面** — 按钮体系替换、Tab 样式统一、空态引导、Alpha Zoo 标签页
-- **StrategyLab 页面** — 同上 + 通知卡片/运行日志/历史记录样式升级
-- **Agent 聊天页** — 空态居中 Logo、输入框圆角阴影、发送按钮 active:scale 反馈
-- **Settings 页面** — 卡片 shadow-sm、表单输入框 padding 增大、保存按钮 btn-md
-- **BacktestPanel / StrategyBacktestPanel** — StockInput 替换、模态框 backdrop-blur、按钮 btn 体系
-- **Correlation 页面** — StockInput 多选替换、raw fetch 切换为 api 模块
-- **UserManagement** — 原生 confirm()→内联确认按钮、raw fetch→api 模块、i18n 全接入
-
-### Fixed
-
-- **密码哈希升级** — SHA256→PBKDF2-HMAC-SHA256（600,000 迭代），向后兼容旧格式
-- **JWT_SECRET 持久化** — 从 $JWT_SECRET 或 `runtime_root/.jwt_secret` 读取，解决多 worker/重启 密钥不一致
-- **Pickle 缓存安全** — SHA256 完整性校验→HMAC-SHA256 签名（防篡改）
-- **代码保存安全校验** — Indicator/Strategy Lab 的 `/save` 接口增加 `validate_code_safety()`
-- **静默错误吞没** — backtest_store 4 方法、PgSessionStore 3 方法从 silence→raise
-- **死代码移除** — strategy_lab_routes 永真 `has_return` 变量
-- **子进程崩溃诊断** — sandbox.py 非零 exit code 时提供更详细错误
-- **函数去重** — `_extract_meta_from_code`、`_extract_code_from_response` 统一从 repository.py 导入
-- **user_id 硬编码** — Session 模型增加 user_id 字段，PgSessionStore 动态读取
-- **module_path 泄露** — alpha 详情 API 移除内部路径
-- **ARIA 无障碍** — ConnectionBanner/PostLoginSetup/Login/RunDetail/Correlation 全补全 role/aria-*/htmlFor
-- **WelcomeScreen 颜色提取** — 字符串 split 解析→显式 textColor 字段
-
-## 2026.5.24 (earlier)
-
-- **PostgreSQL 自动部署** — `setup.sh` 可选择自动部署 PG 16 Alpine 容器（`docker-compose.pg.yml`），无需手动安装
-- **相关性矩阵增强** — 结果 localStorage 持久化、保存到会话、AI 分析按钮
-- **回测跳转修复** — Lab 回测后使用 `useNavigate` 客户端路由，解决 401 鉴权问题
-- **自选股价格优化** — A 股优先 Tushare，不再依赖 yfinance
-- **WatchlistPanel 鉴权修复** — 所有 fetch 调用添加 JWT 认证头
-
-### Changed
-
-- **页面标题 + 描述** — "AStockPursue — AI 量化交易研究平台"
-- **登录页汉化** — 全中文界面，移除无效的 Skip 按钮
-- **LLM 配置弹窗** — 供应商扩展到 10 个，全中文
-- **用户管理增强** — 新增 Tushare 配置状态列
-- **示例面板汉化** — 15 个 i18n key 中英双语
-- **pyproject.toml** — 更新 authors、urls、dependencies、keywords
-- **项目文件更新** — LICENSE、NOTICE、CONTRIBUTING、SECURITY、MANIFEST、CHANGELOG
-
-### Fixed
-
-- **JWT 鉴权合并** — 三个鉴权函数合并为 `require_auth`，Lab 路由补鉴权
-- **SSE 事件流鉴权** — 支持 JWT query string，修复登录后无法对话
-- **策略自动保存** — 修复 `save_strategy` 名称参数，AI 生成的策略正确显示
-- **`logger` 未定义** — `service.py` 添加 logging import
-- **JWT_SECRET 持久化** — `.env` 添加固定密钥，解决重启后 token 失效
-- **`require_auth` 返回值** — 修复返回 None 导致 `auth.get()` 空指针
-
-## 2026.5.23 — Initial Release
+## 2026.5.23 — 初始版本
 
 AStockPursue 基于 [Vibe-Trading](https://github.com/HKUDS/Vibe-Trading) (HKUDS, MIT License) 二次开发。

@@ -38,7 +38,7 @@ Open an issue describing the feature and its use case. Tag with `enhancement`.
 
 ### Backend
 ```bash
-cd agent
+cd backend
 pip install -r requirements.txt
 cp .env.example .env   # Edit with your config
 python api_server.py --port 8899
@@ -55,7 +55,7 @@ Visit `http://localhost:5899` for dev mode with hot reload.
 
 ### MCP Server (optional)
 ```bash
-cd agent
+cd backend
 python mcp_server.py                    # stdio transport
 python mcp_server.py --transport sse    # SSE transport (port 8900)
 ```
@@ -64,14 +64,14 @@ python mcp_server.py --transport sse    # SSE transport (port 8900)
 
 ```
 AStockPursue/
-├── agent/                  # Python backend
+├── backend/                  # Python backend
 │   ├── api_server.py       #   FastAPI main entry (8899)
 │   ├── mcp_server.py       #   MCP Server (22 tools)
 │   ├── backtest/           #   Multi-market backtest engine + loader registry
 │   │   └── loaders/        #   13 data source loaders
 │   ├── papertrade/         #   Paper trading engine + scheduler + risk manager
 │   ├── src/
-│   │   ├── agent/          #   SkillsLoader (87 skills) + ContextBuilder
+│   │   ├── backend/          #   SkillsLoader (87 skills) + ContextBuilder
 │   │   ├── api/            #   FastAPI routes (6 sub-routers)
 │   │   ├── auth/           #   JWT + PBKDF2 + per-user config
 │   │   ├── data/           #   Stock symbols (static JSON)
@@ -107,14 +107,14 @@ AStockPursue/
 6. Results streamed to frontend via SSE or polled via REST API
 
 ### Adding a New Data Source
-1. Create loader class with `name`, `markets`, `is_available()`, `fetch()` in `agent/backtest/loaders/`
+1. Create loader class with `name`, `markets`, `is_available()`, `fetch()` in `backend/backtest/loaders/`
 2. Decorate with `@register` — auto-registered on import
 3. Add to `_loader_modules` list in `registry.py`
 4. Add to `FALLBACK_CHAINS` for relevant markets
-5. Optionally add a SKILL.md in `agent/src/skills/` for AI agent guidance
+5. Optionally add a SKILL.md in `backend/src/skills/` for AI agent guidance
 
 ### Adding a New Skill
-1. Create directory `agent/src/skills/your-skill/`
+1. Create directory `backend/src/skills/your-skill/`
 2. Add `SKILL.md` with YAML frontmatter (`name`, `description`, `category`)
 3. Optional: `example_signal_engine.py`, `references/`, `scripts/`
 4. Skill auto-discovered on next server start
@@ -141,7 +141,7 @@ This project uses a multi-license structure:
 |-------|---------|-----------|
 | Entire project | MIT | (c) 2025-2026 AStockPursue Contributors |
 | Base framework | MIT | (c) 2025 HKUDS Vibe-Trading Contributors |
-| `agent/src/lab/templates.json` | Apache 2.0 | (c) QuantDinger Contributors |
-| `agent/src/factors/zoo/qlib158/` | Apache 2.0 | (c) Microsoft Corporation |
+| `backend/src/lab/templates.json` | Apache 2.0 | (c) QuantDinger Contributors |
+| `backend/src/factors/zoo/qlib158/` | Apache 2.0 | (c) Microsoft Corporation |
 
 See [LICENSE](LICENSE) for full details.

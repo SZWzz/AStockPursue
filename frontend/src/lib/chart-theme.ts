@@ -32,9 +32,9 @@ function buildTheme() {
   const dangerHex = hslToHex(css("--danger")) || "#ef4444";
   const infoHex = hslToHex(css("--info")) || "#3b82f6";
   const warningHex = hslToHex(css("--warning")) || "#f59e0b";
-  const gridHex = hslToHex(css("--chart-grid")) || (isDark ? "#1e2433" : "#e5e7eb");
+  const gridHex = hslToHex(css("--chart-grid")) || (isDark ? "#1f2937" : "#e5e7eb");
   const textHex = hslToHex(css("--chart-text")) || "#6b7280";
-  const axisHex = hslToHex(css("--chart-axis")) || "#374151";
+  const axisHex = hslToHex(css("--chart-axis")) || (isDark ? "#374151" : "#9ca3af");
 
   // Locale-aware candlestick colors: China = red up / green down
   const upHex = cn ? dangerHex : successHex;
@@ -52,8 +52,8 @@ function buildTheme() {
     volumeDown: downHex + "66",
     infoColor: infoHex,
     warningColor: warningHex,
-    tooltipBg: isDark ? "rgba(10,14,22,0.92)" : "rgba(255,255,255,0.96)",
-    tooltipBorder: isDark ? "#1e2433" : "#e5e7eb",
+    tooltipBg: isDark ? "rgba(17,19,24,0.96)" : "rgba(255,255,255,0.96)",
+    tooltipBorder: isDark ? "#2d3340" : "#e5e7eb",
     tooltipText: isDark ? "#d1d5db" : "#374151",
   };
 }

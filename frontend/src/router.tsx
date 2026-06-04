@@ -65,6 +65,12 @@ const Options = lazy(() =>
 const Sentiment = lazy(() =>
   import("@/pages/Sentiment").then((m) => ({ default: m.Sentiment })),
 );
+const Projects = lazy(() =>
+  import("@/pages/Projects").then((m) => ({ default: m.default })),
+);
+const Workflow = lazy(() =>
+  import("@/pages/Workflow").then((m) => ({ default: m.default })),
+);
 const NotFound = lazy(() =>
   import("@/pages/NotFound").then((m) => ({ default: m.default })),
 );
@@ -90,7 +96,8 @@ export const router = createBrowserRouter([
   {
     element: <AuthGuard><Layout /></AuthGuard>,
     children: [
-      { path: "/", element: wrap(Dashboard) },
+      { path: "/", element: wrap(Projects) },
+      { path: "/projects", element: wrap(Projects) },
       { path: "/agent", element: wrap(Agent) },
       { path: "/settings", element: wrap(Settings) },
       { path: "/runs/:runId", element: wrap(RunDetail) },
@@ -112,6 +119,7 @@ export const router = createBrowserRouter([
       { path: "/marketplace", element: wrap(Marketplace) },
       { path: "/options", element: wrap(Options) },
       { path: "/sentiment", element: wrap(Sentiment) },
+      { path: "/workflow/:projectId/:workflowId", element: wrap(Workflow) },
       { path: "/admin/users", element: wrap(UserManagement) },
       { path: "*", element: wrap(NotFound) },
     ],

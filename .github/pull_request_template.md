@@ -16,13 +16,13 @@
 
 ## Test Plan
 
-- [ ] Existing tests pass (`pytest --ignore=agent/tests/e2e_backtest --tb=short -q`)
+- [ ] Existing tests pass (`pytest --ignore=backend/tests/e2e_backtest --tb=short -q`)
 - [ ] New tests added (if applicable)
 - [ ] Tested manually (describe below)
 
 ## Checklist
 
-- [ ] No changes to protected areas (`src/agent/`, `src/session/`, `src/providers/`) without prior discussion
+- [ ] No changes to protected areas (`sr./backend/`, `src/session/`, `src/providers/`) without prior discussion
 - [ ] No hardcoded values (API keys, file paths, magic numbers)
 - [ ] Code follows [CONTRIBUTING.md](../CONTRIBUTING.md) guidelines
 - [ ] Documentation updated (if user-facing change)

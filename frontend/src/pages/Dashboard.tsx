@@ -88,7 +88,7 @@ export function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-4 gap-3">
+    <div className="flex flex-col h-full overflow-y-auto p-4 gap-3 page-enter-stagger">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-bold">🏠 {t.dashTitle}</h1>
@@ -98,7 +98,7 @@ export function Dashboard() {
       </div>
 
       {error && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-700 text-sm p-3 rounded-lg">
+        <div className="message-bar warning rounded-lg">
           {t.dashStale}: {error}
         </div>
       )}
@@ -131,7 +131,7 @@ export function Dashboard() {
 // ── Card Components (receive t as prop) ──────────────────────────────
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("rounded-xl border bg-card p-4 shadow-sm", className)}>{children}</div>;
+  return <div className={cn("card p-4", className)}>{children}</div>;
 }
 
 function MarketCard({ data, t }: { data: DashboardData["market"]; t: any }) {
@@ -283,21 +283,21 @@ function PipelineCard({ data, t }: { data: DashboardData["pipeline"]; t: any }) 
         <Microscope className="w-4 h-4 text-purple-500" /> {t.dashFactorPipeline}
       </h3>
       <div className="grid grid-cols-4 gap-4 mb-4">
-        <div className="text-center p-2 rounded-lg bg-purple-50 dark:bg-purple-900/20">
-          <div className="text-lg font-bold">{data.mining?.active_gp_runs ?? 0}</div>
-          <div className="text-xs text-muted-foreground">{t.dashGpRuns}</div>
+        <div className="text-center p-3 rounded-xl bg-accent-violet/8 border border-accent-violet/15">
+          <div className="text-xl font-bold text-accent-violet">{data.mining?.active_gp_runs ?? 0}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">{t.dashGpRuns}</div>
         </div>
-        <div className="text-center p-2 rounded-lg bg-blue-50 dark:bg-blue-900/20">
-          <div className="text-lg font-bold">{data.candidates?.pending_validation ?? 0}</div>
-          <div className="text-xs text-muted-foreground">{t.dashPendingValidation}</div>
+        <div className="text-center p-3 rounded-xl bg-accent-cyan/8 border border-accent-cyan/15">
+          <div className="text-xl font-bold text-accent-cyan">{data.candidates?.pending_validation ?? 0}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">{t.dashPendingValidation}</div>
         </div>
-        <div className="text-center p-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/20">
-          <div className="text-lg font-bold">{data.zoo?.total_factors ?? 0}</div>
-          <div className="text-xs text-muted-foreground">{t.dashZooFactors}</div>
+        <div className="text-center p-3 rounded-xl bg-accent-emerald/8 border border-accent-emerald/15">
+          <div className="text-xl font-bold text-accent-emerald">{data.zoo?.total_factors ?? 0}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">{t.dashZooFactors}</div>
         </div>
-        <div className="text-center p-2 rounded-lg bg-amber-50 dark:bg-amber-900/20">
-          <div className="text-lg font-bold">{data.zoo?.alive ?? 0}</div>
-          <div className="text-xs text-muted-foreground">{t.dashProduction}</div>
+        <div className="text-center p-3 rounded-xl bg-accent-amber/8 border border-accent-amber/15">
+          <div className="text-xl font-bold text-accent-amber">{data.zoo?.alive ?? 0}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">{t.dashProduction}</div>
         </div>
       </div>
       {Object.keys(health).length > 0 && (
@@ -360,8 +360,8 @@ function QuickActionsCard({ t }: { t: any }) {
       <div className="flex gap-2 flex-wrap">
         {actions.map(a => (
           <Link key={a.to} to={a.to}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border hover:bg-muted text-xs font-medium transition-colors">
-            <a.icon className={cn("w-4 h-4", a.color)} />
+            className="btn btn-secondary btn-sm">
+            <a.icon className={cn("w-3.5 h-3.5", a.color)} />
             {a.label}
           </Link>
         ))}

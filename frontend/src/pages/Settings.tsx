@@ -15,10 +15,9 @@ interface LLMFormState {
   reasoning_effort: string;
 }
 
-const fieldClass =
-  "w-full rounded-lg border bg-background px-3.5 py-2.5 text-sm outline-none transition-all duration-150 placeholder:text-muted-foreground/50 focus:border-primary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60";
+const fieldClass = "input";
 const labelClass = "text-sm font-medium";
-const hintClass = "text-xs text-muted-foreground";
+const hintClass = "caption";
 
 function toForm(settings: LLMSettings): LLMFormState {
   return {
@@ -223,7 +222,7 @@ function McpSection() {
   "mcpServers": {
     "AStockPursue": {
       "command": "python",
-      "args": ["${mcp.install_cmd || 'agent/mcp_server.py'}"]
+      "args": ["${mcp.install_cmd || 'backend/mcp_server.py'}"]
     }
   }
 }`}</pre>

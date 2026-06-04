@@ -28,9 +28,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Python deps (install before copying code for layer caching)
-COPY agent/requirements.txt agent/requirements.txt
+COPY backend/requirements.txt backend/requirements.txt
 ARG PYPI_MIRROR=https://pypi.tuna.tsinghua.edu.cn/simple
-RUN pip install --no-cache-dir -r agent/requirements.txt -i ${PYPI_MIRROR}
+RUN pip install --no-cache-dir -r backend/requirements.txt -i ${PYPI_MIRROR}
 
 # mootdx (A-share TDX data) conflicts with project's httpx>=0.28 via its httpx<0.26 pin.
 # Install with --no-deps so it reuses the project's httpx; mootdx works fine with newer httpx.
@@ -39,7 +39,7 @@ RUN pip install --no-cache-dir --no-deps mootdx tdxpy -i ${PYPI_MIRROR}
 
 # Copy project
 COPY pyproject.toml LICENSE NOTICE SECURITY.md README.md README_zh.md ./
-COPY agent/ agent/
+COPY backend/ backend/
 COPY start.sh ./
 
 # Copy built frontend
@@ -48,7 +48,7 @@ COPY --from=frontend-build /app/frontend/dist frontend/dist
 # Create service user + writable directories before pip install
 # so .egg-info / __pycache__ are owned by the research user
 RUN useradd --create-home --shell /usr/sbin/nologin research \
-    && mkdir -p agent/runs agent/sessions agent/uploads agent/.swarm/runs \
+    && mkdir -p backend/runs backend/sessions backend/uploads backend/.swarm/runs \
               /home/research/.AStockPursue/skills \
     && chown -R research:research /app /home/research/.AStockPursue
 USER research
