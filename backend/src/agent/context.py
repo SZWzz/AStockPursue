@@ -161,6 +161,7 @@ class ContextBuilder:
             )
 
         return _SYSTEM_PROMPT.format(
+            today=now.strftime("%Y-%m-%d"),
             tool_count=len(self.registry._tools),
             skill_count=len(self.skills_loader.skills),
             tool_descriptions=self._format_tool_descriptions(),

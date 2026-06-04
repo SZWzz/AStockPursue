@@ -29,7 +29,7 @@ import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-AGENT_DIR = REPO_ROOT / "agent"
+AGENT_DIR = REPO_ROOT / "backend"
 
 # Generous bound — covers cold imports of fastmcp + tool registry build on
 # slow CI runners. The patched server typically finishes initialize in 3-9s.

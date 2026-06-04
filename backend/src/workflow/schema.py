@@ -114,6 +114,33 @@ class NodeDefinition:
 # ── Workflow DAG ──────────────────────────────────────────────────────────────
 
 @dataclass
+class WorkflowModel:
+    """Full workflow definition — nodes, edges, viewport, and metadata."""
+    id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    project_id: str = ""
+    user_id: int = 0
+    name: str = ""
+    description: str = ""
+    nodes: List[WorkflowNodeData] = field(default_factory=list)
+    edges: List[WorkflowEdge] = field(default_factory=list)
+    viewport: Dict[str, Any] = field(default_factory=lambda: {"x": 0, "y": 0, "zoom": 1})
+    is_locked: bool = False
+    created_at: str = ""
+    updated_at: str = ""
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id, "project_id": self.project_id,
+            "user_id": self.user_id, "name": self.name,
+            "description": self.description,
+            "nodes": [n.to_dict() for n in self.nodes],
+            "edges": [e.to_dict() for e in self.edges],
+            "viewport": self.viewport, "is_locked": self.is_locked,
+            "created_at": self.created_at, "updated_at": self.updated_at,
+        }
+
+
+@dataclass
 class WorkflowNodeData:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     node_type: str = ""
