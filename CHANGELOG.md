@@ -33,6 +33,10 @@
 - **[Workflow] AttributionNode 增强**
   - 从 thin stub 改为调用 `AttributionEngine`：Brinson 分解、因子归因、行业归因、TCA
 
+- **[Workflow] 修复 /projects 页面空白 — 路由双 `/v1` 前缀**
+  - `workflow_routes.py` 的 `APIRouter(prefix="/v1/workflow")` 与 `api_server.py` 的 `v1` APIRouter(`prefix="/v1"`) 叠加，导致实际路由变为 `/v1/v1/workflow/projects`，前端请求 `/v1/workflow/projects` 匹配不上 → SPA fallback 返回 HTML → 空白页
+  - 修复：去掉子 router 中多余的 `/v1`，统一为 `prefix="/workflow"`
+
 - **[前端] 侧边栏恢复 Dashboard 入口**
   - `/` 路由从 Projects 改为 Dashboard，`/projects` 保持独立
   - Dashboard 全面重构样式（`section-card rounded-2xl`、hover 过渡）

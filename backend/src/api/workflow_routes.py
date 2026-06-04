@@ -30,7 +30,7 @@ from src.workflow.workflow_store import WorkflowStore
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/v1/workflow", tags=["workflow"])
+router = APIRouter(prefix="/workflow", tags=["workflow"])
 
 _store = WorkflowStore()
 _engine = WorkflowEngine()
