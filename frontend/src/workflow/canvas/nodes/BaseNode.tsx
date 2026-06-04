@@ -9,7 +9,34 @@
 import { memo } from "react";
 import { Handle, NodeProps, Position } from "@xyflow/react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/lib/i18n";
 import type { NodeDefinition, NodePort, WorkflowNodeData } from "@/workflow/types/workflow";
+import {
+  Target, BarChart3, Layers, Database, Microscope, PieChart, Filter,
+  TrendingUp, MessageSquare, Bot, GitBranch, FlaskConical, GitCompare,
+  Newspaper, Globe, Send, FileText, CircleDollarSign, Bell, Download,
+} from "lucide-react";
+
+// ── i18n helpers ──────────────────────────────────────────────────────────────
+
+function tNode(t: Record<string, string>, nodeType: string, fallback: string): string {
+  const key = `wfNode_${nodeType}`;
+  return (t as any)[key] || fallback;
+}
+
+// ── Icon map (backend sends Lucide icon name strings) ────────────────────────
+
+const ICON_MAP: Record<string, React.ComponentType<any>> = {
+  Target, BarChart3, Layers, Database, Microscope, PieChart, Filter,
+  TrendingUp, MessageSquare, Bot, GitBranch, FlaskConical, GitCompare,
+  Newspaper, Globe, Send, FileText, CircleDollarSign, Bell, Download,
+};
+
+function NodeIcon({ name, className }: { name?: string; className?: string }) {
+  if (!name) return <span className={className}>○</span>;
+  const Icon = ICON_MAP[name];
+  return Icon ? <Icon className={className} /> : <span className={className}>○</span>;
+}
 
 // ── Status badge colours ────────────────────────────────────────────────────
 
@@ -37,15 +64,16 @@ function PortHandle({ port, side }: { port: NodePort; side: "left" | "right" }) 
   const isConnected = false; // managed by React Flow internally
   const typeLabel = port.port_type.split(":").pop() || port.port_type;
   return (
-    <div className={cn("flex items-center gap-1.5 px-1 py-0.5 text-xs", side === "right" && "justify-end")}>
+    <div className={cn("flex items-center gap-1.5 px-1 py-1 text-xs group/port cursor-crosshair rounded hover:bg-muted/50 transition-colors", side === "right" && "flex-row-reverse")}>
       <Handle
         type={side === "left" ? "target" : "source"}
         position={side === "left" ? Position.Left : Position.Right}
         id={port.name}
+        title={`${port.name} (${typeLabel})${port.required ? " — required" : ""}`}
         className={cn(
-          "!w-2.5 !h-2.5 !border-2 !bg-background",
+          "!w-[14px] !h-[14px] !border-[2.5px] !bg-background !rounded-full hover:!w-[20px] hover:!h-[20px] hover:!border-primary transition-all",
           port.required ? "!border-primary" : "!border-muted-foreground",
-          !isConnected && port.required && "!border-amber-500"
+          !isConnected && port.required && "!border-amber-500 !animate-pulse"
         )}
       />
       <span className="text-muted-foreground truncate max-w-[100px]" title={`${port.name}: ${typeLabel}`}>
@@ -87,6 +115,9 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
   const nodeData = data as unknown as WorkflowNodeData & { definition?: NodeDefinition };
   const def = nodeData.definition;
   const status = (nodeData as any).status || "pending";
+  const { t } = useI18n();
+
+  const nodeLabel = tNode(t, nodeData.node_type, def?.label || nodeData.label || nodeData.node_type);
 
   return (
     <div
@@ -98,8 +129,8 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
     >
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b">
-        <span className="text-sm">{def?.icon ? def.icon : "○"}</span>
-        <span className="flex-1 text-sm font-medium truncate">{nodeData.label || def?.label || nodeData.node_type}</span>
+        <NodeIcon name={def?.icon} className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <span className="flex-1 text-sm font-medium truncate">{nodeLabel}</span>
         {status !== "pending" && (
           <span className="text-xs" title={status}>
             {STATUS_ICONS[status] || ""}

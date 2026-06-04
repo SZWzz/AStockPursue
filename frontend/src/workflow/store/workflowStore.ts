@@ -142,7 +142,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   onConnect: (connection: Connection): ConnectResult => {
     const { nodes, nodeDefinitions } = get();
     if (!connection.source || !connection.target) return { success: false, error: "Invalid connection" };
-    if (!connection.sourceHandle || !connection.targetHandle) return { success: false, error: "Missing port handles" };
 
     // Find port types
     const sourceNode = nodes.find((n) => n.id === connection.source);
@@ -153,11 +152,44 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const targetDef = nodeDefinitions.find((d) => d.node_type === targetNode.data?.node_type);
     if (!sourceDef || !targetDef) return { success: false, error: "Node type not found" };
 
-    const sourcePort = sourceDef.outputs.find((p) => p.name === connection.sourceHandle);
-    const targetPort = targetDef.inputs.find((p) => p.name === connection.targetHandle);
-    if (!sourcePort || !targetPort) return { success: false, error: "Port not found" };
+    // Find source port first
+    let sourcePort = null;
+    if (connection.sourceHandle) {
+      sourcePort = sourceDef.outputs.find((p) => p.name === connection.sourceHandle);
+    }
+    if (!sourcePort && sourceDef.outputs.length === 1) {
+      sourcePort = sourceDef.outputs[0];
+    }
+    if (!sourcePort) return { success: false, error: "Cannot determine source port" };
 
-    // Type compatibility check
+    // Find best matching target port (type-compatible always wins)
+    const connectedTargetHandles = get().edges
+      .filter((e) => e.target === connection.target)
+      .map((e) => e.targetHandle);
+
+    let targetPort = null;
+    // First, try the exact handle the user connected to (if type-compatible & unconnected)
+    if (connection.targetHandle) {
+      const exact = targetDef.inputs.find((p) => p.name === connection.targetHandle);
+      if (exact && isCompatible(sourcePort!.port_type, exact.port_type) && !connectedTargetHandles.includes(exact.name)) {
+        targetPort = exact;
+      }
+    }
+    // Fallback: auto-match first type-compatible, unconnected input
+    if (!targetPort) {
+      targetPort = targetDef.inputs.find(
+        (p) => isCompatible(sourcePort!.port_type, p.port_type) && !connectedTargetHandles.includes(p.name)
+      );
+    }
+    if (!targetPort) {
+      const anyCompatible = targetDef.inputs.some((p) => isCompatible(sourcePort!.port_type, p.port_type));
+      if (anyCompatible) {
+        return { success: false, error: "All compatible input ports are already connected" };
+      }
+      return { success: false, error: `Type mismatch: ${sourcePort!.port_type} → no matching input on ${targetDef.label}` };
+    }
+
+    // Type compatibility check (should always pass due to auto-match, but double-check)
     if (!isCompatible(sourcePort.port_type, targetPort.port_type)) {
       return {
         success: false,
@@ -165,23 +197,25 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       };
     }
 
+    const tgtHandle = targetPort.name;
+
     // Check for duplicate connection to the same input port
     const existingConnection = get().edges.find(
-      (e) => e.target === connection.target && e.targetHandle === connection.targetHandle
+      (e) => e.target === connection.target && e.targetHandle === tgtHandle
     );
     if (existingConnection) {
       return { success: false, error: "Input port already connected" };
     }
 
     const edge: Edge = {
-      id: edgeId(connection.source, connection.target),
+      id: edgeId(connection.source, connection.target) + "_" + sourcePort.name,
       source: connection.source,
       target: connection.target,
-      sourceHandle: connection.sourceHandle,
-      targetHandle: connection.targetHandle,
+      sourceHandle: sourcePort.name,
+      targetHandle: targetPort.name,
       data: {
-        source_port: connection.sourceHandle,
-        target_port: connection.targetHandle,
+        source_port: sourcePort.name,
+        target_port: targetPort.name,
       } as unknown as Record<string, unknown>,
     };
 
@@ -339,65 +373,47 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const runId = (data as { run_id: string }).run_id;
       set({ runId });
 
-      // Connect SSE for progress
-      const token = sessionStorage.getItem("vt_token");
-      const sseUrl = `/v1/api/workflow/runs/${runId}/stream?jwt=${token}`;
-      const eventSource = new EventSource(sseUrl);
+      // Poll for results (short polling, the run is fast)
+      const pollInterval = setInterval(async () => {
+        try {
+          const runResult = await api.getWorkflowRun(runId);
+          if (!runResult) return;
 
-      eventSource.addEventListener("node_start", (e) => {
-        const d = JSON.parse(e.data);
-        get().addLog(d.node_id, `Started`, "info");
-      });
+          const nr = runResult.node_results || {};
+          const hasResults = Object.keys(nr).length > 0;
+          const allDone = hasResults && Object.values(nr).every((r: any) => r.status === "done" || r.status === "cached" || r.status === "error");
 
-      eventSource.addEventListener("node_done", (e) => {
-        const d = JSON.parse(e.data);
-        get().addLog(d.node_id, `Completed in ${d.duration_ms}ms`, "success");
-        // Update node status on canvas
-        set({
-          nodes: get().nodes.map((n) =>
-            n.id === d.node_id
-              ? { ...n, data: { ...n.data, status: "done", duration_ms: d.duration_ms } }
-              : n
-          ),
-        });
-      });
+          // Populate log and results
+          if (hasResults) {
+            const logEntries: { nodeId: string; message: string; level: "info" | "error" | "success" }[] = [];
+            const results: Record<string, any> = {};
+            const updatedNodes = get().nodes.map((n) => {
+              const r = nr[n.id];
+              if (!r) return n;
+              results[n.id] = { status: r.status, summary: r.summary || {}, error_message: r.error_message || "", duration_ms: r.duration_ms || 0 };
+              const level = r.status === "error" ? "error" : "success";
+              logEntries.push({ nodeId: n.id, message: `[${n.data?.node_type || "node"}] ${r.status}${r.duration_ms ? " in " + r.duration_ms + "ms" : ""}`, level });
+              return { ...n, data: { ...n.data, status: r.status, duration_ms: r.duration_ms, error_message: r.error_message } };
+            });
 
-      eventSource.addEventListener("node_error", (e) => {
-        const d = JSON.parse(e.data);
-        get().addLog(d.node_id, `Error: ${d.error_message}`, "error");
-        set({
-          nodes: get().nodes.map((n) =>
-            n.id === d.node_id
-              ? { ...n, data: { ...n.data, status: "error", error_message: d.error_message } }
-              : n
-          ),
-        });
-      });
+            set({
+              executionLog: logEntries,
+              nodeResults: results,
+              nodes: updatedNodes,
+              runStatus: allDone ? (Object.values(nr).some((r: any) => r.status === "error") ? "error" : "completed") : "running",
+            });
+          }
 
-      eventSource.addEventListener("node_cached", (e) => {
-        const d = JSON.parse(e.data);
-        get().addLog(d.node_id, "Used cached result", "success");
-        set({
-          nodes: get().nodes.map((n) =>
-            n.id === d.node_id ? { ...n, data: { ...n.data, status: "cached" } } : n
-          ),
-        });
-      });
+          if (allDone) {
+            clearInterval(pollInterval);
+          }
+        } catch (e) {
+          // Keep polling on transient errors
+        }
+      }, 1000);
 
-      eventSource.addEventListener("workflow_done", () => {
-        set({ runStatus: "completed" });
-        eventSource.close();
-      });
-
-      eventSource.addEventListener("workflow_error", () => {
-        set({ runStatus: "error" });
-        eventSource.close();
-      });
-
-      eventSource.onerror = () => {
-        set({ runStatus: get().runStatus === "running" ? "error" : get().runStatus });
-        eventSource.close();
-      };
+      // Safety: stop polling after 120s
+      setTimeout(() => clearInterval(pollInterval), 120000);
     } catch (e) {
       console.error("Failed to run workflow:", e);
       set({ runStatus: "error" });

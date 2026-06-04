@@ -135,6 +135,28 @@ async def list_strategies():
         }
 
 
+@router.get("/options")
+async def list_strategy_options():
+    """Lightweight strategy list for workflow node picker (id + name + code)."""
+    repo = _get_repo()
+    if _repo_kind == "pg":
+        items = repo.list_strategies()
+        return {
+            "strategies": [
+                {"id": i["id"], "name": i["name"], "code": i.get("code", "")}
+                for i in items
+            ]
+        }
+    else:
+        items = repo.list()
+        return {
+            "strategies": [
+                {"id": i.id, "name": i.name, "code": i.code}
+                for i in items
+            ]
+        }
+
+
 @router.get("/{strategy_id}")
 async def get_strategy(strategy_id: str):
     repo = _get_repo()

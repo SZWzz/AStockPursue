@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, Bot, Database, FolderOpen, LayoutDashboard, Menu, Moon, Search, Sun, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, LogIn, LogOut, User, Users, X } from "lucide-react";
+import { BarChart3, Bot, Database, FolderOpen, LayoutDashboard, Menu, Moon, Search, Sun, ArrowLeft, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, LogIn, LogOut, User, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { useDarkMode } from "@/hooks/useDarkMode";
@@ -10,7 +10,7 @@ import { useAuthStore } from "@/stores/auth";
 import { ConnectionBanner } from "@/components/layout/ConnectionBanner";
 import { PostLoginSetup } from "@/components/layout/PostLoginSetup";
 
-const APP_VERSION = "v2026.6.4";
+const APP_VERSION = "v2026.6.5";
 
 const MAIN_NAV = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
@@ -346,6 +346,18 @@ export function Layout() {
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <ConnectionBanner status={sseStatus} retryAttempt={sseRetryAttempt} />
+        {/* Back to workflow button */}
+        {searchParams.get("returnTo") && (
+          <div className="px-3 py-1.5 border-b bg-muted/30 flex items-center">
+            <Link
+              to={searchParams.get("returnTo")!}
+              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              Back to Workflow
+            </Link>
+          </div>
+        )}
         <main className="flex-1 overflow-auto bg-background">
           <Outlet />
         </main>

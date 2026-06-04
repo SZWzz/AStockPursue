@@ -457,6 +457,8 @@ export const api = {
   fetchMiningHistory: () => request<{ runs: import("@/types/api").MiningRunSummary[]; total: number }>("/factor-mining/history"),
 
   // --- Workflow ---
+  // Strategy options for workflow node
+  listStrategyOptions: () => request<{ strategies: { id: string; name: string; code: string }[] }>("/strategy-lab/options"),
   // Projects
   listProjects: () => request<any[]>("/workflow/projects"),
   createProject: (body: { name: string; description?: string }) => request<any>("/workflow/projects", { method: "POST", body: JSON.stringify(body) }),

@@ -346,13 +346,45 @@ class WorkflowStore:
 
     def save_node_results(self, run_id: str, node_results: Dict[str, NodeRunResult]) -> None:
         """Persist per-node execution results into the run record."""
-        payload = {k: v.to_dict() for k, v in node_results.items()}
+        payload = {}
+        for k, v in node_results.items():
+            d = v.to_dict()
+            payload[k] = d
+        # Sanitize entire payload for JSON (DataFrames, Timestamps, etc.)
+        payload = self._sanitize_for_json(payload)
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
                     "UPDATE vt_workflow_runs SET node_results = %s WHERE id = %s",
                     (json.dumps(payload), run_id),
                 )
+
+    @staticmethod
+    def _sanitize_for_json(obj: Any) -> Any:
+        """Recursively convert pandas/numpy objects to JSON-safe types."""
+        import pandas as pd
+        import numpy as np
+        if isinstance(obj, (pd.DataFrame,)):
+            return {str(k): WorkflowStore._sanitize_for_json(v) for k, v in obj.to_dict().items()}
+        if isinstance(obj, (pd.Series,)):
+            return [WorkflowStore._sanitize_for_json(v) for v in obj.to_list()]
+        if isinstance(obj, dict):
+            return {str(k): WorkflowStore._sanitize_for_json(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [WorkflowStore._sanitize_for_json(v) for v in obj]
+        if isinstance(obj, (np.integer,)):
+            return int(obj)
+        if isinstance(obj, (np.floating,)):
+            return float(obj)
+        if isinstance(obj, (np.bool_,)):
+            return bool(obj)
+        if isinstance(obj, np.ndarray):
+            return obj.tolist()
+        if isinstance(obj, (pd.Timestamp,)):
+            return str(obj)
+        if hasattr(obj, 'isoformat'):
+            return str(obj)
+        return obj
 
     def cleanup_expired_cache(self) -> int:
         """Remove expired cache entries.  Returns count of deleted rows."""

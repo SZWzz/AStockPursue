@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 class BacktestDriver:
     """Run a backtest by feeding historical bars through a TradingEngine."""
 
+    def __init__(self):
+        self.last_engine = None
+
     def run(
         self,
         config: dict,
@@ -70,7 +73,7 @@ class BacktestDriver:
         )
         if not data_map:
             print(json.dumps({"error": "No data fetched"}))
-            sys.exit(1)
+            return {"error": "No data fetched"}
         data_map = _maybe_enrich_fundamentals(data_map, config)
 
         # 2. Build TradingEngine (no risk, no state machine for backtest compat)
@@ -82,6 +85,7 @@ class BacktestDriver:
             risk_pipeline=None,
             state_machine=None,
         )
+        self.last_engine = engine  # for trade extraction after run()
 
         if simulation_mode:
             return self._run_simulation(engine, data_map, config, run_dir, bars_per_year)
@@ -137,8 +141,7 @@ class BacktestDriver:
 
         valid_codes = sorted(c for c in signal_map if c in data_map)
         if not valid_codes:
-            print(json.dumps({"error": "No valid signals generated"}))
-            sys.exit(1)
+            return {"error": "No valid signals generated"}
 
         # Pre-compute target weights (with optimizer)
         opt_fn = _load_optimizer(config)
@@ -275,8 +278,7 @@ class BacktestDriver:
         """Feed bars one-by-one through the full signal pipeline (matches live)."""
         valid_codes = sorted(c for c in data_map)
         if not valid_codes:
-            print(json.dumps({"error": "No data fetched"}))
-            sys.exit(1)
+            return {"error": "No data fetched"}
 
         # Build unified date index
         all_dates = set()

@@ -7,6 +7,11 @@ import { useMemo, useState } from "react";
 import { useWorkflowStore } from "@/workflow/store/workflowStore";
 import { useI18n } from "@/lib/i18n";
 import type { NodeDefinition } from "@/workflow/types/workflow";
+import {
+  Target, BarChart3, Layers, Database, Microscope, PieChart, Filter,
+  TrendingUp, MessageSquare, Bot, GitBranch, FlaskConical, GitCompare,
+  Newspaper, Globe, Send, FileText, CircleDollarSign, Bell, Download,
+} from "lucide-react";
 
 // ── Category labels (English fallback, overridden by i18n wfCat_* keys) ──────
 
@@ -44,6 +49,20 @@ function tCat(t: Record<string, string>, category: string): string {
   return (t as any)[key] || CATEGORY_LABELS_FALLBACK[category] || category;
 }
 
+// ── Icon map ──────────────────────────────────────────────────────────────────
+
+const ICON_MAP: Record<string, React.ComponentType<any>> = {
+  Target, BarChart3, Layers, Database, Microscope, PieChart, Filter,
+  TrendingUp, MessageSquare, Bot, GitBranch, FlaskConical, GitCompare,
+  Newspaper, Globe, Send, FileText, CircleDollarSign, Bell, Download,
+};
+
+function NodeIcon({ name, className }: { name?: string; className?: string }) {
+  if (!name) return <span className={className}>○</span>;
+  const Icon = ICON_MAP[name];
+  return Icon ? <Icon className={className} /> : <span className={className}>○</span>;
+}
+
 // ── Draggable item ──────────────────────────────────────────────────────────
 
 function DraggableNodeItem({ def, t }: { def: NodeDefinition; t: Record<string, string> }) {
@@ -69,7 +88,7 @@ function DraggableNodeItem({ def, t }: { def: NodeDefinition; t: Record<string, 
       className="flex items-center gap-2 px-2 py-1.5 rounded cursor-grab hover:bg-muted text-sm transition-colors"
       title={desc}
     >
-      <span className="text-xs w-5 text-center">{def.icon || "○"}</span>
+      <NodeIcon name={def.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
       <span className="truncate">{label}</span>
     </div>
   );

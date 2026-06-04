@@ -152,10 +152,15 @@ class WorkflowEngine:
         all_ids = {n.id for n in nodes}
         in_degree = {n.id: 0 for n in nodes}
         downstream: Dict[str, Set[str]] = {n.id: set() for n in nodes}
+        # Use set of (source, target) pairs to avoid double-counting multi-port edges
+        seen_pairs = set()
         for e in edges:
             if e.source in all_ids and e.target in all_ids:
-                in_degree[e.target] += 1
-                downstream.setdefault(e.source, set()).add(e.target)
+                pair = (e.source, e.target)
+                if pair not in seen_pairs:
+                    seen_pairs.add(pair)
+                    in_degree[e.target] += 1
+                    downstream.setdefault(e.source, set()).add(e.target)
         if target:
             ancestors = self._ancestors(edges, target)
             in_degree = {k: v for k, v in in_degree.items() if k in ancestors}
@@ -241,7 +246,7 @@ class WorkflowEngine:
             self._results[nid] = {"_summary": summary, "_duration_ms": duration, **outputs}
             self._node_status[nid] = NodeStatus.DONE
             await self._emit("node_done", {
-                "node_id": nid, "duration_ms": duration,
+                "node_id": nid, "node_type": node.node_type, "duration_ms": duration,
                 "outputs_summary": summary})
 
         except asyncio.CancelledError:

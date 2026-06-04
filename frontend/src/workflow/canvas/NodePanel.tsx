@@ -6,9 +6,9 @@
  * connection status, and the last-run output preview.
  */
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Trash2 } from "lucide-react";
 import { useWorkflowStore } from "@/workflow/store/workflowStore";
 import { useI18n } from "@/lib/i18n";
 import { StockInput } from "@/components/indicator-lab/StockInput";
@@ -84,8 +84,8 @@ export default function NodePanel() {
   const status = nodeData.status || "pending";
   const nodeType = nodeData.node_type || def?.node_type || "";
 
-  // Translate label & description
-  const displayLabel = nodeData.label || tNode(t, nodeType, def?.label || nodeType);
+  // Translate label & description (i18n first, fallback to backend hardcoded)
+  const displayLabel = tNode(t, nodeType, nodeData.label || def?.label || nodeType);
   const displayDesc = tNodeDesc(t, nodeType, def?.description || "");
 
   // Find connected inputs
@@ -112,9 +112,14 @@ export default function NodePanel() {
           {(() => {
             const editorPath = getFullEditorPath(nodeData.node_type, nodeData);
             if (editorPath) {
+              const store = useWorkflowStore.getState();
+              const returnTo = store.projectId && store.workflowId
+                ? `/workflow/${store.projectId}/${store.workflowId}`
+                : "";
+              const href = returnTo ? `${editorPath}?returnTo=${encodeURIComponent(returnTo)}` : editorPath;
               return (
                 <button
-                  onClick={() => navigate(editorPath)}
+                  onClick={() => navigate(href)}
                   className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
                   title={`${((t as any).wfNode_fullEditor || "Full Editor")}: ${FULL_EDITOR_MAP[nodeData.node_type]?.label || ""}`}
                 >
@@ -131,11 +136,25 @@ export default function NodePanel() {
         )}
       </div>
 
+      {/* Strategy picker (special for strategy node) */}
+      {nodeData.node_type === "strategy" && (
+        <StrategyPicker config={config} onUpdate={(patch) => updateNodeConfig(selectedNodeId!, { ...config, ...patch })} />
+      )}
+
       {/* Config form */}
       {def?.config_schema && Object.keys(def.config_schema).length > 0 && (
         <div className="p-3 border-b">
           <h4 className="text-xs font-semibold mb-2 uppercase text-muted-foreground">{((t as any).wfNode_configuration || "Configuration")}</h4>
-          {Object.entries(def.config_schema as Record<string, any>).map(([key, schema]) => (
+          {Object.entries(def.config_schema as Record<string, any>)
+            .filter(([key]) => {
+              if (key === "saved_strategy_id" || key === "strategy_source") return false;
+              const source = (config.strategy_source as string) || "template";
+              if (source === "saved" && (key === "strategy_template" || key === "custom_code")) return false;
+              if (source === "custom" && key === "strategy_template") return false;
+              if (source === "template" && key === "custom_code") return false;
+              return true;
+            })
+            .map(([key, schema]) => (
             <div key={key} className="mb-2">
               <label className="text-xs text-muted-foreground block mb-0.5">{schema.title || key}</label>
               {schema.type === "string" && schema.enum ? (
@@ -235,7 +254,76 @@ export default function NodePanel() {
               ? ((t as any).wfNode_reRun || "Re-run")
               : ((t as any).wfNode_runThis || "Run This Node")}
         </button>
+        <button
+          onClick={() => { useWorkflowStore.getState().removeNode(selectedNodeId!); }}
+          className="w-full py-1 text-xs rounded border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex items-center justify-center gap-1"
+        >
+          <Trash2 className="h-3 w-3" />
+          Delete Node
+        </button>
       </div>
+    </div>
+  );
+}
+
+// ── Strategy Picker (for strategy node) ──────────────────────────────────────
+
+function StrategyPicker({ config, onUpdate }: { config: Record<string, unknown>; onUpdate: (patch: Record<string, unknown>) => void }) {
+  const [saved, setSaved] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const source = (config.strategy_source as string) || "template";
+
+  useEffect(() => {
+    if (source === "saved") {
+      setLoading(true);
+      import("@/lib/api").then(({ api }) =>
+        api.listStrategyOptions().then((data: any) => {
+          setSaved(data?.strategies || []);
+        }).catch(() => {}).finally(() => setLoading(false))
+      );
+    }
+  }, [source]);
+
+  return (
+    <div className="p-3 border-b space-y-2">
+      <h4 className="text-xs font-semibold uppercase text-muted-foreground">Strategy Source</h4>
+
+      <div className="flex gap-1">
+        {(["template", "saved", "custom"] as const).map((s) => (
+          <button
+            key={s}
+            onClick={() => onUpdate({ strategy_source: s })}
+            className={`flex-1 text-xs px-2 py-1 rounded border transition-colors ${
+              source === s
+                ? "bg-primary text-primary-foreground border-primary"
+                : "bg-background text-muted-foreground hover:bg-muted border-border"
+            }`}
+          >
+            {{ template: "Template", saved: "Saved", custom: "Custom" }[s]}
+          </button>
+        ))}
+      </div>
+
+      {source === "saved" && (
+        <div>
+          {loading ? (
+            <p className="text-xs text-muted-foreground">Loading saved strategies…</p>
+          ) : saved.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No saved strategies. Save one in Strategy Lab first.</p>
+          ) : (
+            <select
+              value={(config.saved_strategy_id as string) || ""}
+              onChange={(e) => onUpdate({ saved_strategy_id: e.target.value })}
+              className="w-full px-2 py-1 text-xs rounded border bg-background"
+            >
+              <option value="">-- Select a strategy --</option>
+              {saved.map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          )}
+        </div>
+      )}
     </div>
   );
 }

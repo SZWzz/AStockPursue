@@ -85,14 +85,20 @@ function CanvasInner() {
 
   const onConnectWrapped = useCallback(
     (connection: Connection) => {
+      console.log("Connection attempt:", JSON.stringify(connection));
       const result = onConnect(connection);
       if (!result.success) {
         console.warn("Connection rejected:", result.error);
-        // Could show toast here
+        alert("Connection failed: " + result.error);
+      } else {
+        console.log("Connection OK");
       }
     },
     [onConnect]
   );
+
+  // TODO: re-enable isValidConnection after debugging connection issues
+  // const isValidConnection = useCallback(...)
 
   // Click on pane deselects node
   const onPaneClick = useCallback(() => {
@@ -127,6 +133,7 @@ function CanvasInner() {
       onConnect={onConnectWrapped}
       onConnectStart={onConnectStart}
       onConnectEnd={onConnectEnd}
+      // isValidConnection={isValidConnection}  {/* temporarily disabled for debugging */}
       onInit={onInit}
       onDragOver={onDragOver}
       onDrop={onDrop}
@@ -140,6 +147,7 @@ function CanvasInner() {
       multiSelectionKeyCode="Shift"
       snapToGrid
       snapGrid={[15, 15]}
+      connectionRadius={30}
       className="bg-dot-pattern"
     >
       <Background gap={20} size={1} />

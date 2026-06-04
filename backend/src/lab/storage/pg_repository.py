@@ -158,13 +158,13 @@ class PgIndicatorRepository:
             with get_connection() as conn:
                 with conn.cursor() as cur:
                     cur.execute(
-                        "SELECT id, name, description, created_at, updated_at "
+                        "SELECT id, name, description, code, created_at, updated_at "
                         "FROM vt_strategies WHERE user_id = %s ORDER BY updated_at DESC",
                         (self.user_id,),
                     )
                     return [
                         {"id": str(r[0]), "name": r[1], "description": r[2] or "",
-                         "created_at": str(r[3]), "updated_at": str(r[4])}
+                         "code": r[3] or "", "created_at": str(r[4]), "updated_at": str(r[5])}
                         for r in cur.fetchall()
                     ]
         except Exception:
@@ -190,6 +190,14 @@ class PgIndicatorRepository:
         if not name:
             from src.lab.storage.repository import _extract_meta_from_code as _em
             name, description = _em(code)
+            # Fallback: extract from class name or use timestamp
+            if not name:
+                import re
+                m = re.search(r'class\s+(\w+)\s*[:\(]', code)
+                if m:
+                    name = m.group(1)
+                else:
+                    name = f"Strategy {datetime.now().strftime('%m-%d %H:%M')}"
         else:
             description = ""
         now = datetime.now(timezone.utc).isoformat()

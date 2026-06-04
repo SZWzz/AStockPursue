@@ -136,7 +136,13 @@ def save_workflow(workflow_id: str, body: dict, user_id: int = Depends(_get_user
     if not existing:
         raise HTTPException(status_code=404, detail="Workflow not found")
     if existing.is_locked:
-        raise HTTPException(status_code=423, detail="Workflow is locked during execution")
+        # Stale lock detection
+        if workflow_id not in _running_workflows:
+            logger.warning("Workflow %s is locked but has no running task — auto-unlocking", workflow_id)
+            _store.unlock(workflow_id)
+            existing.is_locked = False
+        else:
+            raise HTTPException(status_code=423, detail="Workflow is locked during execution")
 
     # Update from body
     existing.name = body.get("name", existing.name)
@@ -184,7 +190,13 @@ async def run_workflow(workflow_id: str, body: dict, user_id: int = Depends(_get
     if not wf:
         raise HTTPException(status_code=404, detail="Workflow not found")
     if wf.is_locked:
-        raise HTTPException(status_code=423, detail="Workflow is already running")
+        # Stale lock detection: if no active task is running for this workflow, auto-unlock
+        if workflow_id not in _running_workflows:
+            logger.warning("Workflow %s is locked but has no running task — auto-unlocking", workflow_id)
+            _store.unlock(workflow_id)
+            wf.is_locked = False
+        else:
+            raise HTTPException(status_code=423, detail="Workflow is already running")
 
     target_node_id = body.get("target_node_id")
 
@@ -285,19 +297,34 @@ async def stream_run(run_id: str, auth: dict = Depends(require_auth)):
     fallback_queue: asyncio.Queue = asyncio.Queue()
 
     async def event_generator():
-        # Replay existing results from DB
+        # Replay existing results from DB (summary only, no raw data)
         if run:
+            has_results = False
             for nid, result in run.node_results.items():
                 if result.status in ("done", "cached"):
-                    yield f"event: node_done\ndata: {json.dumps({'node_id': nid, 'outputs_summary': result.summary})}\n\n"
+                    has_results = True
+                    compact = {}
+                    for k, v in (result.summary or {}).items():
+                        if isinstance(v, dict):
+                            compact[k] = f"{{...{len(v)} keys}}" if len(v) > 3 else v
+                        elif isinstance(v, (list, tuple)):
+                            compact[k] = f"[...{len(v)} items]"
+                        elif isinstance(v, str) and len(v) > 100:
+                            compact[k] = v[:100] + "..."
+                        else:
+                            compact[k] = v
+                    yield f"event: node_done\ndata: {json.dumps({'node_id': nid, 'node_type': 'completed', 'duration_ms': result.duration_ms, 'outputs_summary': compact}, default=str)}\n\n"
+            # Signal completion after replay
+            if has_results:
+                yield f"event: workflow_done\ndata: {{}}\n\n"
 
-        # Stream live events from engine if available, else poll DB
+        # Stream live events or send heartbeats
         try:
             while True:
-                msg = await asyncio.wait_for(fallback_queue.get(), timeout=30)
+                msg = await asyncio.wait_for(fallback_queue.get(), timeout=5)
                 yield f"event: {msg['event']}\ndata: {json.dumps(msg['data'], default=str)}\n\n"
         except asyncio.TimeoutError:
-            yield "event: heartbeat\ndata: {}\n\n"
+            yield ": heartbeat\n\n"
 
     return StreamingResponse(
         event_generator(),
@@ -456,6 +483,44 @@ def list_templates(category: str | None = Query(None)):
     if category:
         return [t for t in _BUILTIN_TEMPLATES if t["category"] == category]
     return _BUILTIN_TEMPLATES
+
+
+@router.post("/templates/{template_id}/instantiate")
+def instantiate_template(template_id: str, body: dict, user_id: int = Depends(_get_user_id)):
+    """Instantiate a built-in template into a project (creates a new workflow)."""
+    template = next((t for t in _BUILTIN_TEMPLATES if t["id"] == template_id), None)
+    if not template:
+        raise HTTPException(status_code=404, detail=f"Template not found: {template_id}")
+
+    project_id = body.get("project_id", "")
+    name = body.get("name", template["name"])
+
+    # Auto-create project if not provided
+    if not project_id:
+        try:
+            proj = _store.create_project(user_id, name, f"Created from template: {template['name']}")
+            project_id = proj["id"]
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+
+    try:
+        wf_id = _store.create_workflow(project_id, user_id, name, template["description"])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    # Generate nodes from template blueprint
+    nodes = template.get("nodes", [])
+    edges = template.get("edges", [])
+    if nodes:
+        body = {"name": name, "description": template["description"], "nodes": nodes, "edges": edges, "viewport": {"x": 0, "y": 0, "zoom": 1}}
+        _store.save_workflow(WorkflowModel(
+            id=wf_id, project_id=project_id, user_id=user_id, name=name,
+            description=template["description"],
+            nodes=[WorkflowNodeData.from_dict(n) for n in nodes],
+            edges=[WorkflowEdge.from_dict(e) for e in edges],
+        ))
+
+    return {"id": wf_id, "project_id": project_id, "name": name}
 
 
 # ── Scheduled Workflow Runs ──────────────────────────────────────────────────

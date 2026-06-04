@@ -58,9 +58,14 @@ class StrategyNode(BaseNode):
         BaseNode.in_port("ohlcv_data", PortType.DF_OHLCV),
         BaseNode.in_port("factor_data", PortType.DF_FACTOR, required=False),
     ]
-    outputs = [BaseNode.out_port("signal", PortType.SIGNAL)]
+    outputs = [
+        BaseNode.out_port("signal", PortType.SIGNAL),
+        BaseNode.out_port("strategy_code", PortType.PARAMS, description="Compiled strategy source code for progressive backtest"),
+    ]
     config_schema = {
-        "strategy_template": {"title": "Template", "type": "string", "enum": ["momentum_top5", "custom"], "default": "momentum_top5"},
+        "strategy_source": {"title": "Source", "type": "string", "enum": ["template", "saved", "custom"], "default": "template"},
+        "strategy_template": {"title": "Template", "type": "string", "enum": ["momentum_top5"], "default": "momentum_top5"},
+        "saved_strategy_id": {"title": "Saved Strategy", "type": "string", "default": ""},
         "custom_code": {"title": "Custom Code", "type": "string", "default": ""},
         "top_n": {"title": "Top N", "type": "integer", "default": 5, "minimum": 1, "maximum": 50},
     }
@@ -72,8 +77,20 @@ class StrategyNode(BaseNode):
         if not ohlcv:
             return {"signal": {}}
 
-        template = config.get("strategy_template", "momentum_top5")
-        code = config.get("custom_code", "") if template == "custom" else BUILTIN_STRATEGIES.get(template, BUILTIN_STRATEGIES["momentum_top5"])
+        source = config.get("strategy_source", "template")
+        if source == "saved":
+            saved_id = config.get("saved_strategy_id", "")
+            if saved_id:
+                code = self._load_saved_strategy(saved_id)
+                if code is None:
+                    return {"signal": {"error": f"Strategy not found: {saved_id}"}}
+            else:
+                return {"signal": {"error": "No saved strategy selected"}}
+        elif source == "custom":
+            code = config.get("custom_code", "")
+        else:
+            template = config.get("strategy_template", "momentum_top5")
+            code = BUILTIN_STRATEGIES.get(template, BUILTIN_STRATEGIES["momentum_top5"])
 
         try:
             ns: dict = {}
@@ -81,13 +98,32 @@ class StrategyNode(BaseNode):
             Engine = ns.get("SignalEngine")
             if Engine is None:
                 return {"signal": {"error": "SignalEngine class not found"}}
-            engine = Engine(top_n=int(config.get("top_n", 5)))
+            # Try with top_n; fallback to no-arg if template doesn't accept it
+            try:
+                engine = Engine(top_n=int(config.get("top_n", 5)))
+            except TypeError:
+                engine = Engine()
             signals = engine.generate(ohlcv)
         except Exception as e:
             logger.exception("Strategy failed")
             return {"signal": {"error": str(e)}}
 
-        return {"signal": signals}
+        return {"signal": signals, "strategy_code": code}
+
+    @staticmethod
+    def _load_saved_strategy(strategy_id: str) -> str | None:
+        """Load strategy code from the strategy lab repository."""
+        try:
+            from src.api.strategy_lab_routes import _get_repo, _repo_kind
+            repo = _get_repo()
+            if _repo_kind == "pg":
+                info = repo.get_strategy(strategy_id)
+                return info.get("code", "") if info else None
+            else:
+                item = repo.get(strategy_id)
+                return item.code if item else None
+        except Exception:
+            return None
 
 
 # ── Adapters for BacktestNode ─────────────────────────────────────────────────
@@ -132,35 +168,30 @@ class BacktestNode(BaseNode):
     description = "Run a historical backtest using the TradingEngine bar-by-bar pipeline"
     icon = "BarChart3"; resource_profile = "cpu_bound"
     inputs = [
-        BaseNode.in_port("signal", PortType.SIGNAL),
+        BaseNode.in_port("signal", PortType.SIGNAL, required=False),
         BaseNode.in_port("ohlcv_data", PortType.DF_OHLCV),
         BaseNode.in_port("codes", PortType.STOCK_LIST, required=False),
+        BaseNode.in_port("strategy_code", PortType.PARAMS, required=False,
+                         description="Strategy source code for progressive (no-lookahead) signal generation. When provided, signals are computed bar-by-bar. Falls back to pre-computed signal input if not connected."),
     ]
     outputs = [BaseNode.out_port("backtest_result", PortType.BACKTEST_RESULT)]
     config_schema = {
         "initial_capital": {"title": "Initial Capital", "type": "number", "default": 1000000},
         "market": {"title": "Market", "type": "string", "enum": ["equity_cn", "equity_us", "equity_hk", "crypto"], "default": "equity_cn"},
         "interval": {"title": "Interval", "type": "string", "enum": ["1D", "1H", "4H", "1W"], "default": "1D"},
+        "slippage": {"title": "Slippage (bps)", "type": "number", "default": 3, "minimum": 0, "maximum": 100},
+        "start_date": {"title": "Start Date", "type": "string", "default": "2024-01-01"},
+        "end_date": {"title": "End Date", "type": "string", "default": "2025-12-31"},
     }
 
     async def execute(self, inputs: dict, config: dict) -> dict:
         ohlcv = inputs.get("ohlcv_data", {})
         signals_raw = inputs.get("signal", {})
+        strategy_code = inputs.get("strategy_code", "")
         if isinstance(ohlcv, pd.DataFrame):
             ohlcv = {"panel": ohlcv}
         if not ohlcv:
             return {"backtest_result": {"error": "No OHLCV data"}}
-        if not signals_raw:
-            return {"backtest_result": {"error": "No trading signals"}}
-
-        signals = {}
-        if isinstance(signals_raw, pd.DataFrame):
-            for col in signals_raw.columns:
-                signals[col] = signals_raw[col]
-        elif isinstance(signals_raw, dict):
-            signals = signals_raw
-        else:
-            return {"backtest_result": {"error": f"Unexpected signal type: {type(signals_raw)}"}}
 
         codes_override = inputs.get("codes", [])
         codes = codes_override if isinstance(codes_override, list) and codes_override else sorted(ohlcv.keys())
@@ -171,10 +202,32 @@ class BacktestNode(BaseNode):
         market = config.get("market", "equity_cn")
         interval = config.get("interval", "1D")
         initial_capital = float(config.get("initial_capital", 1_000_000))
+        slippage_bps = float(config.get("slippage", 3))
+        start_date = config.get("start_date", "2024-01-01")
+        end_date = config.get("end_date", "2025-12-31")
 
-        bt_config = {"codes": codes, "initial_capital": initial_capital, "interval": interval, "engine": market}
+        bt_config = {"codes": codes, "initial_capital": initial_capital, "interval": interval, "engine": market, "slippage": slippage_bps, "start_date": start_date, "end_date": end_date}
         loader = InMemoryLoader(ohlcv)
-        sig_engine = StaticSignalEngine(signals)
+
+        # Progressive mode: use strategy_code to generate signals bar-by-bar (no lookahead)
+        if strategy_code and isinstance(strategy_code, str) and len(strategy_code) > 50:
+            sig_engine = self._build_progressive_engine(strategy_code)
+            if sig_engine is None:
+                return {"backtest_result": {"error": "Failed to compile strategy_code"}}
+        else:
+            # Fallback: use pre-computed signals (legacy / simple mode)
+            if not signals_raw:
+                return {"backtest_result": {"error": "No trading signals — connect a Strategy node or provide strategy_code"}}
+            signals = {}
+            if isinstance(signals_raw, pd.DataFrame):
+                for col in signals_raw.columns:
+                    signals[col] = signals_raw[col]
+            elif isinstance(signals_raw, dict):
+                signals = signals_raw
+            else:
+                return {"backtest_result": {"error": f"Unexpected signal type: {type(signals_raw)}"}}
+            sig_engine = StaticSignalEngine(signals)
+
         market_engine = self._mk_engine(market, initial_capital)
 
         try:
@@ -193,7 +246,40 @@ class BacktestNode(BaseNode):
         summary = {k: round(metrics.get(k, 0), 4) for k in ["total_return", "annual_return", "sharpe", "max_drawdown", "win_rate"]}
         summary["trade_count"] = metrics.get("trade_count", 0)
         logger.info("Backtest: sharpe=%.2f", summary["sharpe"])
-        return {"backtest_result": {"metrics": metrics, "summary": summary}}
+
+        # Extract trade records for charting
+        trades_list = []
+        if hasattr(driver, 'last_engine') and driver.last_engine:
+            for t in driver.last_engine.trades:
+                try:
+                    trades_list.append({
+                        "time": str(t.entry_time) if hasattr(t, 'entry_time') else '',
+                        "code": t.symbol if hasattr(t, 'symbol') else '',
+                        "side": "BUY" if (t.size if hasattr(t, 'size') else 0) > 0 else "SELL",
+                        "price": float(t.entry_price if hasattr(t, 'entry_price') else 0),
+                        "reason": t.exit_reason if hasattr(t, 'exit_reason') else 'signal',
+                    })
+                except Exception:
+                    pass
+
+        return {"backtest_result": {"metrics": metrics, "summary": summary, "trades": trades_list}}
+
+    @staticmethod
+    def _build_progressive_engine(strategy_code: str):
+        """Compile strategy code and return a reusable SignalEngine instance."""
+        try:
+            ns: dict = {}
+            exec(compile(strategy_code, "<strategy>", "exec"), ns)
+            Engine = ns.get("SignalEngine")
+            if Engine is None:
+                return None
+            # Try instantiate (some strategies have __init__ params, some don't)
+            try:
+                return Engine()
+            except TypeError:
+                return Engine
+        except Exception:
+            return None
 
     @staticmethod
     def _mk_engine(market: str, capital: float):

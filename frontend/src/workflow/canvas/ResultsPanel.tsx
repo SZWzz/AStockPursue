@@ -5,9 +5,11 @@
  * the user to click a log entry to view that node's detailed results.
  */
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useWorkflowStore } from "@/workflow/store/workflowStore";
+import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import WorkflowChartViewer from "@/workflow/canvas/WorkflowChartViewer";
 
 const LEVEL_STYLES: Record<string, string> = {
   info: "text-muted-foreground",
@@ -19,10 +21,44 @@ export default function ResultsPanel() {
   const executionLog = useWorkflowStore((s) => s.executionLog);
   const runStatus = useWorkflowStore((s) => s.runStatus);
   const nodeResults = useWorkflowStore((s) => s.nodeResults);
+  const { t } = useI18n();
   const [collapsed, setCollapsed] = useState(false);
   const [selectedLogIdx, setSelectedLogIdx] = useState<number | null>(null);
 
+  // Find chart payload from node results
+  const chartPayload = useMemo(() => {
+    for (const r of Object.values(nodeResults)) {
+      const summary = (r as any)?.summary;
+      if (summary?.chart_payload?.charts && Object.keys(summary.chart_payload.charts).length > 0) {
+        return summary.chart_payload;
+      }
+    }
+    return null;
+  }, [nodeResults]);
+
+  const showCharts = runStatus === "completed" && chartPayload;
+
   if (runStatus === "idle" && executionLog.length === 0) return null;
+
+  // Chart mode: compact ECharts view when completed with chart data
+  if (showCharts) {
+    return (
+      <div className="border-t bg-card">
+        <div className="flex items-center justify-between px-3 py-1.5 border-b bg-muted/30">
+          <span className="text-xs font-semibold flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            {(t as any).dashRecentDiscoveries || "Results"}
+          </span>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setCollapsed(!collapsed)} className="text-[10px] text-muted-foreground hover:text-foreground">
+              {collapsed ? "▸ Show Charts" : "▾ Hide Charts"}
+            </button>
+          </div>
+        </div>
+        {!collapsed && <WorkflowChartViewer payload={chartPayload} />}
+      </div>
+    );
+  }
 
   return (
     <div className={cn("border-t bg-card transition-all", collapsed ? "h-8" : "h-48")}>

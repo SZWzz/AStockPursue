@@ -232,6 +232,7 @@ class WorkflowRun:
     node_results: Dict[str, NodeRunResult] = field(default_factory=dict)
     started_at: str = ""
     finished_at: str = ""
+    created_at: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -242,6 +243,7 @@ class WorkflowRun:
             "snapshot_edges": [e.to_dict() for e in self.snapshot_edges],
             "node_results": {k: v.to_dict() for k, v in self.node_results.items()},
             "started_at": self.started_at, "finished_at": self.finished_at,
+            "created_at": self.created_at,
         }
 
     @classmethod
@@ -255,4 +257,5 @@ class WorkflowRun:
             snapshot_edges=[WorkflowEdge.from_dict(e) for e in d.get("snapshot_edges", [])],
             node_results={k: NodeRunResult.from_dict(v) for k, v in d.get("node_results", {}).items()},
             started_at=d.get("started_at", ""), finished_at=d.get("finished_at", ""),
+            created_at=d.get("created_at", ""),
         )

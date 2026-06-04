@@ -1,5 +1,34 @@
 # 更新日志
 
+## [2026.6.5] - 2026-06-05
+
+### 修复
+- **[Workflow] 路由双 /v1 前缀导致 /projects 页面空白** — workflow_routes.py prefix 从 `/v1/workflow` 改为 `/workflow`
+- **[Workflow] CSS @keyframes fade-in-up 缺失导致页面内容不可见** — 所有使用 page-enter-stagger 的页面内容卡在 opacity:0
+- **[Workflow] 前端 dist 文件残缺导致所有页面白屏** — Docker 构建缓存问题，旧 index.html 引用已删除的 JS chunk
+- **[Workflow] 节点连线死锁** — 同源→同目标多条线时依赖计数重复（strategy→backtest 的 signal + strategy_code）
+- **[Workflow] 硬编码英文标签** — BaseNode.tsx 画布节点和 NodePanel 直接使用后端 label，改为 i18n 翻译
+- **[Workflow] 图标名当文本渲染** — 后端 icon 字段（Lucide 名称）未映射为图标组件，显示裸文本
+- **[Workflow] 节点 handle 连接困难** — 加大 handle 尺寸、增加吸附半径 connectionRadius=30
+- **[Workflow] backtest_driver sys.exit(1) 炸掉进程池** — 改为 return error dict，不杀进程
+- **[Workflow] BacktestNode 缺 start_date/end_date** — 导致 InMemoryLoader 日期查询失败
+- **[Workflow] save_node_results DataFrame/Timestamp JSON 序列化报错** — 添加 _sanitize_for_json 递归转换
+- **[Workflow] WorkflowRun 缺 created_at 字段** — schema.py 补充字段 + to_dict/from_dict
+- **[Workflow] SSE 事件路径错误** — /v1/api/workflow → /v1/workflow
+- **[Workflow] 过期锁不释放** — 添加 stale lock 自动检测
+- **[工作流] 回测结果实时展示** — pollRun 轮询 + ECharts K线/权益/交易明细/指标面板
+- **[策略] 保存策略空名称** — 自动从 class 名提取，fallback 带时间戳
+- **[策略] 策略列表缺失 code 列** — pg_repository list_strategies SQL 补上 code 字段
+- **[策略] Template 模板实例化 405** — 添加 POST /templates/{id}/instantiate 路由
+
+### 新增
+- **[Workflow] 策略节点 Saved 模式** — 从 Strategy Lab 选取已保存策略，支持 Template/Saved/Custom 三种来源
+- **[Workflow] 回测节点渐进式执行** — 新增 strategy_code 输入口，逐根 K 线生成信号防未来信息
+- **[Workflow] 回测节点 Slippage 配置** — 新增滑点（bps）配置项
+- **[Workflow] 节点面板 Delete Node 按钮** — 选中节点可直接删除
+- **[前端] 返回工作流按钮** — Full Editor 跳转后顶部显示 ← Back to Workflow
+- **[前端] WorkflowChartViewer** — ECharts 渲染 K线/权益曲线/交易明细/指标面板
+
 ## [2026.6.4] - 2026-06-04
 
 ### 新增
