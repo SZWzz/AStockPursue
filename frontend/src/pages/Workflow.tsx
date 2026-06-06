@@ -15,7 +15,6 @@ import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import WorkflowCanvas from "@/workflow/canvas/WorkflowCanvas";
 import NodePalette from "@/workflow/canvas/NodePalette";
-import NodePanel from "@/workflow/canvas/NodePanel";
 import ResultsPanel from "@/workflow/canvas/ResultsPanel";
 
 export default function WorkflowPage() {
@@ -244,19 +243,14 @@ export default function WorkflowPage() {
 
       {/* Main area */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left: Node palette (240px) */}
+        {/* Left: Node palette */}
         <div className="w-56 flex-shrink-0">
           <NodePalette />
         </div>
 
-        {/* Centre: Canvas */}
+        {/* Canvas (full width — right panel removed) */}
         <div className="flex-1">
           <WorkflowCanvas />
-        </div>
-
-        {/* Right: Node config panel (280px) */}
-        <div className="w-[280px] flex-shrink-0">
-          <NodePanel />
         </div>
       </div>
 

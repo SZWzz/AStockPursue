@@ -17,6 +17,7 @@ import {
   Target, BarChart3, Layers, Database, Microscope, PieChart, Filter,
   TrendingUp, MessageSquare, Bot, GitBranch, FlaskConical, GitCompare,
   Newspaper, Globe, Send, FileText, CircleDollarSign, Bell, Download,
+  ExternalLink, Play, X,
 } from "lucide-react";
 
 // ── i18n helpers ──────────────────────────────────────────────────────────────
@@ -33,6 +34,27 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
   TrendingUp, MessageSquare, Bot, GitBranch, FlaskConical, GitCompare,
   Newspaper, Globe, Send, FileText, CircleDollarSign, Bell, Download,
 };
+
+// ── Full-editor link map (moved from NodePanel) ──────────────────────────
+
+const FULL_EDITOR_MAP: Record<string, string> = {
+  strategy: "/strategy-lab", alpha_zoo: "/alpha-zoo", gp_evolution: "/factor-mining",
+  indicator: "/indicator-lab", screener: "/screener", attribution: "/attribution",
+  paper_trading: "/paper-trading", agent: "/agent",
+  correlation: "/correlation", comparison: "/compare",
+  news_sentiment: "/sentiment", macro_sentiment: "/sentiment",
+  order: "/trading", options_pricing: "/options",
+  chart_data: "/strategy-lab", report: "/agent", factor_persist: "/factor-mining",
+};
+
+function getFullEditorPath(nodeType: string, nodeData: any): string | null {
+  const path = FULL_EDITOR_MAP[nodeType];
+  if (!path) return null;
+  if (nodeType === "backtest") return nodeData?.run_id ? `/runs/${nodeData.run_id}` : null;
+  return path;
+}
+
+// ── Icon map ──────────────────────────────────────────────────────────────
 
 function NodeIcon({ name, className }: { name?: string; className?: string }) {
   if (!name) return <span className={className}>○</span>;
@@ -244,14 +266,40 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
       )}
     >
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b">
-        <NodeIcon name={def?.icon} className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <span className="flex-1 text-sm font-medium truncate">{nodeLabel}</span>
+      <div className="flex items-center gap-1.5 px-2.5 py-1.5 border-b group/card">
+        <NodeIcon name={def?.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="flex-1 text-xs font-medium truncate">{nodeLabel}</span>
         {status !== "pending" && (
-          <span className="text-xs" title={status}>
+          <span className="text-[10px]" title={status}>
             {STATUS_ICONS[status] || ""}
           </span>
         )}
+        {/* Action buttons — visible on hover */}
+        <div className="flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity">
+          {getFullEditorPath(nodeData.node_type, nodeData) && (
+            <button
+              onClick={(e) => { e.stopPropagation(); const p = getFullEditorPath(nodeData.node_type, nodeData); if (p) window.open(p, '_blank'); }}
+              className="p-0.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+              title="Full Editor"
+            >
+              <ExternalLink className="h-3 w-3" />
+            </button>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); useWorkflowStore.getState().runSingleNode(nodeData.id); }}
+            className="p-0.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+            title="Run this node"
+          >
+            <Play className="h-3 w-3" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); useWorkflowStore.getState().removeNode(nodeData.id); }}
+            className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-950/50 text-muted-foreground hover:text-red-500 transition-colors"
+            title="Delete node"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
       </div>
 
       {/* Inline params — config fields marked inline: true in config_schema */}
