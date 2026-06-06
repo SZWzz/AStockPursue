@@ -85,3 +85,5 @@ def init_workflow_nodes():
     from src.workflow.nodes import options_nodes       # noqa: F401
     from src.workflow.nodes import sector_nodes        # noqa: F401
     from src.workflow.nodes import output_nodes        # noqa: F401
+    from src.workflow.nodes import factor_atoms        # noqa: F401
+    from src.workflow.nodes import signal_nodes        # noqa: F401

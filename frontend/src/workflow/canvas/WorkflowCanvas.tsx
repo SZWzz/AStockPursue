@@ -89,7 +89,7 @@ function CanvasInner() {
       const result = onConnect(connection);
       if (!result.success) {
         console.warn("Connection rejected:", result.error);
-        alert("Connection failed: " + result.error);
+        useWorkflowStore.getState().addLog("", result.error || "Connection failed", "error");
       } else {
         console.log("Connection OK");
       }
@@ -104,6 +104,54 @@ function CanvasInner() {
   const onPaneClick = useCallback(() => {
     selectNode(null);
   }, [selectNode]);
+
+  // Handle undo/redo keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y)
+  const undo = useWorkflowStore((s) => s.undo);
+  const redo = useWorkflowStore((s) => s.redo);
+  const canUndo = useWorkflowStore((s) => s.canUndo);
+  const canRedo = useWorkflowStore((s) => s.canRedo);
+
+  // Clipboard (copy/paste)
+  const copySelectedNode = useWorkflowStore((s) => s.copySelectedNode);
+  const pasteNode = useWorkflowStore((s) => s.pasteNode);
+  const hasClipboard = useWorkflowStore((s) => s.hasClipboard);
+
+  const onKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      const mod = event.metaKey || event.ctrlKey;
+      // Ctrl+Z: undo
+      if (mod && event.key === "z" && !event.shiftKey) {
+        event.preventDefault();
+        if (canUndo()) undo();
+      }
+      // Ctrl+Shift+Z / Ctrl+Y: redo
+      else if (mod && ((event.key === "z" && event.shiftKey) || event.key === "y" || event.key === "Y")) {
+        event.preventDefault();
+        if (canRedo()) redo();
+      }
+      // Ctrl+C: copy selected node
+      else if (mod && event.key === "c" && !event.shiftKey) {
+        // Only handle copy when no text is selected (don't interfere with text selection)
+        const selection = window.getSelection();
+        if (!selection || selection.isCollapsed) {
+          event.preventDefault();
+          copySelectedNode();
+        }
+      }
+      // Ctrl+V: paste copied node
+      else if (mod && event.key === "v") {
+        event.preventDefault();
+        if (hasClipboard()) {
+          const pos = reactFlowInstance.current?.screenToFlowPosition({
+            x: window.innerWidth / 2,
+            y: window.innerHeight / 2,
+          }) || { x: 300, y: 200 };
+          pasteNode(pos);
+        }
+      }
+    },
+    [undo, redo, canUndo, canRedo, copySelectedNode, pasteNode, hasClipboard]
+  );
 
   // Handle Delete/Backspace key — remove nodes and their edges
   const removeNode = useWorkflowStore((s) => s.removeNode);
@@ -140,6 +188,7 @@ function CanvasInner() {
       onPaneClick={onPaneClick}
       onNodeClick={onNodeClick}
       onNodesDelete={onNodesDelete}
+      onKeyDown={onKeyDown}
       nodeTypes={nodeTypes}
       defaultViewport={viewport}
       fitView

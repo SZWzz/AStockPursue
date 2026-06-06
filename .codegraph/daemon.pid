@@ -1,6 +1,6 @@
 {
-  "pid": 10705,
-  "version": "0.9.9",
-  "socketPath": "/Volumes/shenzy/vibe_coding/astockpursue/.codegraph/daemon.sock",
-  "startedAt": 1780540370730
+  "pid": 2354,
+  "version": "0.9.7",
+  "socketPath": "/Volumes/etx/coding/AStockPursue/.codegraph/daemon.sock",
+  "startedAt": 1780722331403
 }

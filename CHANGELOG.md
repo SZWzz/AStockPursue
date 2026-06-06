@@ -1,6 +1,47 @@
 # 更新日志
 
-## [2026.6.5] - 2026-06-05
+## [2026.6.6] - 2026-06-06
+
+### 新增
+- **[Workflow] 因子原子节点系统** — 新增 22 个可组合的原子因子节点（`factor_atoms.py` + `signal_nodes.py`），覆盖六层：数据提取（`column_extract`/`constant`）、变换（`ma`/`ema`/`delta`/`pct_change`/`std_dev`/`rank`/`scale`/`math_transform`）、运算（`arithmetic`/`extremum`）、滚动窗口（`rolling_extremum`/`rolling_rank`/`rolling_scale`/`rolling_correlation`）、逻辑判断（`cross_over`/`compare`/`bool_combine`/`bool_not`/`if_else`）、信号构造（`rank_select`/`threshold_select`/`signal_weight`/`rebalance`/`hold_signal`）。节点间通过 `DF_FACTOR`/`SIGNAL` 类型端口传递数据，连线即逻辑
+- **[Workflow] 卡片内联参数编辑** — `BaseNode.tsx` 新增 `InlineParams` 组件，`config_schema` 中标记 `inline: true` 的字段直接渲染为卡片上的微型输入控件（数字框/下拉框），无需打开侧边栏即可修改关键参数（ComfyUI 风格）
+- **[Workflow] L1: ExpressionTree→Workflow 自动转换** — 新增 `tree_converter.py`，将 AlphaZoo 的 400+ 因子自动转换为可视化节点 DAG。支持 24 种运算符映射（算术/截面/时序/条件），带分层布局算法。API: `POST /tree-to-workflow`
+- **[Workflow] L2: 策略模板匹配** — 新增 `templates/registry.py`，8 个预置策略模板（单因子排名/双均线交叉/多因子复合/阈值突破/RSI均值回归/布林带/量价确认/动量轮动）。基于代码特征的模式匹配器（regex 规则），金叉策略匹配得分 1.0，未知策略不误匹配。API: `GET /templates`, `GET /templates/:id`, `POST /match-template`
+- **[Workflow] L3: AI 策略拆解** — 新增 `strategy_decomposer.py`，将 Python SignalEngine 代码通过 LLM 分解为 workflow JSON。包含：51 节点 catalog 注入 System Prompt、JSON 提取（支持 code block/plain/mixed 三种格式）、结构校验（node_type 存在性/edge 节点引用）、最多 2 次自修正重试。API: `POST /decompose-strategy`, `GET /node-catalog`
+
+### 变更
+- **[Workflow] NodeRegistry** — 新注册 `factor_atoms`、`signal_nodes` 两个模块，总节点数 26→51
+- **[Workflow] BaseNode** — 卡片最大宽度 240→280px 以容纳内联参数
+- **[Workflow] CrossOverNode** — 新增 `direction` 参数（above/below），同时支持金叉和死叉检测
+- **[Workflow] ArithmeticNode** — op 枚举扩展 `pow`（幂运算）
+- **[Workflow] workflow_routes** — 新增 6 个 API 端点：`tree-to-workflow`、`templates`、`match-template`、`decompose-strategy`、`node-catalog`
+
+### 修复（P0 全面审计）
+- **[Engine] P0-1 佣金费率对齐** — `ChinaAEngine` 默认佣金率从万2.5（0.00025）修正为万3（0.0003），与 CLAUDE.md 记载和 CHANGELOG P0 修复记录一致。同时更新模块 docstring 和内联注释
+- **[Workflow] P0-2 信号节点性能向量化** — `ThresholdSelectNode` 从 O(n³) 三重循环改为 pandas 向量化操作（`selected_mask.sum(axis=1)` + `.div()`），5000×500 数据集执行时间从 >10s 降至 <0.1s。`RankSelectNode` 改用 `DataFrame.rank(axis=1, method="first")` 单次排序替代逐行循环。`SignalWeightNode` equal/factor_proportional 两种模式均改为 DataFrame 向量化（`fillna(0) + (df!=0).sum(axis=1) + .div()`）。`HoldSignalNode` 用 `cummax()` / `cumsum()` 向量化替代逐 code×逐 date Python 循环
+- **[Security] P0-3 工作流路由脱敏** — `workflow_routes.py` 中 8 处 `detail=str(e)` 替换为通用错误消息，防止内部异常信息泄露。同步修复 `tree-to-workflow` 端点区分 ValueError（400 客户端错误，可透传消息）与通用异常（500 通用消息）
+- **[Frontend] P0-5 测试覆盖补全** — 新增 3 个测试文件：`workflowTypes.test.ts`（PortType 枚举 + isCompatible 兼容性矩阵）、`authStore.test.ts`（token 恢复/注销/损坏数据处理/登录错误）、`workflowStore.test.ts`（节点 CRUD/连线验证/脏状态/执行日志）。修复 `apiAuth.test.ts` 中 sessionStorage vs localStorage 不一致（auth store 已改用 sessionStorage）。修复 `auth.ts` 中损坏 JSON 时未清除状态的问题
+
+### 修复（P1 深度优化）
+- **[Workflow] P1-5 _to_factor_df 去重** — `factor_atoms.py` 和 `signal_nodes.py` 中重复的 14 行 `_to_factor_df` 函数提取到共享模块 `nodes/_utils.py`，统一导出为 `to_factor_df`。两处分别 `import ... as _to_factor_df` 保持接口向后兼容
+- **[Engine] P1-6 精确异常捕获** — `TradingEngine._process_signals()` 中 `except Exception:` 替换为 `except (ValueError, KeyError, TypeError, AttributeError, IndexError) as e:`，防止 `KeyboardInterrupt` 和 `SystemExit` 被吞没
+- **[GP] P1-7 Docstring 修正** — `gp_engine.py` 模块 docstring 中 FDR 校正方法从 `Benjamini-Hochberg` 修正为 `Benjamini-Yekutieli`（BY），与代码实际调用 `apply_by_correction()` 一致
+- **[Workflow] P1-9 信号节点测试** — 新增 `test_signal_nodes.py`（21 个测试），覆盖 `RankSelectNode`（top_n/升序/超额 top_n）、`ThresholdSelectNode`（gt/lt/gte/无匹配）、`SignalWeightNode`（equal/factor_proportional/空信号）、`HoldSignalNode`（进入/退出/初始 long/多股票）、`RebalanceNode`（持有/频率=1 透传）、因子管线端到端集成测试、CPU 进程池冒烟测试
+- **[Workflow] P1-2 画布 Undo/Redo** — `workflowStore` 新增历史栈（最多 50 步）：`addNode`/`removeNode`/`updateNodeConfig`/`onConnect` 操作前自动快照，`undo()`/`redo()` 恢复。`WorkflowCanvas` 添加键盘快捷键 Ctrl+Z（撤销）、Ctrl+Shift+Z / Ctrl+Y（重做）
+- **[Workflow] P1-3 节点搜索** — `NodePalette` 已内置搜索功能（按标签/描述/node_type 过滤），无需额外修改
+
+### 修复（P2 质量提升）
+- **[Workflow] P2-17 延迟 CPU 池初始化** — `workflow_engine.py` 中模块级 `_CPU_POOL = ProcessPoolExecutor(...)` 替换为延迟初始化 `_get_cpu_pool()`，避免在 ASGI 非主线程导入时创建进程池。首次调用时创建，线程安全
+- **[Workflow] P2-14 策略拆解器测试** — 新增 `test_strategy_decomposer.py`（21 个测试），覆盖 `_extract_workflow_json` 9 种格式（纯 JSON/代码块/混合文本/无效输入/空响应）、`_validate_workflow` 6 种场景（合法/缺 ID/未知类型/边引用未知节点/无节点/完整管线）、`get_node_catalog` 结构验证
+- **[Workflow] P2-13 画布复制粘贴** — `workflowStore` 新增 `copySelectedNode()`/`pasteNode()`/`hasClipboard()` 操作。`WorkflowCanvas` 添加 Ctrl+C（复制选中节点）、Ctrl+V（粘贴到画布中心）快捷键。复制时不干扰文本选择
+- **[API] P2-16 错误码标准化** — 新增 `src/api/error_codes.py`：`ErrorCode` 枚举（20 个机器可读错误码）+ `api_error()` 工厂函数 + 默认 HTTP 状态映射 + `internal_error()`/`not_found()` 快捷函数。所有错误响应格式统一为 `{"error_code": "...", "message": "..."}`
+- **[Workflow] P2-15 演示工作流** — 新增 3 个初学者友好的演示模板（`demo_momentum` 动量策略/`demo_macross` 均线交叉/`demo_volbreak` 成交量突破），带完整节点+边预置，通过 `POST /templates/{id}/instantiate` 一键创建
+
+### 修复（P3 收尾优化）
+- **[Trading] P3-21 魔术数字配置化** — 新增 `src/trading/config.py`：集中管理 `MAX_HISTORY`、`EPSILON`、`DEFAULT_NODE_TIMEOUT`、`MAX_CONCURRENCY`、`RESOURCE_LIMITS`、`GP_POPULATION_SIZE` 等 15+ 个可调参数。所有值支持环境变量覆盖（如 `TRADING_MAX_HISTORY`）。`signal_adapter.py` 和 `engine.py` 改为从 config 导入
+- **[Frontend] P3-20 空状态设计统一** — 新增 `EmptyState` 共享组件（支持 icon/title/description/action，sm/lg 尺寸变体）。`Projects` 页面已接入，其余页面渐进迁移
+- **[Frontend] P3-19 参数网格搜索 UI** — 新增 `GridSearch` 组件（`components/strategy-lab/GridSearch.tsx`）：选择 1–2 个参数定义范围+步长 → 笛卡尔积生成全量组合 → 并发执行回测（batch=3）→ 按 Sharpe 排名表格展示。可嵌入 StrategyLab 等回测页面
+- **[Engine] P1-6 异常捕获补充** — `_process_signals` 异常类型补充 `RuntimeError`，兼容 `can_execute` 等市场规则检查可能抛出的运行时异常
 
 ### 修复
 - **[Workflow] 回测结果与策略实验室不一致** — 三个根因：① strategy_code 路径实例化 SignalEngine 失败回退至 StaticSignalEngine（存在前瞻偏差）；删除 strategy_code 端口，只用 signal 模式（BacktestDriver._run_fast 已有逐根 K 线截断防前瞻）。② BacktestNode 未输出 equity_curve，ChartDataNode 退化为买入持有近似值；现从 engine.equity_snapshots 提取真实权益曲线。③ BacktestNode._mk_engine 仅覆盖 4 种市场且硬编码 bars_per_year；改用 _create_market_engine 和 calc_bars_per_year 与策略实验室对齐

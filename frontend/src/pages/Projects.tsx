@@ -11,6 +11,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, FolderOpen, Workflow, Trash2, ArrowRight, Copy, Zap } from "lucide-react";
 import { api } from "@/lib/api";
+import { useI18n } from "@/lib/i18n";
+import { EmptyState } from "@/components/common/EmptyState";
 
 interface Project {
   id: string;
@@ -23,6 +25,7 @@ interface Project {
 }
 
 export default function Projects() {
+  const { t } = useI18n();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,11 +49,11 @@ export default function Projects() {
     if (!projectId) {
       // Create a default project first
       try {
-        const p = await api.createProject({ name: "My Research" });
+        const p = await api.createProject({ name: (t as any).projMyResearch });
         const data = await api.instantiateTemplate(templateId, { project_id: (p as any).id, name: templateName });
         navigate(`/workflow/${(p as any).id}/${(data as any).id}`);
       } catch (e: any) {
-        setError(e.message || "Failed to create project for template");
+        setError(e.message || (t as any).projFailedCreateForTemplate);
       }
       return;
     }
@@ -58,7 +61,7 @@ export default function Projects() {
       const data = await api.instantiateTemplate(templateId, { project_id: projectId, name: templateName });
       navigate(`/workflow/${projectId}/${(data as any).id}`);
     } catch (e: any) {
-      setError(e.message || "Failed to instantiate template");
+      setError(e.message || (t as any).projFailedTemplate);
     }
   };
 
@@ -81,7 +84,7 @@ export default function Projects() {
       );
       setProjects(enriched);
     } catch (e: any) {
-      setError(e.message || "Failed to load projects");
+      setError(e.message || (t as any).projFailedLoad);
     } finally {
       setLoading(false);
     }
@@ -98,17 +101,17 @@ export default function Projects() {
       setNewDesc("");
       await loadProjects();
     } catch (e: any) {
-      setError(e.message || "Failed to create project");
+      setError(e.message || (t as any).projFailedCreate);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Archive this project?")) return;
+    if (!confirm((t as any).projArchiveConfirm)) return;
     try {
       await api.deleteProject(id);
       await loadProjects();
     } catch (e: any) {
-      setError(e.message || "Failed to archive project");
+      setError(e.message || (t as any).projFailedArchive);
     }
   };
 
@@ -130,7 +133,7 @@ export default function Projects() {
   if (loading) {
     return (
       <div className="flex h-[60vh] items-center justify-center">
-        <p className="text-muted-foreground">Loading projects…</p>
+        <p className="text-muted-foreground">{(t as any).projLoading}</p>
       </div>
     );
   }
@@ -140,8 +143,8 @@ export default function Projects() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Research Projects</h1>
-          <p className="text-sm text-muted-foreground mt-1">Create and manage your quantitative research projects</p>
+          <h1 className="text-2xl font-bold">{(t as any).projTitle}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{(t as any).projSubtitle}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -149,14 +152,14 @@ export default function Projects() {
             className="btn btn-outline btn-sm"
           >
             <Zap className="h-4 w-4" />
-            Templates
+            {(t as any).projTemplates}
           </button>
           <button
             onClick={() => setShowCreate(true)}
             className="btn btn-primary btn-sm"
           >
             <Plus className="h-4 w-4" />
-            New Project
+            {(t as any).projNewProject}
           </button>
         </div>
       </div>
@@ -169,14 +172,14 @@ export default function Projects() {
       {showTemplates && (
         <div className="card p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="font-semibold">Start from Template</h3>
+            <h3 className="font-semibold">{(t as any).projStartFromTemplate}</h3>
             {projects.length > 0 && (
               <select
                 value={selectedProjectForTemplate}
                 onChange={(e) => setSelectedProjectForTemplate(e.target.value)}
                 className="text-xs px-2 py-1 rounded border bg-background"
               >
-                <option value="">Auto-create project</option>
+                <option value="">{(t as any).projAutoCreate}</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
@@ -190,7 +193,7 @@ export default function Projects() {
                   <h4 className="text-sm font-medium">{t.name}</h4>
                   <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{t.description}</p>
                   <span className="text-[10px] text-muted-foreground mt-1 block">
-                    {t.node_count} nodes · {t.category}
+                    {t.node_count} {(t as any).projNodes} · {t.category}
                   </span>
                 </div>
                 <button
@@ -198,7 +201,7 @@ export default function Projects() {
                   className="btn btn-primary btn-sm ml-3 shrink-0"
                 >
                   <Copy className="h-3 w-3" />
-                  Use
+                  {(t as any).projUse}
                 </button>
               </div>
             ))}
@@ -209,10 +212,10 @@ export default function Projects() {
       {/* Create dialog */}
       {showCreate && (
         <div className="card p-4 space-y-3">
-          <h3 className="font-semibold">New Research Project</h3>
+          <h3 className="font-semibold">{(t as any).projNewResearchProject}</h3>
           <input
             type="text"
-            placeholder="Project name (e.g. 动量策略-A股小盘-2025Q1)"
+            placeholder={(t as any).projProjectName}
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             className="input"
@@ -221,26 +224,26 @@ export default function Projects() {
           />
           <input
             type="text"
-            placeholder="Description (optional)"
+            placeholder={(t as any).projDescOptional}
             value={newDesc}
             onChange={(e) => setNewDesc(e.target.value)}
             className="input"
             onKeyDown={(e) => e.key === "Enter" && handleCreate()}
           />
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setShowCreate(false)} className="btn btn-ghost btn-sm">Cancel</button>
-            <button onClick={handleCreate} disabled={!newName.trim()} className="btn btn-primary btn-sm">Create</button>
+            <button onClick={() => setShowCreate(false)} className="btn btn-ghost btn-sm">{(t as any).projCancel}</button>
+            <button onClick={handleCreate} disabled={!newName.trim()} className="btn btn-primary btn-sm">{(t as any).projCreate}</button>
           </div>
         </div>
       )}
 
       {/* Project grid */}
       {projects.length === 0 ? (
-        <div className="empty-state py-20">
-          <FolderOpen className="empty-state-icon h-12 w-12" />
-          <p className="empty-state-text">No projects yet</p>
-          <p className="empty-state-hint">Create your first research project to get started</p>
-        </div>
+        <EmptyState
+          icon={<FolderOpen className="h-12 w-12" />}
+          title={(t as any).projNoProjects || "No projects yet"}
+          description={(t as any).projNoProjectsHint || "Create your first research project to get started"}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {projects.map((p) => (
@@ -257,7 +260,7 @@ export default function Projects() {
                 <button
                   onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}
                   className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-500 rounded transition-all"
-                  title="Archive"
+                  title={(t as any).projArchive}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
@@ -268,7 +271,7 @@ export default function Projects() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   <Workflow className="h-3 w-3" />
-                  <span>{p.workflow_count ?? 0} workflow{(p.workflow_count ?? 0) !== 1 ? "s" : ""}</span>
+                  <span>{p.workflow_count ?? 0} {(p.workflow_count ?? 0) !== 1 ? (t as any).projWorkflows : (t as any).projWorkflow}</span>
                 </div>
                 <span className="flex items-center gap-1 text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                   Open <ArrowRight className="h-3 w-3" />

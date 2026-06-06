@@ -27,10 +27,22 @@ logger = logging.getLogger(__name__)
 
 RESOURCE_LIMITS = {"default": 8, "cpu_bound": 4, "io_bound": 16, "db_bound": 4}
 
-# Shared process pool for CPU-bound node execution.
-_CPU_POOL = concurrent.futures.ProcessPoolExecutor(
-    max_workers=min(os.cpu_count() or 4, 8),
-)
+# Lazy-initialised process pool for CPU-bound node execution.
+# Initialised on first use to avoid creating a pool at module import time
+# (which can cause issues in some ASGI server configurations where modules
+# are imported in non-main threads).
+_CPU_POOL: concurrent.futures.ProcessPoolExecutor | None = None
+_CPU_POOL_LOCK = asyncio.Lock()
+
+
+def _get_cpu_pool() -> concurrent.futures.ProcessPoolExecutor:
+    """Return the shared CPU process pool, creating it on first call."""
+    global _CPU_POOL
+    if _CPU_POOL is None:
+        _CPU_POOL = concurrent.futures.ProcessPoolExecutor(
+            max_workers=min(os.cpu_count() or 4, 8),
+        )
+    return _CPU_POOL
 
 
 class WorkflowEngine:
@@ -220,7 +232,7 @@ class WorkflowEngine:
             if profile == "cpu_bound":
                 outputs = await asyncio.wait_for(
                     asyncio.get_running_loop().run_in_executor(
-                        _CPU_POOL, _run_cpu_node, node.node_type, inputs, node.config),
+                        _get_cpu_pool(), _run_cpu_node, node.node_type, inputs, node.config),
                     timeout=timeout)
             else:
                 outputs = await asyncio.wait_for(

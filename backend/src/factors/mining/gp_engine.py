@@ -7,7 +7,7 @@ Orchestrates the evolution of alpha factor expressions through:
     - Tournament selection + elitism
     - Subtree crossover + point mutation
     - FactorKB integration (auto-register + formula dedup)
-    - FDR multiple testing correction (Benjamini-Hochberg, every generation)
+    - FDR multiple testing correction (Benjamini-Yekutieli, every generation)
     - SSE progress streaming for live frontend updates
 """
 

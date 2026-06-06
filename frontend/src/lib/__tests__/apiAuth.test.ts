@@ -5,7 +5,7 @@ const authHeadersModule = await import("@/lib/apiAuth");
 
 describe("authHeaders", () => {
   beforeEach(() => {
-    localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   it("returns empty object when no token is stored", () => {
@@ -14,7 +14,7 @@ describe("authHeaders", () => {
   });
 
   it("returns Authorization header when token is stored", () => {
-    localStorage.setItem("vt_token", "test-jwt-token");
+    window.sessionStorage.setItem("vt_token", "test-jwt-token");
     const headers = authHeadersModule.authHeaders();
     expect(headers).toEqual({ Authorization: "Bearer test-jwt-token" });
   });
@@ -22,7 +22,7 @@ describe("authHeaders", () => {
 
 describe("withAuthQuery", () => {
   beforeEach(() => {
-    localStorage.clear();
+    window.sessionStorage.clear();
   });
 
   it("returns URL unchanged when no token", () => {
@@ -31,14 +31,16 @@ describe("withAuthQuery", () => {
   });
 
   it("appends jwt query param when token exists", () => {
-    localStorage.setItem("vt_token", "my-token");
+    window.sessionStorage.setItem("vt_token", "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U");
     const url = authHeadersModule.withAuthQuery("/api/test");
-    expect(url).toBe("/api/test?jwt=my-token");
+    const expectedJwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
+    expect(url).toBe("/api/test?jwt=" + encodeURIComponent(expectedJwt));
   });
 
   it("appends with & when URL already has query params", () => {
-    localStorage.setItem("vt_token", "my-token");
+    window.sessionStorage.setItem("vt_token", "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U");
     const url = authHeadersModule.withAuthQuery("/api/test?foo=bar");
-    expect(url).toBe("/api/test?foo=bar&jwt=my-token");
+    const expectedJwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
+    expect(url).toBe("/api/test?foo=bar&jwt=" + encodeURIComponent(expectedJwt));
   });
 });

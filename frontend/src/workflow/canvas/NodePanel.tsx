@@ -259,7 +259,7 @@ export default function NodePanel() {
           className="w-full py-1 text-xs rounded border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex items-center justify-center gap-1"
         >
           <Trash2 className="h-3 w-3" />
-          Delete Node
+          {((t as any).wfDeleteNode || "Delete Node")}
         </button>
       </div>
     </div>

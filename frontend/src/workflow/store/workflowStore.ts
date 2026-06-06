@@ -81,6 +81,16 @@ interface WorkflowState {
   stopRun: () => Promise<void>;
   addLog: (nodeId: string, message: string, level?: "info" | "error" | "success") => void;
 
+  // ── Undo/Redo / Clipboard ───────────────────────────────────────────────
+
+  undo: () => void;
+  redo: () => void;
+  canUndo: () => boolean;
+  canRedo: () => boolean;
+  copySelectedNode: () => void;
+  pasteNode: (position: XYPosition) => void;
+  hasClipboard: () => boolean;
+
   // ── Validation ──────────────────────────────────────────────────────────
 
   validateWorkflow: () => { nodeId?: string; edgeId?: string; message: string }[];
@@ -102,6 +112,35 @@ function nextNodeId(): string {
 
 function edgeId(source: string, target: string): string {
   return `e_${source}_${target}`;
+}
+
+// ── Undo/Redo history + clipboard (outside store — not reactive) ──────────────
+
+const MAX_HISTORY = 50;
+
+/** Copied node data (without position — position is offset on paste). */
+let _clipboard: { node_type: string; label: string; config: Record<string, unknown> } | null = null;
+
+interface HistorySnapshot {
+  nodes: Node[];
+  edges: Edge[];
+}
+
+let _history: HistorySnapshot[] = [];
+let _future: HistorySnapshot[] = [];
+
+function _pushHistory(nodes: Node[], edges: Edge[]) {
+  _history.push({ nodes: structuredClone(nodes), edges: structuredClone(edges) });
+  if (_history.length > MAX_HISTORY) _history.shift();
+  _future = [];  // new action clears redo stack
+}
+
+function _popHistory(): HistorySnapshot | null {
+  return _history.pop() ?? null;
+}
+
+function _peekHistory(): HistorySnapshot | null {
+  return _history.length > 0 ? _history[_history.length - 1] : null;
 }
 
 // ── Initial state factory ────────────────────────────────────────────────────
@@ -207,6 +246,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       return { success: false, error: "Input port already connected" };
     }
 
+    _pushHistory(get().nodes, get().edges);
     const edge: Edge = {
       id: edgeId(connection.source, connection.target) + "_" + sourcePort.name,
       source: connection.source,
@@ -226,6 +266,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   addNode: (nodeType: string, position: XYPosition) => {
     const def = get().nodeDefinitions.find((d) => d.node_type === nodeType);
     if (!def) return;
+
+    _pushHistory(get().nodes, get().edges);
 
     const newNode: Node = {
       id: nextNodeId(),
@@ -249,6 +291,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   removeNode: (id: string) => {
+    _pushHistory(get().nodes, get().edges);
     set({
       nodes: get().nodes.filter((n) => n.id !== id),
       edges: get().edges.filter((e) => e.source !== id && e.target !== id),
@@ -258,6 +301,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   updateNodeConfig: (id: string, config: Record<string, unknown>) => {
+    _pushHistory(get().nodes, get().edges);
     set({
       nodes: get().nodes.map((n) =>
         n.id === id ? { ...n, data: { ...n.data, config } } : n
@@ -489,6 +533,67 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     );
   },
 
+  // ── Undo/Redo ───────────────────────────────────────────────────────────
+
+  undo: () => {
+    const snapshot = _popHistory();
+    if (!snapshot) return;
+    const { nodes: currentNodes, edges: currentEdges } = get();
+    _future.push({ nodes: structuredClone(currentNodes), edges: structuredClone(currentEdges) });
+    set({ nodes: snapshot.nodes, edges: snapshot.edges, isDirty: true });
+  },
+
+  redo: () => {
+    const snapshot = _future.pop();
+    if (!snapshot) return;
+    const { nodes: currentNodes, edges: currentEdges } = get();
+    _history.push({ nodes: structuredClone(currentNodes), edges: structuredClone(currentEdges) });
+    set({ nodes: snapshot.nodes, edges: snapshot.edges, isDirty: true });
+  },
+
+  canUndo: () => _history.length > 0,
+  canRedo: () => _future.length > 0,
+
+  copySelectedNode: () => {
+    const { selectedNodeId, nodes } = get();
+    if (!selectedNodeId) return;
+    const node = nodes.find((n) => n.id === selectedNodeId);
+    if (!node) return;
+    _clipboard = {
+      node_type: node.data.node_type,
+      label: node.data.label,
+      config: { ...(node.data.config || {}) },
+    };
+  },
+
+  pasteNode: (position: XYPosition) => {
+    if (!_clipboard) return;
+    _pushHistory(get().nodes, get().edges);
+
+    const def = get().nodeDefinitions.find((d) => d.node_type === _clipboard!.node_type);
+    const newNode: Node = {
+      id: nextNodeId(),
+      type: "workflowNode",
+      position,
+      data: {
+        id: "",
+        node_type: _clipboard.node_type,
+        label: _clipboard.label,
+        position: position,
+        config: { ..._clipboard.config },
+        status: "pending",
+        error_message: "",
+        duration_ms: 0,
+        definition: def,
+      },
+    };
+    newNode.data.id = newNode.id;
+
+    set({ nodes: [...get().nodes, newNode], isDirty: true });
+  },
+
+  hasClipboard: () => _clipboard !== null,
+
   // ── Initialisation ──────────────────────────────────────────────────────
 
   fetchNodeDefinitions: async () => {
@@ -504,6 +609,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   reset: () => {
     _nodeIdCounter = 0;
+    _history = [];
+    _future = [];
     set({
       projectId: null,
       workflowId: null,

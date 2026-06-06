@@ -10,14 +10,14 @@ import { useAuthStore } from "@/stores/auth";
 import { ConnectionBanner } from "@/components/layout/ConnectionBanner";
 import { PostLoginSetup } from "@/components/layout/PostLoginSetup";
 
-const APP_VERSION = "v2026.6.5";
+const APP_VERSION = "v2026.6.6";
 
-const MAIN_NAV = [
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/projects", icon: FolderOpen, label: "Projects" },
-  { to: "/agent", icon: Bot, label: "Agent" },
-  { to: "/data-sources", icon: Database, label: "Data Sources" },
-  { to: "/settings", icon: Settings, label: "Settings" },
+const MAIN_NAV_KEYS = [
+  { to: "/", icon: LayoutDashboard, i18nKey: "dashboard" as const },
+  { to: "/projects", icon: FolderOpen, i18nKey: "projects" as const },
+  { to: "/agent", icon: Bot, i18nKey: "agent" as const },
+  { to: "/data-sources", icon: Database, i18nKey: "dataSources" as const },
+  { to: "/settings", icon: Settings, i18nKey: "settings" as const },
 ];
 
 export function Layout() {
@@ -102,14 +102,15 @@ export function Layout() {
         <button
           className="md:hidden absolute top-3 right-3 p-1.5 rounded-lg hover:bg-muted transition-colors"
           onClick={() => setMobileOpen(false)}
-          aria-label="Close menu"
+          aria-label={(t as any).closeMenu}
         >
           <X className="h-5 w-5" />
         </button>
 
         {/* Nav */}
         <nav className={cn("py-2", collapsed ? "px-2" : "px-0")}>
-          {MAIN_NAV.map(({ to, icon: Icon, label }) => {
+          {MAIN_NAV_KEYS.map(({ to, icon: Icon, i18nKey }) => {
+            const label = (t as any)[i18nKey] || i18nKey;
             const active = to === "/" ? (pathname === "/" || pathname === "/dashboard") : to === "/projects" ? pathname.startsWith("/projects") : to === "/agent" ? pathname.startsWith("/agent") : pathname.startsWith(to);
             return (
               <Link
@@ -280,7 +281,7 @@ export function Layout() {
           ) : (
             <Link to="/login" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors px-1">
               <LogIn className="h-4 w-4" />
-              Sign in
+              {(t as any).signIn}
             </Link>
           )}
 
@@ -338,7 +339,7 @@ export function Layout() {
       <button
         className="md:hidden fixed top-4 left-4 z-30 p-2 rounded-lg bg-card border border-border shadow-sm hover:bg-muted transition-colors"
         onClick={() => setMobileOpen(true)}
-        aria-label="Open menu"
+        aria-label={(t as any).openMenu}
       >
         <Menu className="h-5 w-5" />
       </button>
@@ -354,7 +355,7 @@ export function Layout() {
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <ArrowLeft className="h-3 w-3" />
-              Back to Workflow
+              {(t as any).backToWorkflow}
             </Link>
           </div>
         )}

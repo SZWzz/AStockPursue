@@ -435,7 +435,7 @@ class TradingEngine:
         if self._signal.mode != "batch":
             return
         # Use the same bound as SignalAdapter to stay consistent
-        _MAX_HISTORY = 5000
+        from src.trading.config import MAX_HISTORY as _MAX_HISTORY
         for code, row in bar.items():
             if code not in self._data_map:
                 continue
@@ -577,11 +577,13 @@ class TradingEngine:
                         trades.append(trade)
                         if self._sm:
                             self._sm.transition(target_state)
-            except Exception:
-                # [P0-3 fix] Log at ERROR level (not WARNING) with full traceback so
-                # signal-processing failures are visible and debuggable.  We still
-                # don't re-raise — one bad symbol shouldn't kill the entire bar —
-                # but the elevated log level ensures operators notice.
+            except (ValueError, KeyError, TypeError, AttributeError, IndexError, RuntimeError) as e:
+                # [P1-6 fix] Catch specific exception types instead of bare Exception.
+                # RuntimeError included: can_execute / market rule checks may raise it.
+                # KeyboardInterrupt and SystemExit are intentionally NOT caught.
+                # Log at ERROR level with full traceback so signal-processing
+                # failures are visible and debuggable.  We still don't re-raise —
+                # one bad symbol shouldn't kill the entire bar.
                 logger.error(
                     "Signal processing failed for %s at %s (bar data: %s)",
                     symbol, timestamp,

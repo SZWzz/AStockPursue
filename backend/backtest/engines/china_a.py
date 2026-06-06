@@ -5,9 +5,9 @@ Market rules:
   - No short selling for retail investors
   - Price limits: ±10% main board, ±20% ChiNext/STAR, ±5% ST
   - Minimum lot: 100 shares (odd lots can only be sold, not bought)
-  - Commission: ¥5 minimum, 0.025% bilateral
-  - Stamp tax: 0.05% sell-side only
-  - Transfer fee: 0.001% bilateral
+  - Commission: ¥5 minimum, 0.03% (万3) bilateral
+  - Stamp tax: 0.05% (万5) sell-side only
+  - Transfer fee: 0.001% (万0.1) bilateral
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ class ChinaAEngine(BaseEngine):
     """A-share market engine.
 
     Config keys:
-      - commission_rate: default 0.00025 (万2.5)
+      - commission_rate: default 0.0003 (万3, 3 bps per side)
       - commission_min: default 5.0 (RMB)
       - stamp_tax: default 0.0005 (万5, sell-only)
       - transfer_fee: default 0.00001 (万0.1)
@@ -31,7 +31,7 @@ class ChinaAEngine(BaseEngine):
     def __init__(self, config: dict):
         config = {**config, "leverage": 1.0}  # A-shares: no leverage
         super().__init__(config)
-        self.commission_rate: float = config.get("commission_rate", 0.00025)
+        self.commission_rate: float = config.get("commission_rate", 0.0003)
         self.commission_min: float = config.get("commission_min", 5.0)
         self.stamp_tax: float = config.get("stamp_tax", 0.0005)
         self.transfer_fee: float = config.get("transfer_fee", 0.00001)
@@ -98,7 +98,7 @@ class ChinaAEngine(BaseEngine):
         long/short fee schedules (margin trading, securities lending).
         """
         notional = size * price
-        # Commission: 万2.5, min ¥5
+        # Commission: 万3 (3 bps per side), min ¥5
         comm = max(notional * self.commission_rate, self.commission_min)
         # Transfer fee: 万0.1 bilateral
         comm += notional * self.transfer_fee

@@ -91,6 +91,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       } catch {
         STORAGE.removeItem("vt_token");
         STORAGE.removeItem("vt_user");
+        set({ token: null, user: null });
       }
     }
   },

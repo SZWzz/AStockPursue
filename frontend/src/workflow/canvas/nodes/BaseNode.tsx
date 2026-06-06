@@ -1,15 +1,17 @@
 /**
  * BaseNode — shared wrapper for all workflow node types on the canvas.
  *
- * Renders icon, label, status badge, input/output handles, and quick-metrics
- * footer.  The actual computation logic lives on the backend; this component
- * is purely presentational.
+ * Renders icon, label, status badge, input/output handles, inline config
+ * widgets (for fields marked `inline: true` in config_schema), and a
+ * quick-metrics footer.  The actual computation logic lives on the backend;
+ * this component is purely presentational.
  */
 
-import { memo } from "react";
+import { memo, useCallback } from "react";
 import { Handle, NodeProps, Position } from "@xyflow/react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
+import { useWorkflowStore } from "@/workflow/store/workflowStore";
 import type { NodeDefinition, NodePort, WorkflowNodeData } from "@/workflow/types/workflow";
 import {
   Target, BarChart3, Layers, Database, Microscope, PieChart, Filter,
@@ -109,6 +111,106 @@ function NodeFooter({ status, durationMs, summary, errorMessage }: { status: str
   return null;
 }
 
+// ── Inline parameter widgets ──────────────────────────────────────────────────
+
+function InlineParams({
+  schema,
+  config,
+  nodeId,
+}: {
+  schema: Record<string, any>;
+  config: Record<string, unknown>;
+  nodeId: string;
+}) {
+  const updateNodeConfig = useWorkflowStore((s) => s.updateNodeConfig);
+
+  const stopPropagation = useCallback((e: React.SyntheticEvent) => {
+    e.stopPropagation();
+  }, []);
+
+  const inlineFields = Object.entries(schema).filter(
+    ([, field]) => (field as any).inline === true
+  );
+  if (inlineFields.length === 0) return null;
+
+  return (
+    <div
+      className="px-2 py-1.5 border-b space-y-1 bg-muted/20"
+      onMouseDown={stopPropagation}
+      onDoubleClick={stopPropagation}
+      onKeyDown={stopPropagation}
+    >
+      {inlineFields.map(([key, field]) => {
+        const f = field as any;
+        const value = config[key] ?? f.default ?? "";
+        const fieldId = `inline-${nodeId}-${key}`;
+
+        const onChange = (newVal: unknown) => {
+          updateNodeConfig(nodeId, { ...config, [key]: newVal });
+        };
+
+        // Select dropdown
+        if (f.enum) {
+          return (
+            <div key={key} className="flex items-center gap-1.5">
+              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={f.title || key}>
+                {f.title || key}
+              </label>
+              <select
+                id={fieldId}
+                value={String(value)}
+                onChange={(e) => onChange(e.target.value)}
+                className="flex-1 min-w-0 px-1.5 py-0.5 text-[11px] rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                {f.enum.map((v: string) => (
+                  <option key={v} value={v}>{v}</option>
+                ))}
+              </select>
+            </div>
+          );
+        }
+
+        // Number input
+        if (f.type === "number" || f.type === "integer") {
+          return (
+            <div key={key} className="flex items-center gap-1.5">
+              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={f.title || key}>
+                {f.title || key}
+              </label>
+              <input
+                id={fieldId}
+                type="number"
+                value={value as number}
+                onChange={(e) => onChange(f.type === "integer" ? parseInt(e.target.value, 10) || 0 : parseFloat(e.target.value) || 0)}
+                min={f.minimum}
+                max={f.maximum}
+                step={f.type === "integer" ? 1 : 0.01}
+                className="flex-1 min-w-0 px-1.5 py-0.5 text-[11px] rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          );
+        }
+
+        // Fallback: text input
+        return (
+          <div key={key} className="flex items-center gap-1.5">
+            <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={f.title || key}>
+              {f.title || key}
+            </label>
+            <input
+              id={fieldId}
+              type="text"
+              value={String(value)}
+              onChange={(e) => onChange(e.target.value)}
+              className="flex-1 min-w-0 px-1.5 py-0.5 text-[11px] rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Main component ──────────────────────────────────────────────────────────
 
 const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
@@ -122,7 +224,7 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
   return (
     <div
       className={cn(
-        "rounded-lg border-2 bg-card shadow-sm min-w-[170px] max-w-[240px] transition-colors",
+        "rounded-lg border-2 bg-card shadow-sm min-w-[170px] max-w-[280px] transition-colors",
         selected && "border-primary ring-2 ring-primary/20",
         STATUS_STYLES[status] || STATUS_STYLES.pending
       )}
@@ -137,6 +239,15 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
           </span>
         )}
       </div>
+
+      {/* Inline params — config fields marked inline: true in config_schema */}
+      {def?.config_schema && (
+        <InlineParams
+          schema={def.config_schema}
+          config={nodeData.config || {}}
+          nodeId={nodeData.id}
+        />
+      )}
 
       {/* Ports */}
       <div className="px-1 py-1.5 space-y-0.5">

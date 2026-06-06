@@ -52,9 +52,9 @@ def list_projects(user_id: int = Depends(_get_user_id)):
     """List all active research projects for the authenticated user."""
     try:
         return _store.list_projects(user_id)
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to list projects")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred while listing projects")
 
 
 @router.post("/projects")
@@ -65,9 +65,9 @@ def create_project(body: dict, user_id: int = Depends(_get_user_id)):
         raise HTTPException(status_code=422, detail="Project name is required")
     try:
         return _store.create_project(user_id, name, body.get("description", ""))
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to create project")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred while creating the project")
 
 
 @router.get("/projects/{project_id}")
@@ -112,9 +112,9 @@ def create_workflow(project_id: str, body: dict, user_id: int = Depends(_get_use
     try:
         wf_id = _store.create_workflow(project_id, user_id, name, body.get("description", ""))
         return {"id": wf_id}
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to create workflow")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred while creating the workflow")
 
 
 @router.get("/workflows/{workflow_id}")
@@ -250,9 +250,9 @@ async def run_single_node(workflow_id: str, node_id: str, body: dict, user_id: i
     try:
         result = await _engine.execute_single_node(target_node, inputs)
         return {"node_id": node_id, "result": result.get("_summary", {}), "error": result.get("_error", "")}
-    except Exception as e:
+    except Exception:
         logger.exception("Single node execution failed")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="An internal error occurred during node execution")
 
 
 @router.post("/workflows/{workflow_id}/stop")
@@ -369,6 +369,131 @@ def get_node_type(node_type: str):
         raise HTTPException(status_code=404, detail=f"Unknown node type: {node_type}")
 
 
+# ── ExpressionTree → Workflow converter ────────────────────────────────────────
+
+
+@router.post("/tree-to-workflow")
+def tree_to_workflow(body: dict, user_id: int = Depends(_get_user_id)):
+    """Convert an ExpressionTree dict to workflow {nodes, edges}.
+
+    Request body::
+
+        {"tree": {...}, "name": "alpha101_001"}
+
+    Returns::
+
+        {"nodes": [...], "edges": [...]}
+    """
+    from src.factors.mining.expression_tree import ExpressionTree
+    from src.workflow.tree_converter import expression_tree_to_workflow
+
+    tree_dict = body.get("tree")
+    if not tree_dict:
+        raise HTTPException(status_code=400, detail="Missing 'tree' field")
+
+    name = body.get("name", "Factor")
+    try:
+        tree = ExpressionTree.from_dict(tree_dict)
+        result = expression_tree_to_workflow(tree, name=name)
+        return result
+    except ValueError as e:
+        logger.warning("tree_to_workflow invalid input: %s", e)
+        raise HTTPException(status_code=400, detail=f"Invalid expression tree: {e}")
+    except Exception:
+        logger.exception("tree_to_workflow failed")
+        raise HTTPException(status_code=500, detail="An internal error occurred during tree conversion")
+
+
+# ── Strategy templates ────────────────────────────────────────────────────────
+
+
+@router.get("/templates")
+def list_templates():
+    """List all available strategy templates."""
+    from src.workflow.templates import TEMPLATES
+    return [{"id": t["id"], "name": t["name"], "description": t["description"]} for t in TEMPLATES]
+
+
+@router.get("/templates/{template_id}")
+def get_template(template_id: str):
+    """Get a specific template's {nodes, edges} for canvas insertion."""
+    from src.workflow.templates import load_template
+    result = load_template(template_id)
+    if not result:
+        raise HTTPException(status_code=404, detail=f"Template not found: {template_id}")
+    return result
+
+
+@router.post("/match-template")
+def match_strategy_template(body: dict, user_id: int = Depends(_get_user_id)):
+    """Analyse Python strategy code and find the best matching template.
+
+    Request::
+
+        {"code": "class SignalEngine: ..."}
+
+    Returns::
+
+        {"template_id": "dual_ma_crossover", "name": "Dual MA Crossover",
+         "score": 0.85, "nodes": [...], "edges": [...]}
+    """
+    from src.workflow.templates import match_template
+
+    code = body.get("code", "")
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing 'code' field")
+
+    result = match_template(code)
+    if not result:
+        return {"template_id": None, "name": None, "score": 0.0,
+                "message": "No template matched — strategy may be too complex or custom"}
+
+    template, score = result
+    return {
+        "template_id": template["id"],
+        "name": template["name"],
+        "description": template["description"],
+        "score": round(score, 3),
+        "nodes": template["nodes"],
+        "edges": template["edges"],
+    }
+
+
+# ── AI strategy decomposer ────────────────────────────────────────────────────
+
+
+@router.post("/decompose-strategy")
+def decompose_strategy(body: dict, user_id: int = Depends(_get_user_id)):
+    """Use LLM to decompose a Python strategy into workflow {nodes, edges}.
+
+    Request::
+
+        {"code": "class SignalEngine: ..."}
+
+    Returns::
+
+        {"nodes": [...], "edges": [...], "attempts": 1}
+        or {"error": "...", "nodes": [], "edges": []}
+    """
+    from src.workflow.strategy_decomposer import decompose_strategy
+
+    code = body.get("code", "")
+    if not code:
+        raise HTTPException(status_code=400, detail="Missing 'code' field")
+
+    result = decompose_strategy(code)
+    if "error" in result:
+        logger.warning("Strategy decomposition failed: %s", result["error"])
+    return result
+
+
+@router.get("/node-catalog")
+def get_node_catalog_endpoint():
+    """Return a simplified node catalog for the AI decompose UI."""
+    from src.workflow.strategy_decomposer import get_node_catalog
+    return get_node_catalog()
+
+
 # ── Validation ───────────────────────────────────────────────────────────────
 
 @router.post("/workflows/{workflow_id}/validate")
@@ -465,6 +590,83 @@ def suggest_next(body: dict):
 # ── Templates (inline — no separate module) ──────────────────────────────────
 
 _BUILTIN_TEMPLATES = [
+    # ── Demo workflows (new-user-friendly, auto-generate nodes+edges) ──────────
+    {"id": "demo_momentum", "name": "🚀 Quick Start: Momentum Strategy",
+     "description": "A complete momentum pipeline: load 沪深300 data → compute 20-day returns → "
+                    "rank stocks → select top 10 → equal weight → rebalance monthly. "
+                    "Perfect for first-time users.",
+     "category": "demo", "node_count": 6, "edge_count": 5,
+     "nodes": [
+         {"id": "d_data", "node_type": "column_extract", "label": "close",
+          "position": {"x": 0, "y": 0}, "config": {"column": "close"}},
+         {"id": "d_ret", "node_type": "pct_change", "label": "Δ%(20)",
+          "position": {"x": 260, "y": 0}, "config": {"periods": 20}},
+         {"id": "d_rank", "node_type": "rank_select", "label": "Top 10",
+          "position": {"x": 520, "y": 0}, "config": {"top_n": 10, "ascending": "false"}},
+         {"id": "d_weight", "node_type": "signal_weight", "label": "Equal Weight",
+          "position": {"x": 780, "y": 0}, "config": {"mode": "equal"}},
+         {"id": "d_rebal", "node_type": "rebalance", "label": "Rebalance(20)",
+          "position": {"x": 1040, "y": 0}, "config": {"frequency": 20}},
+     ],
+     "edges": [
+         {"id": "de1", "source": "d_data", "source_port": "series", "target": "d_ret", "target_port": "series"},
+         {"id": "de2", "source": "d_ret", "source_port": "returns", "target": "d_rank", "target_port": "factor"},
+         {"id": "de3", "source": "d_rank", "source_port": "signal", "target": "d_weight", "target_port": "signal"},
+         {"id": "de4", "source": "d_weight", "source_port": "signal", "target": "d_rebal", "target_port": "signal"},
+     ]},
+    {"id": "demo_macross", "name": "📈 Demo: MA Crossover Strategy",
+     "description": "Classic dual moving average crossover: MA(5) and MA(20) → golden cross to enter, "
+                    "death cross to exit → hold position between crosses.",
+     "category": "demo", "node_count": 6, "edge_count": 7,
+     "nodes": [
+         {"id": "d_data", "node_type": "column_extract", "label": "close",
+          "position": {"x": 0, "y": -100}, "config": {"column": "close"}},
+         {"id": "d_ma5", "node_type": "ma", "label": "MA(5)",
+          "position": {"x": 260, "y": -180}, "config": {"window": 5}},
+         {"id": "d_ma20", "node_type": "ma", "label": "MA(20)",
+          "position": {"x": 260, "y": -20}, "config": {"window": 20}},
+         {"id": "d_golden", "node_type": "cross_over", "label": "Golden Cross",
+          "position": {"x": 520, "y": -180}, "config": {"direction": "above"}},
+         {"id": "d_death", "node_type": "cross_over", "label": "Death Cross",
+          "position": {"x": 520, "y": -20}, "config": {"direction": "below"}},
+         {"id": "d_hold", "node_type": "hold_signal", "label": "Hold",
+          "position": {"x": 780, "y": -100}, "config": {"initial": "flat"}},
+     ],
+     "edges": [
+         {"id": "de1", "source": "d_data", "source_port": "series", "target": "d_ma5", "target_port": "series"},
+         {"id": "de2", "source": "d_data", "source_port": "series", "target": "d_ma20", "target_port": "series"},
+         {"id": "de3", "source": "d_ma5", "source_port": "ma", "target": "d_golden", "target_port": "fast"},
+         {"id": "de4", "source": "d_ma20", "source_port": "ma", "target": "d_golden", "target_port": "slow"},
+         {"id": "de5", "source": "d_ma5", "source_port": "ma", "target": "d_death", "target_port": "fast"},
+         {"id": "de6", "source": "d_ma20", "source_port": "ma", "target": "d_death", "target_port": "slow"},
+         {"id": "de7", "source": "d_golden", "source_port": "signal", "target": "d_hold", "target_port": "enter"},
+         {"id": "de8", "source": "d_death", "source_port": "signal", "target": "d_hold", "target_port": "exit"},
+     ]},
+    {"id": "demo_volbreak", "name": "📊 Demo: Volume Breakout Screener",
+     "description": "Find stocks with unusual volume: compute volume SMA(20) → compare today's volume "
+                    "to average → threshold select stocks with volume > 2× average.",
+     "category": "demo", "node_count": 6, "edge_count": 5,
+     "nodes": [
+         {"id": "d_vol", "node_type": "column_extract", "label": "volume",
+          "position": {"x": 0, "y": 0}, "config": {"column": "volume"}},
+         {"id": "d_volma", "node_type": "ma", "label": "Vol MA(20)",
+          "position": {"x": 260, "y": 0}, "config": {"window": 20}},
+         {"id": "d_ratio", "node_type": "arithmetic", "label": "Vol / VolMA",
+          "position": {"x": 520, "y": 0}, "config": {"op": "div"}},
+         {"id": "d_thresh", "node_type": "threshold_select", "label": "Ratio > 2",
+          "position": {"x": 780, "y": 0}, "config": {"threshold": 2, "op": "gt"}},
+         {"id": "d_weight", "node_type": "signal_weight", "label": "Equal Weight",
+          "position": {"x": 1040, "y": 0}, "config": {"mode": "equal"}},
+     ],
+     "edges": [
+         {"id": "de1", "source": "d_vol", "source_port": "series", "target": "d_volma", "target_port": "series"},
+         {"id": "de2", "source": "d_vol", "source_port": "series", "target": "d_ratio", "target_port": "a"},
+         {"id": "de3", "source": "d_volma", "source_port": "ma", "target": "d_ratio", "target_port": "b"},
+         {"id": "de4", "source": "d_ratio", "source_port": "result", "target": "d_thresh", "target_port": "factor"},
+         {"id": "de5", "source": "d_thresh", "source_port": "signal", "target": "d_weight", "target_port": "signal"},
+     ]},
+
+    # ── Advanced pipelines (strategy patterns without pre-built nodes) ─────────
     {"id": "momentum_pipeline", "name": "Momentum Strategy Pipeline",
      "description": "CSI 300 → Alpha Zoo → Top-5 Strategy → Backtest → Attribution",
      "category": "strategy", "node_count": 6, "edge_count": 8},
@@ -500,13 +702,15 @@ def instantiate_template(template_id: str, body: dict, user_id: int = Depends(_g
         try:
             proj = _store.create_project(user_id, name, f"Created from template: {template['name']}")
             project_id = proj["id"]
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except Exception:
+            logger.exception("Failed to auto-create project for template")
+            raise HTTPException(status_code=500, detail="An internal error occurred while creating the project from template")
 
     try:
         wf_id = _store.create_workflow(project_id, user_id, name, template["description"])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to create workflow from template")
+        raise HTTPException(status_code=500, detail="An internal error occurred while creating the workflow from template")
 
     # Generate nodes from template blueprint
     nodes = template.get("nodes", [])
@@ -547,9 +751,9 @@ def schedule_workflow(workflow_id: str, body: dict, user_id: int = Depends(_get_
         return {"status": "ok", "task_id": task.id, "cron": cron}
     except ImportError:
         raise HTTPException(status_code=501, detail="Scheduler engine not available")
-    except Exception as e:
-        logger.exception("Failed to schedule")
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("Failed to schedule workflow")
+        raise HTTPException(status_code=500, detail="An internal error occurred while scheduling the workflow")
 
 
 # ── Version History ───────────────────────────────────────────────────────────

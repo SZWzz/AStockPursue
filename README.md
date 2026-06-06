@@ -10,8 +10,8 @@
   <img src="https://img.shields.io/badge/Factors-450+-orange?style=flat-square" alt="Alpha Factors">
   <img src="https://img.shields.io/badge/Data_Sources-23-blue?style=flat-square" alt="Data Sources">
   <img src="https://img.shields.io/badge/AI_Skills-89-purple?style=flat-square" alt="AI Skills">
-  <img src="https://img.shields.io/badge/Workflow_Nodes-12-teal?style=flat-square" alt="Workflow Nodes">
-  <img src="https://img.shields.io/badge/Version-v2026.6.5-blueviolet?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/Workflow_Nodes-51-teal?style=flat-square" alt="Workflow Nodes">
+  <img src="https://img.shields.io/badge/Version-v2026.6.6-blueviolet?style=flat-square" alt="Version">
 </p>
 
 <h1 align="center">🚀 AStockPursue</h1>

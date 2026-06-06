@@ -17,12 +17,7 @@ import pandas as pd
 
 logger = logging.getLogger(__name__)
 
-_EPSILON = 1e-9
-# [P2-1 fix] Increased from 1000 to 5000 to avoid silently dropping history
-# for long-window factors (e.g. correlation(..., 230) needs 230+ bars).
-# Still provides an upper bound to prevent unbounded memory growth in
-# very long backtests (~20 years of daily data).
-_MAX_HISTORY = 5000
+from src.trading.config import MAX_HISTORY as _MAX_HISTORY, EPSILON as _EPSILON
 
 
 @runtime_checkable

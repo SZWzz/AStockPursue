@@ -10,8 +10,8 @@
   <img src="https://img.shields.io/badge/因子库-450+-orange?style=flat-square" alt="因子数">
   <img src="https://img.shields.io/badge/数据源-23-blue?style=flat-square" alt="数据源">
   <img src="https://img.shields.io/badge/AI技能-89-purple?style=flat-square" alt="AI 技能">
-  <img src="https://img.shields.io/badge/工作流节点-12-teal?style=flat-square" alt="工作流节点">
-  <img src="https://img.shields.io/badge/版本-v2026.6.5-blueviolet?style=flat-square" alt="版本">
+  <img src="https://img.shields.io/badge/工作流节点-51-teal?style=flat-square" alt="工作流节点">
+  <img src="https://img.shields.io/badge/版本-v2026.6.6-blueviolet?style=flat-square" alt="版本">
 </p>
 
 <h1 align="center">🚀 AStockPursue</h1>

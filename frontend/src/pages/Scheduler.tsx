@@ -4,21 +4,21 @@ import { useSchedulerStore } from "@/stores/schedulerStore";
 import { cn } from "@/lib/utils";
 import { Clock, Plus, Play, Pause, Trash2, RotateCw, ChevronDown, ChevronRight } from "lucide-react";
 
-const TASK_TYPES = [
-  { value: "auto_backtest", label: "Auto Backtest" },
-  { value: "data_health_check", label: "Data Health Check" },
-  { value: "watchlist_alert", label: "Watchlist Alert" },
-  { value: "signal_report", label: "Signal Report" },
-  { value: "factor_mining", label: "Factor Mining" },
-  { value: "screener_run", label: "Screener Run" },
-];
+const TASK_TYPE_KEYS: Record<string, string> = {
+  auto_backtest: "schedAutoBacktest",
+  data_health_check: "schedDataHealth",
+  watchlist_alert: "schedWatchlist",
+  signal_report: "schedSignalReport",
+  factor_mining: "schedFactorMining",
+  screener_run: "schedScreener",
+};
 
-const CRON_PRESETS = [
-  { label: "Every weekday 9:00", expr: "0 9 * * 1-5" },
-  { label: "Every day 15:30 (after close)", expr: "30 15 * * *" },
-  { label: "Every hour", expr: "0 * * * *" },
-  { label: "Every Monday 8:00", expr: "0 8 * * 1" },
-  { label: "Every 30 minutes", expr: "*/30 * * * *" },
+const CRON_PRESET_KEYS = [
+  { i18nKey: "schedWeekday", expr: "0 9 * * 1-5" },
+  { i18nKey: "schedAfterClose", expr: "30 15 * * *" },
+  { i18nKey: "schedEveryHour", expr: "0 * * * *" },
+  { i18nKey: "schedMonday", expr: "0 8 * * 1" },
+  { i18nKey: "schedEvery30Min", expr: "*/30 * * * *" },
 ];
 
 export function Scheduler() {
@@ -65,7 +65,7 @@ export function Scheduler() {
               <label className="text-xs text-muted-foreground block mb-1">{t.schedulerType || "Type"}</label>
               <select value={newTask.task_type} onChange={(e) => setNewTask({ ...newTask, task_type: e.target.value })}
                 className="w-full border rounded px-2 py-1.5 text-sm bg-background">
-                {TASK_TYPES.map((tt) => <option key={tt.value} value={tt.value}>{tt.label}</option>)}
+                {Object.entries(TASK_TYPE_KEYS).map(([value, i18nKey]) => <option key={value} value={value}>{(t as any)[i18nKey] || value}</option>)}
               </select>
             </div>
           </div>
@@ -76,7 +76,7 @@ export function Scheduler() {
                 className="flex-1 border rounded px-2 py-1.5 text-sm bg-background font-mono" />
               <select onChange={(e) => setNewTask({ ...newTask, cron_expression: e.target.value })} className="border rounded px-2 py-1.5 text-xs bg-background">
                 <option value="">Presets...</option>
-                {CRON_PRESETS.map((cp) => <option key={cp.expr} value={cp.expr}>{cp.label}</option>)}
+                {CRON_PRESET_KEYS.map((cp) => <option key={cp.expr} value={cp.expr}>{(t as any)[cp.i18nKey] || cp.expr}</option>)}
               </select>
             </div>
           </div>
