@@ -7,7 +7,7 @@
  * Query param: ?new=true to create a new workflow in the project
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
 import { History, Clock } from "lucide-react";
 import { useWorkflowStore } from "@/workflow/store/workflowStore";

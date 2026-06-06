@@ -4,8 +4,8 @@ import type { NodeDefinition } from "@/workflow/types/workflow";
 // Mock @xyflow/react — the store imports it for edge/node change helpers
 vi.mock("@xyflow/react", () => ({
   addEdge: (edge: any, edges: any[]) => [...edges, edge],
-  applyEdgeChanges: (changes: any[], edges: any[]) => edges,
-  applyNodeChanges: (changes: any[], nodes: any[]) => nodes,
+  applyEdgeChanges: (_changes: any[], edges: any[]) => edges,
+  applyNodeChanges: (_changes: any[], nodes: any[]) => nodes,
 }));
 
 // Sample node definitions for testing
@@ -174,7 +174,9 @@ describe("useWorkflowStore — pure logic", () => {
     const result = store.onConnect({
       source: "unknown_source",
       target: "unknown_target",
-    });
+      sourceHandle: null,
+      targetHandle: null,
+    } as any);
     expect(result.success).toBe(false);
   });
 
@@ -192,7 +194,9 @@ describe("useWorkflowStore — pure logic", () => {
     const result = store.onConnect({
       source: sourceNode.id,
       target: targetNode.id,
-    });
+      sourceHandle: null,
+      targetHandle: null,
+    } as any);
     expect(result.success).toBe(true);
     expect(useWorkflowStore.getState().edges).toHaveLength(1);
     expect(useWorkflowStore.getState().isDirty).toBe(true);

@@ -10,7 +10,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { Play, Loader2, Table, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { api } from "@/lib/api";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

@@ -139,10 +139,6 @@ function _popHistory(): HistorySnapshot | null {
   return _history.pop() ?? null;
 }
 
-function _peekHistory(): HistorySnapshot | null {
-  return _history.length > 0 ? _history[_history.length - 1] : null;
-}
-
 // ── Initial state factory ────────────────────────────────────────────────────
 
 const initialViewport: Viewport = { x: 0, y: 0, zoom: 1 };
@@ -560,10 +556,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const node = nodes.find((n) => n.id === selectedNodeId);
     if (!node) return;
     _clipboard = {
-      node_type: node.data.node_type,
-      label: node.data.label,
-      config: { ...(node.data.config || {}) },
-    };
+    node_type: node.data.node_type as string,
+    label: node.data.label as string,
+    config: { ...(node.data.config || {}) } as Record<string, unknown>,
+  };
   },
 
   pasteNode: (position: XYPosition) => {
