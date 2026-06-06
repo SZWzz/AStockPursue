@@ -16,6 +16,31 @@ from src.workflow.schema import NodePort, PortType
 logger = logging.getLogger(__name__)
 
 
+# ── Actionable error hints ──────────────────────────────────────────────
+
+_ERROR_HINTS = [
+    ("authentication required", "请在设置页面配置 API 密钥，或使用浏览器登录后重试 → Settings → API Key"),
+    ("no data", "数据源可能不可用，请检查数据源状态页面或尝试其他数据源 → Data Sources"),
+    ("timeout", "执行超时，尝试减少标的数量或扩大K线周期 → 简化策略参数后重试"),
+    ("no trading signals", "缺少交易信号输入，请确认上游 Strategy 节点已正确连接 → 检查工作流连线"),
+    ("no ohlcv", "缺少行情数据，请确认 OHLCV Loader 节点已连接且数据源可用 → 检查数据源配置"),
+    ("import error", "依赖包缺失，请运行 pip install -r requirements.txt 安装所需依赖 → 终端执行"),
+    ("permission denied", "权限不足，请联系管理员或检查文件/目录权限 → 检查服务器权限设置"),
+    ("not found", "资源未找到，工作流或项目可能已被删除 → 检查项目列表"),
+    ("api key", "API 密钥未配置或无效，请在设置中填入有效的密钥 → Settings → API Key"),
+    ("connection refused", "无法连接到服务，请确认目标服务正在运行 → 检查网络和服务状态"),
+]
+
+
+def _error_hint(error: str) -> str:
+    """Return an actionable hint for a given error message."""
+    err_lower = error.lower()
+    for pattern, hint in _ERROR_HINTS:
+        if pattern in err_lower:
+            return hint
+    return ""
+
+
 @register_node
 class NotifyNode(BaseNode):
     """Send notifications from workflow canvas.
@@ -127,7 +152,12 @@ class NotifyNode(BaseNode):
                 level = "signal"
             elif "error" in bt:
                 title = "Backtest Failed"
-                body = bt["error"]
+                err = str(bt.get("error", ""))
+                body = err
+                # Append actionable guidance based on error pattern
+                hint = _error_hint(err)
+                if hint:
+                    body += f"\n\n💡 {hint}"
                 level = "critical"
 
         # Auto-format order result
@@ -162,8 +192,23 @@ class NotifyNode(BaseNode):
         all_ok = all(results.values()) if results else False
         logger.info("NotifyNode: channels=%s results=%s", channels, results)
 
-        return {"notify_status": {
-            "sent": all_ok,
-            "channels": channels,
-            "results": results,
-        }}
+        # Build error_action for frontend CTA rendering
+        error_action = None
+        if level == "critical":
+            hint = _error_hint(body)
+            if hint:
+                error_action = hint
+
+        return {
+            "notify_status": {
+                "sent": all_ok,
+                "channels": channels,
+                "results": results,
+                "error_action": error_action,
+            },
+            "_summary": {
+                "sent": "yes" if all_ok else "partial",
+                "channels": len(channels),
+                "error_action": error_action,
+            },
+        }
