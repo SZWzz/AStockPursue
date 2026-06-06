@@ -129,9 +129,11 @@ function InlineParams({
     e.stopPropagation();
   }, []);
 
-  // Translate config_schema title via i18n (wfParam_{title} → fallback to title)
-  const paramLabel = (field: any, key: string) =>
-    (t as any)[`wfParam_${field.title}`] || field.title || key;
+  // Translate config_schema title via i18n (wfParam_{titleNoSpaces} → fallback to title)
+  const paramLabel = (field: any, key: string) => {
+    const titleKey = (field.title || "").replace(/\s+/g, "");
+    return (t as any)[`wfParam_${titleKey}`] || field.title || key;
+  };
 
   const inlineFields = Object.entries(schema).filter(
     ([, field]) => (field as any).inline === true
