@@ -63,6 +63,7 @@ const STATUS_ICONS: Record<string, string> = {
 // ── Port handle ──────────────────────────────────────────────────────────────
 
 function PortHandle({ port, side }: { port: NodePort; side: "left" | "right" }) {
+  const { t } = useI18n();
   const isConnected = false; // managed by React Flow internally
   const typeLabel = port.port_type.split(":").pop() || port.port_type;
   return (
@@ -79,7 +80,7 @@ function PortHandle({ port, side }: { port: NodePort; side: "left" | "right" }) 
         )}
       />
       <span className="text-muted-foreground truncate max-w-[100px]" title={`${port.name}: ${typeLabel}`}>
-        {port.name}
+        {(t as any)[`wfPort_${port.name}`] || port.name}
       </span>
     </div>
   );
@@ -143,8 +144,9 @@ function InlineParams({
 
   return (
     <div
-      className="px-2 py-1.5 border-b space-y-1 bg-muted/20"
+      className="px-2 py-1.5 border-b space-y-1 bg-muted/20 nodrag"
       onMouseDown={stopPropagation}
+      onClick={stopPropagation}
       onDoubleClick={stopPropagation}
       onKeyDown={stopPropagation}
     >
