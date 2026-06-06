@@ -235,7 +235,7 @@ export function Trading() {
                         onClick={loadNews}
                         disabled={newsLoading}
                         className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition"
-                        title={t.tradingRefreshKline || t.dashRefresh || "Refresh"}
+                        title={t.ptRefreshKline || t.dashRefresh || "Refresh"}
                       >
                         <RefreshCw className={cn("h-3 w-3", newsLoading && "animate-spin")} />
                       </button>

@@ -172,6 +172,58 @@ class DataStore:
 
     # ── Redis L0 helpers ────────────────────────────────────────────────────
 
+    @staticmethod
+    def _run_async(coro):
+        """Run an async coroutine safely in either sync or async context.
+
+        Uses ``asyncio.get_running_loop()`` (Python 3.10+) to detect the
+        current context.  In a running event loop (FastAPI), dispatches
+        via ``run_coroutine_threadsafe``.  In a sync context (tests, CLI,
+        notebooks), uses ``asyncio.run()``.
+
+        Args:
+            coro: Coroutine object to execute.
+
+        Returns:
+            The coroutine's return value, or ``None`` on any error.
+        """
+        import asyncio
+        import concurrent.futures
+
+        try:
+            loop = asyncio.get_running_loop()
+            # Async context: dispatch to the running loop from a sync thread
+            future = asyncio.run_coroutine_threadsafe(coro, loop)
+            return future.result(timeout=5)
+        except RuntimeError:
+            # No running loop: we're in a sync context, safe to use asyncio.run()
+            try:
+                return asyncio.run(coro)
+            except (ValueError, TypeError, RuntimeError):
+                return None
+        except (concurrent.futures.TimeoutError, RuntimeError, ValueError):
+            return None
+
+    @staticmethod
+    def _run_async_fire_and_forget(coro):
+        """Like :meth:`_run_async` but returns immediately without waiting.
+
+        Used for write operations (caching) where the result is not needed.
+        """
+        import asyncio
+        import concurrent.futures
+
+        try:
+            loop = asyncio.get_running_loop()
+            asyncio.run_coroutine_threadsafe(coro, loop)
+        except RuntimeError:
+            try:
+                asyncio.run(coro)
+            except (ValueError, TypeError, RuntimeError):
+                pass
+        except (RuntimeError, ValueError):
+            pass
+
     def _try_redis(
         self, code: str, interval: str, start: str, end: str, source: str,
     ) -> pd.DataFrame | None:
@@ -182,24 +234,15 @@ class DataStore:
         falls through to the next tier.
         """
         try:
-            import asyncio
             from backtest.engines._market_hooks import _detect_market
             market = _detect_market(code) if source == "auto" else source
-        except Exception:
+        except (ImportError, ModuleNotFoundError):
             market = source
 
         try:
             from src.cache.data_cache import cached_bars
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
-                future = asyncio.run_coroutine_threadsafe(
-                    cached_bars(market, code, interval, start, end), loop,
-                )
-                return future.result(timeout=5)
-            else:
-                return asyncio.run(cached_bars(market, code, interval, start, end))
-        except Exception:
+            return self._run_async(cached_bars(market, code, interval, start, end))
+        except (RuntimeError, ValueError, TypeError):
             return None
 
     def _write_redis(
@@ -214,21 +257,16 @@ class DataStore:
         try:
             from backtest.engines._market_hooks import _detect_market
             market = _detect_market(code) if source == "auto" else source
-        except Exception:
+        except (ImportError, ModuleNotFoundError):
             market = source
 
         try:
-            import asyncio
             from src.cache.data_cache import cache_bars
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                import concurrent.futures
-                asyncio.run_coroutine_threadsafe(
-                    cache_bars(market, code, interval, start, end, df.copy()), loop,
-                )
-            else:
-                asyncio.run(cache_bars(market, code, interval, start, end, df.copy()))
-        except Exception:
+            df_copy = df.copy()
+            self._run_async_fire_and_forget(
+                cache_bars(market, code, interval, start, end, df_copy),
+            )
+        except (RuntimeError, ValueError, TypeError):
             pass
 
     # ── Stats ──────────────────────────────────────────────────────────────

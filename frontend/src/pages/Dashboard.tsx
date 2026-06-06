@@ -111,6 +111,9 @@ export function Dashboard() {
       {/* Today at a Glance — answers "What do I need to do today?" in 3 seconds */}
       <TodayGlance data={data} t={t} />
 
+      {/* Getting Started — shown for new users without active strategies */}
+      <GettingStarted data={data} t={t} />
+
       {/* Row 1: Market + Data Source Health + Sentiment */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <MarketCard data={data?.market} t={t} />
@@ -197,6 +200,68 @@ function TodayGlance({ data, t }: { data: DashboardData | null; t: any }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+// ── Getting Started (new user onboarding) ───────────────────────────────
+
+function GettingStarted({ data, t }: { data: DashboardData | null; t: any }) {
+  const ptCount = data?.papertrading?.strategies?.length || 0;
+  const hasActivity = (data?.activity?.events?.length || 0) > 0;
+  // Show only for new users: no strategies and no activity
+  if (ptCount > 0 || hasActivity) return null;
+
+  const steps = [
+    {
+      title: (t as any).dashAgent || "AI Agent",
+      desc: t.prompt || "Describe your strategy in natural language and let the AI generate and backtest it",
+      link: "/agent",
+      icon: <Bot className="w-5 h-5" />,
+      color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+    },
+    {
+      title: (t as any).dashStrategies || "Demo Workflows",
+      desc: (t as any).tpl_demo_momentum_desc || "Explore pre-built pipeline templates: momentum, MA crossover, volume breakout",
+      link: "/projects",
+      icon: <Workflow className="w-5 h-5" />,
+      color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+    },
+    {
+      title: (t as any).dashZoo || "Alpha Zoo",
+      desc: (t as any).azHeroDesc || "Browse 450+ pre-built alpha factors across 4 zoos with IC/IR benchmarks",
+      link: "/alpha-zoo",
+      icon: <Microscope className="w-5 h-5" />,
+      color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+    },
+  ];
+
+  return (
+    <div className="section-card p-5 rounded-2xl border-2 border-dashed border-primary/20 bg-primary/5">
+      <div className="flex items-center gap-2 mb-4">
+        <Zap className="w-5 h-5 text-primary" />
+        <h2 className="text-base font-semibold">{(t as any).dashQuickActions || "Getting Started"}</h2>
+      </div>
+      <p className="text-sm text-muted-foreground mb-4">
+        {(t as any).projNoProjectsHint || "Here are the fastest ways to get your first strategy running:"}
+      </p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {steps.map((step) => (
+          <Link
+            key={step.title}
+            to={step.link}
+            className="flex items-start gap-3 p-3 rounded-xl bg-background hover:bg-muted/50 transition-colors border border-border/50 group"
+          >
+            <div className={cn("p-2 rounded-lg shrink-0", step.color)}>
+              {step.icon}
+            </div>
+            <div>
+              <div className="text-sm font-medium group-hover:text-primary transition-colors">{step.title}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{step.desc}</div>
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
