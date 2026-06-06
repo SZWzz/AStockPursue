@@ -123,10 +123,15 @@ function InlineParams({
   nodeId: string;
 }) {
   const updateNodeConfig = useWorkflowStore((s) => s.updateNodeConfig);
+  const { t } = useI18n();
 
   const stopPropagation = useCallback((e: React.SyntheticEvent) => {
     e.stopPropagation();
   }, []);
+
+  // Translate config_schema title via i18n (wfParam_{title} → fallback to title)
+  const paramLabel = (field: any, key: string) =>
+    (t as any)[`wfParam_${field.title}`] || field.title || key;
 
   const inlineFields = Object.entries(schema).filter(
     ([, field]) => (field as any).inline === true
@@ -151,10 +156,11 @@ function InlineParams({
 
         // Select dropdown
         if (f.enum) {
+          const label = (t as any)[`wfParam_${f.title}`] || f.title || key;
           return (
             <div key={key} className="flex items-center gap-1.5">
-              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={f.title || key}>
-                {f.title || key}
+              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={label}>
+                {label}
               </label>
               <select
                 id={fieldId}
@@ -172,10 +178,11 @@ function InlineParams({
 
         // Number input
         if (f.type === "number" || f.type === "integer") {
+          const label = paramLabel(f, key);
           return (
             <div key={key} className="flex items-center gap-1.5">
-              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={f.title || key}>
-                {f.title || key}
+              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={label}>
+                {label}
               </label>
               <input
                 id={fieldId}
@@ -192,10 +199,11 @@ function InlineParams({
         }
 
         // Fallback: text input
+        const label = paramLabel(f, key);
         return (
           <div key={key} className="flex items-center gap-1.5">
-            <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={f.title || key}>
-              {f.title || key}
+            <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={label}>
+              {label}
             </label>
             <input
               id={fieldId}
