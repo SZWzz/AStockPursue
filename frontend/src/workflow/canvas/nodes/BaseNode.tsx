@@ -19,6 +19,7 @@ import {
   Newspaper, Globe, Send, FileText, CircleDollarSign, Bell, Download,
   ExternalLink, Play, X,
 } from "lucide-react";
+import { StockInput } from "@/components/indicator-lab/StockInput";
 
 // ── i18n helpers ──────────────────────────────────────────────────────────────
 
@@ -200,6 +201,26 @@ function InlineParams({
                   return <option key={v} value={v}>{ev}</option>;
                 })}
               </select>
+            </div>
+          );
+        }
+
+        // Stock code input with autocomplete
+        if (f.type === "stock_codes" || f.type === "stock_code") {
+          const label = paramLabel(f, key);
+          return (
+            <div key={key} className="flex items-center gap-1.5">
+              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={label}>
+                {label}
+              </label>
+              <div className="flex-1 min-w-0">
+                <StockInput
+                  value={String(value)}
+                  onChange={(val) => onChange(val)}
+                  multi={f.type === "stock_codes"}
+                  placeholder={f.description || "搜索股票..."}
+                />
+              </div>
             </div>
           );
         }
