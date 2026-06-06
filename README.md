@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/AI_Skills-89-purple?style=flat-square" alt="AI Skills">
   <img src="https://img.shields.io/badge/Workflow_Nodes-58-teal?style=flat-square" alt="Workflow Nodes">
   <img src="https://img.shields.io/badge/i18n-4_languages-06b6d4?style=flat-square" alt="i18n">
-  <img src="https://img.shields.io/badge/Version-v2026.6.6-blueviolet?style=flat-square" alt="Version">
+  <img src="https://img.shields.io/badge/Version-v2026.6.7-blueviolet?style=flat-square" alt="Version">
 </p>
 
 <h1 align="center">🚀 AStockPursue</h1>

@@ -1,5 +1,19 @@
 # 更新日志
 
+## [2026.6.7] - 2026-06-07
+
+### 新增
+- **[Workflow] 输出节点结果可视化** — BaseNode NodeFooter 类型感知徽章（回测: Sharpe/Return, 评分: 等级, 通知: 通道状态等）+ RunSummaryPanel 运行摘要面板（执行后自动展示所有 output/analysis/execution 节点结果）
+- **[Workflow] 5 个新节点** — FactorToStrategyNode（因子→策略一键生成）、StrategyHistoryNode（策略时间线+漂移检测）、SaveAsTemplateNode（工作流→模板）、CrowdingNode（因子拥挤度检测）、WalkForwardNode（锚定OOS验证）
+- **[Notify] 可操作错误消息** — NotifyNode 增加 10 种常见错误的 action hint（含导航目标），error_action 字段输出到前端
+- **[UX] 颜色一致性** — 28 个文件 43 处硬编码 text-emerald/text-red 替换为 i18n-aware text-up/text-down
+- **[UX] NodePalette 频率排序** — 同分类内节点按使用次数降序排列，持久化到 localStorage
+
+### 变更
+- **[Engine] workflow_engine** — 优先使用节点提供的 `_summary` 字段（代替自动生成 DataFrame shape）
+- **[Backend] BacktestNode** — 输出增加 `_summary`（sharpe/total_return/max_dd/trade_count）
+- **[NodeRegistry]** — 新增 5 个节点类型
+
 ## [2026.6.6] - 2026-06-06 (Enhancement Plan Phase 0-7)
 
 ### 新增
