@@ -374,32 +374,32 @@ interface NavItem { to: string; icon: any; label: string; color: string; detail?
 function QuickNavCard({ t }: { t: any }) {
   const sections = [
     {
-      label: "Navigation",
+      label: (t as any).dashNavSection || "Navigation",
       items: [
         { to: "/", icon: LayoutDashboard, label: (t as any).dashTitle || "Dashboard", color: "text-primary" },
-        { to: "/projects", icon: FolderOpen, label: "Projects", color: "text-blue-500" },
-        { to: "/agent", icon: Bot, label: "Agent", color: "text-amber-500" },
+        { to: "/projects", icon: FolderOpen, label: (t as any).projects || "Projects", color: "text-blue-500" },
+        { to: "/agent", icon: Bot, label: (t as any).agent || "Agent", color: "text-amber-500" },
         { to: "/data-sources", icon: Database, label: (t as any).dataSources || "Data Sources", color: "text-emerald-500" },
         { to: "/settings", icon: Settings, label: (t as any).settings || "Settings", color: "text-muted-foreground" },
       ] as NavItem[],
     },
     {
-      label: "Workflow",
+      label: (t as any).dashWorkflowSection || "Workflow",
       items: [
-        { to: "/projects", icon: Workflow, label: "Research Projects", color: "text-purple-500", detail: "Workflow pipelines" },
-        { to: "/paper-trading", icon: Play, label: "Paper Trading", color: "text-amber-500", detail: "Live simulation" },
+        { to: "/projects", icon: Workflow, label: (t as any).dashNavResearchProjects || "Research Projects", color: "text-purple-500", detail: (t as any).dashNavResearchProjectsDetail },
+        { to: "/paper-trading", icon: Play, label: (t as any).dashNavPaperTrading || "Paper Trading", color: "text-amber-500", detail: (t as any).dashNavPaperTradingDetail },
       ] as NavItem[],
     },
     {
-      label: "Advanced",
+      label: (t as any).dashAdvancedSection || "Advanced",
       items: [
-        { to: "/factor-mining", icon: Microscope, label: "Factor Mining", color: "text-indigo-500", detail: "GP + LLM" },
-        { to: "/strategy-lab", icon: Code, label: "Strategy Lab", color: "text-cyan-500", detail: "Code & backtest" },
-        { to: "/alpha-zoo", icon: Beaker, label: "Alpha Zoo", color: "text-teal-500", detail: "450+ factors" },
-        { to: "/screener", icon: Filter, label: "Screener", color: "text-rose-500", detail: "Multi-condition" },
-        { to: "/attribution", icon: PieChart, label: "Attribution", color: "text-orange-500", detail: "PnL breakdown" },
-        { to: "/correlation", icon: BarChart3, label: "Correlation", color: "text-pink-500", detail: "Matrix" },
-        { to: "/scheduler", icon: Clock, label: "Scheduler", color: "text-blue-500", detail: "Cron tasks" },
+        { to: "/factor-mining", icon: Microscope, label: (t as any).dashNavFactorMining || "Factor Mining", color: "text-indigo-500", detail: (t as any).dashNavFactorMiningDetail },
+        { to: "/strategy-lab", icon: Code, label: (t as any).dashNavStrategyLab || "Strategy Lab", color: "text-cyan-500", detail: (t as any).dashNavStrategyLabDetail },
+        { to: "/alpha-zoo", icon: Beaker, label: (t as any).dashNavAlphaZoo || "Alpha Zoo", color: "text-teal-500", detail: (t as any).dashNavAlphaZooDetail },
+        { to: "/screener", icon: Filter, label: (t as any).dashNavScreener || "Screener", color: "text-rose-500", detail: (t as any).dashNavScreenerDetail },
+        { to: "/attribution", icon: PieChart, label: (t as any).dashNavAttribution || "Attribution", color: "text-orange-500", detail: (t as any).dashNavAttributionDetail },
+        { to: "/correlation", icon: BarChart3, label: (t as any).dashNavCorrelation || "Correlation", color: "text-pink-500", detail: (t as any).dashNavCorrelationDetail },
+        { to: "/scheduler", icon: Clock, label: (t as any).dashNavScheduler || "Scheduler", color: "text-blue-500", detail: (t as any).dashNavSchedulerDetail },
       ] as NavItem[],
     },
   ];

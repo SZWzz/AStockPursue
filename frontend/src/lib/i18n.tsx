@@ -1264,6 +1264,17 @@ const en = {
   wfEnum_entry: "entry", wfEnum_exit: "exit",
   wfNode_entry_signal: "Entry Signal", wfNode_entry_signal_desc: "Label a factor/cross DataFrame as an ENTRY trading signal",
   wfNode_exit_signal: "Exit Signal", wfNode_exit_signal_desc: "Label a factor/cross DataFrame as an EXIT trading signal",
+
+  dashNavSection: "Navigation", dashWorkflowSection: "Workflow", dashAdvancedSection: "Advanced",
+  dashNavResearchProjects: "Research Projects", dashNavResearchProjectsDetail: "Workflow pipelines",
+  dashNavPaperTrading: "Paper Trading", dashNavPaperTradingDetail: "Live simulation",
+  dashNavFactorMining: "Factor Mining", dashNavFactorMiningDetail: "GP + LLM",
+  dashNavStrategyLab: "Strategy Lab", dashNavStrategyLabDetail: "Code & backtest",
+  dashNavAlphaZoo: "Alpha Zoo", dashNavAlphaZooDetail: "450+ factors",
+  dashNavScreener: "Screener", dashNavScreenerDetail: "Multi-condition",
+  dashNavAttribution: "Attribution", dashNavAttributionDetail: "PnL breakdown",
+  dashNavCorrelation: "Correlation", dashNavCorrelationDetail: "Matrix",
+  dashNavScheduler: "Scheduler", dashNavSchedulerDetail: "Cron tasks",
 } as const;
 
 const zh: Messages = {
@@ -2528,6 +2539,17 @@ const zh: Messages = {
   wfEnum_entry: "入场", wfEnum_exit: "出场",
   wfNode_entry_signal: "入场信号", wfNode_entry_signal_desc: "将因子/交叉数据标记为入场信号",
   wfNode_exit_signal: "出场信号", wfNode_exit_signal_desc: "将因子/交叉数据标记为出场信号",
+
+  dashNavSection: "导航", dashWorkflowSection: "工作流", dashAdvancedSection: "高级功能",
+  dashNavResearchProjects: "研究项目", dashNavResearchProjectsDetail: "工作流流水线",
+  dashNavPaperTrading: "模拟交易", dashNavPaperTradingDetail: "实时模拟",
+  dashNavFactorMining: "因子挖掘", dashNavFactorMiningDetail: "GP + LLM",
+  dashNavStrategyLab: "策略实验室", dashNavStrategyLabDetail: "代码与回测",
+  dashNavAlphaZoo: "Alpha因子库", dashNavAlphaZooDetail: "450+因子",
+  dashNavScreener: "选股器", dashNavScreenerDetail: "多条件筛选",
+  dashNavAttribution: "业绩归因", dashNavAttributionDetail: "盈亏分解",
+  dashNavCorrelation: "相关性分析", dashNavCorrelationDetail: "矩阵",
+  dashNavScheduler: "定时任务", dashNavSchedulerDetail: "Cron调度",
 };
 
 type Messages = Record<keyof typeof en, string>;
