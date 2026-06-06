@@ -29,7 +29,7 @@ class ScreenerNode(BaseNode):
         BaseNode.out_port("scores", PortType.DF_FACTOR),
     ]
     config_schema = {
-        "mode": {"title": "Mode", "type": "string", "enum": ["rank", "filter"], "default": "rank"},
+        "mode": {"title": "Mode", "type": "string", "enum": ["rank", "filter"], "default": "rank", "inline": True},
         "top_n": {"title": "Top N", "type": "integer", "default": 20, "minimum": 1, "maximum": 100},
     }
 
@@ -89,11 +89,11 @@ class PaperTradingNode(BaseNode):
     ]
     config_schema = {
         "initial_capital": {"title": "Initial Capital", "type": "number", "default": 1000000},
-        "market": {"title": "Market", "type": "string", "enum": ["equity_cn", "equity_us", "equity_hk", "crypto"], "default": "equity_cn"},
-        "interval": {"title": "Interval", "type": "string", "enum": ["1D", "1H", "4H"], "default": "1D"},
+        "market": {"title": "Market", "type": "string", "enum": ["equity_cn", "equity_us", "equity_hk", "crypto"], "default": "equity_cn", "inline": True},
+        "interval": {"title": "Interval", "type": "string", "enum": ["1D", "1H", "4H"], "default": "1D", "inline": True},
         "stop_loss_pct": {"title": "Stop Loss %", "type": "number", "default": 0.05, "minimum": 0.0, "maximum": 0.5},
         "take_profit_pct": {"title": "Take Profit %", "type": "number", "default": 0.15, "minimum": 0.0, "maximum": 1.0},
-        "mode": {"title": "Mode", "type": "string", "enum": ["validate", "simulate"], "default": "validate",
+        "mode": {"title": "Mode", "type": "string", "enum": ["validate", "simulate"], "default": "validate", "inline": True,
                  "description": "validate = pre-flight check only; simulate = run paper trading simulation"},
         "duration_days": {"title": "Duration Days", "type": "integer", "default": 30, "minimum": 1, "maximum": 365,
                           "description": "Number of days to simulate in paper trading mode"},

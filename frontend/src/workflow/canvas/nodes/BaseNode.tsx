@@ -170,9 +170,10 @@ function InlineParams({
                 onChange={(e) => onChange(e.target.value)}
                 className="flex-1 min-w-0 px-1.5 py-0.5 text-[11px] rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                {f.enum.map((v: string) => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
+                {f.enum.map((v: string) => {
+                  const ev = (t as any)[`wfEnum_${v}`] || v;
+                  return <option key={v} value={v}>{ev}</option>;
+                })}
               </select>
             </div>
           );

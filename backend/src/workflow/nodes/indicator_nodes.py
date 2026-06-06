@@ -49,7 +49,7 @@ class IndicatorNode(BaseNode):
         "preset": {
             "title": "Preset", "type": "string",
             "enum": ["all", "momentum", "moving_avg", "volatility", "volume"],
-            "default": "all",
+            "default": "all", "inline": True,
         },
         "rsi_period": {
             "title": "RSI Period", "type": "integer", "default": 14,

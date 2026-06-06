@@ -53,7 +53,7 @@ class StockUniverseNode(BaseNode):
     inputs: List[NodePort] = []
     outputs = [BaseNode.out_port("codes", PortType.STOCK_LIST)]
     config_schema = {
-        "preset": {"title": "Universe", "type": "string", "enum": ["csi300", "csi500", "active_a_share", "custom"], "default": "csi300"},
+        "preset": {"title": "Universe", "type": "string", "enum": ["csi300", "csi500", "active_a_share", "custom"], "default": "csi300", "inline": True},
         "custom_codes": {"title": "Custom Tickers", "type": "stock_codes", "default": "", "description": "搜索股票代码，多个用逗号分隔"},
     }
 
@@ -76,12 +76,12 @@ class OHLCVLoaderNode(BaseNode):
     config_schema = {
         "start_date": {"title": "Start Date", "type": "string", "default": "2024-01-01"},
         "end_date": {"title": "End Date", "type": "string", "default": "2025-12-31"},
-        "interval": {"title": "Interval", "type": "string", "enum": ["1D", "1H", "4H", "1W"], "default": "1D"},
+        "interval": {"title": "Interval", "type": "string", "enum": ["1D", "1H", "4H", "1W"], "default": "1D", "inline": True},
         "source": {
             "title": "Data Source", "type": "string",
             "enum": ["auto", "mootdx", "tushare", "eastmoney", "tencent", "futu", "baidu",
                      "yfinance", "twelvedata", "finnhub", "akshare", "okx", "ccxt", "coingecko"],
-            "default": "auto",
+            "default": "auto", "inline": True,
             "description": "auto = market-appropriate fallback chain; select a specific loader to force it",
         },
         "force_refresh": {

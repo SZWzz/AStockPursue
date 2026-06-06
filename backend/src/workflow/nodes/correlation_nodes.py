@@ -36,7 +36,7 @@ class CorrelationNode(BaseNode):
     config_schema = {
         "method": {
             "title": "Method", "type": "string",
-            "enum": ["pearson", "spearman"], "default": "pearson",
+            "enum": ["pearson", "spearman"], "default": "pearson", "inline": True,
         },
         "lookback_days": {
             "title": "Lookback Days", "type": "integer", "default": 60,

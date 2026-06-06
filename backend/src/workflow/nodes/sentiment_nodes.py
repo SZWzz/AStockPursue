@@ -34,7 +34,7 @@ class NewsSentimentNode(BaseNode):
     config_schema = {
         "method": {
             "title": "Method", "type": "string",
-            "enum": ["snownlp", "keyword", "auto"], "default": "auto",
+            "enum": ["snownlp", "keyword", "auto"], "default": "auto", "inline": True,
             "description": "auto = try SnowNLP, fall back to keyword",
         },
         "aggregate_by": {

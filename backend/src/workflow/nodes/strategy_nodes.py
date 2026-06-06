@@ -62,7 +62,7 @@ class StrategyNode(BaseNode):
         BaseNode.out_port("signal", PortType.SIGNAL),
     ]
     config_schema = {
-        "strategy_source": {"title": "Source", "type": "string", "enum": ["template", "saved", "custom"], "default": "template"},
+        "strategy_source": {"title": "Source", "type": "string", "enum": ["template", "saved", "custom"], "default": "template", "inline": True},
         "strategy_template": {"title": "Template", "type": "string", "enum": ["momentum_top5"], "default": "momentum_top5"},
         "saved_strategy_id": {"title": "Saved Strategy", "type": "string", "default": ""},
         "custom_code": {"title": "Custom Code", "type": "string", "default": ""},
@@ -174,8 +174,8 @@ class BacktestNode(BaseNode):
     outputs = [BaseNode.out_port("backtest_result", PortType.BACKTEST_RESULT)]
     config_schema = {
         "initial_capital": {"title": "Initial Capital", "type": "number", "default": 1000000},
-        "market": {"title": "Market", "type": "string", "enum": ["equity_cn", "equity_us", "equity_hk", "crypto"], "default": "equity_cn"},
-        "interval": {"title": "Interval", "type": "string", "enum": ["1D", "1H", "4H", "1W"], "default": "1D"},
+        "market": {"title": "Market", "type": "string", "enum": ["equity_cn", "equity_us", "equity_hk", "crypto"], "default": "equity_cn", "inline": True},
+        "interval": {"title": "Interval", "type": "string", "enum": ["1D", "1H", "4H", "1W"], "default": "1D", "inline": True},
         "slippage": {"title": "Slippage (bps)", "type": "number", "default": 3, "minimum": 0, "maximum": 100},
         "start_date": {"title": "Start Date", "type": "string", "default": "2024-01-01"},
         "end_date": {"title": "End Date", "type": "string", "default": "2025-12-31"},

@@ -26,7 +26,7 @@ class AlphaZooNode(BaseNode):
     ]
     config_schema = {
         "alpha_id": {"title": "Alpha ID", "type": "string", "default": "", "description": "e.g. 'alpha101_001'"},
-        "zoo": {"title": "Zoo", "type": "string", "enum": ["academic", "alpha101", "gtja191", "qlib158", "mined"], "default": "alpha101"},
+        "zoo": {"title": "Zoo", "type": "string", "enum": ["academic", "alpha101", "gtja191", "qlib158", "mined"], "default": "alpha101", "inline": True},
     }
 
     async def execute(self, inputs: dict, config: dict) -> dict:
