@@ -173,7 +173,10 @@ function CanvasInner() {
     [selectNode]
   );
 
+  // ── Render ─────────────────────────────────────────────────────────────
+
   return (
+    <>
     <ReactFlow
       nodes={nodes}
       edges={edges}
@@ -182,7 +185,6 @@ function CanvasInner() {
       onConnect={onConnectWrapped}
       onConnectStart={onConnectStart}
       onConnectEnd={onConnectEnd}
-      // isValidConnection={isValidConnection}  {/* temporarily disabled for debugging */}
       onInit={onInit}
       onDragOver={onDragOver}
       onDrop={onDrop}
@@ -205,7 +207,9 @@ function CanvasInner() {
       <MiniMap position="bottom-left" nodeStrokeWidth={3} pannable zoomable />
     </ReactFlow>
     <RunSummaryPanel />
+    </>
   );
+  </>);
 }
 
 // ── Exported component (wraps in ReactFlowProvider) ──────────────────────────
