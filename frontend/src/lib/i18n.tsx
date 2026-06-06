@@ -1219,8 +1219,9 @@ const en = {
   wfPort_delta: "delta",
   wfPort_deploy_status: "deploy_status",
   wfPort_ema: "ema",
-  wfPort_enter: "enter",
-  wfPort_exit: "exit",
+  wfPort_entry: "entry signal",
+  wfPort_enter: "enter (latch)",
+  wfPort_exit: "exit (unlatch)",
   wfPort_export_result: "export_result",
   wfPort_factor: "factor",
   wfPort_factor_data: "factor_data",
@@ -1261,6 +1262,8 @@ const en = {
   wfPort_value: "value",
   wfPort_zscore: "zscore",
   wfEnum_entry: "entry", wfEnum_exit: "exit",
+  wfNode_entry_signal: "Entry Signal", wfNode_entry_signal_desc: "Label a factor/cross DataFrame as an ENTRY trading signal",
+  wfNode_exit_signal: "Exit Signal", wfNode_exit_signal_desc: "Label a factor/cross DataFrame as an EXIT trading signal",
 } as const;
 
 const zh: Messages = {
@@ -2480,8 +2483,9 @@ const zh: Messages = {
   wfPort_delta: "差值",
   wfPort_deploy_status: "部署状态",
   wfPort_ema: "EMA",
-  wfPort_enter: "入场",
-  wfPort_exit: "出场",
+  wfPort_entry: "入场信号",
+  wfPort_enter: "入场(锁存)",
+  wfPort_exit: "出场(解锁)",
   wfPort_export_result: "导出结果",
   wfPort_factor: "因子",
   wfPort_factor_data: "因子数据",
@@ -2522,6 +2526,8 @@ const zh: Messages = {
   wfPort_value: "数值",
   wfPort_zscore: "Z分数",
   wfEnum_entry: "入场", wfEnum_exit: "出场",
+  wfNode_entry_signal: "入场信号", wfNode_entry_signal_desc: "将因子/交叉数据标记为入场信号",
+  wfNode_exit_signal: "出场信号", wfNode_exit_signal_desc: "将因子/交叉数据标记为出场信号",
 };
 
 type Messages = Record<keyof typeof en, string>;

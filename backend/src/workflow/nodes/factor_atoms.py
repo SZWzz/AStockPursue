@@ -507,13 +507,9 @@ class ExtremumNode(BaseNode):
 class CrossOverNode(BaseNode):
     """Detect when a fast series crosses a slow series.
 
-    Output is 1 on the bar where the crossover occurs, 0 otherwise.
-
-    direction = "above": golden cross — fast crosses ABOVE slow
-    direction = "below": death cross — fast crosses BELOW slow
-
-    event_type = "entry": cross event used as entry signal
-    event_type = "exit":  cross event used as exit signal
+    Purely technical: outputs 1 on cross bar, 0 otherwise.
+    Does NOT encode entry/exit intent — use EntrySignal / ExitSignal nodes
+    downstream to label the trading purpose.
     """
 
     node_type = "cross_over"
@@ -535,18 +531,11 @@ class CrossOverNode(BaseNode):
     ]
     config_schema = {
         "direction": {
-            "title": "交叉方向", "type": "string",
+            "title": "Direction", "type": "string",
             "enum": ["above", "below"],
             "default": "above",
             "inline": True,
-            "description": "above=快线上穿慢线(金叉), below=快线下穿慢线(死叉)",
-        },
-        "event_type": {
-            "title": "信号用途", "type": "string",
-            "enum": ["entry", "exit"],
-            "default": "entry",
-            "inline": True,
-            "description": "entry=产生入场信号, exit=产生出场信号",
+            "description": "above=golden cross (fast↑slow), below=death cross (fast↓slow)",
         },
     }
 

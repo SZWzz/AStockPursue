@@ -480,5 +480,70 @@ class RebalanceNode(BaseNode):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# EntrySignal / ExitSignal — label a df_factor as entry or exit trading signal
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@register_node
+class EntrySignalNode(BaseNode):
+    """Convert a factor/cross DataFrame into an ENTRY trading signal (SIGNAL type)."""
+
+    node_type = "entry_signal"
+    category = "strategy"
+    label = "Entry Signal"
+    description = "Label a factor/cross DataFrame as an ENTRY trading signal"
+    icon = "TrendingUp"
+    resource_profile = "cpu_bound"
+
+    inputs = [
+        BaseNode.in_port("signal", PortType.DF_FACTOR,
+                         description="Cross/factor to mark as entry (e.g. golden cross, RSI<30)"),
+    ]
+    outputs = [
+        BaseNode.out_port("entry", PortType.SIGNAL,
+                          description="Entry signal dict {code: Series} — connect to HoldSignal.enter"),
+    ]
+    config_schema = {}
+
+    async def execute(self, inputs: dict, config: dict) -> dict:
+        df = _to_factor_df(inputs.get("signal"))
+        if df.empty:
+            return {"entry": {}}
+        result = {col: df[col] for col in df.columns}
+        logger.info("EntrySignal: %d codes, %d bars", len(result), len(df))
+        return {"entry": result}
+
+
+@register_node
+class ExitSignalNode(BaseNode):
+    """Convert a factor/cross DataFrame into an EXIT trading signal (SIGNAL type)."""
+
+    node_type = "exit_signal"
+    category = "strategy"
+    label = "Exit Signal"
+    description = "Label a factor/cross DataFrame as an EXIT trading signal"
+    icon = "TrendingDown"
+    resource_profile = "cpu_bound"
+
+    inputs = [
+        BaseNode.in_port("signal", PortType.DF_FACTOR,
+                         description="Cross/factor to mark as exit (e.g. death cross, RSI>70)"),
+    ]
+    outputs = [
+        BaseNode.out_port("exit", PortType.SIGNAL,
+                          description="Exit signal dict {code: Series} — connect to HoldSignal.exit"),
+    ]
+    config_schema = {}
+
+    async def execute(self, inputs: dict, config: dict) -> dict:
+        df = _to_factor_df(inputs.get("signal"))
+        if df.empty:
+            return {"exit": {}}
+        result = {col: df[col] for col in df.columns}
+        logger.info("ExitSignal: %d codes, %d bars", len(result), len(df))
+        return {"exit": result}
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Helpers — imported from _utils
 # ═══════════════════════════════════════════════════════════════════════════════
