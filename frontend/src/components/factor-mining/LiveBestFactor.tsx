@@ -53,9 +53,9 @@ export function LiveBestFactor({
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-2 text-xs">
         <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/20 rounded px-2 py-1">
-          <TrendingUp className="h-3 w-3 text-emerald-500" />
+          <TrendingUp className="h-3 w-3 text-up" />
           <span className="text-muted-foreground">IC</span>
-          <span className={cn("font-mono font-semibold ml-auto", bestIc > 0 ? "text-emerald-600" : "text-red-500")}>
+          <span className={cn("font-mono font-semibold ml-auto", bestIc > 0 ? "text-up" : "text-down")}>
             {bestIc.toFixed(4)}
           </span>
         </div>

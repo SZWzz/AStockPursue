@@ -225,7 +225,7 @@ export function Trading() {
                           {news.length > 0 ? `${news.length} ${t.tradingNews || "News"}` : (t.tradingNews || "News")}
                         </span>
                         {sseConnectedRef.current && (
-                          <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
+                          <span className="flex items-center gap-1 text-[10px] text-up dark:text-up">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             {t.tradingNewsSentimentLive || "Live"}
                           </span>
@@ -247,7 +247,7 @@ export function Trading() {
                       <span className="text-[10px] text-muted-foreground">{t.tradingNewsSentiment || "Sent."}</span>
                       <span className={cn(
                         "text-xs font-semibold",
-                        stockSentiment.sentiment_mean >= 0.6 ? "text-emerald-500" : stockSentiment.sentiment_mean <= 0.4 ? "text-red-500" : "text-amber-500"
+                        stockSentiment.sentiment_mean >= 0.6 ? "text-up" : stockSentiment.sentiment_mean <= 0.4 ? "text-down" : "text-amber-500"
                       )}>
                         {(stockSentiment.sentiment_mean * 100).toFixed(0)}
                       </span>
@@ -291,8 +291,8 @@ export function Trading() {
                         {n.sentiment_score !== undefined && (
                           <span className={cn(
                             "shrink-0 inline-block px-1.5 py-0.5 rounded text-[10px] font-medium",
-                            n.sentiment_score >= 0.6 ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
-                            n.sentiment_score <= 0.4 ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" :
+                            n.sentiment_score >= 0.6 ? "bg-up/10 text-up dark:bg-up/20 dark:text-up" :
+                            n.sentiment_score <= 0.4 ? "bg-down/10 text-down dark:bg-down/20 dark:text-down" :
                             "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400"
                           )}>
                             {(n.sentiment_score * 100).toFixed(0)}

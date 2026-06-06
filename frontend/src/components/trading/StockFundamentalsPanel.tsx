@@ -130,7 +130,7 @@ export function StockFundamentalsPanel({ symbol, price }: Props) {
     <div className="flex flex-col h-full overflow-auto p-3 gap-3 text-xs">
       {/* Error */}
       {error && (
-        <div className="text-center text-red-500 text-xs py-2">{error}</div>
+        <div className="text-center text-down text-xs py-2">{error}</div>
       )}
 
       {/* ── Finance Snapshot ─────────────────────────────────────── */}
@@ -223,8 +223,8 @@ export function StockFundamentalsPanel({ symbol, price }: Props) {
               <p className="text-[10px] text-muted-foreground">PEG</p>
               <p className={cn(
                 "font-mono font-bold",
-                valuation.peg_signal === "cheap" && "text-emerald-500",
-                valuation.peg_signal === "expensive" && "text-red-500",
+                valuation.peg_signal === "cheap" && "text-up",
+                valuation.peg_signal === "expensive" && "text-down",
                 valuation.peg_signal === "fair" && "text-amber-500",
               )}>
                 {valuation.peg === Infinity ? "∞" : valuation.peg}

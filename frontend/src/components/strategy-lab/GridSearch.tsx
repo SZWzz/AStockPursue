@@ -207,13 +207,13 @@ export function GridSearch({ parameters, onRunBacktest, className }: GridSearchP
                     ))}
                     <td className="px-2 py-1 text-right font-mono">
                       <span className={cn(
-                        (r.sharpe || 0) > 1 ? "text-green-600" : (r.sharpe || 0) < 0 ? "text-red-500" : ""
+                        (r.sharpe || 0) > 1 ? "text-green-600" : (r.sharpe || 0) < 0 ? "text-down" : ""
                       )}>
                         {r.sharpe?.toFixed(2) || "—"}
                       </span>
                     </td>
                     <td className="px-2 py-1 text-right font-mono">{r.total_return?.toFixed(2) || "—"}</td>
-                    <td className="px-2 py-1 text-right font-mono text-red-500">{r.max_drawdown?.toFixed(2) || "—"}</td>
+                    <td className="px-2 py-1 text-right font-mono text-down">{r.max_drawdown?.toFixed(2) || "—"}</td>
                     <td className="px-2 py-1 text-right font-mono text-muted-foreground">{r.trade_count || "—"}</td>
                   </tr>
                 ))}

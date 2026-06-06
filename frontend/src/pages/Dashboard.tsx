@@ -225,7 +225,7 @@ function GettingStarted({ data, t }: { data: DashboardData | null; t: any }) {
       desc: (t as any).tpl_demo_momentum_desc || "Explore pre-built pipeline templates: momentum, MA crossover, volume breakout",
       link: "/projects",
       icon: <Workflow className="w-5 h-5" />,
-      color: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+      color: "bg-up/10 text-up dark:bg-up/20 dark:text-up",
     },
     {
       title: (t as any).dashZoo || "Alpha Zoo",
@@ -283,8 +283,8 @@ function MarketCard({ data, t }: { data: DashboardData["market"]; t: any }) {
               <span className="tabular-nums">{idx.price?.toLocaleString()}</span>
               <span className={cn("tabular-nums text-xs px-1.5 py-0.5 rounded-md font-medium",
                 idx.change_pct >= 0
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                  : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400")}>
+                  ? "bg-up/10 text-up dark:bg-up/20 dark:text-up"
+                  : "bg-down/10 text-down dark:bg-down/20 dark:text-down")}>
                 {idx.change_pct >= 0 ? "+" : ""}{idx.change_pct?.toFixed(1)}%
               </span>
             </span>
@@ -310,7 +310,7 @@ function DataSourceCard({ data, t }: { data: DashboardData["datasource"]; t: any
   return (
     <Card>
       <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
-        <Database className="w-4 h-4 text-emerald-500" /> {(t as any).dashDataSourceHealth || "Data Sources"}
+        <Database className="w-4 h-4 text-up" /> {(t as any).dashDataSourceHealth || "Data Sources"}
       </h3>
       <div className="text-2xl font-bold tabular-nums mb-1">
         {available}<span className="text-base text-muted-foreground font-normal">/{total} healthy</span>
@@ -319,8 +319,8 @@ function DataSourceCard({ data, t }: { data: DashboardData["datasource"]; t: any
         {(data.sources || []).slice(0, 10).map(s => (
           <span key={s.name} className={cn("text-xs px-1.5 py-0.5 rounded-full",
             s.available
-              ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-              : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+              ? "bg-up/10 text-up dark:bg-up/20 dark:text-up"
+              : "bg-down/10 text-down dark:bg-down/20 dark:text-down"
           )}>{s.name}</span>
         ))}
       </div>
@@ -347,16 +347,16 @@ function SentimentCard({ data, t }: { data: DashboardData["sentiment"]; t: any }
         <Newspaper className="w-4 h-4 text-violet-500" /> {(t as any).dashMarketSentiment || "Sentiment"}
       </h3>
       <div className="flex items-center gap-2 mb-2">
-        <span className={cn("text-2xl font-bold", hasSentiment ? (isPositive ? "text-emerald-600" : "text-red-600") : "text-muted-foreground")}>
+        <span className={cn("text-2xl font-bold", hasSentiment ? (isPositive ? "text-up" : "text-down") : "text-muted-foreground")}>
           {hasSentiment ? (data.overall_sentiment!).toFixed(2) : "—"}
         </span>
         {hasSentiment && (
           <span className={cn("text-sm px-2 py-0.5 rounded-full font-medium",
-            isPositive ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700")}>
+            isPositive ? "bg-up/10 text-up" : "bg-down/10 text-down")}>
             {data.sentiment_label || (isPositive ? "Bullish" : "Bearish")}
           </span>
         )}
-        {data.trend === "rising" && <TrendingUp className="w-4 h-4 text-emerald-500" />}
+        {data.trend === "rising" && <TrendingUp className="w-4 h-4 text-up" />}
       </div>
       <div className="space-y-1">
         {(data.trending_topics || []).slice(0, 3).map(tp => (
@@ -401,14 +401,14 @@ function PaperTradingCard({ data, t }: { data: DashboardData["papertrading"]; t:
               <span className="font-medium text-sm">{s.name}</span>
               <span className={cn("text-xs px-1.5 py-0.5 rounded-full font-medium",
                 s.status === "running"
-                  ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30"
+                  ? "bg-up/10 text-up dark:bg-up/20"
                   : "bg-muted text-muted-foreground")}>{s.status}</span>
             </div>
             <div className="grid grid-cols-4 gap-2 text-xs">
-              <div><span className="text-muted-foreground">Return</span><br/><span className={cn("font-semibold", (s.total_return_pct ?? 0) >= 0 ? "text-emerald-600" : "text-red-600")}>{(s.total_return_pct ?? 0) >= 0 ? "+" : ""}{s.total_return_pct?.toFixed(1)}%</span></div>
+              <div><span className="text-muted-foreground">Return</span><br/><span className={cn("font-semibold", (s.total_return_pct ?? 0) >= 0 ? "text-up" : "text-down")}>{(s.total_return_pct ?? 0) >= 0 ? "+" : ""}{s.total_return_pct?.toFixed(1)}%</span></div>
               <div><span className="text-muted-foreground">Sharpe</span><br/><span className="font-semibold">{s.sharpe != null ? s.sharpe.toFixed(2) : "—"}</span></div>
-              <div><span className="text-muted-foreground">Today</span><br/><span className={cn("font-semibold", (s.daily_pnl_pct ?? 0) >= 0 ? "text-emerald-600" : "text-red-600")}>{s.daily_pnl_pct != null ? `${(s.daily_pnl_pct ?? 0) >= 0 ? "+" : ""}${s.daily_pnl_pct.toFixed(2)}%` : "—"}</span></div>
-              <div><span className="text-muted-foreground">MaxDD</span><br/><span className="font-semibold text-red-600">{s.max_drawdown_pct != null ? `${s.max_drawdown_pct.toFixed(1)}%` : "—"}</span></div>
+              <div><span className="text-muted-foreground">Today</span><br/><span className={cn("font-semibold", (s.daily_pnl_pct ?? 0) >= 0 ? "text-up" : "text-down")}>{s.daily_pnl_pct != null ? `${(s.daily_pnl_pct ?? 0) >= 0 ? "+" : ""}${s.daily_pnl_pct.toFixed(2)}%` : "—"}</span></div>
+              <div><span className="text-muted-foreground">MaxDD</span><br/><span className="font-semibold text-down">{s.max_drawdown_pct != null ? `${s.max_drawdown_pct.toFixed(1)}%` : "—"}</span></div>
             </div>
             {s.positions && s.positions.length > 0 && (
               <div className="mt-2 flex gap-1 flex-wrap">
@@ -442,7 +442,7 @@ function PipelineCard({ data, t }: { data: DashboardData["pipeline"]; t: any }) 
           <div className="text-xs text-muted-foreground mt-0.5">{(t as any).dashPendingValidation || "Pending"}</div>
         </div>
         <div className="text-center p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/30">
-          <div className="text-xl font-bold text-emerald-600">{data.zoo?.total_factors ?? 0}</div>
+          <div className="text-xl font-bold text-up">{data.zoo?.total_factors ?? 0}</div>
           <div className="text-xs text-muted-foreground mt-0.5">{(t as any).dashZooFactors || "Zoo Factors"}</div>
         </div>
         <div className="text-center p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/30">
@@ -456,8 +456,8 @@ function PipelineCard({ data, t }: { data: DashboardData["pipeline"]; t: any }) 
           <div className="flex gap-2 flex-wrap">
             {Object.entries(health).slice(0, 8).map(([theme, info]) => (
               <span key={theme} className={cn("text-xs px-2 py-1 rounded-full font-medium",
-                info.trend === "rising" ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30" :
-                info.trend === "declining" ? "bg-red-100 text-red-700 dark:bg-red-900/30" : "bg-muted text-muted-foreground")}>
+                info.trend === "rising" ? "bg-up/10 text-up dark:bg-up/20" :
+                info.trend === "declining" ? "bg-down/10 text-down dark:bg-down/20" : "bg-muted text-muted-foreground")}>
                 {theme} IC:{info.mean_ic.toFixed(3)} x{info.count}
               </span>
             ))}
@@ -483,7 +483,7 @@ function FactorLabCard({ data, t }: { data: DashboardData["lab"]; t: any }) {
           <div key={d.alpha_id} className="flex justify-between items-center text-xs">
             <span className="font-mono truncate max-w-[180px]" title={d.formula}>{d.formula}</span>
             <span className={cn("tabular-nums font-semibold",
-              d.test_ic > 0.02 ? "text-emerald-600" : d.test_ic > 0.01 ? "text-amber-600" : "text-muted-foreground")}>
+              d.test_ic > 0.02 ? "text-up" : d.test_ic > 0.01 ? "text-amber-600" : "text-muted-foreground")}>
               IC: {d.test_ic.toFixed(3)}
             </span>
           </div>
@@ -506,7 +506,7 @@ function QuickNavCard({ t }: { t: any }) {
         { to: "/", icon: LayoutDashboard, label: (t as any).dashTitle || "Dashboard", color: "text-primary" },
         { to: "/projects", icon: FolderOpen, label: (t as any).projects || "Projects", color: "text-blue-500" },
         { to: "/agent", icon: Bot, label: (t as any).agent || "Agent", color: "text-amber-500" },
-        { to: "/data-sources", icon: Database, label: (t as any).dataSources || "Data Sources", color: "text-emerald-500" },
+        { to: "/data-sources", icon: Database, label: (t as any).dataSources || "Data Sources", color: "text-up" },
         { to: "/settings", icon: Settings, label: (t as any).settings || "Settings", color: "text-muted-foreground" },
       ] as NavItem[],
     },

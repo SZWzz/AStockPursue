@@ -67,7 +67,7 @@ export function GenerationLogTable({ generations, className }: Props) {
                     )}
                   </td>
                   <td className="py-1 px-2 text-right font-mono font-medium">{g.generation}</td>
-                  <td className={cn("py-1 px-2 text-right font-mono", g.best_ic > 0 ? "text-emerald-600" : "text-red-500")}>
+                  <td className={cn("py-1 px-2 text-right font-mono", g.best_ic > 0 ? "text-up" : "text-down")}>
                     {g.best_ic.toFixed(4)}
                   </td>
                   <td className="py-1 px-2 text-right font-mono">{g.mean_fitness.toFixed(4)}</td>
@@ -103,7 +103,7 @@ export function GenerationLogTable({ generations, className }: Props) {
                           </div>
                           <div className="flex justify-between">
                             <span>Data Source</span>
-                            <span className={cn("font-mono", g.data_source === "real" ? "text-emerald-600" : "text-amber-600")}>
+                            <span className={cn("font-mono", g.data_source === "real" ? "text-up" : "text-amber-600")}>
                               {g.data_source || "-"}
                             </span>
                           </div>

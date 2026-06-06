@@ -868,7 +868,7 @@ function BenchView() {
         </div>
         {formError && (
           <p
-            className="sm:col-span-2 lg:col-span-5 text-xs text-red-600 dark:text-red-400"
+            className="sm:col-span-2 lg:col-span-5 text-xs text-down dark:text-down"
             role="alert"
           >
             {formError}

@@ -99,7 +99,7 @@ export function RunDetail() {
       </div>
     );
   }
-  if (!run) return <div className="p-8 text-red-500">{t.runNotFound}</div>;
+  if (!run) return <div className="p-8 text-down">{t.runNotFound}</div>;
 
   const ok = run.status === "success";
 

@@ -96,7 +96,7 @@ export function Screener() {
           {store.dataSource && (
             <span className={cn(
               "text-[10px] px-2 py-0.5 rounded-full border",
-              store.dataSource === "real" ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20"
+              store.dataSource === "real" ? "bg-emerald-500/10 text-up border-emerald-500/20" : "bg-amber-500/10 text-amber-600 border-amber-500/20"
             )}>
               <Database className="h-2.5 w-2.5 inline mr-0.5" />
               {store.dataSource === "real" ? "Real Data" : "Mock ⚠"}

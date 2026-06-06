@@ -89,7 +89,7 @@ export const RunCompleteCard = memo(function RunCompleteCard({ msg }: Props) {
             <button
               onClick={handlePineClick}
               disabled={pineLoading}
-              className="text-sm text-emerald-600 dark:text-emerald-400 hover:underline inline-flex items-center gap-1.5 font-medium disabled:opacity-50"
+              className="text-sm text-up dark:text-up hover:underline inline-flex items-center gap-1.5 font-medium disabled:opacity-50"
             >
               {pineLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Code2 className="h-3.5 w-3.5" />}
               {t.pineScript}

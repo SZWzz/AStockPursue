@@ -103,15 +103,26 @@ export default function NodePalette() {
   const [search, setSearch] = useState("");
   const { t } = useI18n();
 
-  // Group by category (memoized to avoid re-computation on every render)
+  const nodeUsageCount = useWorkflowStore((s) => s.nodeUsageCount);
+
+  // Group by category, sort by usage frequency within each category
   const grouped = useMemo(() => {
     const g: Record<string, NodeDefinition[]> = {};
     for (const def of nodeDefinitions) {
       if (!g[def.category]) g[def.category] = [];
       g[def.category].push(def);
     }
+    // Sort each category: most-used first, then alphabetically
+    for (const cat of Object.keys(g)) {
+      g[cat].sort((a, b) => {
+        const ua = nodeUsageCount[a.node_type] || 0;
+        const ub = nodeUsageCount[b.node_type] || 0;
+        if (ua !== ub) return ub - ua;  // descending by usage
+        return (a.label || a.node_type).localeCompare(b.label || b.node_type);
+      });
+    }
     return g;
-  }, [nodeDefinitions]);
+  }, [nodeDefinitions, nodeUsageCount]);
 
   const visibleCategories = useMemo(() => {
     if (search) {

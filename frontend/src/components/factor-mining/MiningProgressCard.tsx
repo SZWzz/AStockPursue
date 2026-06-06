@@ -44,7 +44,7 @@ export function MiningProgressCard({
       className={cn(
         "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium",
         dataSource === "real"
-          ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+          ? "bg-emerald-500/10 text-up border border-emerald-500/20"
           : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
       )}
       title={dataSourceDetail || dataSource}

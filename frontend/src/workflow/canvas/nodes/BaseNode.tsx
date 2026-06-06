@@ -217,7 +217,7 @@ function NodeFooter({ nodeType, status, durationMs, summary, errorMessage }: {
   }
   if (status === "error" && errorMessage) {
     return (
-      <div className="border-t border-red-200 dark:border-red-800 px-2 py-1 text-[10px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30">
+      <div className="border-t border-red-200 dark:border-red-800 px-2 py-1 text-[10px] text-down dark:text-down bg-red-50 dark:bg-red-950/30">
         ✗ {errorMessage.slice(0, 80)}
       </div>
     );
@@ -419,7 +419,7 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); useWorkflowStore.getState().removeNode(nodeData.id); }}
-            className="p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-950/50 text-muted-foreground hover:text-red-500 transition-colors"
+            className="p-0.5 rounded hover:bg-down/10 dark:hover:bg-red-950/50 text-muted-foreground hover:text-down transition-colors"
             title="Delete node"
           >
             <X className="h-3 w-3" />

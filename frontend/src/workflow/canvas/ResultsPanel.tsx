@@ -14,7 +14,7 @@ import WorkflowChartViewer from "@/workflow/canvas/WorkflowChartViewer";
 const LEVEL_STYLES: Record<string, string> = {
   info: "text-muted-foreground",
   success: "text-green-600 dark:text-green-400",
-  error: "text-red-600 dark:text-red-400",
+  error: "text-down dark:text-down",
 };
 
 export default function ResultsPanel() {
@@ -82,7 +82,7 @@ export default function ResultsPanel() {
             </span>
           )}
           {runStatus === "error" && (
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-down/10 text-down dark:bg-down/20 dark:text-down">
               Error
             </span>
           )}

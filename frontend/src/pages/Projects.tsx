@@ -275,7 +275,7 @@ export default function Projects() {
                   </div>
                   <button
                     onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}
-                    className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-500 rounded transition-all"
+                    className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-down rounded transition-all"
                     title={(t as any).projArchive}
                   >
                     <Trash2 className="h-3.5 w-3.5" />

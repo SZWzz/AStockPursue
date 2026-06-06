@@ -43,7 +43,7 @@ export function Attribution() {
           <span className={cn(
             "text-[10px] px-2 py-0.5 rounded-full border flex items-center gap-1",
             (store.fullReport as any).brinson.data_source !== "sample"
-              ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+              ? "bg-emerald-500/10 text-up border-emerald-500/20"
               : "bg-amber-500/10 text-amber-600 border-amber-500/20"
           )}>
             <Database className="h-2.5 w-2.5" />
@@ -97,25 +97,25 @@ export function Attribution() {
             <div className="grid grid-cols-4 gap-3 text-center text-sm">
               <div className="border rounded-lg p-3">
                 <div className="text-muted-foreground text-xs">{t.attributionAllocation || "Allocation"}</div>
-                <div className={cn("font-bold text-lg", (store.brinsonResult.allocation_effect as number) > 0 ? "text-emerald-600" : "text-red-500")}>
+                <div className={cn("font-bold text-lg", (store.brinsonResult.allocation_effect as number) > 0 ? "text-up" : "text-down")}>
                   {(store.brinsonResult.allocation_effect as number)?.toFixed?.(4)}
                 </div>
               </div>
               <div className="border rounded-lg p-3">
                 <div className="text-muted-foreground text-xs">{t.attributionSelection || "Selection"}</div>
-                <div className={cn("font-bold text-lg", (store.brinsonResult.selection_effect as number) > 0 ? "text-emerald-600" : "text-red-500")}>
+                <div className={cn("font-bold text-lg", (store.brinsonResult.selection_effect as number) > 0 ? "text-up" : "text-down")}>
                   {(store.brinsonResult.selection_effect as number)?.toFixed?.(4)}
                 </div>
               </div>
               <div className="border rounded-lg p-3">
                 <div className="text-muted-foreground text-xs">{t.attributionInteraction || "Interaction"}</div>
-                <div className={cn("font-bold text-lg", (store.brinsonResult.interaction_effect as number) > 0 ? "text-emerald-600" : "text-red-500")}>
+                <div className={cn("font-bold text-lg", (store.brinsonResult.interaction_effect as number) > 0 ? "text-up" : "text-down")}>
                   {(store.brinsonResult.interaction_effect as number)?.toFixed?.(4)}
                 </div>
               </div>
               <div className="border rounded-lg p-3 bg-muted/20">
                 <div className="text-muted-foreground text-xs">Total Excess</div>
-                <div className={cn("font-bold text-lg", (store.brinsonResult.total_excess_return as number) > 0 ? "text-emerald-600" : "text-red-500")}>
+                <div className={cn("font-bold text-lg", (store.brinsonResult.total_excess_return as number) > 0 ? "text-up" : "text-down")}>
                   {(store.brinsonResult.total_excess_return as number)?.toFixed?.(4)}
                 </div>
               </div>

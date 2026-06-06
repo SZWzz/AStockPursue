@@ -65,7 +65,7 @@ export default function PositionTable({ positions, onClosePosition }: Props) {
               {onClosePosition && (
                 <td className="py-2">
                   <button
-                    className="px-2 py-0.5 text-xs bg-red-100 text-red-600 rounded hover:bg-red-200"
+                    className="px-2 py-0.5 text-xs bg-down/10 text-down rounded hover:bg-red-200"
                     onClick={() => onClosePosition(p.symbol)}
                   >
                     {t.ptClosePosition}

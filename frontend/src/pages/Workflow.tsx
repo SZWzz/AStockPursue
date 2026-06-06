@@ -192,7 +192,7 @@ export default function WorkflowPage() {
       </div>
 
       {error && (
-        <div className="px-3 py-1 bg-red-50 dark:bg-red-950 text-red-600 text-xs border-b border-red-200 dark:border-red-800">
+        <div className="px-3 py-1 bg-red-50 dark:bg-red-950 text-down text-xs border-b border-red-200 dark:border-red-800">
           {error}
           <button onClick={() => setError("")} className="ml-2 underline">{(t as any).wfDismiss}</button>
         </div>

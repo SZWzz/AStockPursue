@@ -12,9 +12,9 @@ import { Skeleton } from "@/components/common/Skeleton";
 function SentimentBadge({ score, size = "sm" }: { score: number; size?: "sm" | "md" }) {
   const colorClass =
     score >= 0.6
-      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+      ? "bg-up/10 text-up dark:bg-up/20 dark:text-up"
       : score <= 0.4
-        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+        ? "bg-down/10 text-down dark:bg-down/20 dark:text-down"
         : "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
   return (
     <span className={cn("inline-block rounded font-medium", colorClass, size === "md" ? "px-2 py-0.5 text-xs" : "px-1.5 py-0.5 text-[10px]")}>
@@ -158,7 +158,7 @@ export function Sentiment() {
         </h1>
         <div className="flex items-center gap-2">
           {sseStatus === "connected" && (
-            <span className="flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400">
+            <span className="flex items-center gap-1 text-[11px] text-up dark:text-up">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               {t.sentimentSseConnected || "Live"}
             </span>
@@ -226,7 +226,7 @@ export function Sentiment() {
               </span>
               <span className={cn(
                 "text-2xl font-bold",
-                marketSentiment.overall_sentiment >= 0.6 ? "text-emerald-500" : marketSentiment.overall_sentiment <= 0.4 ? "text-red-500" : "text-amber-500"
+                marketSentiment.overall_sentiment >= 0.6 ? "text-up" : marketSentiment.overall_sentiment <= 0.4 ? "text-down" : "text-amber-500"
               )}>
                 {(marketSentiment.overall_sentiment * 100).toFixed(0)}
               </span>
@@ -262,7 +262,7 @@ export function Sentiment() {
               <span className="text-2xl font-bold">{marketSentiment.yield_spread.spread?.toFixed(2) || "-"}%</span>
               <span className={cn(
                 "text-[10px]",
-                marketSentiment.yield_spread.signal === "bullish" ? "text-emerald-500" : marketSentiment.yield_spread.signal === "bearish" ? "text-red-500" : "text-muted-foreground"
+                marketSentiment.yield_spread.signal === "bullish" ? "text-up" : marketSentiment.yield_spread.signal === "bearish" ? "text-down" : "text-muted-foreground"
               )}>
                 {marketSentiment.yield_spread.level || ""}
               </span>
@@ -344,7 +344,7 @@ export function Sentiment() {
                       </td>
                       <td className="px-3 py-2 text-right font-mono">
                         <span className={cn(
-                          topic.trending_score >= 3 ? "text-emerald-500 font-semibold" : topic.trending_score >= 1 ? "text-foreground" : "text-muted-foreground"
+                          topic.trending_score >= 3 ? "text-up font-semibold" : topic.trending_score >= 1 ? "text-foreground" : "text-muted-foreground"
                         )}>
                           {topic.trending_score.toFixed(1)}
                         </span>

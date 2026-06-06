@@ -132,7 +132,7 @@ export default function NodePanel() {
           })()}
         </div>
         {nodeData.error_message && (
-          <p className="text-[11px] text-red-500 mt-1">{nodeData.error_message}</p>
+          <p className="text-[11px] text-down mt-1">{nodeData.error_message}</p>
         )}
       </div>
 
@@ -256,7 +256,7 @@ export default function NodePanel() {
         </button>
         <button
           onClick={() => { useWorkflowStore.getState().removeNode(selectedNodeId!); }}
-          className="w-full py-1 text-xs rounded border border-red-300 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex items-center justify-center gap-1"
+          className="w-full py-1 text-xs rounded border border-red-300 text-down hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors flex items-center justify-center gap-1"
         >
           <Trash2 className="h-3 w-3" />
           {((t as any).wfDeleteNode || "Delete Node")}

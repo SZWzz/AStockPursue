@@ -112,14 +112,14 @@ export default function RunSummaryPanel() {
               <div className="flex items-center gap-1.5 mb-1">
                 <span>{icon}</span>
                 <span className="font-medium truncate">{label}</span>
-                {result.status === "error" && <span className="text-red-500 ml-auto">✗</span>}
+                {result.status === "error" && <span className="text-down ml-auto">✗</span>}
                 {result.status === "done" && <span className="text-green-500 ml-auto">✓</span>}
               </div>
               {lines.map((line, i) => (
                 <div key={i} className="text-muted-foreground ml-5">{line}</div>
               ))}
               {result.error_message && (
-                <div className="text-red-500 ml-5 truncate">{result.error_message.slice(0, 60)}</div>
+                <div className="text-down ml-5 truncate">{result.error_message.slice(0, 60)}</div>
               )}
             </div>
           );

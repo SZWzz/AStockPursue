@@ -54,6 +54,8 @@ interface WorkflowState {
 
   // Node types (fetched from server)
   nodeDefinitions: NodeDefinition[];
+  // Usage frequency tracking (persisted to localStorage)
+  nodeUsageCount: Record<string, number>;
 
   // ── Canvas actions ──────────────────────────────────────────────────────
 
@@ -163,6 +165,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   isSaving: false,
 
   nodeDefinitions: [],
+  nodeUsageCount: (() => { try { return JSON.parse(localStorage.getItem("wf_node_usage") || "{}"); } catch { return {}; } })(),
 
   // ── Canvas actions ──────────────────────────────────────────────────────
 
@@ -283,7 +286,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     };
     newNode.data.id = newNode.id;
 
-    set({ nodes: [...get().nodes, newNode], isDirty: true });
+    // Track usage frequency for node palette sorting
+    const usage = { ...get().nodeUsageCount };
+    usage[nodeType] = (usage[nodeType] || 0) + 1;
+    try { localStorage.setItem("wf_node_usage", JSON.stringify(usage)); } catch { /* quota */ }
+
+    set({ nodes: [...get().nodes, newNode], isDirty: true, nodeUsageCount: usage });
   },
 
   removeNode: (id: string) => {

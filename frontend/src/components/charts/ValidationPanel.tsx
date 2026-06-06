@@ -10,8 +10,8 @@ function Badge({ value, good }: { value: string; good: boolean | null }) {
     <span
       className={cn(
         "inline-block px-2 py-0.5 rounded-full text-xs font-semibold",
-        good === true && "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400",
-        good === false && "bg-red-500/15 text-red-600 dark:text-red-400",
+        good === true && "bg-emerald-500/15 text-up dark:text-up",
+        good === false && "bg-red-500/15 text-down dark:text-down",
         good === null && "bg-zinc-500/10 text-zinc-500",
       )}
     >

@@ -250,7 +250,7 @@ function EquityPanel({ data }: { data: { points: { time: string; equity: number;
     <div>
       <div className="flex items-center gap-3 px-3 py-1.5 text-[10px] text-muted-foreground border-b">
         <span>最终权益: <span className="font-mono font-semibold text-foreground">{abbreviateNum(data.final_equity)}</span></span>
-        <span className="text-red-500">最大回撤: <span className="font-mono font-semibold">{(data.max_drawdown * 100).toFixed(1)}%</span></span>
+        <span className="text-down">最大回撤: <span className="font-mono font-semibold">{(data.max_drawdown * 100).toFixed(1)}%</span></span>
       </div>
       <div ref={ref} style={{ height: 300, width: "100%" }} />
     </div>
@@ -279,7 +279,7 @@ function TradePanel({ trades }: { trades?: any[] }) {
         {trades.map((tr: any, i: number) => (
           <tr key={i} className="border-b border-border/40 hover:bg-muted/30">
             <td className="px-3 py-1 font-mono">{tr.code}</td>
-            <td className={`px-3 py-1 font-medium ${tr.side === "BUY" ? "text-red-500" : "text-green-500"}`}>
+            <td className={`px-3 py-1 font-medium ${tr.side === "BUY" ? "text-down" : "text-green-500"}`}>
               {tr.side === "BUY" ? (t as any).ptLong || "Long" : (t as any).ptShort || "Short"}
             </td>
             <td className="px-3 py-1 text-muted-foreground font-mono">{tr.time}</td>

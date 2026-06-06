@@ -158,7 +158,7 @@ export default function DataSourceStatus() {
                         <span className={`px-2 py-0.5 rounded-full ${
                           l.available
                             ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                            : "bg-down/10 text-down dark:bg-down/20 dark:text-down"
                         }`}>
                           {l.available ? t.dsAvailable : t.dsUnavailable}
                         </span>
@@ -209,7 +209,7 @@ export default function DataSourceStatus() {
 
                         {/* Test connection result */}
                         {testResults[l.name] && (
-                          <div className={`text-xs px-3 py-1.5 rounded-lg ${testResults[l.name].ok ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                          <div className={`text-xs px-3 py-1.5 rounded-lg ${testResults[l.name].ok ? "bg-green-100 text-green-700" : "bg-down/10 text-down"}`}>
                             {testResults[l.name].ok ? "✅ " : "❌ "}{testResults[l.name].msg}
                           </div>
                         )}
@@ -227,7 +227,7 @@ export default function DataSourceStatus() {
                           <button
                             onClick={e => { e.stopPropagation(); handleClearCache(l.name); }}
                             disabled={clearing[l.name]}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 border rounded-lg text-xs hover:bg-accent disabled:opacity-50 text-red-600"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 border rounded-lg text-xs hover:bg-accent disabled:opacity-50 text-down"
                           >
                             <Trash2 className="w-3 h-3" />
                             {clearing[l.name] ? t.dsClearing : t.dsClearCache}
