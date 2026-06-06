@@ -83,27 +83,78 @@ const STATUS_ICONS: Record<string, string> = {
   skipped: "⊘",
 };
 
+// ── Port type color map ────────────────────────────────────────────────────
+
+// Border color for ReactFlow handle dots
+const PORT_HANDLE_COLORS: Record<string, string> = {
+  df_ohlcv: "!border-orange-400 !bg-orange-50 dark:!bg-orange-950",
+  df_factor: "!border-blue-400 !bg-blue-50 dark:!bg-blue-950",
+  df_returns: "!border-cyan-400 !bg-cyan-50 dark:!bg-cyan-950",
+  signal: "!border-green-400 !bg-green-50 dark:!bg-green-950",
+  backtest_result: "!border-purple-400 !bg-purple-50 dark:!bg-purple-950",
+  factor_result: "!border-indigo-400 !bg-indigo-50 dark:!bg-indigo-950",
+  stock_list: "!border-gray-400 !bg-gray-50 dark:!bg-gray-800",
+  params: "!border-yellow-400 !bg-yellow-50 dark:!bg-yellow-950",
+  attribution: "!border-rose-400 !bg-rose-50 dark:!bg-rose-950",
+  technical_indicator: "!border-teal-400 !bg-teal-50 dark:!bg-teal-950",
+  correlation_matrix: "!border-pink-400 !bg-pink-50 dark:!bg-pink-950",
+  sentiment: "!border-red-300 !bg-red-50 dark:!bg-red-950",
+  comparison_result: "!border-violet-400 !bg-violet-50 dark:!bg-violet-950",
+  any: "!border-muted-foreground !bg-muted",
+};
+
+// Fill color for the colored dot next to port labels
+const PORT_DOT_COLORS: Record<string, string> = {
+  df_ohlcv: "bg-orange-400",
+  df_factor: "bg-blue-400",
+  df_returns: "bg-cyan-400",
+  signal: "bg-green-400",
+  backtest_result: "bg-purple-400",
+  factor_result: "bg-indigo-400",
+  stock_list: "bg-gray-400",
+  params: "bg-yellow-400",
+  attribution: "bg-rose-400",
+  technical_indicator: "bg-teal-400",
+  correlation_matrix: "bg-pink-400",
+  sentiment: "bg-red-300",
+  comparison_result: "bg-violet-400",
+  any: "bg-muted-foreground",
+};
+
+// Abbreviated port type labels shown next to port name
+const PORT_TYPE_LABELS: Record<string, string> = {
+  df_ohlcv: "行情", df_factor: "因子", df_returns: "收益",
+  signal: "信号", backtest_result: "回测", factor_result: "因子结果",
+  stock_list: "股票", params: "参数", attribution: "归因",
+  technical_indicator: "指标", correlation_matrix: "相关",
+  sentiment: "情绪", comparison_result: "对比",
+};
+
 // ── Port handle ──────────────────────────────────────────────────────────────
 
 function PortHandle({ port, side }: { port: NodePort; side: "left" | "right" }) {
   const { t } = useI18n();
-  const isConnected = false; // managed by React Flow internally
-  const typeLabel = port.port_type.split(":").pop() || port.port_type;
+  const pt = port.port_type;
+  const handleColor = PORT_HANDLE_COLORS[pt] || "!border-muted-foreground !bg-background";
+  const dotColor = PORT_DOT_COLORS[pt] || "bg-muted-foreground";
+  const typeLabel = PORT_TYPE_LABELS[pt] || "";
+  const portLabel = (t as any)[`wfPort_${port.name}`] || port.name;
   return (
-    <div className={cn("flex items-center gap-1.5 px-1 py-1 text-xs group/port cursor-crosshair rounded hover:bg-muted/50 transition-colors", side === "right" && "flex-row-reverse")}>
+    <div className={cn("flex items-center gap-1.5 px-1 py-1 text-xs group/port cursor-crosshair rounded hover:bg-muted/30 transition-colors", side === "right" && "flex-row-reverse")}>
       <Handle
         type={side === "left" ? "target" : "source"}
         position={side === "left" ? Position.Left : Position.Right}
         id={port.name}
-        title={`${port.name} (${typeLabel})${port.required ? " — required" : ""}`}
+        title={`${port.name}: ${pt}${port.required ? " (required)" : ""}`}
         className={cn(
-          "!w-[14px] !h-[14px] !border-[2.5px] !bg-background !rounded-full hover:!w-[20px] hover:!h-[20px] hover:!border-primary transition-all",
-          port.required ? "!border-primary" : "!border-muted-foreground",
-          !isConnected && port.required && "!border-amber-500 !animate-pulse"
+          "!w-[16px] !h-[16px] !border-[3px] !rounded-full hover:!w-[22px] hover:!h-[22px] transition-all",
+          handleColor
         )}
       />
-      <span className="text-muted-foreground truncate max-w-[100px]" title={`${port.name}: ${typeLabel}`}>
-        {(t as any)[`wfPort_${port.name}`] || port.name}
+      <span className="flex items-center gap-1 truncate max-w-[110px] text-xs text-muted-foreground" title={`${port.name}: ${pt}`}>
+        <span className={cn("w-2 h-2 rounded-full shrink-0", dotColor)} />
+        {portLabel}
+        {typeLabel && <span className="text-[9px] opacity-50">{typeLabel}</span>}
       </span>
     </div>
   );
