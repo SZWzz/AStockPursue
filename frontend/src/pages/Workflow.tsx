@@ -8,8 +8,8 @@
  */
 
 import { useEffect, useState } from "react";
-import { useParams, useSearchParams } from "react-router-dom";
-import { History, Clock } from "lucide-react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { History, Clock, ArrowLeft } from "lucide-react";
 import { useWorkflowStore } from "@/workflow/store/workflowStore";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -18,6 +18,7 @@ import NodePalette from "@/workflow/canvas/NodePalette";
 import ResultsPanel from "@/workflow/canvas/ResultsPanel";
 
 export default function WorkflowPage() {
+  const navigate = useNavigate();
   const { t } = useI18n();
   const { projectId, workflowId } = useParams<{ projectId: string; workflowId: string }>();
   const [searchParams] = useSearchParams();
@@ -133,7 +134,15 @@ export default function WorkflowPage() {
     <div className="h-[calc(100vh-3rem)] flex flex-col bg-background">
       {/* Toolbar */}
       <div className="flex items-center justify-between px-3 py-1.5 border-b bg-card">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          {/* Back to project */}
+          <button
+            onClick={() => store.projectId ? navigate(`/projects`) : navigate(-1)}
+            className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+            title={(t as any).backToWorkflow || "Back to Projects"}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
           <input
             type="text"
             value={store.workflowName}

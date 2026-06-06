@@ -9,7 +9,8 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, FolderOpen, Workflow, Trash2, ArrowRight, Copy, Zap } from "lucide-react";
+import { Plus, FolderOpen, Workflow, Trash2, ArrowRight, Copy, Zap, ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { EmptyState } from "@/components/common/EmptyState";
@@ -115,19 +116,28 @@ export default function Projects() {
     }
   };
 
-  const handleOpenProject = async (project: Project) => {
-    if (project.workflow_count && project.workflow_count > 0) {
-      // Open the first workflow in the project
-      try {
-        const wfs = await api.listWorkflows(project.id);
-        if (Array.isArray(wfs) && wfs.length > 0) {
-          navigate(`/workflow/${project.id}/${wfs[0].id}`);
-          return;
-        }
-      } catch {}
+  const [expandedProject, setExpandedProject] = useState<string | null>(null);
+  const [workflowList, setWorkflowList] = useState<any[]>([]);
+  const [loadingWfList, setLoadingWfList] = useState(false);
+
+  const toggleProject = async (project: Project) => {
+    if (expandedProject === project.id) {
+      setExpandedProject(null);
+      return;
     }
-    // No workflows yet — create one
-    navigate(`/workflow/${project.id}/new?new=true`);
+    setExpandedProject(project.id);
+    setLoadingWfList(true);
+    try {
+      const wfs = await api.listWorkflows(project.id);
+      setWorkflowList(Array.isArray(wfs) ? wfs : []);
+    } catch {
+      setWorkflowList([]);
+    }
+    setLoadingWfList(false);
+  };
+
+  const handleOpenProject = async (project: Project) => {
+    toggleProject(project);
   };
 
   if (loading) {
@@ -250,39 +260,72 @@ export default function Projects() {
         />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {projects.map((p) => (
-            <div
-              key={p.id}
-              onClick={() => handleOpenProject(p)}
-              className="group cursor-pointer card-hover p-5"
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <FolderOpen className="h-5 w-5 text-primary" />
-                  <h3 className="font-semibold text-sm truncate max-w-[180px]">{p.name}</h3>
+          {projects.map((p) => {
+            const isExpanded = expandedProject === p.id;
+            return (
+            <div key={p.id}>
+              <div
+                onClick={() => handleOpenProject(p)}
+                className="group cursor-pointer card-hover p-5"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <FolderOpen className={cn("h-5 w-5 transition-colors", isExpanded ? "text-primary" : "text-muted-foreground")} />
+                    <h3 className="font-semibold text-sm truncate max-w-[180px]">{p.name}</h3>
+                  </div>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}
+                    className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-500 rounded transition-all"
+                    title={(t as any).projArchive}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}
-                  className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-red-500 rounded transition-all"
-                  title={(t as any).projArchive}
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                {p.description && (
+                  <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{p.description}</p>
+                )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Workflow className="h-3 w-3" />
+                    <span>{p.workflow_count ?? 0} {(p.workflow_count ?? 0) !== 1 ? (t as any).projWorkflows : (t as any).projWorkflow}</span>
+                  </div>
+                  <span className="flex items-center gap-1 text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                    {isExpanded ? "Collapse" : "Browse"} <ArrowRight className={cn("h-3 w-3 transition-transform", isExpanded && "rotate-90")} />
+                  </span>
+                </div>
               </div>
-              {p.description && (
-                <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{p.description}</p>
+
+              {/* Workflow tree (expanded) */}
+              {isExpanded && (
+                <div className="ml-6 mt-1 border-l-2 border-muted pl-4 py-1 space-y-0.5">
+                  {loadingWfList ? (
+                    <p className="text-[11px] text-muted-foreground py-1">Loading…</p>
+                  ) : workflowList.length === 0 ? (
+                    <p className="text-[11px] text-muted-foreground py-1">No workflows yet.</p>
+                  ) : (
+                    workflowList.map((wf: any) => (
+                      <div
+                        key={wf.id}
+                        onClick={() => navigate(`/workflow/${p.id}/${wf.id}`)}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-muted cursor-pointer text-sm transition-colors group/wf"
+                      >
+                        <Workflow className="h-3.5 w-3.5 text-muted-foreground group-hover/wf:text-primary transition-colors" />
+                        <span className="flex-1 truncate">{wf.name}</span>
+                        <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover/wf:opacity-100 transition-all" />
+                      </div>
+                    ))
+                  )}
+                  <div
+                    onClick={() => navigate(`/workflow/${p.id}/new?new=true`)}
+                    className="flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-primary/10 cursor-pointer text-sm transition-colors text-primary"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>{(t as any).projNewProject || "New Workflow"}</span>
+                  </div>
+                </div>
               )}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Workflow className="h-3 w-3" />
-                  <span>{p.workflow_count ?? 0} {(p.workflow_count ?? 0) !== 1 ? (t as any).projWorkflows : (t as any).projWorkflow}</span>
-                </div>
-                <span className="flex items-center gap-1 text-xs text-primary opacity-0 group-hover:opacity-100 transition-opacity">
-                  Open <ArrowRight className="h-3 w-3" />
-                </span>
-              </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
     </div>

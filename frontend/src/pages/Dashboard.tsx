@@ -7,7 +7,8 @@ import {
   TrendingUp, Database, Newspaper, Microscope,
   Zap, Target, Activity, RefreshCw,
   LayoutDashboard, FolderOpen, Bot, Settings,
-  Workflow, Play,
+  Workflow, Play, Beaker, Code, Filter, PieChart,
+  Clock, BarChart3,
 } from "lucide-react";
 
 // ── Types ────────────────────────────────────────────────────────────
@@ -387,6 +388,18 @@ function QuickNavCard({ t }: { t: any }) {
       items: [
         { to: "/projects", icon: Workflow, label: "Research Projects", color: "text-purple-500", detail: "Workflow pipelines" },
         { to: "/paper-trading", icon: Play, label: "Paper Trading", color: "text-amber-500", detail: "Live simulation" },
+      ] as NavItem[],
+    },
+    {
+      label: "Advanced",
+      items: [
+        { to: "/factor-mining", icon: Microscope, label: "Factor Mining", color: "text-indigo-500", detail: "GP + LLM" },
+        { to: "/strategy-lab", icon: Code, label: "Strategy Lab", color: "text-cyan-500", detail: "Code & backtest" },
+        { to: "/alpha-zoo", icon: Beaker, label: "Alpha Zoo", color: "text-teal-500", detail: "450+ factors" },
+        { to: "/screener", icon: Filter, label: "Screener", color: "text-rose-500", detail: "Multi-condition" },
+        { to: "/attribution", icon: PieChart, label: "Attribution", color: "text-orange-500", detail: "PnL breakdown" },
+        { to: "/correlation", icon: BarChart3, label: "Correlation", color: "text-pink-500", detail: "Matrix" },
+        { to: "/scheduler", icon: Clock, label: "Scheduler", color: "text-blue-500", detail: "Cron tasks" },
       ] as NavItem[],
     },
   ];
