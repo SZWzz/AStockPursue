@@ -293,6 +293,70 @@ TEMPLATES: List[Dict[str, Any]] = [
             {"id": "e5", "source": "t_weight", "source_port": "signal", "target": "t_rebalance", "target_port": "signal"},
         ],
     },
+    # ── Demo / Quick-start templates ──────────────────────────────────────────
+    {
+        "id": "demo_momentum",
+        "name": "🚀 Quick Start: Momentum Strategy",
+        "description": "A complete momentum pipeline: extract close → 20-day returns → rank stocks → select top 10 → equal weight → rebalance monthly. Perfect for first-time users.",
+        "patterns": {},
+        "nodes": [
+            {"id": "d_data", "node_type": "column_extract", "label": "close", "position": {"x": 0, "y": 0}, "config": {"column": "close"}},
+            {"id": "d_ret", "node_type": "pct_change", "label": "Δ%(20)", "position": {"x": 260, "y": 0}, "config": {"periods": 20}},
+            {"id": "d_rank", "node_type": "rank_select", "label": "Top 10", "position": {"x": 520, "y": 0}, "config": {"top_n": 10, "ascending": "false"}},
+            {"id": "d_weight", "node_type": "signal_weight", "label": "Equal Weight", "position": {"x": 780, "y": 0}, "config": {"mode": "equal"}},
+            {"id": "d_rebal", "node_type": "rebalance", "label": "Rebalance(20)", "position": {"x": 1040, "y": 0}, "config": {"frequency": 20}},
+        ],
+        "edges": [
+            {"id": "de1", "source": "d_data", "source_port": "series", "target": "d_ret", "target_port": "series"},
+            {"id": "de2", "source": "d_ret", "source_port": "returns", "target": "d_rank", "target_port": "factor"},
+            {"id": "de3", "source": "d_rank", "source_port": "signal", "target": "d_weight", "target_port": "signal"},
+            {"id": "de4", "source": "d_weight", "source_port": "signal", "target": "d_rebal", "target_port": "signal"},
+        ],
+    },
+    {
+        "id": "demo_macross",
+        "name": "📈 Demo: MA Crossover Strategy",
+        "description": "Classic dual moving average crossover: MA(5) and MA(20) → golden cross to enter, death cross to exit → hold position between crosses.",
+        "patterns": {},
+        "nodes": [
+            {"id": "d_data", "node_type": "column_extract", "label": "close", "position": {"x": 0, "y": -100}, "config": {"column": "close"}},
+            {"id": "d_ma5", "node_type": "ma", "label": "MA(5)", "position": {"x": 260, "y": -180}, "config": {"window": 5}},
+            {"id": "d_ma20", "node_type": "ma", "label": "MA(20)", "position": {"x": 260, "y": -20}, "config": {"window": 20}},
+            {"id": "d_golden", "node_type": "cross_over", "label": "Golden Cross", "position": {"x": 520, "y": -180}, "config": {"direction": "above"}},
+            {"id": "d_death", "node_type": "cross_over", "label": "Death Cross", "position": {"x": 520, "y": -20}, "config": {"direction": "below"}},
+            {"id": "d_hold", "node_type": "hold_signal", "label": "Hold", "position": {"x": 780, "y": -100}, "config": {"initial": "flat"}},
+        ],
+        "edges": [
+            {"id": "de1", "source": "d_data", "source_port": "series", "target": "d_ma5", "target_port": "series"},
+            {"id": "de2", "source": "d_data", "source_port": "series", "target": "d_ma20", "target_port": "series"},
+            {"id": "de3", "source": "d_ma5", "source_port": "ma", "target": "d_golden", "target_port": "fast"},
+            {"id": "de4", "source": "d_ma20", "source_port": "ma", "target": "d_golden", "target_port": "slow"},
+            {"id": "de5", "source": "d_ma5", "source_port": "ma", "target": "d_death", "target_port": "fast"},
+            {"id": "de6", "source": "d_ma20", "source_port": "ma", "target": "d_death", "target_port": "slow"},
+            {"id": "de7", "source": "d_golden", "source_port": "signal", "target": "d_hold", "target_port": "enter"},
+            {"id": "de8", "source": "d_death", "source_port": "signal", "target": "d_hold", "target_port": "exit"},
+        ],
+    },
+    {
+        "id": "demo_volbreak",
+        "name": "📊 Demo: Volume Breakout Screener",
+        "description": "Find stocks with unusual volume: extract volume → compute vol SMA(20) → volume / volMA ratio → threshold select ratio > 2 → equal weight.",
+        "patterns": {},
+        "nodes": [
+            {"id": "d_vol", "node_type": "column_extract", "label": "volume", "position": {"x": 0, "y": 0}, "config": {"column": "volume"}},
+            {"id": "d_volma", "node_type": "ma", "label": "Vol MA(20)", "position": {"x": 260, "y": 0}, "config": {"window": 20}},
+            {"id": "d_ratio", "node_type": "arithmetic", "label": "Vol / VolMA", "position": {"x": 520, "y": 0}, "config": {"op": "div"}},
+            {"id": "d_thresh", "node_type": "threshold_select", "label": "Ratio > 2", "position": {"x": 780, "y": 0}, "config": {"threshold": 2, "op": "gt"}},
+            {"id": "d_weight", "node_type": "signal_weight", "label": "Equal Weight", "position": {"x": 1040, "y": 0}, "config": {"mode": "equal"}},
+        ],
+        "edges": [
+            {"id": "de1", "source": "d_vol", "source_port": "series", "target": "d_volma", "target_port": "series"},
+            {"id": "de2", "source": "d_vol", "source_port": "series", "target": "d_ratio", "target_port": "a"},
+            {"id": "de3", "source": "d_volma", "source_port": "ma", "target": "d_ratio", "target_port": "b"},
+            {"id": "de4", "source": "d_ratio", "source_port": "result", "target": "d_thresh", "target_port": "factor"},
+            {"id": "de5", "source": "d_thresh", "source_port": "signal", "target": "d_weight", "target_port": "signal"},
+        ],
+    },
 ]
 
 

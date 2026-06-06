@@ -587,110 +587,11 @@ def suggest_next(body: dict):
     }
 
 
-# ── Templates (inline — no separate module) ──────────────────────────────────
-
-_BUILTIN_TEMPLATES = [
-    # ── Demo workflows (new-user-friendly, auto-generate nodes+edges) ──────────
-    {"id": "demo_momentum", "name": "🚀 Quick Start: Momentum Strategy",
-     "description": "A complete momentum pipeline: load 沪深300 data → compute 20-day returns → "
-                    "rank stocks → select top 10 → equal weight → rebalance monthly. "
-                    "Perfect for first-time users.",
-     "category": "demo", "node_count": 6, "edge_count": 5,
-     "nodes": [
-         {"id": "d_data", "node_type": "column_extract", "label": "close",
-          "position": {"x": 0, "y": 0}, "config": {"column": "close"}},
-         {"id": "d_ret", "node_type": "pct_change", "label": "Δ%(20)",
-          "position": {"x": 260, "y": 0}, "config": {"periods": 20}},
-         {"id": "d_rank", "node_type": "rank_select", "label": "Top 10",
-          "position": {"x": 520, "y": 0}, "config": {"top_n": 10, "ascending": "false"}},
-         {"id": "d_weight", "node_type": "signal_weight", "label": "Equal Weight",
-          "position": {"x": 780, "y": 0}, "config": {"mode": "equal"}},
-         {"id": "d_rebal", "node_type": "rebalance", "label": "Rebalance(20)",
-          "position": {"x": 1040, "y": 0}, "config": {"frequency": 20}},
-     ],
-     "edges": [
-         {"id": "de1", "source": "d_data", "source_port": "series", "target": "d_ret", "target_port": "series"},
-         {"id": "de2", "source": "d_ret", "source_port": "returns", "target": "d_rank", "target_port": "factor"},
-         {"id": "de3", "source": "d_rank", "source_port": "signal", "target": "d_weight", "target_port": "signal"},
-         {"id": "de4", "source": "d_weight", "source_port": "signal", "target": "d_rebal", "target_port": "signal"},
-     ]},
-    {"id": "demo_macross", "name": "📈 Demo: MA Crossover Strategy",
-     "description": "Classic dual moving average crossover: MA(5) and MA(20) → golden cross to enter, "
-                    "death cross to exit → hold position between crosses.",
-     "category": "demo", "node_count": 6, "edge_count": 7,
-     "nodes": [
-         {"id": "d_data", "node_type": "column_extract", "label": "close",
-          "position": {"x": 0, "y": -100}, "config": {"column": "close"}},
-         {"id": "d_ma5", "node_type": "ma", "label": "MA(5)",
-          "position": {"x": 260, "y": -180}, "config": {"window": 5}},
-         {"id": "d_ma20", "node_type": "ma", "label": "MA(20)",
-          "position": {"x": 260, "y": -20}, "config": {"window": 20}},
-         {"id": "d_golden", "node_type": "cross_over", "label": "Golden Cross",
-          "position": {"x": 520, "y": -180}, "config": {"direction": "above"}},
-         {"id": "d_death", "node_type": "cross_over", "label": "Death Cross",
-          "position": {"x": 520, "y": -20}, "config": {"direction": "below"}},
-         {"id": "d_hold", "node_type": "hold_signal", "label": "Hold",
-          "position": {"x": 780, "y": -100}, "config": {"initial": "flat"}},
-     ],
-     "edges": [
-         {"id": "de1", "source": "d_data", "source_port": "series", "target": "d_ma5", "target_port": "series"},
-         {"id": "de2", "source": "d_data", "source_port": "series", "target": "d_ma20", "target_port": "series"},
-         {"id": "de3", "source": "d_ma5", "source_port": "ma", "target": "d_golden", "target_port": "fast"},
-         {"id": "de4", "source": "d_ma20", "source_port": "ma", "target": "d_golden", "target_port": "slow"},
-         {"id": "de5", "source": "d_ma5", "source_port": "ma", "target": "d_death", "target_port": "fast"},
-         {"id": "de6", "source": "d_ma20", "source_port": "ma", "target": "d_death", "target_port": "slow"},
-         {"id": "de7", "source": "d_golden", "source_port": "signal", "target": "d_hold", "target_port": "enter"},
-         {"id": "de8", "source": "d_death", "source_port": "signal", "target": "d_hold", "target_port": "exit"},
-     ]},
-    {"id": "demo_volbreak", "name": "📊 Demo: Volume Breakout Screener",
-     "description": "Find stocks with unusual volume: compute volume SMA(20) → compare today's volume "
-                    "to average → threshold select stocks with volume > 2× average.",
-     "category": "demo", "node_count": 6, "edge_count": 5,
-     "nodes": [
-         {"id": "d_vol", "node_type": "column_extract", "label": "volume",
-          "position": {"x": 0, "y": 0}, "config": {"column": "volume"}},
-         {"id": "d_volma", "node_type": "ma", "label": "Vol MA(20)",
-          "position": {"x": 260, "y": 0}, "config": {"window": 20}},
-         {"id": "d_ratio", "node_type": "arithmetic", "label": "Vol / VolMA",
-          "position": {"x": 520, "y": 0}, "config": {"op": "div"}},
-         {"id": "d_thresh", "node_type": "threshold_select", "label": "Ratio > 2",
-          "position": {"x": 780, "y": 0}, "config": {"threshold": 2, "op": "gt"}},
-         {"id": "d_weight", "node_type": "signal_weight", "label": "Equal Weight",
-          "position": {"x": 1040, "y": 0}, "config": {"mode": "equal"}},
-     ],
-     "edges": [
-         {"id": "de1", "source": "d_vol", "source_port": "series", "target": "d_volma", "target_port": "series"},
-         {"id": "de2", "source": "d_vol", "source_port": "series", "target": "d_ratio", "target_port": "a"},
-         {"id": "de3", "source": "d_volma", "source_port": "ma", "target": "d_ratio", "target_port": "b"},
-         {"id": "de4", "source": "d_ratio", "source_port": "result", "target": "d_thresh", "target_port": "factor"},
-         {"id": "de5", "source": "d_thresh", "source_port": "signal", "target": "d_weight", "target_port": "signal"},
-     ]},
-
-    # ── Advanced pipelines (strategy patterns without pre-built nodes) ─────────
-    {"id": "momentum_pipeline", "name": "Momentum Strategy Pipeline",
-     "description": "CSI 300 → Alpha Zoo → Top-5 Strategy → Backtest → Attribution",
-     "category": "strategy", "node_count": 6, "edge_count": 8},
-    {"id": "agent_driven", "name": "AI Agent-Driven Research",
-     "description": "ChatInput → Agent → Strategy → Backtest → Attribution",
-     "category": "ai", "node_count": 7, "edge_count": 7},
-    {"id": "factor_screening", "name": "Factor Mining → Screening",
-     "description": "Load Data → Alpha Zoo → Screener → Ranked Output",
-     "category": "factor", "node_count": 4, "edge_count": 4},
-]
-
-
-@router.get("/templates")
-def list_templates(category: str | None = Query(None)):
-    """List available workflow templates."""
-    if category:
-        return [t for t in _BUILTIN_TEMPLATES if t["category"] == category]
-    return _BUILTIN_TEMPLATES
-
-
 @router.post("/templates/{template_id}/instantiate")
 def instantiate_template(template_id: str, body: dict, user_id: int = Depends(_get_user_id)):
-    """Instantiate a built-in template into a project (creates a new workflow)."""
-    template = next((t for t in _BUILTIN_TEMPLATES if t["id"] == template_id), None)
+    """Instantiate a strategy template into a project (creates a new workflow)."""
+    from src.workflow.templates import load_template
+    template = load_template(template_id)
     if not template:
         raise HTTPException(status_code=404, detail=f"Template not found: {template_id}")
 
