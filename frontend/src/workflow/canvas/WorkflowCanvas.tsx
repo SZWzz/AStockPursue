@@ -22,6 +22,7 @@ import "@xyflow/react/dist/style.css";
 
 import { useWorkflowStore } from "@/workflow/store/workflowStore";
 import BaseNode from "@/workflow/canvas/nodes/BaseNode";
+import RunSummaryPanel from "@/workflow/canvas/RunSummaryPanel";
 
 // ── Custom node types ────────────────────────────────────────────────────────
 
@@ -203,6 +204,7 @@ function CanvasInner() {
       <Controls position="bottom-right" />
       <MiniMap position="bottom-left" nodeStrokeWidth={3} pannable zoomable />
     </ReactFlow>
+    <RunSummaryPanel />
   );
 }
 

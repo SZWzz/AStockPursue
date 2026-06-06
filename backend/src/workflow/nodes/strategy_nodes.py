@@ -296,12 +296,22 @@ class BacktestNode(BaseNode):
                 except Exception:
                     pass
 
-        return {"backtest_result": {
-            "metrics": metrics,
-            "summary": summary,
-            "trades": trades_list,
-            "equity_curve": equity_curve,
-        }}
+        return {
+            "backtest_result": {
+                "metrics": metrics,
+                "summary": summary,
+                "trades": trades_list,
+                "equity_curve": equity_curve,
+            },
+            "_summary": {
+                "sharpe": summary.get("sharpe", 0),
+                "total_return": summary.get("total_return", 0),
+                "max_drawdown": summary.get("max_drawdown", 0),
+                "trade_count": summary.get("trade_count", 0),
+                "annual_return": summary.get("annual_return", 0),
+                "win_rate": summary.get("win_rate", 0),
+            },
+        }
 
 
 @register_node

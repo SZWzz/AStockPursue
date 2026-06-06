@@ -245,13 +245,17 @@ class WorkflowEngine:
             except (RuntimeError, TypeError, AttributeError, OSError):
                 pass
 
-            # Build summary from outputs
-            summary = {}
-            for k, v in outputs.items():
-                if isinstance(v, pd.DataFrame):
-                    summary[k] = {"type": "DataFrame", "shape": list(v.shape)}
-                elif isinstance(v, dict) and not isinstance(v, pd.DataFrame):
-                    summary[k] = {sk: sv for sk, sv in list(v.items())[:5]}
+            # Build summary from outputs — prefer node-provided _summary
+            if "_summary" in outputs and isinstance(outputs["_summary"], dict):
+                summary = dict(outputs["_summary"])
+                outputs = {k: v for k, v in outputs.items() if k != "_summary"}
+            else:
+                summary = {}
+                for k, v in outputs.items():
+                    if isinstance(v, pd.DataFrame):
+                        summary[k] = {"type": "DataFrame", "shape": list(v.shape)}
+                    elif isinstance(v, dict) and not isinstance(v, pd.DataFrame):
+                        summary[k] = {sk: sv for sk, sv in list(v.items())[:5] if not isinstance(sv, (pd.DataFrame, dict))}
 
             finished = datetime.now(timezone.utc)
             duration = int((finished - started).total_seconds() * 1000)

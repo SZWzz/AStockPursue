@@ -162,26 +162,77 @@ function PortHandle({ port, side, dotIndex }: { port: NodePort; side: "left" | "
   );
 }
 
-// ── Quick metrics footer ────────────────────────────────────────────────────
+// ── Quick metrics footer (type-aware result badges) ──────────────────────────
 
-function NodeFooter({ status, durationMs, summary, errorMessage }: { status: string; durationMs?: number; summary?: Record<string, unknown>; errorMessage?: string }) {
+const NODE_BADGE_FORMATTERS: Record<string, (s: Record<string, unknown>) => string> = {
+  backtest: (s) => {
+    const parts: string[] = [];
+    if (s.sharpe != null) parts.push(`Sharpe: ${Number(s.sharpe).toFixed(2)}`);
+    if (s.total_return != null) parts.push(`Ret: ${(Number(s.total_return) * 100).toFixed(1)}%`);
+    if (s.trade_count != null) parts.push(`${s.trade_count} trades`);
+    return parts.join(" · ") || "Backtest done";
+  },
+  score: (s) => {
+    const o = s.overall != null ? Number(s.overall).toFixed(0) : "?";
+    const g = s.grade || "?";
+    return `${o}/${g}`;
+  },
+  regime: (s) => `${s.regime || "?"} · ${s.confidence != null ? (Number(s.confidence) * 100).toFixed(0) + "%" : "?"}`,
+  experiment: (s) => `${s.total || "?"} variants · Best: ${s.best_score != null ? s.best_score : "?"}`,
+  send_notification: (s) => {
+    const r = s.results as Record<string, boolean> | undefined;
+    if (!r) return "No channels";
+    return Object.entries(r).map(([ch, ok]) => ok ? `✅ ${ch}` : `❌ ${ch}`).join(" · ");
+  },
+  broker: (s) => `${s.connected ? "🟢" : "🔴"} ${s.position_count != null ? s.position_count + " pos" : ""}`,
+  notify: (s) => "Notified",
+  report: (s) => `${s.format || "Report"} generated`,
+  export: (s) => `${s.format || "File"} exported`,
+  factor_persist: (s) => `${s.saved != null ? s.saved : "?"} factors saved`,
+};
+
+function formatNodeBadge(nodeType: string, summary: Record<string, unknown>): string {
+  const fmt = NODE_BADGE_FORMATTERS[nodeType];
+  if (fmt) return fmt(summary);
+  // Generic: show first 2 scalar values
+  const entries = Object.entries(summary)
+    .filter(([, v]) => typeof v !== "object" || v === null)
+    .slice(0, 2);
+  if (entries.length === 0) return "✓ Done";
+  return entries.map(([k, v]) => `${k}: ${String(v).slice(0, 20)}`).join(" · ");
+}
+
+function NodeFooter({ nodeType, status, durationMs, summary, errorMessage }: {
+  nodeType: string; status: string; durationMs?: number; summary?: Record<string, unknown>; errorMessage?: string;
+}) {
   if (status === "done" && summary) {
-    const entries = Object.entries(summary).slice(0, 2);
+    const badge = formatNodeBadge(nodeType, summary);
     return (
-      <div className="border-t px-2 py-1 text-[10px] text-muted-foreground">
-        {entries.map(([k, v]) => (
-          <span key={k} className="mr-2">
-            {k}: {typeof v === "object" ? JSON.stringify(v).slice(0, 20) : String(v).slice(0, 20)}
-          </span>
-        ))}
-        {durationMs ? <span>{durationMs}ms</span> : null}
+      <div className="border-t border-green-200 dark:border-green-800 px-2 py-1 text-[10px] text-muted-foreground bg-green-50/30 dark:bg-green-950/20 flex items-center gap-1">
+        <span className="text-green-500 shrink-0">✓</span>
+        <span className="truncate">{badge}</span>
+        {durationMs ? <span className="text-muted-foreground/50 ml-auto shrink-0">{durationMs}ms</span> : null}
       </div>
     );
   }
   if (status === "error" && errorMessage) {
     return (
-      <div className="border-t px-2 py-1 text-[10px] text-red-500 bg-red-50 dark:bg-red-950/30">
-        {errorMessage.slice(0, 60)}
+      <div className="border-t border-red-200 dark:border-red-800 px-2 py-1 text-[10px] text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30">
+        ✗ {errorMessage.slice(0, 80)}
+      </div>
+    );
+  }
+  if (status === "running") {
+    return (
+      <div className="border-t border-blue-200 dark:border-blue-800 px-2 py-1 text-[10px] text-blue-500 bg-blue-50/30 dark:bg-blue-950/20 animate-pulse">
+        ⏳ Running...
+      </div>
+    );
+  }
+  if (status === "cached") {
+    return (
+      <div className="border-t border-gray-200 px-2 py-1 text-[10px] text-muted-foreground bg-gray-50/30 dark:bg-gray-800/30">
+        ↻ From cache
       </div>
     );
   }
@@ -408,8 +459,8 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
         })()}
       </div>
 
-      {/* Footer */}
-      <NodeFooter status={status} durationMs={(nodeData as any).duration_ms} summary={(nodeData as any).summary} errorMessage={(nodeData as any).error_message} />
+      {/* Footer — type-aware result badge */}
+      <NodeFooter nodeType={nodeData.node_type} status={status} durationMs={(nodeData as any).duration_ms} summary={(nodeData as any).summary} errorMessage={(nodeData as any).error_message} />
     </div>
   );
 });
