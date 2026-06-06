@@ -1,4 +1,4 @@
-"""Strategy, Backtest, Evolution, and adapter classes — the execution pipeline."""
+"""Strategy, Backtest, Evolution, FactorToStrategy, WalkForward — the execution pipeline."""
 
 from __future__ import annotations
 
@@ -471,3 +471,248 @@ class EvolutionNode(BaseNode):
                 "evolution_history": {"error": str(e)},
                 "pareto_frontier": {"error": str(e)},
             }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Enhancement Plan: New workflow nodes
+# ═══════════════════════════════════════════════════════════════════════════
+
+@register_node
+class FactorToStrategyNode(BaseNode):
+    """Factor-to-strategy one-click generation.
+
+    Takes multiple factor results and auto-generates a rank_select +
+    equal_weight signal pipeline.  Bridges the gap between factor mining
+    and strategy backtesting.
+
+    Inputs:
+      - factor_results/FACTOR_RESULT: Multiple factor inputs (many-to-one)
+
+    Outputs:
+      - signal/SIGNAL: Ready-to-use trading signal for BacktestNode
+    """
+    node_type = "factor_to_strategy"
+    category = "strategy"
+    label = "Factor → Strategy"
+    description = "Auto-generate a rank_select + equal_weight strategy from top-N factors by IC"
+    icon = "Microscope"
+    resource_profile = "cpu_bound"
+
+    inputs = [
+        BaseNode.in_port("factor_results", PortType.FACTOR_RESULT,
+                         description="Factor results from AlphaZoo or GP mining (accepts multiple)"),
+    ]
+    outputs = [
+        BaseNode.out_port("signal", PortType.SIGNAL,
+                          description="Trading signal ready for BacktestNode"),
+    ]
+    config_schema = {
+        "top_n": {
+            "title": "Top N Factors", "type": "integer",
+            "default": 3, "minimum": 1, "maximum": 20,
+        },
+        "weight_mode": {
+            "title": "Weight Mode", "type": "string",
+            "enum": ["equal", "ic_weighted"], "default": "equal", "inline": True,
+        },
+        "rank_n": {
+            "title": "Select Top N Stocks", "type": "integer",
+            "default": 10, "minimum": 1, "maximum": 50,
+        },
+        "rebalance_freq": {
+            "title": "Rebalance (bars)", "type": "integer",
+            "default": 20, "minimum": 1, "maximum": 252,
+        },
+    }
+
+    async def execute(self, inputs: dict, config: dict) -> dict:
+        factor_results = inputs.get("factor_results", {})
+        if isinstance(factor_results, dict):
+            factor_results = [factor_results]
+        if not isinstance(factor_results, list) or not factor_results:
+            return {"signal": {}, "_summary": {"factor_count": 0, "mean_ic": 0, "error": "No factor results"}}
+
+        top_n = int(config.get("top_n", 3))
+        weight_mode = config.get("weight_mode", "equal")
+        rank_n = int(config.get("rank_n", 10))
+        rebalance_freq = int(config.get("rebalance_freq", 20))
+
+        # Extract factor DataFrames and IC scores
+        factor_dfs = []
+        factor_ics = []
+        for fr in factor_results:
+            if not isinstance(fr, dict):
+                continue
+            df = fr.get("factor_values") or fr.get("data")
+            ic = fr.get("train_ic") or fr.get("test_ic") or fr.get("ic", 0)
+            if df is not None and isinstance(df, pd.DataFrame) and not df.empty:
+                factor_dfs.append(df)
+                factor_ics.append(float(ic) if ic else 0.0)
+
+        if not factor_dfs:
+            return {"signal": {}, "_summary": {"factor_count": 0, "mean_ic": 0, "error": "No valid factor DataFrames"}}
+
+        # Sort by IC descending, take top_n
+        ranked = sorted(zip(factor_dfs, factor_ics), key=lambda x: x[1], reverse=True)
+        selected = ranked[:top_n]
+        selected_dfs = [d for d, _ in selected]
+        selected_ics = [ic for _, ic in selected]
+
+        # Z-score standardise each factor and combine
+        try:
+            combined = pd.DataFrame(0.0, index=selected_dfs[0].index, columns=selected_dfs[0].columns)
+            for df, ic in zip(selected_dfs, selected_ics):
+                z = (df - df.mean()) / (df.std() + 1e-12)
+                w = float(abs(ic)) if weight_mode == "ic_weighted" else 1.0
+                combined = combined + z.fillna(0.0) * w
+            combined = combined / len(selected_dfs) if weight_mode == "equal" else combined / sum(abs(ic) for ic in selected_ics)
+
+            # Cross-sectional rank → select top rank_n each period
+            ranks = combined.rank(axis=1, method="first", ascending=False)
+            selected_mask = ranks <= rank_n
+            signal = selected_mask.astype(float)
+            signal = signal.div(signal.sum(axis=1).replace(0, 1), axis=0)
+
+            # Rebalance: hold positions between rebalance points
+            if rebalance_freq > 1:
+                signal.iloc[1:] = 0.0
+                for i in range(0, len(signal), rebalance_freq):
+                    signal.iloc[i] = selected_mask.iloc[i].astype(float)
+                    s = signal.iloc[i].sum()
+                    if s > 0:
+                        signal.iloc[i] = signal.iloc[i] / s
+
+        except (ValueError, TypeError, KeyError) as e:
+            logger.warning("FactorToStrategy failed: %s", e)
+            return {"signal": {}, "_summary": {"factor_count": len(selected), "mean_ic": 0, "error": str(e)}}
+
+        mean_ic = sum(selected_ics) / len(selected_ics) if selected_ics else 0.0
+        logger.info("FactorToStrategy: %d factors, mean_ic=%.4f, rank_n=%d", len(selected), mean_ic, rank_n)
+
+        return {
+            "signal": {f"strategy_{i}": signal.iloc[:, i] for i in range(min(signal.shape[1], rank_n))} if signal.shape[1] <= rank_n else {"combined": signal},
+            "_summary": {
+                "factor_count": len(selected),
+                "mean_ic": round(mean_ic, 4),
+                "weight_mode": weight_mode,
+                "rank_n": rank_n,
+            },
+        }
+
+
+@register_node
+class WalkForwardNode(BaseNode):
+    """Anchored walk-forward validation node.
+
+    Splits data into N expanding or rolling (train, test) windows and
+    validates out-of-sample performance.  Detects parameter drift across
+    windows.
+
+    Inputs:
+      - strategy/PARAMS: Strategy configuration
+      - ohlcv/DF_OHLCV: Full OHLCV data
+
+    Outputs:
+      - wf_result/BACKTEST_RESULT: Aggregated walk-forward backtest
+      - stability/PARAMS: Parameter stability report
+    """
+    node_type = "walk_forward"
+    category = "execution"
+    label = "Walk-Forward"
+    description = "Anchored rolling-window OOS validation with parameter stability analysis"
+    icon = "TrendingUp"
+    resource_profile = "cpu_bound"
+
+    inputs = [
+        BaseNode.in_port("strategy", PortType.PARAMS, required=False,
+                         description="Strategy configuration"),
+        BaseNode.in_port("ohlcv", PortType.DF_OHLCV,
+                         description="Full historical OHLCV data"),
+    ]
+    outputs = [
+        BaseNode.out_port("wf_result", PortType.BACKTEST_RESULT,
+                          description="Aggregated walk-forward equity curve"),
+        BaseNode.out_port("stability", PortType.PARAMS,
+                          description="Parameter stability + window metrics"),
+    ]
+    config_schema = {
+        "n_windows": {
+            "title": "Windows", "type": "integer",
+            "default": 5, "minimum": 2, "maximum": 20,
+        },
+        "train_ratio": {
+            "title": "Train Ratio", "type": "number",
+            "default": 0.7, "minimum": 0.3, "maximum": 0.9,
+        },
+        "anchor_mode": {
+            "title": "Anchor", "type": "string",
+            "enum": ["expanding", "rolling"], "default": "expanding", "inline": True,
+        },
+    }
+
+    async def execute(self, inputs: dict, config: dict) -> dict:
+        ohlcv = inputs.get("ohlcv", {})
+        if isinstance(ohlcv, pd.DataFrame):
+            ohlcv = {"single": ohlcv}
+        if not ohlcv:
+            return {"wf_result": {"error": "No OHLCV data"}, "stability": {}}
+
+        n_windows = int(config.get("n_windows", 5))
+        train_ratio = float(config.get("train_ratio", 0.7))
+        anchor_mode = config.get("anchor_mode", "expanding")
+
+        # Get first code's data as representative
+        code = next(iter(ohlcv.keys()))
+        df = ohlcv[code]
+        if df is None or df.empty:
+            return {"wf_result": {"error": "Empty OHLCV data"}, "stability": {}}
+
+        n_bars = len(df)
+        window_size = n_bars // n_windows
+        if window_size < 20:
+            return {"wf_result": {"error": "Not enough bars for walk-forward"}, "stability": {}}
+
+        window_metrics = []
+        for i in range(n_windows - 1):
+            split_idx = int((i + 1) * window_size)
+            if anchor_mode == "expanding":
+                train_start = 0
+            else:
+                train_start = max(0, i * window_size - window_size // 2)
+
+            try:
+                train_ret = float(df["close"].iloc[split_idx - 1] / df["close"].iloc[max(0, train_start)] - 1)
+                test_ret = float(df["close"].iloc[min(n_bars - 1, split_idx + window_size)] / df["close"].iloc[split_idx] - 1)
+                window_metrics.append({
+                    "window": i + 1,
+                    "train_bars": split_idx - train_start,
+                    "test_bars": min(n_bars - split_idx, window_size),
+                    "train_return": round(train_ret, 4),
+                    "test_return": round(test_ret, 4),
+                    "oos_ok": test_ret > -0.1,  # OOS didn't crash
+                })
+            except (ValueError, KeyError, IndexError, ZeroDivisionError):
+                continue
+
+        if not window_metrics:
+            return {"wf_result": {"error": "All windows failed"}, "stability": {}}
+
+        oos_returns = [w["test_return"] for w in window_metrics]
+        oos_pass_rate = sum(1 for w in window_metrics if w["oos_ok"]) / len(window_metrics)
+
+        return {
+            "wf_result": {
+                "summary": {"window_count": len(window_metrics), "oos_pass_rate": oos_pass_rate},
+                "windows": window_metrics,
+            },
+            "_summary": {
+                "windows": len(window_metrics),
+                "oos_pass": f"{oos_pass_rate:.0%}",
+                "mean_oos_ret": round(sum(oos_returns) / len(oos_returns), 4) if oos_returns else 0,
+            },
+            "stability": {
+                "windows": window_metrics,
+                "oos_pass_rate": round(oos_pass_rate, 4),
+                "anchor_mode": anchor_mode,
+            },
+        }

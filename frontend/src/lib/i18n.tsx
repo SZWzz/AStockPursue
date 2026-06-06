@@ -1279,6 +1279,12 @@ const en = {
   wfNode_experiment_rank: "Rank & Select", wfNode_experiment_rank_desc: "Sort scored experiment candidates and select Top-N best performers",
   wfNode_regime: "Market Regime", wfNode_regime_desc: "Detect market state from OHLCV: bull/bear/range/volatile, with strategy family recommendations",
   wfNode_evolution: "Strategy Evolution", wfNode_evolution_desc: "Iteratively evolve strategy parameters: grid → local search → crossover → LLM refine → Walk-Forward",
+  // Enhancement Plan v2 nodes
+  wfNode_factor_to_strategy: "Factor → Strategy", wfNode_factor_to_strategy_desc: "Auto-generate rank_select + equal_weight strategy from top-N factors by IC",
+  wfNode_strategy_history: "Strategy Timeline", wfNode_strategy_history_desc: "Track strategy performance across multiple backtest runs, detect drift and trends",
+  wfNode_save_as_template: "Save as Template", wfNode_save_as_template_desc: "Save current workflow as a reusable template for later projects",
+  wfNode_crowding: "Crowding Check", wfNode_crowding_desc: "Detect factor crowding: high pairwise correlations between factors → crowded trade risk",
+  wfNode_walk_forward: "Walk-Forward", wfNode_walk_forward_desc: "Anchored rolling-window OOS validation with parameter stability analysis",
 
   dashNavSection: "Navigation", dashWorkflowSection: "Workflow", dashAdvancedSection: "Advanced",
   dashNavResearchProjects: "Research Projects", dashNavResearchProjectsDetail: "Workflow pipelines",
@@ -2569,6 +2575,12 @@ const zh: Messages = {
   wfNode_experiment_rank: "排名选择", wfNode_experiment_rank_desc: "对评分后的实验候选策略排序，选出Top-N最优",
   wfNode_regime: "市场状态", wfNode_regime_desc: "从OHLCV检测市场状态：牛市/熊市/震荡/高波动，含策略族推荐",
   wfNode_evolution: "策略进化", wfNode_evolution_desc: "迭代进化策略参数：网格→局部扰动→交叉→LLM精调→滚动窗口验证",
+  // Enhancement Plan v2 节点
+  wfNode_factor_to_strategy: "因子→策略", wfNode_factor_to_strategy_desc: "自动从Top-N因子生成rank_select+equal_weight策略",
+  wfNode_strategy_history: "策略时间线", wfNode_strategy_history_desc: "追踪多次回测的性能趋势，检测策略衰退",
+  wfNode_save_as_template: "保存为模板", wfNode_save_as_template_desc: "将当前工作流保存为可复用模板",
+  wfNode_crowding: "拥挤度检测", wfNode_crowding_desc: "检测因子拥挤：因子间高相关性→拥挤交易风险",
+  wfNode_walk_forward: "滚动验证", wfNode_walk_forward_desc: "锚定滚动窗口OOS验证，含参数稳定性分析",
 
   dashNavSection: "导航", dashWorkflowSection: "工作流", dashAdvancedSection: "高级功能",
   dashNavResearchProjects: "研究项目", dashNavResearchProjectsDetail: "工作流流水线",

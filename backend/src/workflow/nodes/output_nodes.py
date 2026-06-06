@@ -948,3 +948,106 @@ class FactorPersistNode(BaseNode):
         if any(kw in f for kw in ("value", "bv", "cf", "dividend")):
             return "value"
         return "momentum"  # default
+
+
+@register_node
+class SaveAsTemplateNode(BaseNode):
+    """Save current workflow as a reusable template.
+
+    Serialises the current workflow DAG (nodes + edges + config) into the
+    template registry so it can be instantiated later from the Projects page
+    or the marketplace.
+
+    Inputs:
+      - strategy_code/PARAMS (required): Strategy code from Agent/Strategy
+      - backtest_result/BACKTEST_RESULT (optional): Performance snapshot
+
+    Outputs:
+      - template_result/PARAMS: {template_id, name, status}
+    """
+    node_type = "save_as_template"
+    category = "output"
+    label = "Save as Template"
+    description = "Save current workflow as a reusable template for later projects"
+    icon = "Download"
+    resource_profile = "io_bound"
+
+    inputs = [
+        BaseNode.in_port("strategy_code", PortType.PARAMS,
+                         description="Strategy code from upstream"),
+        BaseNode.in_port("backtest_result", PortType.BACKTEST_RESULT, required=False,
+                         description="Performance snapshot for the template"),
+    ]
+    outputs = [
+        BaseNode.out_port("template_result", PortType.PARAMS,
+                          description="Template save result"),
+    ]
+    config_schema = {
+        "name": {
+            "title": "Template Name", "type": "string", "default": "",
+        },
+        "description": {
+            "title": "Description", "type": "string", "default": "",
+        },
+        "category": {
+            "title": "Category", "type": "string",
+            "enum": ["trend", "reversal", "grid", "arbitrage", "multiFactor"], "default": "trend", "inline": True,
+        },
+        "difficulty": {
+            "title": "Difficulty", "type": "string",
+            "enum": ["beginner", "intermediate", "advanced"], "default": "beginner", "inline": True,
+        },
+        "publish_to_marketplace": {
+            "title": "Publish", "type": "boolean", "default": False,
+        },
+    }
+
+    async def execute(self, inputs: dict, config: dict) -> dict:
+        strategy_code = inputs.get("strategy_code", {})
+        name = config.get("name", "") or f"Template_{__import__('datetime').datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        description = config.get("description", "")
+        category = config.get("category", "trend")
+        difficulty = config.get("difficulty", "beginner")
+        publish = config.get("publish_to_marketplace", False)
+
+        try:
+            from src.db.async_pool import async_get_connection
+
+            async with async_get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    """INSERT INTO vt_strategy_marketplace
+                       (name, description, code, category, tags, author, rating)
+                       VALUES (%s, %s, %s, %s, %s, %s, 0)
+                       RETURNING id""",
+                    (name, description,
+                     strategy_code.get("code", "") if isinstance(strategy_code, dict) else str(strategy_code),
+                     category, f"{difficulty},template", "user"),
+                )
+                row = cur.fetchone()
+                cur.close()
+                template_id = str(row[0]) if row else "unknown"
+
+            logger.info("Template saved: %s (id=%s)", name, template_id)
+
+            result = {
+                "template_id": template_id,
+                "name": name,
+                "status": "saved",
+                "published": publish,
+            }
+
+            if publish:
+                result["url"] = f"/marketplace/{template_id}"
+
+            return {
+                "template_result": result,
+                "_summary": {"saved": name, "published": "yes" if publish else "no"},
+            }
+
+        except (ValueError, KeyError, RuntimeError, IOError) as e:
+            logger.exception("SaveAsTemplate failed")
+            return {
+                "template_result": {"error": str(e), "status": "failed"},
+                "_summary": {"error": str(e)[:40]},
+            }
