@@ -500,23 +500,22 @@ class EntrySignalNode(BaseNode):
                          description="Cross/factor to mark as entry (e.g. golden cross, RSI<30)"),
     ]
     outputs = [
-        BaseNode.out_port("entry", PortType.SIGNAL,
-                          description="Entry signal dict {code: Series} — connect to HoldSignal.enter"),
+        BaseNode.out_port("entry", PortType.DF_FACTOR,
+                          description="Entry signal DataFrame (same shape as input) — connect to HoldSignal.enter"),
     ]
     config_schema = {}
 
     async def execute(self, inputs: dict, config: dict) -> dict:
         df = _to_factor_df(inputs.get("signal"))
         if df.empty:
-            return {"entry": {}}
-        result = {col: df[col] for col in df.columns}
-        logger.info("EntrySignal: %d codes, %d bars", len(result), len(df))
-        return {"entry": result}
+            return {"entry": pd.DataFrame()}
+        logger.info("EntrySignal: %d codes, %d bars", len(df.columns), len(df))
+        return {"entry": df}
 
 
 @register_node
 class ExitSignalNode(BaseNode):
-    """Convert a factor/cross DataFrame into an EXIT trading signal (SIGNAL type)."""
+    """Convert a factor/cross DataFrame into an EXIT trading signal (DF_FACTOR type)."""
 
     node_type = "exit_signal"
     category = "strategy"
@@ -530,18 +529,17 @@ class ExitSignalNode(BaseNode):
                          description="Cross/factor to mark as exit (e.g. death cross, RSI>70)"),
     ]
     outputs = [
-        BaseNode.out_port("exit", PortType.SIGNAL,
-                          description="Exit signal dict {code: Series} — connect to HoldSignal.exit"),
+        BaseNode.out_port("exit", PortType.DF_FACTOR,
+                          description="Exit signal DataFrame (same shape as input) — connect to HoldSignal.exit"),
     ]
     config_schema = {}
 
     async def execute(self, inputs: dict, config: dict) -> dict:
         df = _to_factor_df(inputs.get("signal"))
         if df.empty:
-            return {"exit": {}}
-        result = {col: df[col] for col in df.columns}
-        logger.info("ExitSignal: %d codes, %d bars", len(result), len(df))
-        return {"exit": result}
+            return {"exit": pd.DataFrame()}
+        logger.info("ExitSignal: %d codes, %d bars", len(df.columns), len(df))
+        return {"exit": df}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
