@@ -3,10 +3,11 @@
  * after a workflow run completes.  Appears on the right side of the canvas.
  */
 
-import { useMemo, useState, useCallback } from "react";
-import { X, ChevronRight, ChevronLeft } from "lucide-react";
+import { useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/workflow/store/workflowStore";
+import type { WorkflowNodeData } from "@/workflow/types/workflow";
 
 const OUTPUT_CATEGORIES = new Set(["output", "analysis", "execution"]);
 
@@ -56,7 +57,7 @@ export default function RunSummaryPanel() {
   const [visible, setVisible] = useState(true);
 
   // Only show after a run completes
-  if (runStatus !== "completed" && runStatus !== "failed") return null;
+  if (runStatus !== "completed" && runStatus !== "error") return null;
 
   const outputNodes = useMemo(() => {
     return nodes.filter((n) => {
@@ -92,11 +93,13 @@ export default function RunSummaryPanel() {
         {outputNodes.map((node) => {
           const result = nodeResults[node.id];
           if (!result) return null;
+          const nd = (node as any).data as WorkflowNodeData | undefined;
           const def = (node as any).definition;
-          const icon = NODE_ICONS[node.node_type] || "📌";
-          const label = def?.label || node.node_type;
+          const nodeType = nd?.node_type || "";
+          const icon = NODE_ICONS[nodeType] || "📌";
+          const label = def?.label || nodeType;
           const summary = result.summary || {};
-          const lines = formatSummary(node.node_type, summary as Record<string, unknown>);
+          const lines = formatSummary(nodeType, summary as Record<string, unknown>);
 
           return (
             <div

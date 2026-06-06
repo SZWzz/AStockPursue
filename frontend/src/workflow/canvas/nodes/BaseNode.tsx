@@ -185,7 +185,7 @@ const NODE_BADGE_FORMATTERS: Record<string, (s: Record<string, unknown>) => stri
     return Object.entries(r).map(([ch, ok]) => ok ? `✅ ${ch}` : `❌ ${ch}`).join(" · ");
   },
   broker: (s) => `${s.connected ? "🟢" : "🔴"} ${s.position_count != null ? s.position_count + " pos" : ""}`,
-  notify: (s) => "Notified",
+  notify: () => "Notified",
   report: (s) => `${s.format || "Report"} generated`,
   export: (s) => `${s.format || "File"} exported`,
   factor_persist: (s) => `${s.saved != null ? s.saved : "?"} factors saved`,
