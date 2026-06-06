@@ -509,8 +509,11 @@ class CrossOverNode(BaseNode):
 
     Output is 1 on the bar where the crossover occurs, 0 otherwise.
 
-    direction = "above" (default): golden cross — fast crosses ABOVE slow
+    direction = "above": golden cross — fast crosses ABOVE slow
     direction = "below": death cross — fast crosses BELOW slow
+
+    event_type = "entry": cross event used as entry signal
+    event_type = "exit":  cross event used as exit signal
     """
 
     node_type = "cross_over"
@@ -528,15 +531,22 @@ class CrossOverNode(BaseNode):
     ]
     outputs = [
         BaseNode.out_port("signal", PortType.DF_FACTOR,
-                          description="Cross signal DataFrame (1 = cross detected, 0 = otherwise)"),
+                          description="Cross signal (1 = cross detected, 0 = otherwise)"),
     ]
     config_schema = {
         "direction": {
-            "title": "Direction", "type": "string",
+            "title": "交叉方向", "type": "string",
             "enum": ["above", "below"],
             "default": "above",
             "inline": True,
-            "description": "above = golden cross (fast↑slow), below = death cross (fast↓slow)",
+            "description": "above=快线上穿慢线(金叉), below=快线下穿慢线(死叉)",
+        },
+        "event_type": {
+            "title": "信号用途", "type": "string",
+            "enum": ["entry", "exit"],
+            "default": "entry",
+            "inline": True,
+            "description": "entry=产生入场信号, exit=产生出场信号",
         },
     }
 
@@ -547,6 +557,8 @@ class CrossOverNode(BaseNode):
             return {"signal": pd.DataFrame()}
 
         direction = config.get("direction", "above")
+        # event_type is a semantic label only — doesn't change the math
+        # (the same crossover math applies regardless of trading intent)
 
         # Align
         common_idx = fast.index.intersection(slow.index)

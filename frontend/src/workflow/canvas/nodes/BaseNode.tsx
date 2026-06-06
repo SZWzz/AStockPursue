@@ -132,13 +132,15 @@ const PORT_TYPE_LABELS: Record<string, string> = {
 
 // ── Port handle ──────────────────────────────────────────────────────────────
 
-function PortHandle({ port, side }: { port: NodePort; side: "left" | "right" }) {
+function PortHandle({ port, side, dotIndex }: { port: NodePort; side: "left" | "right"; dotIndex: number }) {
   const { t } = useI18n();
   const pt = port.port_type;
   const handleColor = PORT_HANDLE_COLORS[pt] || "!border-muted-foreground !bg-background";
   const dotColor = PORT_DOT_COLORS[pt] || "bg-muted-foreground";
   const typeLabel = PORT_TYPE_LABELS[pt] || "";
   const portLabel = (t as any)[`wfPort_${port.name}`] || port.name;
+  // Alternating solid/hollow: even index = solid fill, odd = hollow (border only, transparent bg)
+  const isSolid = dotIndex % 2 === 0;
   return (
     <div className={cn("flex items-center gap-1.5 px-1 py-1 text-xs group/port cursor-crosshair rounded hover:bg-muted/30 transition-colors", side === "right" && "flex-row-reverse")}>
       <Handle
@@ -152,7 +154,7 @@ function PortHandle({ port, side }: { port: NodePort; side: "left" | "right" }) 
         )}
       />
       <span className="flex items-center gap-1 truncate max-w-[110px] text-xs text-muted-foreground" title={`${port.name}: ${pt}`}>
-        <span className={cn("w-2 h-2 rounded-full shrink-0", dotColor)} />
+        <span className={cn("w-2 h-2 rounded-full shrink-0", isSolid ? dotColor : "bg-transparent border-2")} />
         {portLabel}
         {typeLabel && <span className="text-[9px] opacity-50">{typeLabel}</span>}
       </span>
@@ -385,12 +387,25 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
 
       {/* Ports */}
       <div className="px-1 py-1.5 space-y-0.5">
-        {def?.inputs.map((port) => (
-          <PortHandle key={port.name} port={port} side="left" />
-        ))}
-        {def?.outputs.map((port) => (
-          <PortHandle key={port.name} port={port} side="right" />
-        ))}
+        {(() => {
+          // Compute alternating solid/hollow indices per side+type
+          const inputCounts: Record<string, number> = {};
+          const outputCounts: Record<string, number> = {};
+          return (
+            <>
+              {def?.inputs.map((port) => {
+                const idx = inputCounts[port.port_type] || 0;
+                inputCounts[port.port_type] = idx + 1;
+                return <PortHandle key={port.name} port={port} side="left" dotIndex={idx} />;
+              })}
+              {def?.outputs.map((port) => {
+                const idx = outputCounts[port.port_type] || 0;
+                outputCounts[port.port_type] = idx + 1;
+                return <PortHandle key={port.name} port={port} side="right" dotIndex={idx} />;
+              })}
+            </>
+          );
+        })()}
       </div>
 
       {/* Footer */}

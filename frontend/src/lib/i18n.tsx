@@ -1260,6 +1260,7 @@ const en = {
   wfPort_true_branch: "true_branch",
   wfPort_value: "value",
   wfPort_zscore: "zscore",
+  wfEnum_entry: "entry", wfEnum_exit: "exit",
 } as const;
 
 const zh: Messages = {
@@ -2520,6 +2521,7 @@ const zh: Messages = {
   wfPort_true_branch: "真分支",
   wfPort_value: "数值",
   wfPort_zscore: "Z分数",
+  wfEnum_entry: "入场", wfEnum_exit: "出场",
 };
 
 type Messages = Record<keyof typeof en, string>;
