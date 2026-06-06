@@ -247,7 +247,7 @@ class GPEvolution:
         try:
             from backtest.data_store import get_data_store
             store = get_data_store()
-        except Exception as e:
+        except (ImportError, ModuleNotFoundError, RuntimeError) as e:
             logger.warning("DataStore unavailable, using mock data: %s", e)
             self.data_source = "mock"
             self.data_source_detail = f"DataStore import failed: {e}"
@@ -301,7 +301,7 @@ class GPEvolution:
                         continue
                     try:
                         fb_loader = LOADER_REGISTRY[fb_name]()
-                    except Exception:
+                    except (ImportError, ModuleNotFoundError, TypeError, ValueError):
                         continue
                     if not fb_loader.is_available():
                         continue
@@ -309,7 +309,7 @@ class GPEvolution:
                         fb_data_map = fb_loader.fetch(
                             universe, full_start, full_end, interval="1D",
                         )
-                    except Exception:
+                    except (ValueError, KeyError, IOError, OSError, RuntimeError):
                         continue
                     if fb_data_map and _data_covers_range(fb_data_map, train_start):
                         logger.info(
@@ -393,7 +393,7 @@ class GPEvolution:
 
             logger.info("Loaded REAL data: train=%d bars, test=%d bars, %d stocks",
                          train_bars, test_bars, n_stocks)
-        except Exception as e:
+        except (ValueError, KeyError, IOError, OSError, TypeError, RuntimeError) as e:
             logger.warning("Failed to load real data (%s), using mock data", e)
             self.data_source = "mock"
             self.data_source_detail = f"Data loading error: {e}"
@@ -459,7 +459,7 @@ class GPEvolution:
                 fv = fn(self._train_panel)
                 if not fv.empty:
                     self._core_factor_values[entry.alpha_id] = fv
-            except Exception:
+            except (ValueError, KeyError, TypeError, IndexError, ZeroDivisionError, RuntimeError):
                 continue
 
         if self._core_factor_values:
@@ -665,7 +665,7 @@ class GPEvolution:
         try:
             compute_fn = ind.tree.to_callable()
             factor_values = compute_fn(self._train_panel)
-        except Exception:
+        except (ValueError, KeyError, TypeError, IndexError, ZeroDivisionError, RuntimeError):
             ind.train_fitness = 0.0
             return 0.0
 
@@ -763,7 +763,7 @@ class GPEvolution:
                         oos_returns.loc[common_idx, common_cols],
                     ))
                     window_ics.append(ic)
-            except Exception:
+            except (ValueError, KeyError, TypeError, IndexError, ZeroDivisionError):
                 continue
 
         if not window_ics:
@@ -854,7 +854,7 @@ class GPEvolution:
                 ))
                 if np.isfinite(ic_val):
                     oos_ics.append(ic_val)
-            except Exception:
+            except (ValueError, KeyError, TypeError, IndexError, ZeroDivisionError):
                 continue
 
         return oos_ics
@@ -876,7 +876,7 @@ class GPEvolution:
                     i = futures[future]
                     try:
                         fitnesses[i] = future.result(timeout=120)
-                    except Exception as e:
+                    except (concurrent.futures.TimeoutError, concurrent.futures.CancelledError, RuntimeError, ValueError) as e:
                         logger.debug("Fitness eval timed out or failed: %s", e)
                         fitnesses[i] = 0.0
             return fitnesses
@@ -1069,7 +1069,7 @@ class GPEvolution:
                 ], ddof=1)) if len(fv) > 1 else 1e-12
                 ir = ic / ic_std * np.sqrt(252) if ic_std > 1e-12 else 0.0
                 return {"ic": ic, "ir": float(ir), "oos_ic_per_window": [ic]}
-            except Exception:
+            except (ValueError, KeyError, TypeError, IndexError, ZeroDivisionError):
                 return {"ic": 0.0, "ir": 0.0, "oos_ic_per_window": []}
 
         # Walk-forward on test set
@@ -1101,7 +1101,7 @@ class GPEvolution:
                         fv.loc[common_idx, common_cols],
                         oos_ret.loc[common_idx, common_cols],
                     ))
-            except Exception:
+            except (ValueError, KeyError, TypeError, IndexError, ZeroDivisionError):
                 continue
 
         if not window_ics:
@@ -1352,7 +1352,7 @@ class GPEvolution:
 
             try:
                 fitnesses = self.evaluate_population()
-            except Exception as e:
+            except (ValueError, RuntimeError, MemoryError) as e:
                 logger.exception("Evaluate population failed at generation %d — skipping", gen + 1)
                 self._emit_progress("generation_error", {
                     "generation": gen + 1,
@@ -1466,7 +1466,7 @@ class GPEvolution:
             if gen < total_generations - 1:
                 try:
                     self._population = self.evolve(fitnesses, generation=gen + 1)
-                except Exception as e:
+                except (ValueError, RuntimeError) as e:
                     logger.exception("Evolve population failed at generation %d — keeping current population", gen + 1)
                     self._emit_progress("generation_error", {
                         "generation": gen + 1,

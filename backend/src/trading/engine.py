@@ -684,7 +684,7 @@ class TradingEngine:
         if hasattr(self._market, "_active_bar_date"):
             try:
                 self._market._active_bar_date = timestamp.date() if hasattr(timestamp, "date") else str(timestamp)[:10]
-            except Exception:
+            except (AttributeError, ValueError, TypeError):
                 pass
         commission = self._market.calc_commission(pos.size, exit_price, pos.direction, is_open=False)
 

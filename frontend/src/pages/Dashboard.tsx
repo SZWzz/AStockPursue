@@ -108,6 +108,9 @@ export function Dashboard() {
         </div>
       )}
 
+      {/* Today at a Glance — answers "What do I need to do today?" in 3 seconds */}
+      <TodayGlance data={data} t={t} />
+
       {/* Row 1: Market + Data Source Health + Sentiment */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <MarketCard data={data?.market} t={t} />
@@ -137,6 +140,65 @@ export function Dashboard() {
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return <div className={cn("section-card p-4 rounded-2xl", className)}>{children}</div>;
+}
+
+// ── Today at a Glance ──────────────────────────────────────────────────
+
+function TodayGlance({ data, t }: { data: DashboardData | null; t: any }) {
+  const ptStrategies = data?.papertrading?.strategies || [];
+  const activeCount = ptStrategies.filter((s: any) => s.status === "running").length;
+  const totalPnl = ptStrategies.reduce((sum: number, s: any) => sum + (s.daily_pnl_pct || 0), 0);
+  const sentLabel = data?.sentiment?.sentiment_label || "—";
+  const dataHealthy = (data?.datasource?.sources || []).filter((s: any) => s.available).length;
+  const dataTotal = (data?.datasource?.sources || []).length;
+  const gpRunning = data?.pipeline?.mining?.active_gp_runs || 0;
+  const pendingCandidates = data?.pipeline?.candidates?.pending_validation || 0;
+
+  const items = [
+    {
+      label: (t as any).ptEquityLabel || "Equity",
+      value: activeCount > 0 ? `${activeCount} active` : "—",
+      sub: totalPnl !== 0 ? `${totalPnl >= 0 ? "+" : ""}${totalPnl.toFixed(2)}%` : null,
+      color: totalPnl >= 0 ? "text-up" : totalPnl < 0 ? "text-down" : "text-muted-foreground",
+      icon: <TrendingUp className="w-4 h-4" />,
+    },
+    {
+      label: (t as any).dashMarketSentiment || "Sentiment",
+      value: sentLabel,
+      sub: data?.sentiment?.trend || null,
+      color: sentLabel === "Bullish" ? "text-up" : sentLabel === "Bearish" ? "text-down" : "text-muted-foreground",
+      icon: <Activity className="w-4 h-4" />,
+    },
+    {
+      label: (t as any).dashDataSourceHealth || "Data",
+      value: `${dataHealthy}/${dataTotal} healthy`,
+      sub: data?.datasource?.cache_hit_rate ? `${Math.round(data.datasource.cache_hit_rate * 100)}% cache hit` : null,
+      color: dataHealthy >= dataTotal * 0.8 ? "text-up" : "text-down",
+      icon: <Database className="w-4 h-4" />,
+    },
+    {
+      label: (t as any).dashFactorPipeline || "Factors",
+      value: gpRunning > 0 ? `${gpRunning} GP runs` : "Idle",
+      sub: pendingCandidates > 0 ? `${pendingCandidates} pending validation` : null,
+      color: gpRunning > 0 ? "text-up" : "text-muted-foreground",
+      icon: <Microscope className="w-4 h-4" />,
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {items.map((item) => (
+        <div key={item.label} className="section-card p-3 rounded-xl flex items-center gap-3">
+          <div className={cn("p-2 rounded-lg bg-muted/50", item.color)}>{item.icon}</div>
+          <div className="min-w-0">
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider">{item.label}</div>
+            <div className={cn("text-sm font-semibold tabular-nums", item.color)}>{item.value}</div>
+            {item.sub && <div className="text-[10px] text-muted-foreground/60">{item.sub}</div>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ── Market Card ───────────────────────────────────────────────────────

@@ -115,15 +115,19 @@ export default function NodePalette() {
 
   const visibleCategories = useMemo(() => {
     if (search) {
-      return Object.entries(grouped).filter(([, defs]) =>
-        defs.some((d) => {
-          const label = tNode(t, d.node_type, d.label);
-          const desc = tNodeDesc(t, d.node_type, d.description);
-          return label.toLowerCase().includes(search.toLowerCase()) ||
-                 desc.toLowerCase().includes(search.toLowerCase()) ||
-                 d.node_type.toLowerCase().includes(search.toLowerCase());
-        })
-      );
+      const q = search.toLowerCase();
+      return Object.entries(grouped)
+        .map(([cat, defs]) => [
+          cat,
+          defs.filter((d) => {
+            const label = tNode(t, d.node_type, d.label);
+            const desc = tNodeDesc(t, d.node_type, d.description);
+            return label.toLowerCase().includes(q) ||
+                   desc.toLowerCase().includes(q) ||
+                   d.node_type.toLowerCase().includes(q);
+          }),
+        ] as const)
+        .filter(([, defs]) => defs.length > 0);
     }
     const filtered = CATEGORY_ORDER.filter((cat) => grouped[cat]?.length);
     return filtered.map((cat) => [cat, grouped[cat]] as const);

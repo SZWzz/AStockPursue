@@ -48,12 +48,12 @@ function SourceBadge({ source, sourceLabel, className }: { source: string; sourc
 
 function FreshnessDot({ fresh }: { fresh: boolean | null }) {
   if (fresh === true) {
-    return <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" title="数据新鲜" />;
+    return <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block" title="Fresh data" />;
   }
   if (fresh === false) {
-    return <span className="h-2 w-2 rounded-full bg-amber-400 inline-block" title="数据过期" />;
+    return <span className="h-2 w-2 rounded-full bg-amber-400 inline-block" title="Stale data" />;
   }
-  return <span className="h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600 inline-block" title="无数据" />;
+  return <span className="h-2 w-2 rounded-full bg-gray-300 dark:bg-gray-600 inline-block" title="No data" />;
 }
 
 // ── Main page ──────────────────────────────────────────────────────────────

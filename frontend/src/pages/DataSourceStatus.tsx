@@ -4,11 +4,17 @@ import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import type { DataSourceLoaderStatus } from "@/types/api";
 
-const MARKET_LABELS: Record<string, string> = {
-  a_share: "A股", us_equity: "美股", hk_equity: "港股", crypto: "加密",
-  futures: "期货", fund: "基金", macro: "宏观", forex: "外汇",
-  index: "指数", commodity: "商品",
+const MARKET_I18N_KEYS: Record<string, string> = {
+  a_share: "wfEnum_equity_cn", us_equity: "wfEnum_equity_us", hk_equity: "wfEnum_equity_hk",
+  crypto: "wfEnum_crypto", futures: "wfEnum_CN_FUTURES", fund: "wfEnum_fund",
+  macro: "wfEnum_macro", forex: "wfEnum_FOREX", index: "wfEnum_index",
+  commodity: "wfEnum_commodity",
 };
+
+function marketLabel(t: Record<string, string>, market: string): string {
+  const key = MARKET_I18N_KEYS[market];
+  return key && (t as any)[key] ? (t as any)[key] : market;
+}
 
 const AUTH_SOURCE_NAMES = ["tushare", "twelvedata", "finnhub", "futu"];
 
@@ -116,7 +122,7 @@ export default function DataSourceStatus() {
             <div className="flex items-center gap-2 mb-3">
               <Database className="w-4 h-4 text-primary" />
               <h2 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
-                {MARKET_LABELS[market] || market}
+                {marketLabel(t, market)}
               </h2>
               <span className="text-xs text-muted-foreground">({loaders.length})</span>
             </div>

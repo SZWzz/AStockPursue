@@ -53,7 +53,7 @@ class ReflectionWorker:
                         correct += 1
                     else:
                         incorrect += 1
-            except Exception as exc:
+            except (ValueError, KeyError, TypeError, RuntimeError) as exc:
                 logger.warning("ReflectionWorker: validation failed for record %s: %s",
                                record.get("id"), exc)
 
@@ -106,7 +106,7 @@ class ReflectionWorker:
                 cutoff_str, self.batch_size,
             )
             return [dict(r) for r in rows]
-        except Exception as exc:
+        except (ValueError, KeyError, TypeError, RuntimeError, IOError) as exc:
             logger.warning("ReflectionWorker: fetch_unvalidated failed: %s", exc)
             return []
 
@@ -147,28 +147,68 @@ class ReflectionWorker:
 
             actual_return = (end_price - start_price) / start_price
 
-            # Judge correctness
+            # ── Two-tier judgment ──────────────────────────────────────────
+            # Tier 1: Binary direction correctness
+            # Tier 2: Magnitude-weighted quality score (0-100)
+
             was_correct = False
-            if decision == "bullish" and actual_return > 0.01:
-                was_correct = True
-            elif decision == "bearish" and actual_return < -0.01:
-                was_correct = True
-            elif decision == "neutral" and abs(actual_return) <= 0.02:
-                was_correct = True
-            # Partial: direction correct but magnitude small
-            elif decision == "bullish" and actual_return > 0:
-                was_correct = True
-            elif decision == "bearish" and actual_return < 0:
-                was_correct = True
+            magnitude_quality = 0.0  # 0-100
+
+            if decision == "bullish":
+                if actual_return > 0.01:
+                    was_correct = True
+                    # Quality scales with return magnitude (cap at 20%)
+                    magnitude_quality = min(100.0, actual_return / 0.20 * 100.0)
+                elif actual_return > 0:
+                    was_correct = True
+                    magnitude_quality = max(10.0, actual_return / 0.01 * 50.0)
+                elif actual_return > -0.01:
+                    magnitude_quality = 5.0  # Within noise range
+                else:
+                    magnitude_quality = 0.0   # Completely wrong direction
+
+            elif decision == "bearish":
+                if actual_return < -0.01:
+                    was_correct = True
+                    magnitude_quality = min(100.0, abs(actual_return) / 0.20 * 100.0)
+                elif actual_return < 0:
+                    was_correct = True
+                    magnitude_quality = max(10.0, abs(actual_return) / 0.01 * 50.0)
+                elif actual_return < 0.01:
+                    magnitude_quality = 5.0
+                else:
+                    magnitude_quality = 0.0
+
+            elif decision == "neutral":
+                if abs(actual_return) <= 0.02:
+                    was_correct = True
+                    # Quality: perfect neutrality = 100, borderline = 50
+                    magnitude_quality = max(50.0, 100.0 - abs(actual_return) / 0.02 * 50.0)
+                elif abs(actual_return) <= 0.05:
+                    magnitude_quality = max(20.0, 50.0 - abs(actual_return) / 0.05 * 50.0)
+
+            # Granular outcome label
+            if magnitude_quality >= 70:
+                outcome = "strongly_correct"
+            elif was_correct:
+                outcome = "correct"
+            elif magnitude_quality >= 10:
+                outcome = "partial"
+            elif magnitude_quality > 0:
+                outcome = "incorrect"
+            else:
+                outcome = "strongly_incorrect"
 
             return {
                 "was_correct": was_correct,
                 "actual_return_pct": round(actual_return, 6),
                 "start_price": round(start_price, 4),
                 "end_price": round(end_price, 4),
+                "magnitude_quality": round(magnitude_quality, 1),
+                "actual_outcome": outcome,
             }
 
-        except Exception as exc:
+        except (ValueError, KeyError, TypeError, IndexError, RuntimeError) as exc:
             logger.debug("ReflectionWorker: symbol %s validation error: %s", symbol, exc)
             return None
 
@@ -194,5 +234,5 @@ class ReflectionWorker:
                 "correct" if outcome.get("was_correct") else "incorrect",
                 record_id,
             )
-        except Exception as exc:
+        except (ValueError, KeyError, TypeError, RuntimeError, IOError) as exc:
             logger.warning("ReflectionWorker: update_record failed for id %s: %s", record_id, exc)

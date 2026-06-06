@@ -225,7 +225,7 @@ class WorkflowEngine:
                 await impl.on_validate(inputs, node.config)
             except ValueError:
                 raise
-            except Exception as e:
+            except (TypeError, AttributeError, KeyError, RuntimeError) as e:
                 logger.warning("Node %s on_init/validate warning: %s", nid, e)
 
             # CPU-bound nodes run in ProcessPoolExecutor to avoid blocking
@@ -242,7 +242,7 @@ class WorkflowEngine:
             # Cleanup (best-effort)
             try:
                 await impl.on_cleanup()
-            except Exception:
+            except (RuntimeError, TypeError, AttributeError, OSError):
                 pass
 
             # Build summary from outputs
@@ -268,7 +268,7 @@ class WorkflowEngine:
                 if impl is not None:
                     await impl.on_cancel()
                     await impl.on_cleanup()
-            except Exception:
+            except (RuntimeError, TypeError, AttributeError, OSError):
                 pass
             raise
 
@@ -281,7 +281,8 @@ class WorkflowEngine:
                 "error_message": f"Timeout after {timeout}s",
                 "retryable": True})
 
-        except Exception as e:
+        except (ValueError, TypeError, KeyError, RuntimeError, AttributeError, IndexError, ZeroDivisionError,
+                     asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
             logger.exception("Node %s failed", nid)
             self._node_status[nid] = NodeStatus.ERROR
             self._results[nid] = {"_error": str(e), "_summary": {}}
@@ -306,7 +307,7 @@ class WorkflowEngine:
                 self._progress.put_nowait({"event": event, "data": data})
             except asyncio.QueueFull:
                 pass  # Drop event if consumer is too slow
-            except Exception:
+            except (RuntimeError, TypeError, AttributeError):
                 pass
 
 

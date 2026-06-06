@@ -200,7 +200,7 @@ class StrategyEvolution:
             if result.status == EvolutionStatus.RUNNING:
                 result.status = EvolutionStatus.MAX_GENERATIONS
 
-        except Exception as exc:
+        except (ValueError, RuntimeError, MemoryError) as exc:
             logger.exception("Evolution failed")
             result.status = EvolutionStatus.ERROR
             result.error_message = str(exc)
@@ -291,7 +291,7 @@ class StrategyEvolution:
                     "_score": score,
                     "_metrics": bt_result.get("summary", {}),
                 })
-            except Exception as exc:
+            except (ValueError, TypeError, RuntimeError, KeyError) as exc:
                 logger.warning("Candidate evaluation failed: %s", exc)
                 results.append({
                     "_strategy": strategy,

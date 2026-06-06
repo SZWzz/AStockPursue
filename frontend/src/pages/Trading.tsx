@@ -222,7 +222,7 @@ export function Trading() {
                     <div className="flex items-center justify-between px-3 py-1.5 border-b shrink-0">
                       <div className="flex items-center gap-2">
                         <span className="text-[11px] text-muted-foreground">
-                          {news.length > 0 ? `${news.length} 条资讯` : "资讯"}
+                          {news.length > 0 ? `${news.length} ${t.tradingNews || "News"}` : (t.tradingNews || "News")}
                         </span>
                         {sseConnectedRef.current && (
                           <span className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400">
@@ -235,7 +235,7 @@ export function Trading() {
                         onClick={loadNews}
                         disabled={newsLoading}
                         className="p-1 rounded text-muted-foreground hover:text-primary hover:bg-primary/10 transition"
-                        title="刷新资讯"
+                        title={t.tradingRefreshKline || t.dashRefresh || "Refresh"}
                       >
                         <RefreshCw className={cn("h-3 w-3", newsLoading && "animate-spin")} />
                       </button>
@@ -269,8 +269,8 @@ export function Trading() {
                     <div className="text-center py-4 text-xs text-muted-foreground">加载中...</div>
                   ) : newsError && news.length === 0 ? (
                     <div className="text-center py-8 space-y-2">
-                      <div className="text-xs text-muted-foreground">加载失败或暂无资讯</div>
-                      <button onClick={loadNews} className="text-xs text-primary hover:underline">点击重试</button>
+                      <div className="text-xs text-muted-foreground">{t.tradingNoSymbol || t.noData || "No data"}</div>
+                      <button onClick={loadNews} className="text-xs text-primary hover:underline">{t.dashRefresh || "Retry"}</button>
                     </div>
                   ) : newsError ? (
                     <div className="text-center text-[10px] text-muted-foreground/60 py-2">
