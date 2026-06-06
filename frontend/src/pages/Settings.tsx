@@ -133,11 +133,11 @@ function SkillSection() {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted-foreground">{t.skillTotal.replace("{total}", String(skills.length)).replace("{enabled}", String(enabledCount))}</span>
-          <button onClick={saveSkills} disabled={savingSkills} className="btn-sm btn-primary">{savingSkills ? "保存中..." : "保存"}</button>
+          <button onClick={saveSkills} disabled={savingSkills} className="btn-sm btn-primary">{savingSkills ? t.llmSaving : t.llmSaveSettings}</button>
         </div>
       </div>
 
-      {skillsLoading ? <div className="text-sm text-muted-foreground">加载中...</div> : (
+      {skillsLoading ? <div className="text-sm text-muted-foreground">{t.loading}</div> : (
         <>
           {/* Built-in skills — collapsible */}
           <div className="border rounded-lg">
@@ -162,7 +162,7 @@ function SkillSection() {
                 <input ref={fileInputRef} type="file" accept=".zip" onChange={handleImport} className="hidden" />
                 <button onClick={() => fileInputRef.current?.click()} disabled={importing} className="btn-sm btn-secondary flex items-center gap-1 text-xs">
                   <Upload className="h-3 w-3" />
-                  {importing ? "导入中..." : (t.skillImportBtn || "导入")}
+                  {importing ? t.loading : (t.skillImportBtn || "导入")}
                 </button>
                 {userOpen ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
               </div>
@@ -400,9 +400,9 @@ export function Settings() {
         body: JSON.stringify({ old_password: oldPw, new_password: newPw }),
       });
       const data = await res.json();
-      if (res.ok) { setPwMsg("密码已更新，下次登录生效"); form.reset(); }
-      else setPwMsg(data.detail || "修改失败");
-    } catch { setPwMsg("网络错误"); }
+      if (res.ok) { setPwMsg(t.ptDeployFailed ? "Password updated" : "密码已更新，下次登录生效"); form.reset(); }
+      else setPwMsg(data.detail || (t.skillSaveFailed || "修改失败"));
+    } catch { setPwMsg(t.unknownError || "网络错误"); }
     finally { setChangingPw(false); }
   };
 
@@ -442,29 +442,29 @@ export function Settings() {
         <div className="h-7 w-7 rounded-lg bg-primary/10 flex items-center justify-center">
           <User className="h-4 w-4 text-primary" />
         </div>
-        <h2 className="text-base font-semibold">账户设置</h2>
+        <h2 className="text-base font-semibold">{t.loginTitle || "Account Settings"}</h2>
       </div>
       <form onSubmit={changeUsername} className="flex gap-3 items-end">
         <label className="grid gap-1.5 flex-1">
-          <span className="text-sm font-medium">用户名</span>
+          <span className="text-sm font-medium">{t.username}</span>
           <input name="new_username" required minLength={2} placeholder={((): string => { try { return JSON.parse(sessionStorage.getItem("vt_user") || "{}").username || ""; } catch { return ""; } })()} className="input" />
         </label>
         <button type="submit" disabled={changingUser} className="btn-sm btn-primary">
-          {changingUser ? "..." : "修改"}
+          {changingUser ? t.loading : t.wfSave}
         </button>
-        {userMsg && <span className={`text-xs ${userMsg.includes("失败") ? "text-danger" : "text-success"}`}>{userMsg}</span>}
+        {userMsg && <span className={`text-xs ${userMsg.includes("失败") || userMsg.includes("failed") ? "text-danger" : "text-success"}`}>{userMsg}</span>}
       </form>
       <form onSubmit={changePassword} className="flex gap-3 items-end">
         <label className="grid gap-1.5 flex-1">
-          <span className="text-sm font-medium">当前密码</span>
+          <span className="text-sm font-medium">{t.password}</span>
           <input name="old_password" type="password" required className="input" />
         </label>
         <label className="grid gap-1.5 flex-1">
-          <span className="text-sm font-medium">新密码</span>
+          <span className="text-sm font-medium">{t.password}</span>
           <input name="new_password" type="password" required minLength={4} className="input" />
         </label>
         <button type="submit" disabled={changingPw} className="btn-sm btn-primary">
-          {changingPw ? "..." : "修改"}
+          {changingPw ? t.loading : t.wfSave}
         </button>
         {pwMsg && <span className={`text-xs ${pwMsg.includes("失败") || pwMsg.includes("错误") ? "text-danger" : "text-success"}`}>{pwMsg}</span>}
       </form>
