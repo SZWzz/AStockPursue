@@ -831,6 +831,10 @@ const en = {
   tradingBroker: "Broker", tradingBrokerConnected: "Futu Connected",
   tradingBrokerDisconnected: "Futu Disconnected",
   tradingBrokerAccount: "Account", tradingBrokerPositions: "Positions",
+  tradingBrokerExchange: "Exchange", tradingBrokerApiKey: "API Key",
+  tradingBrokerSecretKey: "Secret Key", tradingBrokerPassphrase: "Passphrase",
+  tradingBrokerTestnet: "Testnet", tradingBrokerSaveCred: "Save Credentials",
+  tradingBrokerDeleteCred: "Delete", tradingBrokerTestConn: "Test Connection",
   tradingNotify: "Notify", tradingNotifyEnabled: "Enable Notifications",
   tradingNotifyChannel: "Add Channel", tradingNotifyTest: "Test",
   tradingOptimize: "Optimize", tradingOptimizeRun: "Run Optimize",
@@ -1262,8 +1266,19 @@ const en = {
   wfPort_value: "value",
   wfPort_zscore: "zscore",
   wfEnum_entry: "entry", wfEnum_exit: "exit",
+  wfEnum_binance: "Binance", wfEnum_CN_A: "CN A-Share", wfEnum_CN_FUTURES: "CN Futures",
+  wfEnum_CRYPTO: "Crypto", wfEnum_US_EQUITY: "US Equity", wfEnum_HK_EQUITY: "HK Equity",
+  wfEnum_FOREX: "Forex", wfEnum_connect_test: "Test Connection",
   wfNode_entry_signal: "Entry Signal", wfNode_entry_signal_desc: "Label a factor/cross DataFrame as an ENTRY trading signal",
   wfNode_exit_signal: "Exit Signal", wfNode_exit_signal_desc: "Label a factor/cross DataFrame as an EXIT trading signal",
+  // New Enhancement Plan nodes
+  wfNode_send_notification: "Send Notification", wfNode_send_notification_desc: "Push results to Telegram/Email/Webhook/Discord/Feishu — auto-formats from upstream backtest/order results",
+  wfNode_broker: "Broker Connect", wfNode_broker_desc: "Connect to exchange (Futu/Binance/OKX), query positions, balance, and test connection",
+  wfNode_experiment: "Experiment Pipeline", wfNode_experiment_desc: "Regime-aware strategy optimization: generate variants → batch backtest → score → rank → best",
+  wfNode_score: "Score Strategy", wfNode_score_desc: "Multi-factor strategy scoring: return, Sharpe, drawdown, win rate, stability → 0-100 + A-E grade",
+  wfNode_experiment_rank: "Rank & Select", wfNode_experiment_rank_desc: "Sort scored experiment candidates and select Top-N best performers",
+  wfNode_regime: "Market Regime", wfNode_regime_desc: "Detect market state from OHLCV: bull/bear/range/volatile, with strategy family recommendations",
+  wfNode_evolution: "Strategy Evolution", wfNode_evolution_desc: "Iteratively evolve strategy parameters: grid → local search → crossover → LLM refine → Walk-Forward",
 
   dashNavSection: "Navigation", dashWorkflowSection: "Workflow", dashAdvancedSection: "Advanced",
   dashNavResearchProjects: "Research Projects", dashNavResearchProjectsDetail: "Workflow pipelines",
@@ -2108,6 +2123,10 @@ const zh: Messages = {
   tradingBroker: "券商", tradingBrokerConnected: "富途已连接",
   tradingBrokerDisconnected: "富途未连接",
   tradingBrokerAccount: "账户", tradingBrokerPositions: "持仓",
+  tradingBrokerExchange: "交易所", tradingBrokerApiKey: "API 密钥",
+  tradingBrokerSecretKey: "密钥", tradingBrokerPassphrase: "密码短语",
+  tradingBrokerTestnet: "测试网", tradingBrokerSaveCred: "保存凭证",
+  tradingBrokerDeleteCred: "删除", tradingBrokerTestConn: "测试连接",
   tradingNotify: "通知", tradingNotifyEnabled: "启用通知",
   tradingNotifyChannel: "添加渠道", tradingNotifyTest: "测试",
   tradingOptimize: "优化", tradingOptimizeRun: "运行优化",
@@ -2537,8 +2556,19 @@ const zh: Messages = {
   wfPort_value: "数值",
   wfPort_zscore: "Z分数",
   wfEnum_entry: "入场", wfEnum_exit: "出场",
+  wfEnum_binance: "Binance", wfEnum_CN_A: "A股", wfEnum_CN_FUTURES: "中国期货",
+  wfEnum_CRYPTO: "加密货币", wfEnum_US_EQUITY: "美股", wfEnum_HK_EQUITY: "港股",
+  wfEnum_FOREX: "外汇", wfEnum_connect_test: "测试连接",
   wfNode_entry_signal: "入场信号", wfNode_entry_signal_desc: "将因子/交叉数据标记为入场信号",
   wfNode_exit_signal: "出场信号", wfNode_exit_signal_desc: "将因子/交叉数据标记为出场信号",
+  // 新增增强计划节点
+  wfNode_send_notification: "发送通知", wfNode_send_notification_desc: "将回测/订单结果推送到 Telegram/邮件/Webhook/Discord/飞书",
+  wfNode_broker: "券商连接", wfNode_broker_desc: "连接交易所（富途/Binance/OKX），查询持仓、余额，测试连接",
+  wfNode_experiment: "实验管线", wfNode_experiment_desc: "市场状态感知策略优化：生成变体→批量回测→评分→排名→最优",
+  wfNode_score: "策略评分", wfNode_score_desc: "多因子评分：收益、夏普、回撤、胜率、稳定性→0-100分+A-E等级",
+  wfNode_experiment_rank: "排名选择", wfNode_experiment_rank_desc: "对评分后的实验候选策略排序，选出Top-N最优",
+  wfNode_regime: "市场状态", wfNode_regime_desc: "从OHLCV检测市场状态：牛市/熊市/震荡/高波动，含策略族推荐",
+  wfNode_evolution: "策略进化", wfNode_evolution_desc: "迭代进化策略参数：网格→局部扰动→交叉→LLM精调→滚动窗口验证",
 
   dashNavSection: "导航", dashWorkflowSection: "工作流", dashAdvancedSection: "高级功能",
   dashNavResearchProjects: "研究项目", dashNavResearchProjectsDetail: "工作流流水线",
@@ -2552,20 +2582,67 @@ const zh: Messages = {
   dashNavScheduler: "定时任务", dashNavSchedulerDetail: "Cron调度",
 };
 
+// ── Japanese (ja) ──────────────────────────────────────────────────────────────
+const ja: Messages = {
+  ...en,
+  home: "ホーム", dashboard: "ダッシュボード", projects: "プロジェクト", agent: "エージェント",
+  runs: "実行", settings: "設定", alphaZoo: "Alpha Zoo",
+  docs: "ドキュメント", compare: "比較", dataSources: "データソース",
+  signIn: "サインイン", login: "ログイン", logout: "ログアウト",
+  paperTrading: "ペーパートレード",
+  ptTitle: "ペーパートレード", ptStart: "開始", ptPause: "一時停止", ptStop: "停止",
+  ptEquity: "資産", ptReturn: "収益率", ptPositions: "ポジション", ptTrades: "取引",
+  strategyLab: "戦略ラボ", screener: "スクリーナー",
+  factorMining: "ファクターマイニング", sentiment: "センチメント",
+  scheduler: "スケジューラー", attribution: "アトリビューション",
+  correlation: "相関行列", options: "オプション",
+  marketplace: "マーケットプレイス",
+  send: "送信", loading: "読み込み中...", cancel: "キャンセル",
+  darkMode: "ダーク", lightMode: "ライト", language: "言語",
+  trading: "取引", tradingBroker: "ブローカー",
+  dashTitle: "AStockPursue ダッシュボード",
+};
+
+// ── Korean (ko) ────────────────────────────────────────────────────────────────
+const ko: Messages = {
+  ...en,
+  home: "홈", dashboard: "대시보드", projects: "프로젝트", agent: "에이전트",
+  runs: "실행", settings: "설정", alphaZoo: "Alpha Zoo",
+  docs: "문서", compare: "비교", dataSources: "데이터 소스",
+  signIn: "로그인", login: "로그인", logout: "로그아웃",
+  paperTrading: "페이퍼 트레이딩",
+  ptTitle: "페이퍼 트레이딩", ptStart: "시작", ptPause: "일시정지", ptStop: "정지",
+  ptEquity: "자산", ptReturn: "수익률", ptPositions: "포지션", ptTrades: "거래",
+  strategyLab: "전략 랩", screener: "스크리너",
+  factorMining: "팩터 마이닝", sentiment: "감정",
+  scheduler: "스케줄러", attribution: "성과분석",
+  correlation: "상관관계", options: "옵션",
+  marketplace: "마켓플레이스",
+  send: "보내기", loading: "로딩 중...", cancel: "취소",
+  darkMode: "다크", lightMode: "라이트", language: "언어",
+  trading: "트레이딩", tradingBroker: "브로커",
+  dashTitle: "AStockPursue 대시보드",
+};
+
 type Messages = Record<keyof typeof en, string>;
-type Lang = "en" | "zh";
+type Lang = "en" | "zh" | "ja" | "ko";
 
 const STORAGE_KEY = "qa-lang";
 
 function detectLang(): Lang {
   const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "zh" || stored === "en") return stored;
+  if (stored === "zh" || stored === "en" || stored === "ja" || stored === "ko") return stored;
   if (navigator.language.startsWith("zh")) return "zh";
+  if (navigator.language.startsWith("ja")) return "ja";
+  if (navigator.language.startsWith("ko")) return "ko";
   return "en";
 }
 
 function getMessages(lang: Lang): Messages {
-  return lang === "zh" ? zh : en;
+  if (lang === "zh") return zh;
+  if (lang === "ja") return ja;
+  if (lang === "ko") return ko;
+  return en;
 }
 
 const I18nCtx = createContext<{

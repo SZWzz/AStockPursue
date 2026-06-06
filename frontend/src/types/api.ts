@@ -426,15 +426,35 @@ export interface CreateOrderRequest {
 
 export interface BrokerStatus {
   connected: boolean;
-  host: string;
-  port: number;
+  host?: string;
+  port?: number;
+  exchange?: string;
+  testnet?: boolean;
   error?: string;
 }
 
 export interface BrokerAccount {
   available: boolean;
   account?: Record<string, unknown>;
+  balance?: Record<string, unknown>;
   error?: string;
+}
+
+export interface BrokerInfo {
+  id: string;
+  label: string;
+  fields: string[];
+  note: string;
+}
+
+export interface BrokerCredential {
+  id: number;
+  exchange_id: string;
+  label: string;
+  testnet: boolean;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BrokerPosition {
@@ -450,13 +470,25 @@ export interface BrokerPosition {
 
 export interface NotifyConfig {
   enabled?: boolean;
+  levels?: string[];
+  rate_limit?: number;
   channels?: NotifyChannel[];
 }
 
 export interface NotifyChannel {
-  type: string;
-  target: string;
+  type: string;           // telegram | discord | feishu | webhook | email
+  target: string;         // URL, email address, or chat_id
   enabled: boolean;
+  // Telegram-specific
+  bot_token?: string;
+  chat_id?: string;
+  // Discord/Feishu-specific
+  webhook_url?: string;
+  // Email-specific
+  smtp_host?: string;
+  smtp_port?: number;
+  smtp_user?: string;
+  smtp_pass?: string;
 }
 
 export interface OptimizeRunRequest {

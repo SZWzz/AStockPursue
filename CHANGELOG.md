@@ -1,5 +1,29 @@
 # 更新日志
 
+## [2026.6.6] - 2026-06-06 (Enhancement Plan Phase 0-7)
+
+### 新增
+- **[Cache] Redis L0 缓存层** — 新增 `src/cache/` 模块（redis_client 连接池 + data_cache OHLCV 缓存），Redis 不可用时优雅降级
+- **[Notify] 多渠道通知** — Telegram Bot / Discord Webhook / Feishu 自定义机器人 + URL 方言自动检测。Alert 类扩展交易信号上下文字段
+- **[Notify] NotifyNode + RiskPipeline 内联通知** — 工作流通知节点 + 止损/止盈触发自动告警
+- **[Broker] 多券商扩展** — BaseBroker 抽象基类 + Binance/OKX 永续合约适配器（ccxt）+ BrokerNode 工作流节点 + CredentialStore 凭证加密
+- **[Experiment] 实验管线** — StrategyScorer（7 维 Sigmoid 评分 A-E 级）+ VariantGenerator（grid/random 搜索）+ ExperimentNode/ScoreNode/RankSelectNode 三节点闭环
+- **[Regime] 市场状态检测** — RegimeEngine（6 维特征规则型分类 + A 股特有状态）+ RegimeNode 工作流节点
+- **[Evolution] 策略进化引擎** — StrategyEvolution（Grid→Perturb→Crossover→LLM→WalkForward 5 代迭代 + OOS 过拟合检测 + 早停）
+- **[Reflection] AI 反思闭环** — ReflectionWorker（7 天后验证决策正确性）+ analysis_memory 表 + remember_analysis Agent 工具
+- **[i18n] 日语/韩语** — ja/ko 翻译 + 浏览器语言自动检测
+- **[DevOps] GitHub Actions** — docker-publish.yml（tag push → build → push ghcr.io）
+- **[Tests] 3 个新测试文件** — test_strategy_scorer / test_variant_generator / test_broker_factory（19 个测试用例）
+
+### 变更
+- **[DataStore] Redis L0** — get_ohlcv/get_multi_ohlcv 新增 Redis 优先查询 + 自动回写
+- **[Schema] 5 个新 PortType** — NOTIFY_CONFIG/ORDER_RESULT/REGIME_RESULT/EXPERIMENT_RESULT/SCORE_RESULT
+- **[NodeRegistry] 3 个新节点模块** — notify_nodes/experiment_nodes/regime_nodes
+- **[API] 4 个新路由端点** — notification test+list / experiment generate+score+detect-regime
+- **[docker-compose] Redis 服务** — redis:7-alpine, 256MB, ALLKEYS-LRU
+- **[requirements.txt] 新增 redis>=5.0.0**
+- **[NodePalette] 3 个新图标** — Plug, Activity, Award
+
 ## [2026.6.6] - 2026-06-06
 
 ### 新增

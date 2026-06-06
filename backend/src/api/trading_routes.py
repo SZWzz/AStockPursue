@@ -368,6 +368,256 @@ def _pandas_row_to_dict(row) -> dict:
 
 
 # ===================================================================
+# Multi-Broker (Futu / Binance / OKX) — credential management + queries
+# ===================================================================
+
+_AVAILABLE_BROKERS = [
+    {"id": "futu", "label": "Futu (富途)", "fields": ["host", "port"], "note": "Requires FutuOpenD running locally"},
+    {"id": "binance", "label": "Binance", "fields": ["api_key", "secret_key"], "note": "USDT-M perpetual futures. Supports testnet."},
+    {"id": "okx", "label": "OKX", "fields": ["api_key", "secret_key", "passphrase"], "note": "Perpetual swaps. Supports demo trading."},
+]
+
+
+@router.get("/broker/list")
+async def broker_list(user: dict = Depends(require_auth)):
+    """List available broker types with their required config fields."""
+    return {"brokers": _AVAILABLE_BROKERS}
+
+
+@router.get("/broker/credentials")
+async def broker_credentials_get(user: dict = Depends(require_auth)):
+    """Get saved broker credentials for the current user (keys masked)."""
+    from src.db.async_pool import async_get_connection
+
+    user_id = _get_user_id(user)
+    try:
+        async with async_get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """SELECT id, exchange_id, label, testnet, is_active, created_at, updated_at
+                   FROM broker_credentials WHERE user_id = %s ORDER BY exchange_id, label""",
+                (user_id,),
+            )
+            rows = cur.fetchall()
+            cur.close()
+            cols = ["id", "exchange_id", "label", "testnet", "is_active", "created_at", "updated_at"]
+            return {"credentials": [dict(zip(cols, r)) for r in rows]}
+    except Exception as e:
+        return {"credentials": [], "error": safe_error(e)}
+
+
+@router.post("/broker/credentials")
+async def broker_credentials_save(payload: dict, user: dict = Depends(require_auth)):
+    """Save or update broker credentials for an exchange.
+
+    Request body:
+        exchange_id: str — futu | binance | okx
+        label: str (optional) — user-defined label
+        api_key: str — API key
+        secret_key: str — secret key
+        passphrase: str (optional) — OKX passphrase
+        testnet: bool — use testnet/demo
+    """
+    from src.db.async_pool import async_get_connection
+    from src.trading.credential_store import encrypt_credential
+
+    user_id = _get_user_id(user)
+    exchange_id = payload.get("exchange_id", "")
+    if exchange_id not in [b["id"] for b in _AVAILABLE_BROKERS]:
+        raise HTTPException(400, f"Unknown exchange: {exchange_id}")
+
+    api_key = payload.get("api_key", "")
+    secret_key = payload.get("secret_key", "")
+    passphrase = payload.get("passphrase", "")
+    label = payload.get("label", "")
+    testnet = payload.get("testnet", True)
+
+    enc_api = encrypt_credential(api_key) if api_key else ""
+    enc_secret = encrypt_credential(secret_key) if secret_key else ""
+    enc_pass = encrypt_credential(passphrase) if passphrase else None
+
+    try:
+        async with async_get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """INSERT INTO broker_credentials (user_id, exchange_id, label, api_key_enc, secret_key_enc, passphrase_enc, testnet)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)
+                   ON CONFLICT (user_id, exchange_id, label)
+                   DO UPDATE SET api_key_enc=EXCLUDED.api_key_enc, secret_key_enc=EXCLUDED.secret_key_enc,
+                                 passphrase_enc=EXCLUDED.passphrase_enc, testnet=EXCLUDED.testnet, updated_at=NOW()""",
+                (user_id, exchange_id, label, enc_api, enc_secret, enc_pass, testnet),
+            )
+            cur.close()
+        return {"status": "ok", "exchange_id": exchange_id}
+    except Exception as e:
+        raise HTTPException(500, safe_error(e))
+
+
+@router.delete("/broker/credentials/{credential_id}")
+async def broker_credentials_delete(credential_id: int, user: dict = Depends(require_auth)):
+    """Delete saved broker credentials."""
+    from src.db.async_pool import async_get_connection
+
+    user_id = _get_user_id(user)
+    try:
+        async with async_get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                "DELETE FROM broker_credentials WHERE id = %s AND user_id = %s",
+                (credential_id, user_id),
+            )
+            cur.close()
+        return {"status": "ok"}
+    except Exception as e:
+        raise HTTPException(500, safe_error(e))
+
+
+@router.post("/broker/test")
+async def broker_test_connection(payload: dict, user: dict = Depends(require_auth)):
+    """Test connection to a broker exchange.
+
+    Request body:
+        exchange_id: str — futu | binance | okx
+        testnet: bool
+    """
+    from src.db.async_pool import async_get_connection
+    from src.trading.credential_store import decrypt_credential
+
+    exchange_id = payload.get("exchange_id", "")
+    testnet = payload.get("testnet", True)
+    user_id = _get_user_id(user)
+
+    try:
+        creds = {}
+        if exchange_id != "futu":
+            async with async_get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute(
+                    """SELECT api_key_enc, secret_key_enc, passphrase_enc
+                       FROM broker_credentials
+                       WHERE user_id = %s AND exchange_id = %s AND is_active = TRUE
+                       LIMIT 1""",
+                    (user_id, exchange_id),
+                )
+                rows = cur.fetchall()
+                cur.close()
+                if rows:
+                    api_enc, secret_enc, pass_enc = rows[0]
+                    creds["api_key"] = decrypt_credential(api_enc or "")
+                    creds["secret_key"] = decrypt_credential(secret_enc or "")
+                    if pass_enc:
+                        creds["passphrase"] = decrypt_credential(pass_enc)
+
+        if exchange_id == "futu":
+            ctx = _get_broker_ctx(user_id)
+            connected = ctx is not None
+            return {"connected": connected, "exchange": "futu",
+                    "error": None if connected else "futu package not installed or FutuOpenD not running"}
+
+        from src.trading.brokers import create_broker
+        broker = create_broker(exchange_id, {**creds, "testnet": testnet})
+        connected = await broker.test_connection()
+        if hasattr(broker, "close"):
+            await broker.close()
+        return {"connected": connected, "exchange": exchange_id, "testnet": testnet}
+
+    except Exception as e:
+        return {"connected": False, "exchange": exchange_id, "error": safe_error(e)}
+
+
+@router.get("/broker/{exchange_id}/positions")
+async def broker_positions_multi(exchange_id: str, user: dict = Depends(require_auth), testnet: bool = True):
+    """Get positions from a specific exchange (Binance/OKX)."""
+    from src.db.async_pool import async_get_connection
+    from src.trading.credential_store import decrypt_credential
+
+    if exchange_id == "futu":
+        return await broker_positions(user)
+
+    user_id = _get_user_id(user)
+    try:
+        async with async_get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """SELECT api_key_enc, secret_key_enc, passphrase_enc
+                   FROM broker_credentials
+                   WHERE user_id = %s AND exchange_id = %s AND is_active = TRUE
+                   LIMIT 1""",
+                (user_id, exchange_id),
+            )
+            rows = cur.fetchall()
+            cur.close()
+
+        if not rows:
+            return {"positions": [], "error": f"No credentials saved for {exchange_id}"}
+
+        api_enc, secret_enc, pass_enc = rows[0]
+        creds = {
+            "api_key": decrypt_credential(api_enc or ""),
+            "secret_key": decrypt_credential(secret_enc or ""),
+        }
+        passphrase = decrypt_credential(pass_enc or "")
+        if passphrase:
+            creds["passphrase"] = passphrase
+
+        from src.trading.brokers import create_broker
+        broker = create_broker(exchange_id, {**creds, "testnet": testnet})
+        positions = await broker.get_positions()
+        if hasattr(broker, "close"):
+            await broker.close()
+
+        return {"positions": [p.__dict__ if hasattr(p, "__dict__") else p for p in positions]}
+    except Exception as e:
+        return {"positions": [], "error": safe_error(e)}
+
+
+@router.get("/broker/{exchange_id}/balance")
+async def broker_balance_multi(exchange_id: str, user: dict = Depends(require_auth), testnet: bool = True):
+    """Get balance from a specific exchange (Binance/OKX)."""
+    from src.db.async_pool import async_get_connection
+    from src.trading.credential_store import decrypt_credential
+
+    if exchange_id == "futu":
+        return await broker_account(user)
+
+    user_id = _get_user_id(user)
+    try:
+        async with async_get_connection() as conn:
+            cur = conn.cursor()
+            cur.execute(
+                """SELECT api_key_enc, secret_key_enc, passphrase_enc
+                   FROM broker_credentials
+                   WHERE user_id = %s AND exchange_id = %s AND is_active = TRUE
+                   LIMIT 1""",
+                (user_id, exchange_id),
+            )
+            rows = cur.fetchall()
+            cur.close()
+
+        if not rows:
+            return {"balance": {}, "error": f"No credentials saved for {exchange_id}"}
+
+        api_enc, secret_enc, pass_enc = rows[0]
+        creds = {
+            "api_key": decrypt_credential(api_enc or ""),
+            "secret_key": decrypt_credential(secret_enc or ""),
+        }
+        passphrase = decrypt_credential(pass_enc or "")
+        if passphrase:
+            creds["passphrase"] = passphrase
+
+        from src.trading.brokers import create_broker
+        broker = create_broker(exchange_id, {**creds, "testnet": testnet})
+        bal = await broker.get_balance()
+        if hasattr(broker, "close"):
+            await broker.close()
+
+        return {"balance": bal.__dict__ if hasattr(bal, "__dict__") else bal}
+    except Exception as e:
+        return {"balance": {}, "error": safe_error(e)}
+
+
+# ===================================================================
 # Notify (per-user JSON config files)
 # ===================================================================
 

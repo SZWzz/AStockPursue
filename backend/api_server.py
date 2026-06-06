@@ -328,6 +328,12 @@ v1.include_router(marketplace_router, dependencies=[Depends(require_auth)])
 from src.api.options_routes import router as options_router  # noqa: E402
 v1.include_router(options_router, dependencies=[Depends(require_auth)])
 
+from src.api.notification_routes import router as notification_router  # noqa: E402
+v1.include_router(notification_router, dependencies=[Depends(require_auth)])
+
+from src.api.experiment_routes import router as experiment_router  # noqa: E402
+v1.include_router(experiment_router, dependencies=[Depends(require_auth)])
+
 from src.api.workflow_routes import router as workflow_router  # noqa: E402
 v1.include_router(workflow_router, dependencies=[Depends(require_auth)])
 

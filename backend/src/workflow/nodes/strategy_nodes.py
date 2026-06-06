@@ -1,4 +1,4 @@
-"""Strategy, Backtest, and adapter classes — the execution pipeline."""
+"""Strategy, Backtest, Evolution, and adapter classes — the execution pipeline."""
 
 from __future__ import annotations
 
@@ -302,3 +302,162 @@ class BacktestNode(BaseNode):
             "trades": trades_list,
             "equity_curve": equity_curve,
         }}
+
+
+@register_node
+class EvolutionNode(BaseNode):
+    """Strategy evolution node — iterative parameter optimisation.
+
+    Flow:
+      Gen 1: Grid search → backtest → score → Top-10
+      Gen 2: Local perturbation around Top-3 → merge
+      Gen 3: Crossover Top-3 parameters
+      Gen 4: LLM-assisted refinement (optional)
+      Gen 5: Walk-Forward validation → Pareto frontier
+
+    Inputs:
+      - strategy/PARAMS: Base strategy configuration
+      - ohlcv/DF_OHLCV: OHLCV data for backtesting
+      - regime/PARAMS (optional): Market regime context
+
+    Outputs:
+      - best_strategy/PARAMS: Best evolved strategy
+      - evolution_history/PARAMS: Per-generation results
+      - pareto_frontier/PARAMS: Top non-dominated candidates
+    """
+    node_type = "evolution"
+    category = "strategy"
+    label = "Strategy Evolution"
+    description = (
+        "Iteratively evolve strategy parameters: "
+        "grid → local search → crossover → LLM refine"
+    )
+    icon = "GitBranch"
+    resource_profile = "cpu_bound"
+
+    inputs = [
+        BaseNode.in_port("strategy", PortType.PARAMS,
+                         description="Base strategy configuration"),
+        BaseNode.in_port("ohlcv", PortType.DF_OHLCV,
+                         description="OHLCV data for backtesting"),
+        BaseNode.in_port("regime", PortType.PARAMS, required=False,
+                         description="Market regime context"),
+    ]
+    outputs = [
+        BaseNode.out_port("best_strategy", PortType.PARAMS,
+                          description="Best evolved strategy"),
+        BaseNode.out_port("evolution_history", PortType.PARAMS,
+                          description="Per-generation results"),
+        BaseNode.out_port("pareto_frontier", PortType.PARAMS,
+                          description="Top non-dominated candidates"),
+    ]
+    config_schema = {
+        "n_generations": {
+            "title": "Generations",
+            "type": "integer",
+            "default": 5,
+            "minimum": 2,
+            "maximum": 20,
+        },
+        "population_size": {
+            "title": "Population Size",
+            "type": "integer",
+            "default": 24,
+            "minimum": 8,
+            "maximum": 200,
+        },
+        "enable_llm_refine": {
+            "title": "LLM Refine (Gen 4)",
+            "type": "boolean",
+            "default": False,
+        },
+        "oos_split": {
+            "title": "OOS Split Ratio",
+            "type": "number",
+            "default": 0.3,
+            "minimum": 0.1,
+            "maximum": 0.5,
+        },
+        "early_stop_no_improve": {
+            "title": "Early Stop (generations)",
+            "type": "integer",
+            "default": 2,
+            "minimum": 1,
+            "maximum": 5,
+        },
+        "parameter_space": {
+            "title": "Parameter Space (JSON)",
+            "type": "string",
+            "default": '{"top_n": [3,5,10,20], "momentum_window": [10,20,30,60]}',
+            "description": "JSON: key → [value1, value2, ...]",
+        },
+    }
+
+    async def execute(self, inputs: dict, config: dict) -> dict:
+        import json
+
+        base_strategy = inputs.get("strategy", {})
+        if not isinstance(base_strategy, dict):
+            base_strategy = {}
+
+        # Parse parameter space
+        param_space_raw = config.get("parameter_space", "{}")
+        try:
+            parameter_space = json.loads(param_space_raw) if isinstance(param_space_raw, str) else param_space_raw
+        except json.JSONDecodeError:
+            return {
+                "best_strategy": {"error": "Invalid parameter_space JSON"},
+                "evolution_history": {"error": "Invalid parameter_space JSON"},
+                "pareto_frontier": {"error": "Invalid parameter_space JSON"},
+            }
+
+        # Placeholder backtest and score functions
+        # In production, these would run actual backtests
+        def backtest_fn(s: dict) -> dict:
+            return {"summary": {"sharpe": 0.5, "total_return": 0.1, "max_drawdown": -0.15, "win_rate": 0.45, "trade_count": 20}}
+
+        def score_fn(bt: dict) -> float:
+            s = bt.get("summary", {})
+            return float(s.get("sharpe", 0) or 0) * 50 + float(s.get("total_return", 0) or 0) * 50
+
+        try:
+            from src.optimize.evolution import StrategyEvolution
+
+            evolution = StrategyEvolution(
+                backtest_fn=backtest_fn,
+                score_fn=score_fn,
+                parameter_space=parameter_space,
+                n_generations=int(config.get("n_generations", 5)),
+                population_size=int(config.get("population_size", 24)),
+                oos_split=float(config.get("oos_split", 0.3)),
+                early_stop_generations=int(config.get("early_stop_no_improve", 2)),
+                enable_llm_refine=config.get("enable_llm_refine", False),
+            )
+
+            result = evolution.run(base_strategy)
+
+            history = []
+            for gen in result.generations:
+                history.append({
+                    "generation": gen.generation,
+                    "best_score": gen.best_score,
+                    "mean_score": gen.mean_score,
+                    "num_candidates": len(gen.candidates),
+                })
+
+            return {
+                "best_strategy": result.best_overall.get("_strategy", {}) if result.best_overall else {},
+                "evolution_history": {
+                    "generations": history,
+                    "status": result.status.value,
+                    "total_evaluated": result.total_candidates_evaluated,
+                },
+                "pareto_frontier": result.pareto_frontier[:5],
+            }
+        except Exception as e:
+            logger.exception("Evolution failed")
+            return {
+                "best_strategy": {"error": str(e)},
+                "evolution_history": {"error": str(e)},
+                "pareto_frontier": {"error": str(e)},
+            }

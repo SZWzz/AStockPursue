@@ -57,6 +57,12 @@ class PortType(str, Enum):
     SENTIMENT = "sentiment"                         # NewsSentimentNode output
     COMPARISON_RESULT = "comparison_result"         # ComparisonNode output
 
+    NOTIFY_CONFIG = "notify_config"                 # Notification config dict
+    ORDER_RESULT = "order_result"                   # Order execution result dict
+    REGIME_RESULT = "regime_result"                 # Market regime detection dict
+    EXPERIMENT_RESULT = "experiment_result"         # Experiment output dict
+    SCORE_RESULT = "score_result"                   # Strategy scoring result dict
+
     ANY = "any"                        # Wildcard — accepts anything
 
 

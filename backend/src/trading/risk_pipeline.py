@@ -44,9 +44,16 @@ class RiskPipeline:
       1. stop-loss
       2. trailing-stop
       3. take-profit
+
+    Optionally integrates with NotifyEngine for inline risk alerts.
     """
 
-    def __init__(self, config: RiskConfig, initial_capital: float) -> None:
+    def __init__(
+        self,
+        config: RiskConfig,
+        initial_capital: float,
+        notify: object | None = None,
+    ) -> None:
         self._stop_loss_pct = -abs(config.stop_loss_pct) / 100.0
         self._take_profit_pct = abs(config.take_profit_pct) / 100.0
         self._trailing_stop_pct = abs(config.trailing_stop_pct) / 100.0 if config.trailing_stop_pct > 0 else 0.0
@@ -63,6 +70,7 @@ class RiskPipeline:
         self._trailing_highs: dict[str, float] = {}
         self._daily_pnl: float = 0.0
         self._daily_date: str = ""
+        self._notify = notify  # Optional NotifyEngine for inline alerts
 
     # ── Position checks ─────────────────────────────────────────────
 

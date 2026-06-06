@@ -1,13 +1,14 @@
-"""Unified DataStore — one API for cache → Parquet → API fallback.
+"""Unified DataStore — one API for Redis → cache → Parquet → API fallback.
 
 The DataStore is the single entry point for all OHLCV data requests.
 It automatically walks the data hierarchy::
 
-    1. PG cache (hot, per-bar SQL rows)
-    2. Parquet store (cold, per-code/per-interval files)
-    3. API loaders (external, via registry fallback chain)
+    0. Redis cache (L0, <1ms, in-memory)
+    1. PG cache (L1, hot, per-bar SQL rows)
+    2. Parquet store (L2, cold, per-code/per-interval files)
+    3. API loaders (L3, external, via registry fallback chain)
 
-All successful API fetches are automatically written back to both
+All successful API fetches are automatically written back to Redis,
 PG cache and Parquet store for future reuse.
 
 Usage::
@@ -49,7 +50,7 @@ class DataStore:
         force_refresh: bool = False,
         cache_max_age_hours: int = 24,
     ) -> pd.DataFrame | None:
-        """Fetch OHLCV data, walking cache → store → API.
+        """Fetch OHLCV data, walking Redis → cache → store → API.
 
         Args:
             code: Stock symbol (e.g. ``AAPL.US``, ``600519.SH``).
@@ -64,11 +65,18 @@ class DataStore:
         Returns:
             DataFrame or ``None`` if all sources fail.
         """
-        # 1. PG cache (skip if force_refresh)
+        # 0. Redis L0 cache (skip if force_refresh)
         if not force_refresh:
+            df = self._try_redis(code, interval, start_date, end_date, source)
+            if df is not None:
+                self._stats["cache_hits"] += 1
+                return df
+
+            # 1. PG cache
             df = self._try_cache(code, interval, start_date, end_date, cache_max_age_hours)
             if df is not None:
                 self._stats["cache_hits"] += 1
+                self._write_redis(code, interval, start_date, end_date, source, df)
                 return df
 
             # 2. Parquet store
@@ -76,12 +84,14 @@ class DataStore:
             if df is not None:
                 self._stats["store_hits"] += 1
                 self._write_cache(code, interval, df)
+                self._write_redis(code, interval, start_date, end_date, source, df)
                 return df
 
         # 3. API loaders
         df = self._try_api(code, start_date, end_date, interval, source)
         if df is not None:
             self._stats["api_fetches"] += 1
+            self._write_redis(code, interval, start_date, end_date, source, df)
             self._write_cache(code, interval, df)
             self._write_store(code, interval, df)
         return df
@@ -111,15 +121,21 @@ class DataStore:
             uncached = list(codes)
         else:
             for code in codes:
-                df = self._try_cache(code, interval, start_date, end_date, cache_max_age_hours)
+                # 0. Redis L0
+                df = self._try_redis(code, interval, start_date, end_date, source)
+                if df is None:
+                    df = self._try_cache(code, interval, start_date, end_date, cache_max_age_hours)
                 if df is None:
                     df = self._try_store(code, interval, start_date, end_date)
                     if df is not None:
                         self._stats["store_hits"] += 1
                         self._write_cache(code, interval, df)
+                        self._write_redis(code, interval, start_date, end_date, source, df)
                 if df is not None:
                     self._stats["cache_hits"] += 1
                     result[code] = df
+                    if code not in result:
+                        self._write_redis(code, interval, start_date, end_date, source, df)
                 else:
                     uncached.append(code)
 
@@ -153,6 +169,67 @@ class DataStore:
         anything — just ensures data is ready.
         """
         self.get_multi_ohlcv(codes, start_date, end_date, interval, source)
+
+    # ── Redis L0 helpers ────────────────────────────────────────────────────
+
+    def _try_redis(
+        self, code: str, interval: str, start: str, end: str, source: str,
+    ) -> pd.DataFrame | None:
+        """Attempt to load OHLCV data from Redis L0 cache.
+
+        Uses the market derived from *source* as part of the cache key.
+        Gracefully degrades — any failure returns None so the caller
+        falls through to the next tier.
+        """
+        try:
+            import asyncio
+            from backtest.engines._market_hooks import _detect_market
+            market = _detect_market(code) if source == "auto" else source
+        except Exception:
+            market = source
+
+        try:
+            from src.cache.data_cache import cached_bars
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                future = asyncio.run_coroutine_threadsafe(
+                    cached_bars(market, code, interval, start, end), loop,
+                )
+                return future.result(timeout=5)
+            else:
+                return asyncio.run(cached_bars(market, code, interval, start, end))
+        except Exception:
+            return None
+
+    def _write_redis(
+        self, code: str, interval: str, start: str, end: str,
+        source: str, df: pd.DataFrame,
+    ) -> None:
+        """Write fetched OHLCV data back to Redis L0 cache.
+
+        Called automatically after every successful fetch.  Failures are
+        silently ignored so Redis unavailability never blocks the pipeline.
+        """
+        try:
+            from backtest.engines._market_hooks import _detect_market
+            market = _detect_market(code) if source == "auto" else source
+        except Exception:
+            market = source
+
+        try:
+            import asyncio
+            from src.cache.data_cache import cache_bars
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                asyncio.run_coroutine_threadsafe(
+                    cache_bars(market, code, interval, start, end, df.copy()), loop,
+                )
+            else:
+                asyncio.run(cache_bars(market, code, interval, start, end, df.copy()))
+        except Exception:
+            pass
 
     # ── Stats ──────────────────────────────────────────────────────────────
 

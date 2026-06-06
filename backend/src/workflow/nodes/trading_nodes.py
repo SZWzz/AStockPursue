@@ -1,4 +1,4 @@
-"""Trading execution nodes — Order placement and fundamentals data fetching."""
+"""Trading execution nodes — Broker connection, order placement, fundamentals."""
 
 from __future__ import annotations
 
@@ -12,6 +12,137 @@ from src.workflow.node_registry import register_node
 from src.workflow.schema import NodePort, PortType
 
 logger = logging.getLogger(__name__)
+
+
+@register_node
+class BrokerNode(BaseNode):
+    """Broker connection node — manages exchange connections and account queries.
+
+    Distinct from OrderNode:
+      - BrokerNode: manages connections, queries positions/balance
+      - OrderNode:  sends specific trading instructions
+
+    Input ports:
+      - codes/STOCK_LIST (optional): Symbols to query positions for
+
+    Output ports:
+      - positions/PARAMS: Position list
+      - balance/PARAMS:   Account balance
+      - status/PARAMS:     Connection status
+    """
+    node_type = "broker"
+    category = "deploy"
+    label = "Broker Connect"
+    description = "Connect to exchange/broker, query positions and balance"
+    icon = "Plug"
+    resource_profile = "io_bound"
+
+    inputs = [
+        BaseNode.in_port("codes", PortType.STOCK_LIST, required=False,
+                         description="Symbols to query positions for"),
+    ]
+    outputs = [
+        BaseNode.out_port("positions", PortType.PARAMS,
+                          description="Position list with P&L"),
+        BaseNode.out_port("balance", PortType.PARAMS,
+                          description="Account balance"),
+        BaseNode.out_port("status", PortType.PARAMS,
+                          description="Connection status"),
+    ]
+    config_schema = {
+        "exchange": {
+            "title": "Exchange",
+            "type": "string",
+            "enum": ["futu", "binance", "okx"],
+            "default": "binance",
+        },
+        "testnet": {
+            "title": "Testnet",
+            "type": "boolean",
+            "default": True,
+        },
+        "action": {
+            "title": "Action",
+            "type": "string",
+            "enum": ["positions", "balance", "connect_test"],
+            "default": "positions",
+        },
+    }
+
+    async def execute(self, inputs: dict, config: dict) -> dict:
+        exchange = config.get("exchange", "binance")
+        action = config.get("action", "positions")
+        testnet = config.get("testnet", True)
+
+        try:
+            from src.trading.brokers import create_broker
+            broker = create_broker(exchange, {"testnet": testnet})
+        except ValueError as e:
+            return {
+                "positions": {"error": str(e)},
+                "balance": {"error": str(e)},
+                "status": {"connected": False, "error": str(e)},
+            }
+
+        positions_result = {}
+        balance_result = {}
+        status_result = {"exchange": exchange, "testnet": testnet}
+
+        # Connection test
+        try:
+            connected = await broker.test_connection()
+            status_result["connected"] = connected
+        except Exception as e:
+            status_result["connected"] = False
+            status_result["error"] = str(e)
+
+        if action in ("positions",):
+            try:
+                codes = inputs.get("codes", [])
+                if isinstance(codes, pd.DataFrame):
+                    codes = list(codes.columns) if len(codes.columns) < 100 else list(codes.index)
+                if isinstance(codes, list) and len(codes) == 1:
+                    pos = await broker.get_position(str(codes[0]))
+                    positions_result = {"positions": [pos.__dict__] if pos else []}
+                elif isinstance(codes, list) and len(codes) > 1:
+                    all_positions = await broker.get_positions()
+                    code_set = set(str(c) for c in codes)
+                    positions_result = {
+                        "positions": [p.__dict__ for p in all_positions if p.symbol in code_set],
+                    }
+                else:
+                    all_positions = await broker.get_positions()
+                    positions_result = {"positions": [p.__dict__ for p in all_positions]}
+            except Exception as e:
+                positions_result = {"error": str(e)}
+
+        if action in ("balance",):
+            try:
+                bal = await broker.get_balance()
+                balance_result = {
+                    "total": bal.total,
+                    "available": bal.available,
+                    "frozen": bal.frozen,
+                    "currency": bal.currency,
+                }
+            except Exception as e:
+                balance_result = {"error": str(e)}
+
+        # Clean up broker resources
+        if hasattr(broker, "close"):
+            try:
+                await broker.close()
+            except Exception:
+                pass
+
+        return {
+            "positions": positions_result,
+            "balance": balance_result,
+            "status": status_result,
+        }
+
+
+@register_node
 
 
 @register_node

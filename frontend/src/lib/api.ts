@@ -13,6 +13,8 @@ import type {
   ArtifactInfo,
   BacktestMetrics,
   BrokerAccount,
+  BrokerCredential,
+  BrokerInfo,
   BrokerStatus,
   CreateOrderRequest,
   DataSourceLoaderStatus,
@@ -67,6 +69,8 @@ export type {
   ArtifactInfo,
   BacktestMetrics,
   BrokerAccount,
+  BrokerCredential,
+  BrokerInfo,
   BrokerStatus,
   CreateOrderRequest,
   DataSourceSettings,
@@ -341,6 +345,18 @@ export const api = {
   getBrokerStatus: () => request<BrokerStatus>("/trading/broker/status"),
   getBrokerAccount: () => request<BrokerAccount>("/trading/broker/account"),
   getBrokerPositions: () => request<{ positions: Record<string, unknown>[]; error?: string }>("/trading/broker/positions"),
+  // Multi-Broker
+  getBrokerList: () => request<{ brokers: BrokerInfo[] }>("/trading/broker/list"),
+  getBrokerCredentials: () => request<{ credentials: BrokerCredential[]; error?: string }>("/trading/broker/credentials"),
+  saveBrokerCredential: (body: { exchange_id: string; label?: string; api_key?: string; secret_key?: string; passphrase?: string; testnet?: boolean }) =>
+    request<{ status: string; exchange_id: string }>("/trading/broker/credentials", { method: "POST", body: JSON.stringify(body) }),
+  deleteBrokerCredential: (id: number) => request<{ status: string }>(`/trading/broker/credentials/${id}`, { method: "DELETE" }),
+  testBrokerConnection: (body: { exchange_id: string; testnet?: boolean }) =>
+    request<BrokerStatus>("/trading/broker/test", { method: "POST", body: JSON.stringify(body) }),
+  getBrokerPositionsMulti: (exchangeId: string, testnet?: boolean) =>
+    request<{ positions: Record<string, unknown>[]; error?: string }>(`/trading/broker/${exchangeId}/positions${testnet !== undefined ? `?testnet=${testnet}` : ""}`),
+  getBrokerBalanceMulti: (exchangeId: string, testnet?: boolean) =>
+    request<{ balance: Record<string, unknown>; error?: string }>(`/trading/broker/${exchangeId}/balance${testnet !== undefined ? `?testnet=${testnet}` : ""}`),
 
   // Notify
   getNotifyConfig: () => request<NotifyConfig>("/trading/notify/config"),

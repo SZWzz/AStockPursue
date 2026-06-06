@@ -11,6 +11,7 @@ import {
   Target, BarChart3, Layers, Database, Microscope, PieChart, Filter,
   TrendingUp, MessageSquare, Bot, GitBranch, FlaskConical, GitCompare,
   Newspaper, Globe, Send, FileText, CircleDollarSign, Bell, Download,
+  Plug, Activity, Award,
 } from "lucide-react";
 
 // ── Category labels (English fallback, overridden by i18n wfCat_* keys) ──────
@@ -55,6 +56,7 @@ const ICON_MAP: Record<string, React.ComponentType<any>> = {
   Target, BarChart3, Layers, Database, Microscope, PieChart, Filter,
   TrendingUp, MessageSquare, Bot, GitBranch, FlaskConical, GitCompare,
   Newspaper, Globe, Send, FileText, CircleDollarSign, Bell, Download,
+  Plug, Activity, Award,
 };
 
 function NodeIcon({ name, className }: { name?: string; className?: string }) {

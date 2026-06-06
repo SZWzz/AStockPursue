@@ -9,6 +9,8 @@ services:
     environment:
       ASTOCKPURSUE_TRUST_DOCKER_LOOPBACK: 1
       ASTOCKPURSUE_ALLOWED_RUN_ROOTS: "/opt/data,/root/.AStockPursue/workspace"
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
@@ -67,11 +69,29 @@ services:
     profiles:
       - pg
 
+  # Redis L0 cache — optional, graceful degradation if unavailable
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      - "${REDIS_PORT:-127.0.0.1:6379}:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - vt-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
 volumes:
   astockpursue-runs:
   astockpursue-sessions:
   astockpursue-skills:
   pg-data:
+  redis-data:
 
 networks:
   vt-net:
