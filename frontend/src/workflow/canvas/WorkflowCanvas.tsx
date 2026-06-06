@@ -209,7 +209,6 @@ function CanvasInner() {
     <RunSummaryPanel />
     </>
   );
-  </>);
 }
 
 // ── Exported component (wraps in ReactFlowProvider) ──────────────────────────
