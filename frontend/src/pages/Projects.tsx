@@ -187,24 +187,28 @@ export default function Projects() {
             )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {templates.map((t: any) => (
-              <div key={t.id} className="flex items-start justify-between p-3 rounded-lg border bg-muted/30 hover:border-primary/50 transition-colors">
+            {templates.map((tpl: any) => {
+              const tplName = (t as any)[`tpl_${tpl.id}`] || tpl.name;
+              const tplDesc = (t as any)[`tpl_${tpl.id}_desc`] || tpl.description;
+              return (
+              <div key={tpl.id} className="flex items-start justify-between p-3 rounded-lg border bg-muted/30 hover:border-primary/50 transition-colors">
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-medium">{t.name}</h4>
-                  <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{t.description}</p>
+                  <h4 className="text-sm font-medium">{tplName}</h4>
+                  <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{tplDesc}</p>
                   <span className="text-[10px] text-muted-foreground mt-1 block">
-                    {t.node_count} {(t as any).projNodes} · {t.category}
+                    {tpl.node_count} {(t as any).projNodes} · {tpl.category}
                   </span>
                 </div>
                 <button
-                  onClick={() => instantiateTemplate(t.id, t.name)}
+                  onClick={() => instantiateTemplate(tpl.id, tpl.name)}
                   className="btn btn-primary btn-sm ml-3 shrink-0"
                 >
                   <Copy className="h-3 w-3" />
                   {(t as any).projUse}
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
