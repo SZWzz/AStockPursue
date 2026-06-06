@@ -135,8 +135,9 @@ function InlineParams({
     return (t as any)[`wfParam_${titleKey}`] || field.title || key;
   };
 
+  // Show all config_schema fields inline on the card — no click-to-edit needed
   const inlineFields = Object.entries(schema).filter(
-    ([, field]) => (field as any).inline === true
+    ([, field]) => (field as any).type !== undefined
   );
   if (inlineFields.length === 0) return null;
 
@@ -235,7 +236,7 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
   return (
     <div
       className={cn(
-        "rounded-lg border-2 bg-card shadow-sm min-w-[170px] max-w-[280px] transition-colors",
+        "rounded-lg border-2 bg-card shadow-sm min-w-[180px] max-w-[320px] transition-colors",
         selected && "border-primary ring-2 ring-primary/20",
         STATUS_STYLES[status] || STATUS_STYLES.pending
       )}
