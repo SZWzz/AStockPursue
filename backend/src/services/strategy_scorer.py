@@ -70,28 +70,33 @@ class StrategyScorer:
 
         # ── Per-dimension scoring (0-100) ──────────────────────────────────
 
-        # Total return: score as percentile-like sigmoid
-        cmp_total = _sigmoid_score(total_return, center=0.10, scale=5.0)
+        # Total return: sigmoid centered at 15% annual return
+        cmp_total = _sigmoid_score(total_return, center=0.15, scale=0.35)
 
-        # Annual return
-        cmp_annual = _sigmoid_score(annual_return, center=0.08, scale=6.0)
+        # Annual return: sigmoid centered at 10%
+        cmp_annual = _sigmoid_score(annual_return, center=0.10, scale=0.30)
 
-        # Sharpe: 0→30, 1→60, 2→85, 3+→95
-        cmp_sharpe = _sigmoid_score(sharpe, center=1.0, scale=1.5)
+        # Sharpe: 0→35, 1→60, 2→85, 3+→95
+        cmp_sharpe = _sigmoid_score(sharpe, center=1.0, scale=0.80)
 
-        # Max drawdown (negative): -5%→90, -10%→75, -20%→50, -30%→25
-        cmp_drawdown = _sigmoid_score(-max_dd * 100, center=10.0, scale=8.0)
+        # Max drawdown: INVERTED — lower drawdown → higher score
+        # 0%→95, 5%→80, 10%→50, 20%→20, 30%+→5
+        if max_dd < 0:
+            dd_pct = abs(max_dd) * 100  # e.g. -0.05 → 5.0
+            cmp_drawdown = 100.0 - _sigmoid_score(dd_pct, center=10.0, scale=6.0)
+        else:
+            cmp_drawdown = 95.0  # No drawdown → near-perfect
 
-        # Win rate: 40%→50, 50%→70, 60%→85
-        cmp_winrate = _sigmoid_score(win_rate * 100, center=50.0, scale=15.0)
+        # Win rate: 40%→40, 50%→60, 60%→80, 70%+→90
+        cmp_winrate = _sigmoid_score(win_rate * 100, center=50.0, scale=12.0)
 
         # Profit factor: 1→50, 1.5→75, 2→90
-        cmp_profit = _sigmoid_score(profit_factor, center=1.2, scale=0.6)
+        cmp_profit = _sigmoid_score(profit_factor, center=1.2, scale=0.50)
 
         # Equity stability: R² of linear fit to equity curve
         equity_curve = backtest_result.get("equity_curve", [])
         r2 = _equity_r2(equity_curve)
-        cmp_stability = _sigmoid_score(r2, center=0.85, scale=0.1)
+        cmp_stability = _sigmoid_score(r2, center=0.85, scale=0.12)
 
         components = {
             "total_return":     min(100, max(0, cmp_total)),

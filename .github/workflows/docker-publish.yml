@@ -26,11 +26,18 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set lowercase repo name
+        id: repo
+        run: |
+          REPO="${{ github.repository }}"
+          echo "image=ghcr.io/${REPO,,}" >> $GITHUB_OUTPUT
+          echo "frontend=ghcr.io/${REPO,,}-frontend" >> $GITHUB_OUTPUT
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}
+          images: ${{ steps.repo.outputs.image }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
@@ -52,7 +59,7 @@ jobs:
         with:
           context: ./frontend
           push: true
-          tags: ghcr.io/${{ github.repository }}-frontend:${{ github.ref_name }}
+          tags: ${{ steps.repo.outputs.frontend }}:${{ github.ref_name }}
           labels: |
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha
