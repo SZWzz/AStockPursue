@@ -1,16 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
+/**
+ * OLED terminal is always dark. This hook exists for backward compatibility
+ * — components that call useDarkMode() will always receive dark=true.
+ * The toggle is a no-op (can be restored if light mode is re-added later).
+ */
 export function useDarkMode() {
-  const [dark, setDark] = useState(() => {
-    const saved = localStorage.getItem("qa-theme");
-    if (saved) return saved === "dark";
-    return window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
-
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-    localStorage.setItem("qa-theme", dark ? "dark" : "light");
-  }, [dark]);
+    document.documentElement.classList.add("dark");
+  }, []);
 
-  return { dark, toggle: () => setDark((d) => !d) };
+  return {
+    dark: true as const,
+    toggle: () => {
+      // No-op: OLED terminal is always dark
+    },
+  };
 }

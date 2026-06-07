@@ -26,40 +26,61 @@ let _cacheKey = "";
 
 function buildTheme() {
   const cn = isChinese();
-  const isDark = document.documentElement.classList.contains("dark");
 
-  const successHex = hslToHex(css("--success")) || "#22c55e";
-  const dangerHex = hslToHex(css("--danger")) || "#ef4444";
-  const infoHex = hslToHex(css("--info")) || "#3b82f6";
-  const warningHex = hslToHex(css("--warning")) || "#f59e0b";
-  const gridHex = hslToHex(css("--chart-grid")) || (isDark ? "#1f2937" : "#e5e7eb");
-  const textHex = hslToHex(css("--chart-text")) || "#6b7280";
-  const axisHex = hslToHex(css("--chart-axis")) || (isDark ? "#374151" : "#9ca3af");
+  // OLED dark chart colors — always dark, no light mode
+  const gridHex = hslToHex(css("--chart-grid")) || "#1E293B";
+  const textHex = hslToHex(css("--chart-text")) || "#94A3B8";
+  const axisHex = hslToHex(css("--chart-axis")) || "#272F42";
+  const successHex = hslToHex(css("--success")) || "#22C55E";
+  const dangerHex = hslToHex(css("--danger")) || "#EF4444";
+  const infoHex = hslToHex(css("--info")) || "#3B82F6";
+  const warningHex = hslToHex(css("--warning")) || "#F59E0B";
+  const primaryHex = hslToHex(css("--primary")) || "#FB923C";
 
-  // Locale-aware candlestick colors: China = red up / green down
+  // Locale-aware candlestick colors
   const upHex = cn ? dangerHex : successHex;
   const downHex = cn ? successHex : dangerHex;
 
   return {
+    // ECharts background
+    backgroundColor: "#020617",
+
+    // Grid & axes
     gridColor: gridHex,
     textColor: textHex,
     axisColor: axisHex,
+    axisLabelColor: textHex,
+
+    // Candlestick
     upColor: upHex,
     downColor: downHex,
+
+    // MA lines
     maColors: [warningHex, "#8b5cf6", infoHex],
-    bollColor: "rgba(99,102,241,0.5)",
-    volumeUp: upHex + "66",
-    volumeDown: downHex + "66",
+
+    // Bollinger band
+    bollColor: "rgba(99,102,241,0.35)",
+
+    // Volume bars
+    volumeUp: upHex + "55",
+    volumeDown: downHex + "55",
+
+    // Crosshair & tooltip
+    crosshairColor: "#334155",
+    tooltipBg: "rgba(15,23,42,0.97)",
+    tooltipBorder: "#334155",
+    tooltipText: "#E2E8F0",
+    tooltipSecondary: "#94A3B8",
+
+    // Semantics
     infoColor: infoHex,
     warningColor: warningHex,
-    tooltipBg: isDark ? "rgba(17,19,24,0.96)" : "rgba(255,255,255,0.96)",
-    tooltipBorder: isDark ? "#2d3340" : "#e5e7eb",
-    tooltipText: isDark ? "#d1d5db" : "#374151",
+    primaryColor: primaryHex,
   };
 }
 
 export function getChartTheme() {
-  const key = `${document.documentElement.className}|${document.documentElement.lang || navigator.language}|${localStorage.getItem("qa-lang") || ""}`;
+  const key = `${document.documentElement.lang || navigator.language}|${localStorage.getItem("qa-lang") || ""}`;
   if (_cache && _cacheKey === key) return _cache;
   _cache = buildTheme();
   _cacheKey = key;
