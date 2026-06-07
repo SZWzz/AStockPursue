@@ -13,13 +13,8 @@ import { CommandPalette } from "@/components/layout/CommandPalette";
 
 const MAIN_NAV_KEYS = [
   { to: "/", icon: LayoutDashboard, i18nKey: "dashboard" as const },
-  { to: "/trading", icon: BarChart3, i18nKey: "trading" as const },
-  { to: "/strategy-lab", icon: FolderOpen, i18nKey: "strategyLab" as const },
-  { to: "/factor-mining", icon: Database, i18nKey: "factorMining" as const },
+  { to: "/projects", icon: FolderOpen, i18nKey: "projects" as const },
   { to: "/agent", icon: Bot, i18nKey: "agent" as const },
-];
-
-const SECONDARY_NAV_KEYS = [
   { to: "/data-sources", icon: Database, i18nKey: "dataSources" as const },
   { to: "/settings", icon: Settings, i18nKey: "settings" as const },
 ];

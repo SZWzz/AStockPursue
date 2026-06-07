@@ -165,7 +165,7 @@
 
   /* ── Section card (page-level panels) ──────────────────────────── */
   .section-card {
-    @apply bg-card border border-border-subtle rounded-lg overflow-hidden flex flex-col;
+    @apply bg-card border border-border/40 rounded-lg flex flex-col;
   }
 
   /* ── Glass surface (OLED — minimal blur) ───────────────────────── */

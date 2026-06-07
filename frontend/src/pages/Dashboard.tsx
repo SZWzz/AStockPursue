@@ -142,7 +142,7 @@ export function Dashboard() {
 // ── Card wrapper ──────────────────────────────────────────────────────
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("section-card p-4 rounded-2xl", className)}>{children}</div>;
+  return <div className={cn("section-card p-4 rounded-lg", className)}>{children}</div>;
 }
 
 // ── Today at a Glance ──────────────────────────────────────────────────
@@ -218,21 +218,21 @@ function GettingStarted({ data, t }: { data: DashboardData | null; t: any }) {
       desc: t.prompt || "Describe your strategy in natural language and let the AI generate and backtest it",
       link: "/agent",
       icon: <Bot className="w-5 h-5" />,
-      color: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400",
+      color: "bg-violet-900/30 text-violet-400",
     },
     {
       title: (t as any).dashStrategies || "Demo Workflows",
       desc: (t as any).tpl_demo_momentum_desc || "Explore pre-built pipeline templates: momentum, MA crossover, volume breakout",
       link: "/projects",
       icon: <Workflow className="w-5 h-5" />,
-      color: "bg-up/10 text-up dark:bg-up/20 dark:text-up",
+      color: "bg-up/15 text-up",
     },
     {
       title: (t as any).dashZoo || "Alpha Zoo",
       desc: (t as any).azHeroDesc || "Browse 450+ pre-built alpha factors across 4 zoos with IC/IR benchmarks",
       link: "/alpha-zoo",
       icon: <Microscope className="w-5 h-5" />,
-      color: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400",
+      color: "bg-amber-900/30 text-amber-400",
     },
   ];
 
@@ -483,7 +483,7 @@ function FactorLabCard({ data, t }: { data: DashboardData["lab"]; t: any }) {
           <div key={d.alpha_id} className="flex justify-between items-center text-xs">
             <span className="font-mono truncate max-w-[180px]" title={d.formula}>{d.formula}</span>
             <span className={cn("tabular-nums font-semibold",
-              d.test_ic > 0.02 ? "text-up" : d.test_ic > 0.01 ? "text-amber-600" : "text-muted-foreground")}>
+              d.test_ic > 0.02 ? "text-up" : d.test_ic > 0.01 ? "text-amber-400" : "text-muted-foreground")}>
               IC: {d.test_ic.toFixed(3)}
             </span>
           </div>
