@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
-import { BarChart3, Bot, Database, FolderOpen, LayoutDashboard, Menu, Search, ArrowLeft, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, LogIn, LogOut, User, Users, X } from "lucide-react";
+import { Bot, Database, FolderOpen, LayoutDashboard, Menu, Search, ArrowLeft, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, LogIn, LogOut, User, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { api, type SessionItem } from "@/lib/api";
