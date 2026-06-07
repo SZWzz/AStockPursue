@@ -27,13 +27,13 @@ export function EquityChart({ data, height = 300 }: Props) {
     const minDD = Math.min(...drawdown.map(Number));
 
     chart.setOption({
-      backgroundColor: "transparent",
+      backgroundColor: t.backgroundColor,
       tooltip: {
         trigger: "axis",
-        axisPointer: { type: "cross" },
+        axisPointer: { type: "cross", crossStyle: { color: t.crosshairColor } },
         backgroundColor: t.tooltipBg,
         borderColor: t.tooltipBorder,
-        textStyle: { color: t.tooltipText, fontSize: 11 },
+        textStyle: { color: t.tooltipText, fontSize: 11, fontFamily: "Fira Code" },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         formatter: (params: any) => {
           if (!Array.isArray(params) || !params.length) return "";
@@ -57,23 +57,23 @@ export function EquityChart({ data, height = 300 }: Props) {
       },
       legend: { data: ["Equity", "Drawdown%"], textStyle: { color: t.textColor, fontSize: 11 }, right: 60, top: 4 },
       grid: [
-        { left: 60, right: 60, top: 36, height: "56%" },
+        { left: 60, right: 60, top: 30, height: "56%" },
         { left: 60, right: 60, top: "68%", height: "20%" },
       ],
       xAxis: [
-        { type: "category", data: dates, gridIndex: 0, axisLine: { lineStyle: { color: t.axisColor } }, axisLabel: { color: t.textColor, fontSize: 10 } },
+        { type: "category", data: dates, gridIndex: 0, axisLine: { lineStyle: { color: t.axisColor } }, axisLabel: { color: t.textColor, fontSize: 10, fontFamily: "Fira Code" } },
         { type: "category", data: dates, gridIndex: 1, axisLine: { lineStyle: { color: t.axisColor } }, axisLabel: { show: false } },
       ],
       yAxis: [
         {
           type: "value", gridIndex: 0,
           splitLine: { lineStyle: { color: t.gridColor } },
-          axisLabel: { color: t.textColor, fontSize: 10, formatter: (v: number) => abbreviateNum(v) },
+          axisLabel: { color: t.textColor, fontSize: 10, fontFamily: "Fira Code", formatter: (v: number) => abbreviateNum(v) },
         },
         {
           type: "value", gridIndex: 1,
           splitLine: { lineStyle: { color: t.gridColor } },
-          axisLabel: { color: t.textColor, fontSize: 10, formatter: "{value}%" },
+          axisLabel: { color: t.textColor, fontSize: 10, fontFamily: "Fira Code", formatter: "{value}%" },
         },
       ],
       dataZoom: [{ type: "inside", xAxisIndex: [0, 1] }],

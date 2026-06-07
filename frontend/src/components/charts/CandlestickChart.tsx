@@ -195,11 +195,11 @@ export function CandlestickChart({ data, markers, indicators, height = 500 }: Pr
     const defaultStart = maxBars >= data.length ? 0 : Math.max(0, 100 - (maxBars / data.length) * 100);
 
     chart.setOption({
-      backgroundColor: "transparent",
+      backgroundColor: t.backgroundColor,
       tooltip: {
-        trigger: "axis", axisPointer: { type: "cross" },
+        trigger: "axis", axisPointer: { type: "cross", crossStyle: { color: t.crosshairColor } },
         backgroundColor: t.tooltipBg, borderColor: t.tooltipBorder,
-        textStyle: { color: t.tooltipText, fontSize: 11 },
+        textStyle: { color: t.tooltipText, fontSize: 11, fontFamily: "Fira Code" },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         formatter: (params: any) => {
           if (!Array.isArray(params) || !params.length) return "";
@@ -227,15 +227,15 @@ export function CandlestickChart({ data, markers, indicators, height = 500 }: Pr
       },
       legend: { data: legendNames, textStyle: { color: t.textColor, fontSize: 10 }, right: 80, top: 2, type: "scroll", itemWidth: 12, itemHeight: 8, itemGap: 8 },
       grid: [
-        { left: 8, right: 8, top: 36, height: "55%", containLabel: true },
+        { left: 8, right: 8, top: 30, height: "55%", containLabel: true },
         { left: 8, right: 8, top: "66%", height: "22%", containLabel: true },
       ],
       xAxis: [
-        { type: "category", data: dates, gridIndex: 0, axisLine: { lineStyle: { color: t.axisColor } }, axisLabel: { color: t.textColor, fontSize: 10 }, boundaryGap: true },
+        { type: "category", data: dates, gridIndex: 0, axisLine: { lineStyle: { color: t.axisColor } }, axisLabel: { color: t.textColor, fontSize: 10, fontFamily: "Fira Code" }, boundaryGap: true },
         { type: "category", data: dates, gridIndex: 1, axisLine: { lineStyle: { color: t.axisColor } }, axisLabel: { show: false }, boundaryGap: true },
       ],
       yAxis: [
-        { scale: true, gridIndex: 0, splitLine: { lineStyle: { color: t.gridColor } }, axisLabel: { color: t.textColor, fontSize: 10 } },
+        { scale: true, gridIndex: 0, splitLine: { lineStyle: { color: t.gridColor } }, axisLabel: { color: t.textColor, fontSize: 10, fontFamily: "Fira Code" } },
         subYAxis,
       ],
       dataZoom: [
