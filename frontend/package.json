@@ -11,6 +11,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fontsource/fira-code": "^5.2.7",
+    "@fontsource/fira-sans": "^5.2.7",
     "@monaco-editor/react": "^4.7.0",
     "@xyflow/react": "^12.11.0",
     "clsx": "^2.1.0",
