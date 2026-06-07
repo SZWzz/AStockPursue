@@ -9,6 +9,7 @@ import { useAuthStore } from "@/stores/auth";
 import { ConnectionBanner } from "@/components/layout/ConnectionBanner";
 import { PostLoginSetup } from "@/components/layout/PostLoginSetup";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
+import { CommandPalette } from "@/components/layout/CommandPalette";
 
 const MAIN_NAV_KEYS = [
   { to: "/", icon: LayoutDashboard, i18nKey: "dashboard" as const },
@@ -436,6 +437,9 @@ export function Layout() {
 
       {/* Post-login LLM setup prompt */}
       <PostLoginSetup />
+
+      {/* Command palette (Cmd+K) */}
+      <CommandPalette />
     </div>
   );
 }
