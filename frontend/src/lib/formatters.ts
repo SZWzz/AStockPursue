@@ -71,3 +71,65 @@ export function abbreviateNum(v: number): string {
   if (abs >= 1e4) return (v / 1e3).toFixed(0) + "K";
   return v.toLocaleString();
 }
+
+/* ── OLED Terminal formatters ─────────────────────────────────────── */
+
+/**
+ * Format a price with currency symbol.
+ * Use with font-mono + tabular-nums for aligned columns.
+ */
+export function formatPrice(v: number, decimals = 2, currency = "¥"): string {
+  const abs = Math.abs(v);
+  const fixed = abs.toFixed(decimals);
+  return `${v < 0 ? "-" : ""}${currency}${fixed}`;
+}
+
+/**
+ * Format a percentage change with sign.
+ * e.g., formatPercent(0.0347) → "+3.47%"
+ */
+export function formatPercent(v: number, decimals = 2): string {
+  const sign = v > 0 ? "+" : "";
+  return `${sign}${(v * 100).toFixed(decimals)}%`;
+}
+
+/**
+ * Format volume with appropriate suffix (K, M, B).
+ */
+export function formatVolume(v: number): string {
+  const abs = Math.abs(v);
+  if (abs >= 1e9) return (v / 1e9).toFixed(2) + "B";
+  if (abs >= 1e6) return (v / 1e6).toFixed(2) + "M";
+  if (abs >= 1e4) return (v / 1e3).toFixed(0) + "K";
+  return v.toLocaleString();
+}
+
+/**
+ * Format a large number with Chinese units (万/亿).
+ * Used for A-share volume and turnover displays.
+ */
+export function formatLargeNum(v: number): string {
+  const abs = Math.abs(v);
+  if (abs >= 1e8) return (v / 1e8).toFixed(2) + "亿";
+  if (abs >= 1e4) return (v / 1e4).toFixed(2) + "万";
+  return v.toLocaleString();
+}
+
+/**
+ * Get the CSS color class for a directional value.
+ * Respects Chinese market convention via html[lang="zh"] CSS vars.
+ */
+export function directionColor(v: number): "text-up" | "text-down" | "" {
+  if (v > 0) return "text-up";
+  if (v < 0) return "text-down";
+  return "";
+}
+
+/**
+ * Get the CSS color class for profit/loss sentiment.
+ */
+export function pnlColor(v: number): "text-up" | "text-down" | "text-muted-foreground" {
+  if (v > 0) return "text-up";
+  if (v < 0) return "text-down";
+  return "text-muted-foreground";
+}
