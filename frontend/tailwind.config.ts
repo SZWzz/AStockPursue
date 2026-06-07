@@ -32,8 +32,33 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["DM Sans", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "ui-monospace", "monospace"],
+        // Fallback stack ordered by metric compatibility with Fira Sans:
+        // -apple-system (San Francisco) has similar x-height and width
+        // Segoe UI matches well on Windows
+        sans: [
+          "Fira Sans",
+          "-apple-system",
+          "BlinkMacSystemFont",
+          "Segoe UI",
+          "Helvetica Neue",
+          "Arial",
+          "sans-serif",
+          "Apple Color Emoji",
+          "Segoe UI Emoji",
+        ],
+        // Fallback stack ordered by metric compatibility with Fira Code:
+        // ui-monospace picks SF Mono on macOS/iOS; Cascadia Code on Windows Terminal
+        // Menlo/Consolas are good mid-width fallbacks
+        mono: [
+          "Fira Code",
+          "ui-monospace",
+          "SF Mono",
+          "Cascadia Code",
+          "Menlo",
+          "Consolas",
+          "DejaVu Sans Mono",
+          "monospace",
+        ],
       },
       borderRadius: {
         lg: "var(--radius)",
