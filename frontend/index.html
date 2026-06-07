@@ -5,9 +5,36 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AStockPursue — AI 量化交易研究平台</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- DNS prefetch for Google Fonts (fastest initial connection) -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com" crossorigin>
+
+    <!-- Preconnect for TLS + TCP (warmer than dns-prefetch) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <!-- Preload critical font weights to eliminate FOIT/CLS on first paint -->
+    <!-- Fira Sans 400 (body) + 600 (headings) | Fira Code 400 (data) + 500 (KPI values) -->
+    <link rel="preload"
+          href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600&family=Fira+Code:wght@400;500&display=swap"
+          as="style"
+          crossorigin="anonymous">
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600&family=Fira+Code:wght@400;500&display=swap"
+          media="print"
+          onload="this.media='all';this.onload=null">
+
+    <!-- Fallback: if JS is disabled, load normally -->
+    <noscript>
+      <link rel="stylesheet"
+            href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@400;600&family=Fira+Code:wght@400;500&display=swap">
+    </noscript>
+
+    <!-- Full weight set (lazy-loaded, non-blocking) — extended weights for occasional use -->
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css2?family=Fira+Sans:wght@300;500;700&family=Fira+Code:wght@600;700&display=swap"
+          media="print"
+          onload="this.media='all';this.onload=null">
     <meta name="description" content="AStockPursue — AI 量化交易研究平台。智能体对话、策略回测、指标实验室、自选股面板、多用户协作。" />
   </head>
   <body class="min-h-screen bg-background text-foreground antialiased">
