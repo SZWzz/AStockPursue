@@ -368,3 +368,155 @@ class FundamentalsNode(BaseNode):
         n_ok = sum(1 for v in result.values() if isinstance(v, dict) and "error" not in v)
         logger.info("Fundamentals: %d/%d stocks fetched (type=%s)", n_ok, len(codes), data_type)
         return {"fundamentals": result}
+
+
+# ── Cost Model ───────────────────────────────────────────────────────────
+
+
+@register_node
+class CostModelNode(BaseNode):
+    """Estimate and report total trading costs.
+
+    Connects after BacktestNode to compute cost breakdown:
+    commission + stamp duty + slippage estimate + market impact estimate.
+
+    Outputs can feed into AttributionNode for net-of-cost analysis.
+    """
+
+    node_type = "cost_model"
+    category = "analysis"
+    label = "成本模型"
+    description = "估算总交易成本：佣金 + 印花税 + 滑点 + 市场冲击"
+    icon = "Receipt"
+    resource_profile = "cpu_bound"
+
+    inputs = [
+        BaseNode.in_port("backtest_result", PortType.BACKTEST_RESULT,
+                         description="回测结果（含交易记录和指标）"),
+        BaseNode.in_port("trades", PortType.PARAMS, required=False,
+                         description="交易列表（覆盖 backtest_result 中的 trades）"),
+    ]
+    outputs = [
+        BaseNode.out_port("cost_report", PortType.PARAMS,
+                          description="成本明细 + 扣除成本后的净指标"),
+    ]
+    config_schema = {
+        "commission_bps": {
+            "title": "佣金 (bps)", "type": "number", "default": 3,
+            "description": "单边佣金费率（万三=3bps）",
+        },
+        "stamp_duty_bps": {
+            "title": "印花税 (bps, 卖出)", "type": "number", "default": 5,
+            "description": "A股卖出单边印花税（万五=5bps）",
+        },
+        "slippage_bps": {
+            "title": "滑点估算 (bps)", "type": "number", "default": 2,
+            "description": "每笔交易预估滑点",
+        },
+        "impact_model": {
+            "title": "冲击模型", "type": "string",
+            "enum": ["none", "simple", "sqrt"], "default": "simple",
+            "description": "市场冲击成本估算方法",
+        },
+        "initial_capital": {
+            "title": "初始资金", "type": "number", "default": 1000000,
+        },
+    }
+
+    async def execute(self, inputs: dict, config: dict) -> dict:
+        bt = inputs.get("backtest_result", {})
+        trades = inputs.get("trades", [])
+
+        if isinstance(bt, dict):
+            metrics = bt.get("metrics", {})
+            if not trades:
+                trades = bt.get("trades", [])
+        else:
+            metrics = {}
+
+        comm_bps = float(config.get("commission_bps", 3))
+        stamp_bps = float(config.get("stamp_duty_bps", 5))
+        slip_bps = float(config.get("slippage_bps", 2))
+        impact = config.get("impact_model", "simple")
+        capital = float(config.get("initial_capital", 1000000))
+
+        if isinstance(trades, dict):
+            trades = list(trades.values()) if not hasattr(trades, "append") else trades
+        if not isinstance(trades, list):
+            trades = []
+
+        n_trades = 0
+        total_commission = 0.0
+        total_stamp = 0.0
+        total_slippage = 0.0
+        total_impact = 0.0
+        total_turnover = 0.0
+
+        for t in trades:
+            if not isinstance(t, dict):
+                continue
+            n_trades += 1
+            # Try multiple field name conventions
+            notional = abs(float(t.get("notional", t.get("value", t.get("pnl", 0)))))
+            price = abs(float(t.get("price", t.get("entry_price", t.get("exit_price", 1)))))
+            qty = abs(float(t.get("qty", t.get("size", t.get("quantity", 0)))))
+            if notional < 1 and price > 0 and qty > 0:
+                notional = price * qty
+
+            total_turnover += notional
+
+            # Commission (both sides)
+            total_commission += notional * comm_bps / 10000
+
+            # Stamp duty (sell side only for A-share)
+            side = str(t.get("side", "")).lower()
+            if side in ("sell", "short", "exit"):
+                total_stamp += notional * stamp_bps / 10000
+
+            # Slippage estimate
+            total_slippage += notional * slip_bps / 10000
+
+            # Market impact (simple model: participation rate × sqrt)
+            if impact == "simple":
+                # Assume 5% participation → ~2bps additional impact
+                total_impact += notional * 0.0002
+            elif impact == "sqrt":
+                # Square-root model approximation
+                total_impact += notional * 0.0003
+
+        total_cost = total_commission + total_stamp + total_slippage + total_impact
+        cost_pct = (total_cost / capital * 100) if capital > 0 else 0
+
+        # Adjust metrics for costs
+        gross_return = float(metrics.get("total_return", 0))
+        net_return = gross_return - (total_cost / capital)
+
+        gross_sharpe = float(metrics.get("sharpe_ratio", metrics.get("sharpe", 0)))
+        # Approximate net sharpe: reduce by proportional cost drag
+        net_sharpe = gross_sharpe * (1 - abs(total_cost / (capital * max(abs(gross_return), 0.01))))
+
+        report = {
+            "n_trades": n_trades,
+            "total_turnover": round(total_turnover, 2),
+            "commission": round(total_commission, 2),
+            "stamp_duty": round(total_stamp, 2),
+            "slippage": round(total_slippage, 2),
+            "market_impact": round(total_impact, 2),
+            "total_cost": round(total_cost, 2),
+            "cost_pct_of_capital": round(cost_pct, 4),
+            "gross_return": round(gross_return, 4),
+            "net_return": round(net_return, 4),
+            "gross_sharpe": round(gross_sharpe, 4) if isinstance(gross_sharpe, (int, float)) else 0,
+            "net_sharpe": round(net_sharpe, 4) if isinstance(net_sharpe, (int, float)) else 0,
+            "params": {
+                "commission_bps": comm_bps,
+                "stamp_duty_bps": stamp_bps,
+                "slippage_bps": slip_bps,
+                "impact_model": impact,
+            },
+        }
+
+        logger.info("CostModel: %d trades, total_cost=%.2f (%.2f%% of capital)",
+                     n_trades, total_cost, cost_pct)
+
+        return {"cost_report": report}

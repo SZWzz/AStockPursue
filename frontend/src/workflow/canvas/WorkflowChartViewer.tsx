@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n";
 import { abbreviateNum } from "@/lib/formatters";
 import { calcMA } from "@/lib/indicators";
 import { useDarkMode } from "@/hooks/useDarkMode";
+import { HeatmapChart, type HeatmapData } from "@/components/charts/HeatmapChart";
 
 interface ChartPayload {
   charts?: {
@@ -16,6 +17,7 @@ interface ChartPayload {
     equity?: { type: string; points: { time: string; equity: number; drawdown: number }[]; final_equity: number; max_drawdown: number };
     trades?: { code: string; side: string; time: string; price: number; reason: string }[];
     metrics?: { type: string; metrics: Record<string, number> };
+    heatmap?: HeatmapData;
   };
 }
 
@@ -26,19 +28,24 @@ const MA_COLORS = ["#f59e0b", "#8b5cf6", "#3b82f6", "#ec4899"];
 export default function WorkflowChartViewer({ payload }: Props) {
   const { t } = useI18n();
   const charts = payload?.charts;
+
+  // Hooks first — before any early return (React rules)
+  const [codeIdx, setCodeIdx] = useState(0);
+  const hasHeatmap = !!charts?.heatmap;
+  const defaultTab = hasHeatmap ? ("heatmap" as const) : ("kline" as const);
+  const [tab, setTab] = useState<"kline" | "equity" | "trades" | "metrics" | "heatmap">(defaultTab);
+
   if (!charts) return <p className="text-xs text-muted-foreground p-4">No chart data</p>;
 
-  const [tab, setTab] = useState<"kline" | "equity" | "trades" | "metrics">("kline");
-  const [codeIdx, setCodeIdx] = useState(0);
+  const codes = charts.candlestick?.codes || [];
 
   const tabs = [
-    { key: "kline" as const, label: (t as any).tradingKline || "K-line" },
-    { key: "equity" as const, label: (t as any).ptEquity || "Equity" },
-    { key: "trades" as const, label: (t as any).trades || "Trades" },
-    { key: "metrics" as const, label: (t as any).metricsPanel || "Metrics" },
+    ...(hasHeatmap ? [{ key: "heatmap" as const, label: "热力图" }] : []),
+    { key: "kline" as const, label: (t as any).tradingKline || "K线" },
+    { key: "equity" as const, label: (t as any).ptEquity || "权益" },
+    { key: "trades" as const, label: (t as any).trades || "交易" },
+    { key: "metrics" as const, label: (t as any).metricsPanel || "指标" },
   ];
-
-  const codes = charts.candlestick?.codes || [];
 
   return (
     <div className="flex flex-col" style={{ height: "380px" }}>
@@ -66,6 +73,11 @@ export default function WorkflowChartViewer({ payload }: Props) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
+        {tab === "heatmap" && charts.heatmap && (
+          <div className="p-3">
+            <HeatmapChart data={charts.heatmap} width={600} height={420} />
+          </div>
+        )}
         {tab === "kline" && charts.candlestick && (
           <KlineChart codes={codes} series={charts.candlestick.series} codeIdx={codeIdx} setCodeIdx={setCodeIdx}
             trades={charts.trades} />

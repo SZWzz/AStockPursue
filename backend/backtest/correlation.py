@@ -56,72 +56,43 @@ def _rolling_correlation_matrix(
 ) -> tuple[list[str], list[list[float]]]:
     """Compute correlation matrix for multiple price series.
 
-    Args:
-        price_series: Mapping of asset code -> DataFrame with a ``close`` column.
-        window: Rolling window size in days.
-        method: "pearson" or "spearman".
-
-    Returns:
-        (labels, matrix) where labels is the sorted list of codes and matrix
-        is a symmetric NxN matrix of correlation coefficients.
+    Delegates pure computation to CorrelationEngine.
     """
+    from src.services.correlation_engine import CorrelationEngine
+
     if not price_series:
         return [], []
 
     codes = sorted(price_series.keys())
 
-    # Build a aligned returns DataFrame (row index = date)
-    returns_frames = []
+    # Build aligned returns DataFrame
     closes = {}
     for code, df in price_series.items():
         if df.empty:
             raise ValueError(f"Price series for '{code}' is empty")
         if "close" not in df.columns and "close" not in df.index.names:
             raise ValueError(f"No 'close' column in price series for '{code}'")
-        # Support both column-based and index-based trade_date
         if "trade_date" in df.index.names and "trade_date" not in df.columns:
             ts = df["close"]
         else:
             ts = df.set_index("trade_date")["close"]
         closes[code] = ts.sort_index()
 
+    returns_frames = []
     for code in codes:
-        ts = closes[code]
-        rets = ts.pct_change().dropna()
+        rets = closes[code].pct_change().dropna()
         rets.name = code
         returns_frames.append(rets)
 
-    # Align all series to a common index (inner join)
     aligned = pd.concat(returns_frames, axis=1).dropna()
     if aligned.empty:
         raise ValueError("No overlapping return data between assets")
 
-    # Apply the trailing window — only use the last `window` rows of aligned data
-    if len(aligned) > window:
-        aligned = aligned.iloc[-window:]
-
-    n = len(aligned)
-    if n < 2:
+    if len(aligned) < 2:
         raise ValueError("Not enough data points to compute correlation")
 
-    labels = codes
-    n_assets = len(labels)
-    matrix = [[1.0] * n_assets for _ in range(n_assets)]
-
-    for i in range(n_assets):
-        for j in range(i + 1, n_assets):
-            xi = aligned.iloc[:, i].values
-            xj = aligned.iloc[:, j].values
-            if method == "spearman":
-                corr, _ = spearmanr(xi, xj)
-            else:
-                corr = np.corrcoef(xi, xj)[0, 1]
-            if np.isnan(corr):
-                corr = 0.0
-            matrix[i][j] = round(corr, 4)
-            matrix[j][i] = round(corr, 4)
-
-    return labels, matrix
+    engine = CorrelationEngine()
+    return engine.compute_from_returns(aligned, method=method, window=window)
 
 
 def compute_correlation_matrix(

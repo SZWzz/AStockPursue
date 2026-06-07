@@ -73,6 +73,10 @@ class WorkflowEngine:
         self._cancelled: bool = False
         self._running_tasks: Dict[str, Task] = {}
 
+        # Node-level result cache — survives across execute() calls
+        # cache_key → {outputs, node_type, config}
+        self._node_cache: Dict[str, Dict[str, Any]] = {}
+
     def _reset(self):
         self._results.clear()
         self._node_status.clear()
@@ -80,6 +84,11 @@ class WorkflowEngine:
         self._progress = None
         self._cancelled = False
         self._running_tasks.clear()
+
+    def clear_cache(self):
+        """Clear the node result cache (e.g. when data sources change)."""
+        self._node_cache.clear()
+        logger.info("WorkflowEngine: node cache cleared")
 
     def cancel(self):
         """Cancel all running tasks. Called from stop_workflow."""
@@ -193,6 +202,27 @@ class WorkflowEngine:
         return visited
 
     async def _execute_with_limits(self, nid: str, node: WorkflowNodeData):
+        # ── Check cache ──────────────────────────────────────────────────
+        inputs = self._gather_inputs(nid, node)
+        cache_key = self._compute_cache_key(nid, node, inputs)
+
+        if cache_key in self._node_cache:
+            cached = self._node_cache[cache_key]
+            # Verify input hashes still match
+            current_input_hash = self._hash_inputs(inputs)
+            if current_input_hash == cached.get("_input_hash", ""):
+                self._results[nid] = {k: v for k, v in cached.items()
+                                       if not k.startswith("_")}
+                self._results[nid]["_summary"] = cached.get("_summary", {})
+                self._results[nid]["_duration_ms"] = 0  # cached
+                self._node_status[nid] = NodeStatus.CACHED
+                await self._emit("node_cached", {
+                    "node_id": nid,
+                    "node_type": node.node_type,
+                })
+                logger.debug("Cache HIT: %s (%s)", nid, node.node_type)
+                return
+
         profile = self._registry.get(node.node_type).resource_profile
 
         # Thread-safe profile semaphore init
@@ -202,7 +232,17 @@ class WorkflowEngine:
                     RESOURCE_LIMITS.get(profile, 8))
 
         async with self._global_sem, self._profile_sems[profile]:
-            await self._execute_node(node, self._gather_inputs(nid, node))
+            await self._execute_node(node, inputs)
+
+        # ── Store in cache after successful execution ────────────────────
+        if self._node_status.get(nid) == NodeStatus.DONE:
+            self._node_cache[cache_key] = {
+                "_input_hash": self._hash_inputs(inputs),
+                "_summary": self._results.get(nid, {}).get("_summary", {}),
+                **{k: v for k, v in self._results.get(nid, {}).items()
+                    if not k.startswith("_")},
+            }
+            logger.debug("Cache SET: %s (%s)", nid, node.node_type)
 
     async def _execute_node(self, node: WorkflowNodeData, inputs: dict):
         nid = node.id
@@ -304,6 +344,54 @@ class WorkflowEngine:
                 if value is not None:
                     inputs[port.name] = value
         return inputs
+
+    # ── Cache helpers ──────────────────────────────────────────────────
+
+    def _compute_cache_key(
+        self, nid: str, node: WorkflowNodeData, inputs: dict,
+    ) -> str:
+        """Build a stable cache key from node identity and inputs."""
+        try:
+            definition = self._registry.get(node.node_type)
+            # Include node_type + config + version
+            config_str = json.dumps(node.config, sort_keys=True, default=str)
+            version = definition.node_type  # Use node_type as version proxy
+            key_material = f"{node.node_type}|v{getattr(definition, 'version', 1)}|{config_str}|{self._hash_inputs(inputs)}"
+            return hashlib.sha256(key_material.encode()).hexdigest()[:32]
+        except Exception:
+            # Fallback: unique-per-run key (effectively no cache)
+            return f"nocache_{nid}_{datetime.now(timezone.utc).timestamp()}"
+
+    @staticmethod
+    def _hash_inputs(inputs: dict) -> str:
+        """Compute a stable hash of node input values."""
+        if not inputs:
+            return "empty"
+        try:
+            parts = []
+            for k in sorted(inputs.keys()):
+                v = inputs[k]
+                if isinstance(v, pd.DataFrame):
+                    # Hash shape + first/last row for stability
+                    h = hashlib.sha256()
+                    h.update(str(v.shape).encode())
+                    if not v.empty:
+                        h.update(str(v.index[0]).encode())
+                        h.update(str(v.index[-1]).encode())
+                        h.update(str(v.iloc[0].values[:5]).encode())
+                        h.update(str(v.iloc[-1].values[:5]).encode())
+                    parts.append(f"{k}:{h.hexdigest()[:16]}")
+                elif isinstance(v, dict):
+                    h = hashlib.sha256(json.dumps(v, sort_keys=True, default=str).encode())
+                    parts.append(f"{k}:{h.hexdigest()[:16]}")
+                elif isinstance(v, (list, tuple)):
+                    h = hashlib.sha256(str(v).encode())
+                    parts.append(f"{k}:{h.hexdigest()[:16]}")
+                else:
+                    parts.append(f"{k}:{str(v)[:100]}")
+            return "|".join(parts)
+        except Exception:
+            return "hash_error"
 
     async def _emit(self, event: str, data: dict):
         if self._progress:

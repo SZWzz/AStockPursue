@@ -70,6 +70,9 @@ const Dashboard = lazy(() =>
 const Projects = lazy(() =>
   import("@/pages/Projects").then((m) => ({ default: m.default })),
 );
+const BacktestHistory = lazy(() =>
+  import("@/pages/BacktestHistory").then((m) => ({ default: m.BacktestHistory })),
+);
 const Workflow = lazy(() =>
   import("@/pages/Workflow").then((m) => ({ default: m.default })),
 );
@@ -122,6 +125,7 @@ export const router = createBrowserRouter([
       { path: "/marketplace", element: wrap(Marketplace) },
       { path: "/options", element: wrap(Options) },
       { path: "/sentiment", element: wrap(Sentiment) },
+      { path: "/backtest-history", element: wrap(BacktestHistory) },
       { path: "/workflow/:projectId/:workflowId", element: wrap(Workflow) },
       { path: "/admin/users", element: wrap(UserManagement) },
       { path: "*", element: wrap(NotFound) },

@@ -48,6 +48,7 @@ export interface NodeDefinition {
   outputs: NodePort[];
   config_schema: Record<string, unknown>;
   resource_profile: string;
+  quick_tool_route?: string;
 }
 
 export interface WorkflowNodeData {

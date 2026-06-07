@@ -56,9 +56,7 @@ export default function RunSummaryPanel() {
   const selectNode = useWorkflowStore((s) => s.selectNode);
   const [visible, setVisible] = useState(true);
 
-  // Only show after a run completes
-  if (runStatus !== "completed" && runStatus !== "error") return null;
-
+  // Compute output nodes (hook must be before any early return)
   const outputNodes = useMemo(() => {
     return nodes.filter((n) => {
       const def = (n as any).definition;
@@ -67,6 +65,8 @@ export default function RunSummaryPanel() {
     });
   }, [nodes, nodeResults]);
 
+  // Only show after a run completes
+  if (runStatus !== "completed" && runStatus !== "error") return null;
   if (outputNodes.length === 0) return null;
 
   return (

@@ -48,6 +48,23 @@ const FULL_EDITOR_MAP: Record<string, string> = {
   chart_data: "/strategy-lab", report: "/agent", factor_persist: "/factor-mining",
 };
 
+// Extract most differentiating config param for upstream label display
+function _diffParam(cfg: Record<string, unknown>): string {
+  if (!cfg || Object.keys(cfg).length === 0) return "";
+  // Ordered by priority: window, period, top_n, threshold, mode
+  const keys = ["window", "periods", "top_n", "threshold", "mode", "column"];
+  for (const k of keys) {
+    const v = cfg[k];
+    if (v !== undefined && v !== "" && v !== null) return `${k}=${v}`;
+  }
+  // Fallback: first non-empty value
+  for (const [k, v] of Object.entries(cfg)) {
+    if (v !== undefined && v !== "" && v !== null && k !== "strategy_source")
+      return `${k}=${v}`;
+  }
+  return "";
+}
+
 function getFullEditorPath(nodeType: string, nodeData: any): string | null {
   const path = FULL_EDITOR_MAP[nodeType];
   if (!path) return null;
@@ -132,14 +149,16 @@ const PORT_TYPE_LABELS: Record<string, string> = {
 
 // ── Port handle ──────────────────────────────────────────────────────────────
 
-function PortHandle({ port, side, dotIndex }: { port: NodePort; side: "left" | "right"; dotIndex: number }) {
+function PortHandle({ port, side, dotIndex, upstreamLabel }: {
+  port: NodePort; side: "left" | "right"; dotIndex: number;
+  upstreamLabel?: string;
+}) {
   const { t } = useI18n();
   const pt = port.port_type;
   const handleColor = PORT_HANDLE_COLORS[pt] || "!border-muted-foreground !bg-background";
   const dotColor = PORT_DOT_COLORS[pt] || "bg-muted-foreground";
   const typeLabel = PORT_TYPE_LABELS[pt] || "";
   const portLabel = (t as any)[`wfPort_${port.name}`] || port.name;
-  // Alternating solid/hollow: even index = solid fill, odd = hollow (border only, transparent bg)
   const isSolid = dotIndex % 2 === 0;
   return (
     <div className={cn("flex items-center gap-1.5 px-1 py-1 text-xs group/port cursor-crosshair rounded hover:bg-muted/30 transition-colors", side === "right" && "flex-row-reverse")}>
@@ -153,9 +172,12 @@ function PortHandle({ port, side, dotIndex }: { port: NodePort; side: "left" | "
           handleColor
         )}
       />
-      <span className="flex items-center gap-1 truncate max-w-[110px] text-xs text-muted-foreground" title={`${port.name}: ${pt}`}>
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
         <span className={cn("w-2 h-2 rounded-full shrink-0", isSolid ? dotColor : "bg-transparent border-2")} />
-        {portLabel}
+        <span className="shrink-0">{portLabel}</span>
+        {upstreamLabel && (
+          <span className="text-[9px] text-primary/60 whitespace-nowrap shrink-0">← {upstreamLabel}</span>
+        )}
         {typeLabel && <span className="text-[9px] opacity-50">{typeLabel}</span>}
       </span>
     </div>
@@ -291,7 +313,7 @@ function InlineParams({
           const label = (t as any)[`wfParam_${f.title}`] || f.title || key;
           return (
             <div key={key} className="flex items-center gap-1.5">
-              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={label}>
+              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-16 shrink-0 truncate" title={label}>
                 {label}
               </label>
               <select
@@ -300,10 +322,16 @@ function InlineParams({
                 onChange={(e) => onChange(e.target.value)}
                 className="flex-1 min-w-0 px-1.5 py-0.5 text-[11px] rounded border bg-background focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                {f.enum.map((v: string) => {
-                  const ev = (t as any)[`wfEnum_${v}`] || v;
-                  return <option key={v} value={v}>{ev}</option>;
-                })}
+                {f.enum_labels ? (
+                  f.enum.map((v: string) => (
+                    <option key={v} value={v}>{f.enum_labels[v] || v}</option>
+                  ))
+                ) : (
+                  f.enum.map((v: string) => {
+                    const ev = (t as any)[`wfEnum_${v}`] || v;
+                    return <option key={v} value={v}>{ev}</option>;
+                  })
+                )}
               </select>
             </div>
           );
@@ -314,7 +342,7 @@ function InlineParams({
           const label = paramLabel(f, key);
           return (
             <div key={key} className="flex items-center gap-1.5">
-              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={label}>
+              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-16 shrink-0 truncate" title={label}>
                 {label}
               </label>
               <div className="flex-1 min-w-0">
@@ -334,7 +362,7 @@ function InlineParams({
           const label = paramLabel(f, key);
           return (
             <div key={key} className="flex items-center gap-1.5">
-              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={label}>
+              <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-16 shrink-0 truncate" title={label}>
                 {label}
               </label>
               <input
@@ -355,7 +383,7 @@ function InlineParams({
         const label = paramLabel(f, key);
         return (
           <div key={key} className="flex items-center gap-1.5">
-            <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-12 shrink-0 truncate" title={label}>
+            <label htmlFor={fieldId} className="text-[10px] text-muted-foreground w-16 shrink-0 truncate" title={label}>
               {label}
             </label>
             <input
@@ -381,17 +409,47 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
   const { t } = useI18n();
 
   const nodeLabel = tNode(t, nodeData.node_type, def?.label || nodeData.label || nodeData.node_type);
+  const nodeShortId = "#" + nodeData.id.slice(0, 4);
+
+  // Subscribe to edges + nodes so port labels update live when connections change
+  const edges = useWorkflowStore((s) => (s as any).edges) || [];
+  const nodes = useWorkflowStore((s) => (s as any).nodes) || [];
+
+  // Resolve upstream node labels for connected input ports
+  const upstreamByPort: Record<string, string> = (() => {
+    try {
+      const nodeById: Record<string, any> = {};
+      for (const n of nodes) nodeById[n.id] = n;
+      const map: Record<string, string> = {};
+      for (const e of edges) {
+        if (e.target === nodeData.id) {
+          const src = nodeById[e.source];
+          if (src) {
+            const d = src.data || {};
+            const label = d.label || d.node_type || "";
+            const cfg = d.config || (src as any).config || {};
+            const cfgHint = _diffParam(cfg);
+            const tag = cfgHint ? `${label}(${cfgHint})` : label;
+            const port = e.target_port || e.targetHandle || "";
+            map[port] = `#${e.source.slice(0,4)} ${tag}`;
+          }
+        }
+      }
+      return map;
+    } catch { return {}; }
+  })();
 
   return (
     <div
       className={cn(
-        "rounded-lg border-2 bg-card shadow-sm min-w-[180px] max-w-[320px] transition-colors",
+        "rounded-lg border-2 bg-card shadow-sm min-w-[320px] transition-colors",
         selected && "border-primary ring-2 ring-primary/20",
         STATUS_STYLES[status] || STATUS_STYLES.pending
       )}
     >
       {/* Header */}
       <div className="flex items-center gap-1.5 px-2.5 py-1.5 border-b group/card">
+        <span className="text-[9px] text-muted-foreground font-mono shrink-0">{nodeShortId}</span>
         <NodeIcon name={def?.icon} className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="flex-1 text-xs font-medium truncate">{nodeLabel}</span>
         {status !== "pending" && (
@@ -401,6 +459,16 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
         )}
         {/* Action buttons — visible on hover */}
         <div className="flex items-center gap-0.5 opacity-0 group-hover/card:opacity-100 transition-opacity">
+          {/* Quick tool link — opens the corresponding standalone page */}
+          {def?.quick_tool_route && (
+            <button
+              onClick={(e) => { e.stopPropagation(); window.open(def.quick_tool_route, '_blank'); }}
+              className="p-0.5 rounded hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+              title="Open in Quick Tool"
+            >
+              <ExternalLink className="h-3 w-3" />
+            </button>
+          )}
           {getFullEditorPath(nodeData.node_type, nodeData) && (
             <button
               onClick={(e) => { e.stopPropagation(); const p = getFullEditorPath(nodeData.node_type, nodeData); if (p) window.open(p, '_blank'); }}
@@ -447,7 +515,8 @@ const BaseNode = memo(function BaseNode({ data, selected }: NodeProps) {
               {def?.inputs.map((port) => {
                 const idx = inputCounts[port.port_type] || 0;
                 inputCounts[port.port_type] = idx + 1;
-                return <PortHandle key={port.name} port={port} side="left" dotIndex={idx} />;
+                return <PortHandle key={port.name} port={port} side="left" dotIndex={idx}
+                  upstreamLabel={upstreamByPort[port.name]} />;
               })}
               {def?.outputs.map((port) => {
                 const idx = outputCounts[port.port_type] || 0;

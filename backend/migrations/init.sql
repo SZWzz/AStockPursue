@@ -79,9 +79,12 @@ CREATE TABLE IF NOT EXISTS vt_backtest_runs (
     metrics         JSONB DEFAULT '{}',
     status          TEXT DEFAULT 'success',
     error_message   TEXT DEFAULT '',
+    tags            TEXT[] DEFAULT '{}',
     created_at      TIMESTAMPTZ DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_backtest_runs_user ON vt_backtest_runs(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bt_runs_tags ON vt_backtest_runs USING GIN(tags);
+CREATE INDEX IF NOT EXISTS idx_bt_runs_sharpe ON vt_backtest_runs((metrics->>'sharpe_ratio'));
 
 -- ---------------------------------------------------------------------------
 -- 6. Backtest Equity (Phase 2)
@@ -104,11 +107,32 @@ CREATE TABLE IF NOT EXISTS vt_backtest_trades (
     symbol          TEXT,
     entry_time      TIMESTAMPTZ,
     exit_time       TIMESTAMPTZ,
+    entry_price     DOUBLE PRECISION,
+    exit_price      DOUBLE PRECISION,
+    size            DOUBLE PRECISION DEFAULT 0,
     side            TEXT,
     pnl             DOUBLE PRECISION,
-    return_pct      DOUBLE PRECISION
+    return_pct      DOUBLE PRECISION,
+    exit_reason     TEXT DEFAULT ''
 );
 CREATE INDEX IF NOT EXISTS idx_trades_run ON vt_backtest_trades(run_id);
+
+-- ---------------------------------------------------------------------------
+-- 7b. Backtest OHLCV (K-line chart data)
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS vt_backtest_ohlcv (
+    id              SERIAL PRIMARY KEY,
+    run_id          UUID REFERENCES vt_backtest_runs(id) ON DELETE CASCADE,
+    code            TEXT NOT NULL,
+    bar_time        TIMESTAMPTZ NOT NULL,
+    open            DOUBLE PRECISION,
+    high            DOUBLE PRECISION,
+    low             DOUBLE PRECISION,
+    close           DOUBLE PRECISION,
+    volume          DOUBLE PRECISION
+);
+CREATE INDEX IF NOT EXISTS idx_ohlcv_run_code ON vt_backtest_ohlcv(run_id, code);
+CREATE INDEX IF NOT EXISTS idx_ohlcv_run_time ON vt_backtest_ohlcv(run_id, bar_time);
 
 -- ---------------------------------------------------------------------------
 -- 8. Indicators (Phase 4)

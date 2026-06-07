@@ -117,6 +117,97 @@ def create_workflow(project_id: str, body: dict, user_id: int = Depends(_get_use
         raise HTTPException(status_code=500, detail="An internal error occurred while creating the workflow")
 
 
+# ── Page-to-workflow bridge ──────────────────────────────────────────────
+
+_PAGE_TO_NODE_TYPE: dict[str, str] = {
+    "screener":     "screener",
+    "correlation":  "correlation",
+    "sentiment":    "news_sentiment",
+    "options":      "options_analysis",
+    "indicator":    "indicator",
+}
+
+_PAGE_TO_LABEL: dict[str, str] = {
+    "screener":     "选股结果",
+    "correlation":  "相关性分析",
+    "sentiment":    "情绪分析",
+    "options":      "期权分析",
+    "indicator":    "指标计算",
+}
+
+
+@router.post("/workflows/from-page")
+def create_workflow_from_page(body: dict, user_id: int = Depends(_get_user_id)):
+    """Create a pre-configured workflow from a quick-tool page.
+
+    POST /workflows/from-page
+    {
+        "source_page": "screener",
+        "config": {"mode": "rank", "top_n": 47, ...},
+        "project_id": "proj_abc123"
+    }
+
+    Returns {workflow_id, redirect_url}.
+    """
+    source_page = body.get("source_page", "").strip()
+    config = body.get("config", {})
+    project_id = body.get("project_id", "").strip()
+
+    if not source_page:
+        raise HTTPException(status_code=422, detail="source_page is required")
+    if source_page not in _PAGE_TO_NODE_TYPE:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown source_page: {source_page}. Supported: {list(_PAGE_TO_NODE_TYPE.keys())}",
+        )
+
+    node_type = _PAGE_TO_NODE_TYPE[source_page]
+    label_hint = _PAGE_TO_LABEL.get(source_page, source_page)
+
+    # Auto-create project if not provided
+    if not project_id:
+        from datetime import datetime
+        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        project_id = _store.create_project(
+            user_id,
+            name=f"Quick Export — {label_hint} ({now})",
+            description=f"Auto-created from {source_page} page",
+        )
+
+    # Create workflow with one pre-configured node
+    wf_name = f"{label_hint} — {_now_str()}"
+    wf_id = _store.create_workflow(project_id, user_id, wf_name, "")
+
+    # Save the pre-configured node into the workflow
+    from src.workflow.schema import WorkflowNodeData, WorkflowEdge
+    try:
+        existing = _store.get_workflow(wf_id, user_id)
+        existing.nodes = [WorkflowNodeData(
+            id="n1",
+            node_type=node_type,
+            label=label_hint,
+            position={"x": 150, "y": 200},
+            config=config,
+        )]
+        existing.edges = []
+        _store.save_workflow(existing)
+    except Exception:
+        logger.exception("Failed to save from-page node")
+        raise HTTPException(status_code=500, detail="Failed to create workflow node")
+
+    logger.info("from-page: %s → workflow %s (project %s)", source_page, wf_id, project_id)
+    return {
+        "workflow_id": wf_id,
+        "project_id": project_id,
+        "redirect": f"/workflow/{project_id}/{wf_id}",
+    }
+
+
+def _now_str() -> str:
+    from datetime import datetime
+    return datetime.now().strftime("%Y-%m-%d %H:%M")
+
+
 @router.get("/workflows/{workflow_id}")
 def get_workflow(workflow_id: str, user_id: int = Depends(_get_user_id)):
     """Get full workflow definition (nodes + edges + viewport)."""

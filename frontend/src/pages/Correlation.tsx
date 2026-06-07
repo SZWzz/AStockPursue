@@ -4,6 +4,7 @@ import { BarChart3, Sparkles, MessageSquare } from "lucide-react";
 import { useI18n } from "@/lib/i18n";
 import { CorrelationMatrix } from "@/components/charts/CorrelationMatrix";
 import { StockInput } from "@/components/indicator-lab/StockInput";
+import { ExportToWorkflowButton } from "@/components/shared/ExportToWorkflowButton";
 import { api } from "@/lib/api";
 
 const STORAGE_KEY = "vr_correlation_result";
@@ -138,13 +139,17 @@ export function Correlation() {
 
       {labels.length > 0 && (
         <>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <button onClick={aiAnalyze} className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition">
               <Sparkles className="h-4 w-4" />{t.correlationAIAnalyze}
             </button>
             <button onClick={saveToChat} disabled={savingSession} className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary/10 text-primary text-sm font-medium hover:bg-primary/20 transition disabled:opacity-50">
               <MessageSquare className="h-4 w-4" />{savingSession ? (t.llmSaving || "Saving...") : t.correlationSaveToSession}
             </button>
+            <ExportToWorkflowButton
+              sourcePage="correlation"
+              config={{ codes, days, method }}
+            />
             {sessionMsg && <span className="text-xs text-muted-foreground">{sessionMsg}</span>}
           </div>
           <div className="section-card p-4">

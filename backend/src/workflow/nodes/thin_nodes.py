@@ -19,6 +19,7 @@ class ScreenerNode(BaseNode):
     node_type = "screener"; category = "filter"; label = "Screener"
     description = "Filter stocks by factor values (rank/filter modes)"
     icon = "Filter"
+    quick_tool_route = "/screener"
     resource_profile = "cpu_bound"
     inputs = [
         BaseNode.in_port("codes", PortType.STOCK_LIST),
@@ -34,6 +35,8 @@ class ScreenerNode(BaseNode):
     }
 
     async def execute(self, inputs: dict, config: dict) -> dict:
+        from src.services.screener_engine import ScreenerEngine
+
         codes = inputs.get("codes", [])
         if isinstance(codes, pd.DataFrame):
             codes = list(codes.columns) if len(codes.columns) < 100 else list(codes.index)
@@ -44,21 +47,11 @@ class ScreenerNode(BaseNode):
         top_n = int(config.get("top_n", 20))
 
         if factor_data is not None and isinstance(factor_data, pd.DataFrame) and not factor_data.empty:
-            try:
-                latest = factor_data.iloc[-1] if len(factor_data) > 0 else pd.Series(dtype=float)
-                if factor_data.shape[1] > 1:
-                    scores = factor_data.mean(axis=1).iloc[-1]
-                else:
-                    scores = latest
-                scores = scores.dropna().sort_values(ascending=False)
-                filtered = list(scores.head(top_n).index)
-                score_df = pd.DataFrame({"score": scores.values}, index=scores.index)
-            except Exception:
-                filtered = list(codes)[:top_n]
-                score_df = pd.DataFrame()
+            filtered, score_df = ScreenerEngine.rank_in_memory(
+                factor_data, codes=codes, top_n=top_n, ascending=False,
+            )
         else:
-            filtered = list(codes)[:top_n]
-            score_df = pd.DataFrame()
+            filtered, score_df = list(codes)[:top_n], pd.DataFrame()
 
         logger.info("Screener: %d → %d stocks", len(codes), len(filtered))
         return {"filtered_codes": filtered, "scores": score_df}

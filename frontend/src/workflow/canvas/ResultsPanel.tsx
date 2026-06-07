@@ -25,12 +25,19 @@ export default function ResultsPanel() {
   const [collapsed, setCollapsed] = useState(false);
   const [selectedLogIdx, setSelectedLogIdx] = useState<number | null>(null);
 
-  // Find chart payload from node results
+  // Find chart payload from node results (check summary first, then raw outputs)
   const chartPayload = useMemo(() => {
     for (const r of Object.values(nodeResults)) {
-      const summary = (r as any)?.summary;
-      if (summary?.chart_payload?.charts && Object.keys(summary.chart_payload.charts).length > 0) {
-        return summary.chart_payload;
+      const res = r as any;
+      // Check summary._summary.chart_payload
+      const fromSummary = res?.summary?.chart_payload || res?._summary?.chart_payload;
+      if (fromSummary?.charts && Object.keys(fromSummary.charts).length > 0) {
+        return fromSummary;
+      }
+      // Also check raw outputs directly
+      const rawChart = res?.chart_payload || res?.outputs?.chart_payload;
+      if (rawChart?.charts && Object.keys(rawChart.charts).length > 0) {
+        return rawChart;
       }
     }
     return null;

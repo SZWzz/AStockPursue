@@ -542,7 +542,10 @@ class ChartDataNode(BaseNode):
         }
 
         logger.info("ChartData: %d chart datasets generated", len(payload["charts"]))
-        return {"chart_payload": payload}
+        return {
+            "chart_payload": payload,
+            "_summary": {"chart_payload": payload},
+        }
 
     # ── Builders ──────────────────────────────────────────────────────────
 

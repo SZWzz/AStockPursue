@@ -543,5 +543,119 @@ class ExitSignalNode(BaseNode):
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Turnover Constraint
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+@register_node
+class TurnoverConstraintNode(BaseNode):
+    """Limit single-period portfolio turnover to control trading costs.
+
+    Typical placement: between SignalWeightNode and BacktestNode.
+    """
+
+    node_type = "turnover_constraint"
+    category = "risk"
+    label = "换手率限制"
+    description = "限制单期换手率，避免过度调仓带来的交易成本"
+    icon = "Gauge"
+    resource_profile = "cpu_bound"
+
+    inputs = [
+        BaseNode.in_port("target_weights", PortType.SIGNAL,
+                         description="策略生成的未受限目标权重"),
+        BaseNode.in_port("current_weights", PortType.SIGNAL, required=False,
+                         description="当前持仓权重（默认为零）"),
+    ]
+    outputs = [
+        BaseNode.out_port("constrained_weights", PortType.SIGNAL,
+                          description="换手率受限后的权重"),
+        BaseNode.out_port("turnover_report", PortType.PARAMS,
+                          description="换手率统计 + 成本估算"),
+    ]
+    config_schema = {
+        "max_turnover": {
+            "title": "最大换手率", "type": "number", "default": 0.5,
+            "minimum": 0.05, "maximum": 1.0,
+            "description": "单期最大换手率 (0–1)",
+        },
+        "turnover_cost_bps": {
+            "title": "换手成本 (bps)", "type": "number", "default": 10,
+            "minimum": 0, "maximum": 100,
+            "description": "每单位换手的双向成本估算",
+        },
+        "mode": {
+            "title": "约束模式", "type": "string",
+            "enum": ["cap", "scale"], "default": "cap",
+            "description": "cap=截断单只权重变化; scale=等比缩放整体",
+        },
+    }
+
+    async def execute(self, inputs: dict, config: dict) -> dict:
+        target = _to_weight_dict(inputs.get("target_weights", {}))
+        current = _to_weight_dict(inputs.get("current_weights", {}))
+        max_to = float(config.get("max_turnover", 0.5))
+        mode = config.get("mode", "cap")
+        cost_bps = float(config.get("turnover_cost_bps", 10))
+
+        if not target:
+            return {
+                "constrained_weights": target,
+                "turnover_report": {"error": "No target weights"},
+            }
+
+        # Calculate total turnover
+        total_turnover = sum(abs(target.get(c, 0) - current.get(c, 0)) for c in set(target) | set(current))
+
+        if total_turnover <= max_to:
+            # Within limit — pass through
+            return {
+                "constrained_weights": target,
+                "turnover_report": {
+                    "total_turnover": round(total_turnover, 4),
+                    "cost_estimate_bps": round(total_turnover * cost_bps, 2),
+                    "constrained": False,
+                    "mode": mode,
+                },
+            }
+
+        # Apply constraint
+        constrained: dict[str, float] = {}
+        if mode == "scale":
+            # Proportional scaling: shrink all weight changes proportionally
+            scale = max_to / total_turnover
+            for c in set(target) | set(current):
+                tw = target.get(c, 0)
+                cw = current.get(c, 0)
+                constrained[c] = cw + (tw - cw) * scale
+        else:
+            # Cap mode: clip individual weight changes to max_turnover
+            for c in set(target) | set(current):
+                tw = target.get(c, 0)
+                cw = current.get(c, 0)
+                diff = tw - cw
+                if abs(diff) > max_to:
+                    diff = max_to * (1 if diff > 0 else -1)
+                constrained[c] = cw + diff
+
+        constrained_turnover = sum(abs(constrained.get(c, 0) - current.get(c, 0))
+                                  for c in set(constrained) | set(current))
+
+        logger.info("Turnover: %.1f%% → %.1f%% (max %.1f%%, mode=%s)",
+                     total_turnover * 100, constrained_turnover * 100, max_to * 100, mode)
+
+        return {
+            "constrained_weights": constrained,
+            "turnover_report": {
+                "original_turnover": round(total_turnover, 4),
+                "constrained_turnover": round(constrained_turnover, 4),
+                "cost_estimate_bps": round(constrained_turnover * cost_bps, 2),
+                "constrained": True,
+                "mode": mode,
+            },
+        }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Helpers — imported from _utils
 # ═══════════════════════════════════════════════════════════════════════════════

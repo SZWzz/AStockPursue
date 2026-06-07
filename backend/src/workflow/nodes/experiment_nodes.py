@@ -68,6 +68,8 @@ class ExperimentNode(BaseNode):
                           description="All candidates ranked"),
         BaseNode.out_port("best_backtest", PortType.BACKTEST_RESULT,
                           description="Best strategy's backtest result"),
+        BaseNode.out_port("heatmap_data", PortType.PARAMS,
+                          description="2D heatmap data for parameter visualisation (xParam, yParam, cells)"),
     ]
     config_schema = {
         "parameter_space": {
@@ -158,6 +160,21 @@ class ExperimentNode(BaseNode):
         ranked = scorer.rank(candidates)
 
         best = ranked[0] if ranked else None
+
+        # Build heatmap data if exactly 2 parameters are being varied
+        heatmap = _build_heatmap(ranked, param_names)
+
+        # Build chart_payload for ResultsPanel rendering
+        summary: dict = {
+            "total_variants": len(ranked),
+            "best_score": best.get("score") if best else 0,
+            "method": method,
+        }
+        chart_payload: dict = {"charts": {}}
+        if heatmap:
+            chart_payload["charts"]["heatmap"] = heatmap
+            summary["heatmap"] = f"{heatmap['xParam']} × {heatmap['yParam']}"
+
         return {
             "best_strategy": best["strategy"] if best else {},
             "all_results": {
@@ -166,7 +183,44 @@ class ExperimentNode(BaseNode):
                 "method": method,
             },
             "best_backtest": best.get("backtest_result", {}) if best else {},
+            "heatmap_data": heatmap,
+            "_summary": summary,
+            "chart_payload": chart_payload,
         }
+
+
+def _build_heatmap(ranked: list[dict], param_names: list[str]) -> dict | None:
+    """Build 2D heatmap data from experiment results.
+
+    Only generates a heatmap when exactly 2 parameters are varied.
+    """
+    if len(param_names) != 2 or len(ranked) < 2:
+        return None
+
+    x_param, y_param = param_names
+    cells = []
+    for r in ranked:
+        params = r.get("params", r.get("strategy", {}))
+        if isinstance(params, dict):
+            x_val = params.get(x_param)
+            y_val = params.get(y_param)
+            if x_val is not None and y_val is not None:
+                score = r.get("score", r.get("metrics", {}).get("sharpe_ratio", r.get("sharpe", 0)))
+                cells.append({
+                    "x": x_val,
+                    "y": y_val,
+                    "value": round(float(score), 4) if score else 0,
+                })
+
+    if not cells:
+        return None
+
+    return {
+        "xParam": x_param,
+        "yParam": y_param,
+        "metric": "score",
+        "cells": cells,
+    }
 
 
 @register_node

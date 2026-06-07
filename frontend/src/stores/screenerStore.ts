@@ -18,6 +18,8 @@ interface Preset {
 interface ScreenerResult {
   symbol: string;
   name: string;
+  _data_source?: string;
+  _error?: string;
   [key: string]: unknown;
 }
 
@@ -111,7 +113,14 @@ export const useScreenerStore = create<ScreenerState>((set, get) => ({
       const { conditions, universe, mode, topN } = get();
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const data: any = await api.runScreener({ conditions, universe, mode, top_n: topN });
-      set({ results: data?.results || [], dataSource: data?.data_source || "", loading: false });
+      const results = data?.results || [];
+      const ds = data?.data_source || (results.length > 0 && results[0]?._data_source) || "";
+      // Show error message from backend if present
+      const errorMsg = results.length === 1 && results[0]?._error ? results[0]._error : "";
+      if (errorMsg) {
+        console.warn("Screener error:", errorMsg);
+      }
+      set({ results, dataSource: ds, loading: false });
     } catch { set({ loading: false }); }
   },
 

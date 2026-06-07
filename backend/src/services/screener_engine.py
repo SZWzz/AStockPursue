@@ -97,6 +97,41 @@ class ScreenerEngine:
       - ``score``: weighted multi-factor scoring with optional industry neutralization
     """
 
+    # ── In-memory ranking (for workflow node use) ──────────────────────────
+
+    @staticmethod
+    def rank_in_memory(
+        factor_df: pd.DataFrame,
+        codes: list[str] | None = None,
+        top_n: int = 20,
+        ascending: bool = False,
+    ) -> tuple[list[str], pd.DataFrame]:
+        """Rank stocks by latest factor value (in-memory, no DB).
+
+        Used by ScreenerNode when operating on DataFrames from upstream nodes.
+
+        Returns:
+            (filtered_codes, scores_df).
+        """
+        if factor_df is None or factor_df.empty:
+            return ([], pd.DataFrame())
+
+        if factor_df.shape[1] > 1:
+            latest = factor_df.iloc[-1]
+            scores = latest if isinstance(latest, pd.Series) else pd.Series(latest)
+        else:
+            scores = pd.Series(index=factor_df.columns, data=factor_df.iloc[-1].values)
+
+        if codes:
+            scores = scores[scores.index.isin(codes)]
+
+        scores = scores.dropna().sort_values(ascending=ascending)
+        filtered = list(scores.head(top_n).index)
+        score_df = pd.DataFrame({"score": scores.values}, index=scores.index)
+
+        logger.info("ScreenerEngine.rank_in_memory: → %d stocks", len(filtered))
+        return (filtered, score_df)
+
     TECH_INDICATORS: list[tuple[str, str, str]] = [
         ("close", "Close Price", "technical"),
         ("volume", "Volume", "technical"),
@@ -199,10 +234,10 @@ class ScreenerEngine:
                     interval="1D",
                 )
                 try:
-                    data_map = future.result(timeout=20)
+                    data_map = future.result(timeout=30)
                 except concurrent.futures.TimeoutError:
-                    logger.warning("Screener data loading timed out for %d symbols", len(universe))
-                    return {}, "mock"
+                    logger.warning("Screener data loading timed out for %d symbols after 30s", len(universe))
+                    return {}, "error"
                 except Exception as exc:
                     raise  # re-raise for the outer except handler
 
@@ -230,7 +265,7 @@ class ScreenerEngine:
         except Exception as e:
             logger.warning("DataStore load failed for screener: %s", e)
 
-        return {}, "mock"
+        return {}, "error"
 
     # ── Execution ───────────────────────────────────────────────────
 
@@ -306,26 +341,19 @@ class ScreenerEngine:
             else:
                 latest = pd.Series(dtype=np.float64)
         else:
-            # Fallback: generate mock data with clear warning
-            logger.warning("Using mock data for screener — results are NOT real")
-            data_source = "mock"
-            rng = np.random.RandomState(42)
-            mock_data: dict[str, Any] = {"symbol": universe, "name": universe}
-            for c in conditions:
-                safe_field = self._sanitise_field_name(c.field)
-                if c.field.startswith("returns"):
-                    mock_data[safe_field] = [round(rng.uniform(-0.1, 0.1), 4) for _ in universe]
-                elif "volume" in c.field.lower():
-                    mock_data[safe_field] = [round(rng.uniform(0.5, 2.0), 4) for _ in universe]
-                elif "sma" in c.field.lower():
-                    mock_data[safe_field] = [round(rng.uniform(10, 500), 2) for _ in universe]
-                elif "rsi" in c.field.lower():
-                    mock_data[safe_field] = [round(rng.uniform(20, 80), 2) for _ in universe]
-                else:
-                    mock_data[safe_field] = [round(rng.uniform(-0.5, 0.5), 4) for _ in universe]
-            result_df = pd.DataFrame(mock_data)
-            result_df["_data_source"] = "mock"
-            return result_df.head(top_n)
+            # Data loading failed — return clear error, NEVER mock data
+            logger.error(
+                "Screener: data loading failed for %d symbols, returning error. "
+                "Check DataStore configuration and loader availability.",
+                len(universe),
+            )
+            return pd.DataFrame({
+                "symbol": [], "name": [], "_data_source": ["error"],
+                "_error": [
+                    f"数据加载失败：无法从 DataStore 获取 {len(universe)} 只股票的行情数据。"
+                    f"请检查数据源配置（tushare/futu/eastmoney）是否可用，或尝试更小的股票池。"
+                ],
+            })
 
         # ── Mode: filter ──
         if mode == "filter" and conditions:

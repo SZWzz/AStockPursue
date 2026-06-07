@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 @register_node
 class NewsSentimentNode(BaseNode):
     node_type = "news_sentiment"; category = "data"; label = "News Sentiment"
+    quick_tool_route = "/sentiment"
     description = (
         "Analyse sentiment of news articles or text using SnowNLP or keyword-based scoring. "
         "Aggregate scores by stock symbol or extract trending topics."
@@ -81,15 +82,16 @@ class NewsSentimentNode(BaseNode):
         if not articles:
             return {"sentiment": {"error": "Could not parse news data", "scores": {}, "topics": []}}
 
-        # ── Score each article ────────────────────────────────────────────────
-        scores: List[Dict[str, Any]] = []
-        use_snownlp = method in ("snownlp", "auto")
+        # ── Score each article via SentimentAnalyzer ───────────────────────────
+        from src.services.sentiment_analyzer import SentimentAnalyzer
+        analyzer = SentimentAnalyzer()
 
+        scores: List[Dict[str, Any]] = []
         for art in articles:
             text = str(art.get("text", art.get("content", "")))
             if not text.strip():
                 continue
-            score = self._score_text(text, use_snownlp=use_snownlp)
+            score = analyzer.analyze_text(text)
             scores.append({
                 "symbol": art.get("symbol", art.get("stock", "")),
                 "source": art.get("source", ""),

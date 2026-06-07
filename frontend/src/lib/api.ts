@@ -11,6 +11,8 @@ import type {
   AlphaListResponse,
   AlphaSummary,
   ArtifactInfo,
+  BacktestRunDetail,
+  BacktestRunSummary,
   BacktestMetrics,
   BrokerAccount,
   BrokerCredential,
@@ -67,6 +69,8 @@ export type {
   AlphaListResponse,
   AlphaSummary,
   ArtifactInfo,
+  BacktestRunDetail,
+  BacktestRunSummary,
   BacktestMetrics,
   BrokerAccount,
   BrokerCredential,
@@ -239,6 +243,24 @@ export const api = {
   swarmSseUrl: (id: string) => withAuthQuery(`${BASE}/swarm/runs/${id}/events`),
   cancelSwarmRun: (id: string) =>
     request<{ status: string }>(`/swarm/runs/${id}/cancel`, { method: "POST" }),
+
+  // ── Backtest History (PG-backed) ──────────────────────────────
+  listBacktestHistory: (limit = 50, offset = 0) =>
+    request<{ runs: BacktestRunSummary[]; total: number }>(
+      `/api/backtest-history?limit=${limit}&offset=${offset}`
+    ),
+  getBacktestHistory: (id: string) =>
+    request<BacktestRunDetail>(`/api/backtest-history/${id}`),
+  deleteBacktestHistory: (id: string) =>
+    request<{ ok: boolean }>(`/api/backtest-history/${id}`, { method: "DELETE" }),
+
+  // ── Page → Workflow bridge ────────────────────────────────────
+  createWorkflowFromPage: (body: { source_page: string; config: Record<string, unknown>; project_id?: string }) =>
+    request<{ workflow_id: string; project_id: string; redirect: string }>(
+      "/workflows/from-page",
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+
   getLLMSettings: () => request<LLMSettings>("/settings/llm"),
   updateLLMSettings: (settings: UpdateLLMSettingsRequest) =>
     request<LLMSettings>("/settings/llm", {

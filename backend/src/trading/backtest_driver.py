@@ -262,6 +262,9 @@ class BacktestDriver:
             warnings=config.get("_warnings"),
         )
 
+        # Persist to PG for history/compare
+        self._persist_to_db(config, m, equity_series, engine, run_dir, data_map)
+
         print(json.dumps({k: v for k, v in m.items() if not isinstance(v, dict)}, indent=2))
         return m
 
@@ -352,10 +355,187 @@ class BacktestDriver:
             target_pos, m, valid_codes, engine,
         )
 
+        # Persist to PG for history/compare
+        self._persist_to_db(config, m, equity_series, engine, run_dir, data_map)
+
         print(json.dumps({k: v for k, v in m.items() if not isinstance(v, dict)}, indent=2))
         return m
 
     # ── Helpers ──────────────────────────────────────────────────────
+
+    def _persist_to_db(
+        self,
+        config: dict,
+        metrics: dict,
+        equity_series: pd.Series,
+        engine: Any,
+        run_dir: Path,
+        data_map: dict,
+    ) -> str | None:
+        """Persist backtest result to PostgreSQL for history browsing.
+
+        Non-fatal: if the DB is unavailable the backtest still completes.
+        Returns the run UUID on success, None on failure.
+        """
+        try:
+            from src.db.backtest_store import save_backtest_result
+
+            # ── Build equity_curve for DB ──────────────────────────────
+            peak = equity_series.cummax()
+            dd = (equity_series - peak) / peak.replace(0, 1)
+            equity_curve = []
+            for ts, eq_val in equity_series.items():
+                equity_curve.append({
+                    "time": str(ts),
+                    "equity": round(float(eq_val), 4),
+                    "drawdown": round(float(dd.get(ts, 0)), 6),
+                })
+
+            # ── Build trades for DB ───────────────────────────────────
+            trades = []
+            for t in engine.trades:
+                if getattr(t, "exit_time", None) is None:
+                    continue
+                try:
+                    direction = getattr(t, "direction", 1)
+                    side = "long" if direction == 1 else "short"
+                    trades.append({
+                        "symbol": str(getattr(t, "symbol", "")),
+                        "entry_time": str(getattr(t, "entry_time", "")),
+                        "exit_time": str(getattr(t, "exit_time", "")),
+                        "entry_price": round(float(getattr(t, "entry_price", 0)), 4),
+                        "exit_price": round(float(getattr(t, "exit_price", 0)), 4),
+                        "size": round(float(getattr(t, "size", 0)), 6),
+                        "side": side,
+                        "pnl": round(float(getattr(t, "pnl", 0)), 4),
+                        "return_pct": round(float(getattr(t, "pnl_pct", 0)), 6),
+                        "exit_reason": str(getattr(t, "exit_reason", "")),
+                    })
+                except Exception:
+                    continue
+
+            # ── Build OHLCV bars for K-line chart ──────────────────────
+            ohlcv_bars: list[dict] = []
+            for code, df in data_map.items():
+                if not isinstance(df, pd.DataFrame):
+                    continue
+                for idx, row in df.iterrows():
+                    try:
+                        ohlcv_bars.append({
+                            "code": str(code),
+                            "bar_time": str(idx),
+                            "open": float(row.get("open", 0)),
+                            "high": float(row.get("high", 0)),
+                            "low": float(row.get("low", 0)),
+                            "close": float(row.get("close", 0)),
+                            "volume": float(row.get("volume", 0)),
+                        })
+                    except Exception:
+                        continue
+
+            # ── Build serialisable config ──────────────────────────────
+            safe_config = {}
+            for k, v in config.items():
+                if callable(v) or str(type(v)).startswith("<class"):
+                    continue
+                if k.startswith("_"):    # internal flags
+                    continue
+                try:
+                    import json as _json
+                    _json.dumps(v)
+                    safe_config[k] = v
+                except (TypeError, ValueError):
+                    safe_config[k] = str(v)
+
+            # ── Determine run name ────────────────────────────────────
+            run_name = config.get("run_name", "")
+            if not run_name:
+                run_name = run_dir.name
+
+            # ── Determine persistence level ────────────────────────────
+            # Internal keys (prefixed with _) are read from config but
+            # excluded from safe_config above.
+            persist_level = config.get("_db_persist", "full")
+            if persist_level == "minimal":
+                # Grid search / walk-forward intermediates: skip bulky data
+                equity_curve = None
+                trades = None
+
+            # ── Build tags ────────────────────────────────────────────
+            tags = self._auto_tags(config, metrics)
+
+            run_id = save_backtest_result(
+                run_name=run_name,
+                run_type=config.get("run_type", config.get("engine", "strategy")),
+                config=safe_config,
+                metrics={k: v for k, v in metrics.items() if not callable(v)},
+                equity_curve=equity_curve,
+                trades=trades,
+                ohlcv_bars=ohlcv_bars if persist_level == "full" else None,
+                status="success",
+                user_id=config.get("user_id", 1),
+                tags=tags,
+            )
+
+            logger.info("Backtest persisted to PG: %s tags=%s", run_id, tags)
+            return run_id
+
+        except Exception as e:
+            logger.warning("Failed to persist backtest to PG (non-fatal): %s", e)
+            return None
+
+    @staticmethod
+    def _auto_tags(config: dict, metrics: dict) -> list[str]:
+        """Generate descriptive tags from config and metrics."""
+        tags = []
+
+        # Market
+        market = config.get("market", "")
+        engine_type = config.get("engine", "")
+        if market:
+            tags.append(f"market:{market}")
+        elif engine_type:
+            tags.append(f"engine:{engine_type}")
+
+        # Interval
+        interval = config.get("interval", "1D")
+        tags.append(f"interval:{interval}")
+
+        # Source / data origin
+        source = config.get("source", "")
+        if source and source != "auto":
+            tags.append(f"source:{source}")
+
+        # User-supplied tags (e.g. from grid search)
+        user_tags = config.get("_db_tags")
+        if isinstance(user_tags, list):
+            tags.extend([str(t) for t in user_tags])
+
+        # Strategy class
+        strategy_cls = config.get("strategy_class", "")
+        if strategy_cls:
+            tags.append(f"strategy:{strategy_cls}")
+
+        # Performance tier
+        sharpe = metrics.get("sharpe_ratio", 0) or metrics.get("sharpe", 0)
+        try:
+            sharpe = float(sharpe)
+            if sharpe >= 2.0:
+                tags.append("perf:excellent")
+            elif sharpe >= 1.0:
+                tags.append("perf:good")
+            elif sharpe >= 0:
+                tags.append("perf:positive")
+            else:
+                tags.append("perf:negative")
+        except (TypeError, ValueError):
+            pass
+
+        # Default if empty
+        if not tags:
+            tags.append("source:backtest_driver")
+
+        return tags
 
     @staticmethod
     def _should_filter_session(config: dict) -> bool:

@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 @register_node
 class CorrelationNode(BaseNode):
     node_type = "correlation"; category = "analysis"; label = "Correlation"
+    quick_tool_route = "/correlation"
     description = (
         "Compute cross-asset correlation matrix from OHLCV close prices or factor data. "
         "Supports Pearson and Spearman methods with optional rolling window."
@@ -55,62 +56,43 @@ class CorrelationNode(BaseNode):
     }
 
     async def execute(self, inputs: dict, config: dict) -> dict:
+        from src.services.correlation_engine import CorrelationEngine
+
         method = config.get("method", "pearson")
         lookback = int(config.get("lookback_days", 60))
         data_source = config.get("data_source", "close_price")
         min_overlap = float(config.get("min_overlap_pct", 0.5))
 
-        # ── Build price panel ─────────────────────────────────────────────────
-        panel = None
+        engine = CorrelationEngine()
 
+        # ── Build panel ──────────────────────────────────────────────────────
+        panel = None
         if data_source == "close_price":
             ohlcv = inputs.get("ohlcv_data", {})
-            if isinstance(ohlcv, pd.DataFrame):
-                ohlcv = {"panel": ohlcv}
-            if ohlcv:
-                closes = {}
-                for code, df in ohlcv.items():
-                    if isinstance(df, pd.DataFrame) and "close" in df.columns:
-                        closes[code] = df["close"]
-                if closes:
-                    panel = pd.DataFrame(closes).ffill()
+            panel = engine.build_panel_from_ohlcv(ohlcv, column="close")
         else:
             factor_data = inputs.get("factor_data")
             if isinstance(factor_data, pd.DataFrame):
                 panel = factor_data
 
-        if panel is None or panel.empty:
-            return {"correlation_matrix": {"labels": [], "matrix": [], "error": "No data"}}
+        # ── Compute ───────────────────────────────────────────────────────────
+        corr_df, summary = engine.compute_matrix(
+            panel, method=method, lookback=lookback,
+            min_overlap_pct=min_overlap,
+        )
 
-        # ── Slice lookback ────────────────────────────────────────────────────
-        if lookback > 0 and len(panel) > lookback:
-            panel = panel.iloc[-lookback:]
+        # Handle error cases
+        if "error" in summary:
+            labels = list(corr_df.columns) if not corr_df.empty else []
+            return {"correlation_matrix": {
+                "labels": labels, "matrix": corr_df.values.tolist() if not corr_df.empty else [],
+                "error": summary["error"],
+            }}
 
-        # ── Drop columns with too little overlap ──────────────────────────────
-        min_obs = max(2, int(len(panel) * min_overlap))
-        panel = panel.dropna(axis=1, thresh=min_obs)
-        if panel.shape[1] < 2:
-            return {"correlation_matrix": {"labels": list(panel.columns), "matrix": [], "error": "Insufficient data after overlap filter"}}
-
-        # ── Compute correlation ───────────────────────────────────────────────
-        corr_df = panel.corr(method=method)  # type: ignore[call-overload]
         labels = list(corr_df.columns)
         matrix = corr_df.values.tolist()
 
-        # ── Summary stats ─────────────────────────────────────────────────────
-        upper_tri = corr_df.where(np.triu(np.ones(corr_df.shape, dtype=bool), k=1))
-        values = upper_tri.values.flatten()
-        values = values[~np.isnan(values)]
-        summary = {
-            "n_assets": len(labels),
-            "mean_corr": round(float(np.mean(values)), 4) if len(values) > 0 else None,
-            "max_corr": round(float(np.max(values)), 4) if len(values) > 0 else None,
-            "min_corr": round(float(np.min(values)), 4) if len(values) > 0 else None,
-            "method": method,
-            "lookback_days": lookback,
-        }
-
-        logger.info("Correlation: %d assets, mean=%.3f", len(labels), summary["mean_corr"] or 0)
+        logger.info("Correlation: %d assets, mean=%.3f", len(labels), summary.get("mean_corr") or 0)
         return {"correlation_matrix": {"labels": labels, "matrix": matrix, "summary": summary}}
 
 
@@ -158,11 +140,10 @@ class CrowdingNode(BaseNode):
     }
 
     async def execute(self, inputs: dict, config: dict) -> dict:
-        import numpy as np
+        from src.services.correlation_engine import CorrelationEngine
 
         factor_data = inputs.get("factor_data")
         if isinstance(factor_data, dict):
-            # Take first DataFrame if dict
             factor_data = next(iter(factor_data.values()), None)
         if not isinstance(factor_data, pd.DataFrame) or factor_data.empty:
             return {
@@ -180,56 +161,23 @@ class CrowdingNode(BaseNode):
         threshold = float(config.get("threshold", 0.75))
         top_n = int(config.get("top_n_pairs", 10))
 
-        # Compute pairwise Pearson correlation
+        engine = CorrelationEngine()
         corr = df.corr(method="pearson")
-        cols = list(corr.columns)
-
-        # Extract high-correlation pairs (upper triangle only)
-        crowded_pairs = []
-        for i in range(len(cols)):
-            for j in range(i + 1, len(cols)):
-                val = float(corr.iloc[i, j])
-                if abs(val) >= threshold:
-                    crowded_pairs.append({
-                        "factor_a": cols[i], "factor_b": cols[j],
-                        "correlation": round(val, 4),
-                    })
-
-        crowded_pairs.sort(key=lambda p: abs(p["correlation"]), reverse=True)
-        crowded_pairs = crowded_pairs[:top_n]
-
-        n_total_pairs = len(cols) * (len(cols) - 1) // 2
-        overall_score = len(crowded_pairs) / max(n_total_pairs, 1)
-
-        warning = None
-        if overall_score > 0.30:
-            warning = "HIGH: Over 30% of factor pairs are highly correlated — crowded trade risk is elevated"
-        elif overall_score > 0.15:
-            warning = "MODERATE: 15-30% of pairs correlated — monitor for concentration"
-        elif overall_score > 0.05:
-            warning = "LOW: Minor crowding detected"
+        crowding = engine.find_crowded_pairs(corr, threshold=threshold, top_n=top_n)
 
         logger.info("Crowding: %d crowded pairs (%.1f%%), threshold=%.2f",
-                     len(crowded_pairs), overall_score * 100, threshold)
+                     len(crowding["crowded_pairs"]), crowding["overall_score"] * 100, threshold)
 
         return {
-            "crowding_report": {
-                "crowded_pairs": crowded_pairs,
-                "overall_score": round(overall_score, 4),
-                "overall_score_pct": round(overall_score * 100, 1),
-                "warning": warning,
-                "threshold": threshold,
-                "total_pairs": n_total_pairs,
-                "total_factors": len(cols),
-            },
+            "crowding_report": crowding,
             "_summary": {
-                "crowding": f"{round(overall_score * 100, 1)}%",
-                "crowded_pairs": len(crowded_pairs),
-                "warning": "yes" if warning and "HIGH" in warning else "no",
+                "crowding": f"{crowding['overall_score_pct']}%",
+                "crowded_pairs": len(crowding["crowded_pairs"]),
+                "warning": "yes" if crowding.get("warning") and "HIGH" in str(crowding["warning"]) else "no",
             },
             "correlation_matrix": {
-                "labels": cols,
+                "labels": list(corr.columns),
                 "matrix": corr.values.tolist(),
-                "summary": {"crowding_score": round(overall_score, 4)},
+                "summary": {"crowding_score": crowding["overall_score"]},
             },
         }

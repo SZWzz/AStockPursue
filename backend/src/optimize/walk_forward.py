@@ -147,6 +147,7 @@ class WalkForwardAnalyzer:
             (run_dir / "signal_engine.py").write_text(injected, encoding="utf-8")
             (run_dir / "config.json").write_text(json.dumps({
                 **{k: v for k, v in config.items() if k != "params"},
+                "_db_tags": ["walk_forward"],
             }), encoding="utf-8")
 
             from backtest.runner import main as run_backtest

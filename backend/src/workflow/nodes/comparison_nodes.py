@@ -16,59 +16,56 @@ logger = logging.getLogger(__name__)
 
 @register_node
 class ComparisonNode(BaseNode):
-    node_type = "comparison"; category = "analysis"; label = "Compare"
-    description = (
-        "Compare two backtest results with statistical tests: "
-        "paired t-test, bootstrap, CAPM regression, White's Reality Check."
-    )
+    node_type = "comparison"; category = "analysis"; label = "策略对比"
+    description = "对比两个回测结果：paired t-test、bootstrap、CAPM 回归、White's Reality Check"
     icon = "GitCompare"
     inputs = [
-        BaseNode.in_port("backtest_a", PortType.BACKTEST_RESULT,
-                         description="First backtest result"),
-        BaseNode.in_port("backtest_b", PortType.BACKTEST_RESULT,
-                         description="Second backtest result"),
+        BaseNode.in_port("baseline", PortType.BACKTEST_RESULT,
+                         description="基准策略回测结果（原有策略/对照）"),
+        BaseNode.in_port("candidate", PortType.BACKTEST_RESULT,
+                         description="候选策略回测结果（新策略/优化后）"),
     ]
     outputs = [
         BaseNode.out_port("comparison_report", PortType.COMPARISON_RESULT,
-                          description="Comparison report with test results and verdict"),
+                          description="对比报告（统计检验 + 胜负判定）"),
     ]
     config_schema = {
         "tests": {
-            "title": "Tests", "type": "string",
+            "title": "检验方法", "type": "string",
             "enum": ["all", "paired_t", "bootstrap", "capm", "whites"],
             "default": "all",
         },
         "bootstrap_samples": {
-            "title": "Bootstrap Samples", "type": "integer", "default": 10000,
+            "title": "Bootstrap 样本数", "type": "integer", "default": 10000,
             "minimum": 1000, "maximum": 100000,
         },
         "rolling_window": {
-            "title": "Rolling Window", "type": "integer", "default": 252,
+            "title": "滚动窗口(天)", "type": "integer", "default": 252,
             "minimum": 20, "maximum": 1260,
-            "description": "Days for rolling window Sharpe comparison",
+            "description": "滚动窗口 Sharpe 对比的天数",
         },
     }
 
     async def execute(self, inputs: dict, config: dict) -> dict:
-        bt_a = inputs.get("backtest_a", {})
-        bt_b = inputs.get("backtest_b", {})
+        bt_baseline = inputs.get("baseline", {})
+        bt_candidate = inputs.get("candidate", {})
 
-        if isinstance(bt_a, dict) and bt_a.get("error"):
-            return {"comparison_report": {"error": f"Backtest A error: {bt_a['error']}"}}
-        if isinstance(bt_b, dict) and bt_b.get("error"):
-            return {"comparison_report": {"error": f"Backtest B error: {bt_b['error']}"}}
+        if isinstance(bt_baseline, dict) and bt_baseline.get("error"):
+            return {"comparison_report": {"error": f"基准策略错误: {bt_baseline['error']}"}}
+        if isinstance(bt_candidate, dict) and bt_candidate.get("error"):
+            return {"comparison_report": {"error": f"候选策略错误: {bt_candidate['error']}"}}
 
         tests_wanted = config.get("tests", "all")
         n_bootstrap = int(config.get("bootstrap_samples", 10000))
         roll_window = int(config.get("rolling_window", 252))
 
         # ── Extract metrics ───────────────────────────────────────────────────
-        metrics_a = self._get_metrics(bt_a)
-        metrics_b = self._get_metrics(bt_b)
+        metrics_a = self._get_metrics(bt_baseline)
+        metrics_b = self._get_metrics(bt_candidate)
 
         # ── Extract equity curves (daily returns) ─────────────────────────────
-        equity_a = self._get_equity(bt_a)
-        equity_b = self._get_equity(bt_b)
+        equity_a = self._get_equity(bt_baseline)
+        equity_b = self._get_equity(bt_candidate)
 
         returns_a = None
         returns_b = None
@@ -88,7 +85,7 @@ class ComparisonNode(BaseNode):
             a_val = metrics_a.get(key)
             b_val = metrics_b.get(key)
             if a_val is not None and b_val is not None:
-                report["winner"][key] = "A" if a_val > b_val else "B" if b_val > a_val else "tie"
+                report["winner"][key] = "基准" if a_val > b_val else "候选" if b_val > a_val else "tie"
 
         # ── Run statistical tests ─────────────────────────────────────────────
         if returns_a is not None and returns_b is not None and len(returns_a) > 1 and len(returns_b) > 1:
@@ -176,4 +173,107 @@ class ComparisonNode(BaseNode):
             "prob_a_better_than_b": round(prob_a_better, 4),
             "sharpe_diff_ci95": [round(ci_lower, 6), round(ci_upper, 6)],
             "n_bootstrap": n,
+        }
+
+
+# ── Consistency Check ────────────────────────────────────────────────────
+
+
+@register_node
+class ConsistencyCheckNode(BaseNode):
+    """Compare fast-mode vs simulation-mode backtest results.
+
+    Detects pipeline bugs and look-ahead bias by verifying that both modes
+    produce similar results.  Fast mode pre-computes weights; simulation
+    mode generates signals bar-by-bar (matches live).  A divergence > threshold
+    flags a potential issue.
+
+    Typical wiring::
+
+        [StrategyNode] ─┬─→ [Backtest(mode=fast)] ─┐
+                         │                          ├→ [ConsistencyCheck]
+                         └─→ [Backtest(mode=sim)]  ─┘
+    """
+
+    node_type = "consistency_check"
+    category = "validation"
+    label = "一致性校验"
+    description = "对比快速模式与模拟模式回测结果，发现潜在的前视偏差或管线 bug"
+    icon = "CheckCircle"
+    resource_profile = "cpu_bound"
+
+    inputs = [
+        BaseNode.in_port("fast_result", PortType.BACKTEST_RESULT,
+                         description="快速模式回测结果"),
+        BaseNode.in_port("sim_result", PortType.BACKTEST_RESULT,
+                         description="模拟模式回测结果"),
+    ]
+    outputs = [
+        BaseNode.out_port("consistency_report", PortType.PARAMS,
+                          description="偏差报告（含 pass/fail 判定）"),
+        BaseNode.out_port("is_consistent", PortType.BOOL,
+                          description="两个模式是否在阈值内一致"),
+    ]
+    config_schema = {
+        "return_threshold": {
+            "title": "收益偏差阈值",
+            "type": "number", "default": 0.01,
+            "description": "total_return 最大允许绝对偏差",
+        },
+        "sharpe_threshold": {
+            "title": "Sharpe 偏差阈值",
+            "type": "number", "default": 0.1,
+            "description": "sharpe_ratio 最大允许绝对偏差",
+        },
+    }
+
+    async def execute(self, inputs: dict, config: dict) -> dict:
+        def _metrics(r: dict | None) -> dict:
+            if isinstance(r, dict):
+                return r.get("metrics", r)
+            return {}
+
+        fast = _metrics(inputs.get("fast_result"))
+        sim = _metrics(inputs.get("sim_result"))
+
+        return_threshold = float(config.get("return_threshold", 0.01))
+        sharpe_threshold = float(config.get("sharpe_threshold", 0.1))
+
+        ret_diff = abs(fast.get("total_return", 0) - sim.get("total_return", 0))
+        sharpe_diff = abs(fast.get("sharpe_ratio", fast.get("sharpe", 0))
+                         - sim.get("sharpe_ratio", sim.get("sharpe", 0)))
+        dd_diff = abs(fast.get("max_drawdown", 0) - sim.get("max_drawdown", 0))
+
+        is_consistent = (
+            ret_diff <= return_threshold
+            and sharpe_diff <= sharpe_threshold
+        )
+
+        report = {
+            "return_diff": round(ret_diff, 6),
+            "sharpe_diff": round(sharpe_diff, 6),
+            "drawdown_diff": round(dd_diff, 6),
+            "is_consistent": is_consistent,
+            "verdict": "PASS" if is_consistent else "FAIL — possible look-ahead bias or pipeline bug",
+            "fast_summary": {
+                "total_return": fast.get("total_return"),
+                "sharpe": fast.get("sharpe_ratio", fast.get("sharpe")),
+                "max_drawdown": fast.get("max_drawdown"),
+            },
+            "sim_summary": {
+                "total_return": sim.get("total_return"),
+                "sharpe": sim.get("sharpe_ratio", sim.get("sharpe")),
+                "max_drawdown": sim.get("max_drawdown"),
+            },
+        }
+
+        logger.info(
+            "ConsistencyCheck: %s (ret_diff=%.4f%%, sharpe_diff=%.4f)",
+            "PASS" if is_consistent else "FAIL",
+            ret_diff * 100, sharpe_diff,
+        )
+
+        return {
+            "consistency_report": report,
+            "is_consistent": is_consistent,
         }

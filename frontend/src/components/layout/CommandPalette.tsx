@@ -24,6 +24,7 @@ const COMMANDS: CommandItem[] = [
   { label: "Attribution", to: "/attribution", category: "Analysis" },
   { label: "Correlation", to: "/correlation", category: "Analysis" },
   { label: "Compare", to: "/compare", category: "Analysis" },
+  { label: "Backtest History", to: "/backtest-history", category: "Analysis" },
   { label: "Docs", to: "/docs", category: "Other" },
   { label: "Projects", to: "/projects", category: "Pages" },
 ];

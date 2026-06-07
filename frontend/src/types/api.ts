@@ -122,6 +122,39 @@ export interface RunListItem {
   end_date?: string;
 }
 
+// ── Backtest History (PG-backed) ──────────────────────────────────
+
+export interface BacktestRunSummary {
+  id: string;
+  run_name: string;
+  run_type: string;
+  metrics: Record<string, number>;
+  status: string;
+  created_at: string;
+  tags?: string[];
+}
+
+export interface BacktestRunDetail {
+  id: string;
+  run_name: string;
+  run_type: string;
+  config: Record<string, unknown>;
+  metrics: Record<string, number>;
+  status: string;
+  error_message: string;
+  created_at: string;
+  tags?: string[];
+  equity_curve?: Array<{ time: string; equity: number; drawdown: number }>;
+  trades?: Array<{
+    symbol: string;
+    entry_time: string;
+    exit_time: string;
+    side: string;
+    pnl: number;
+    return_pct: number;
+  }>;
+}
+
 export interface PriceBar {
   time: string;
   timestamp?: string;

@@ -110,6 +110,7 @@ class NodeDefinition:
     outputs: List[NodePort] = field(default_factory=list)
     config_schema: Dict[str, Any] = field(default_factory=dict)
     resource_profile: str = "default"  # default | cpu_bound | io_bound
+    quick_tool_route: str = ""         # e.g. "/screener", "/correlation" — shown as badge on node
 
     def to_dict(self) -> dict:
         return {
@@ -119,6 +120,7 @@ class NodeDefinition:
             "outputs": [p.to_dict() for p in self.outputs],
             "config_schema": self.config_schema,
             "resource_profile": self.resource_profile,
+            "quick_tool_route": self.quick_tool_route,
         }
 
 

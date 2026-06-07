@@ -146,6 +146,8 @@ class GridSearchOptimizer:
             (run_dir / "config.json").write_text(json.dumps({
                 **{k: v for k, v in config.items() if k != "params"},
                 "optimizer_params": params,
+                "_db_persist": "minimal",          # skip equity/trades for grid search intermediates
+                "_db_tags": ["grid_search"],
             }), encoding="utf-8")
 
             from backtest.runner import main as run_backtest

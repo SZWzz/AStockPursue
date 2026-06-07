@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation, useSearchParams } from "react-router-dom";
-import { Bot, Database, FolderOpen, LayoutDashboard, Menu, Search, ArrowLeft, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, LogIn, LogOut, User, Users, X } from "lucide-react";
+import { Bot, Database, FolderOpen, History, LayoutDashboard, Menu, Search, ArrowLeft, Plus, Trash2, Pencil, MessageSquare, ChevronsLeft, ChevronsRight, Settings, LogIn, LogOut, User, Users, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/lib/i18n";
 import { api, type SessionItem } from "@/lib/api";
@@ -11,18 +11,47 @@ import { PostLoginSetup } from "@/components/layout/PostLoginSetup";
 import { BottomTabBar } from "@/components/layout/BottomTabBar";
 import { CommandPalette } from "@/components/layout/CommandPalette";
 
-const MAIN_NAV_KEYS = [
-  { to: "/", icon: LayoutDashboard, i18nKey: "dashboard" as const },
-  { to: "/projects", icon: FolderOpen, i18nKey: "projects" as const },
-  { to: "/agent", icon: Bot, i18nKey: "agent" as const },
-  { to: "/data-sources", icon: Database, i18nKey: "dataSources" as const },
-  { to: "/settings", icon: Settings, i18nKey: "settings" as const },
+interface NavItem {
+  to: string;
+  icon: React.ComponentType<{ className?: string }>;
+  i18nKey: string;
+}
+
+interface NavSection {
+  label?: string;
+  items: NavItem[];
+}
+
+const MAIN_NAV: NavSection[] = [
+  {
+    label: "overview",
+    items: [
+      { to: "/", icon: LayoutDashboard, i18nKey: "dashboard" },
+      { to: "/projects", icon: FolderOpen, i18nKey: "projects" },
+    ],
+  },
+  {
+    label: "strategy",
+    items: [
+      { to: "/agent", icon: Bot, i18nKey: "agent" },
+      { to: "/backtest-history", icon: History, i18nKey: "backtestHistory" },
+    ],
+  },
+  {
+    label: "system",
+    items: [
+      { to: "/data-sources", icon: Database, i18nKey: "dataSources" },
+      { to: "/settings", icon: Settings, i18nKey: "settings" },
+    ],
+  },
 ];
 
 export function Layout() {
   const { pathname } = useLocation();
   const [searchParams] = useSearchParams();
   const { t, lang, setLang } = useI18n();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tt = t as any as Record<string, string>;
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [sessionsLoading, setSessionsLoading] = useState(true);
   const sseStatus = useAgentStore(s => s.sseStatus);
@@ -105,24 +134,33 @@ export function Layout() {
         </div>
 
         {/* Primary Nav */}
-        <nav className={cn("py-1.5", collapsed ? "px-1.5" : "px-2")}>
-          {MAIN_NAV_KEYS.map(({ to, icon: Icon, i18nKey }) => {
-            const active = isActive(to);
-            return (
-              <Link
-                key={to}
-                to={to}
-                className={cn(
-                  "sidebar-nav-item",
-                  collapsed ? "justify-center h-9 w-9 mx-auto rounded-md border-l-0" : "h-9 px-3 gap-2.5"
-                )}
-                title={collapsed ? t[i18nKey] : undefined}
-              >
-                <Icon className={cn("shrink-0", active ? "h-[18px] w-[18px]" : "h-4 w-4")} aria-hidden="true" />
-                {!collapsed && <span>{t[i18nKey]}</span>}
-              </Link>
-            );
-          })}
+        <nav className={cn("py-1.5 space-y-2", collapsed ? "px-1.5" : "px-2")}>
+          {MAIN_NAV.map((section, si) => (
+            <div key={si}>
+              {section.label && !collapsed && (
+                <div className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  {tt[section.label] || section.label}
+                </div>
+              )}
+              {section.items.map(({ to, icon: Icon, i18nKey }) => {
+                const active = isActive(to);
+                return (
+                  <Link
+                    key={to}
+                    to={to}
+                    className={cn(
+                      "sidebar-nav-item",
+                      collapsed ? "justify-center h-9 w-9 mx-auto rounded-md border-l-0" : "h-9 px-3 gap-2.5"
+                    )}
+                    title={collapsed ? (tt[i18nKey] || i18nKey) : undefined}
+                  >
+                    <Icon className={cn("shrink-0", active ? "h-[18px] w-[18px]" : "h-4 w-4")} aria-hidden="true" />
+                    {!collapsed && <span>{tt[i18nKey] || i18nKey}</span>}
+                  </Link>
+                );
+              })}
+            </div>
+          ))}
           {user?.role === "admin" && (
             <Link
               to="/admin/users"
@@ -312,13 +350,22 @@ export function Layout() {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <nav className="flex-1 py-2 px-2 space-y-0.5 overflow-auto">
-              {MAIN_NAV_KEYS.map(({ to, icon: Icon, i18nKey }) => (
-                <Link key={to} to={to} onClick={() => setMobileOpen(false)}
-                  className="sidebar-nav-item h-10 px-3 gap-2.5 rounded-r-md">
-                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  <span>{t[i18nKey]}</span>
-                </Link>
+            <nav className="flex-1 py-2 px-2 space-y-2 overflow-auto">
+              {MAIN_NAV.map((section, si) => (
+                <div key={si}>
+                  {section.label && (
+                    <div className="px-3 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                      {tt[section.label] || section.label}
+                    </div>
+                  )}
+                  {section.items.map(({ to, icon: Icon, i18nKey }) => (
+                    <Link key={to} to={to} onClick={() => setMobileOpen(false)}
+                      className="sidebar-nav-item h-10 px-3 gap-2.5 rounded-r-md">
+                      <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      <span>{tt[i18nKey] || i18nKey}</span>
+                    </Link>
+                  ))}
+                </div>
               ))}
               {user?.role === "admin" && (
                 <Link to="/admin/users" onClick={() => setMobileOpen(false)}

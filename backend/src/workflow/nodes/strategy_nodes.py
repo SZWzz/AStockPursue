@@ -61,13 +61,42 @@ class StrategyNode(BaseNode):
     outputs = [
         BaseNode.out_port("signal", PortType.SIGNAL),
     ]
-    config_schema = {
-        "strategy_source": {"title": "Source", "type": "string", "enum": ["template", "saved", "custom"], "default": "template", "inline": True},
-        "strategy_template": {"title": "Template", "type": "string", "enum": ["momentum_top5"], "default": "momentum_top5"},
-        "saved_strategy_id": {"title": "Saved Strategy", "type": "string", "default": ""},
-        "custom_code": {"title": "Custom Code", "type": "string", "default": ""},
-        "top_n": {"title": "Top N", "type": "integer", "default": 5, "minimum": 1, "maximum": 50},
-    }
+    config_schema: dict = {}  # overridden in get_definition()
+
+    def get_definition(self):
+        """Dynamically populate saved_strategy_id enum from StrategyLab repository."""
+        defn = super().get_definition()
+
+        # Fetch saved strategies for the dropdown
+        strategy_opts = self._fetch_strategy_options()
+        saved_enum = [s["id"] for s in strategy_opts] if strategy_opts else []
+
+        defn.config_schema = {
+            "strategy_source": {"title": "策略来源", "type": "string",
+                "enum": ["template", "saved", "custom"], "default": "template", "inline": True},
+            "strategy_template": {"title": "模板", "type": "string",
+                "enum": ["momentum_top5"], "default": "momentum_top5"},
+            "saved_strategy_id": {"title": "已保存策略", "type": "string", "default": "",
+                "enum": saved_enum, "enum_labels": {s["id"]: s["name"] for s in (strategy_opts or [])}},
+            "custom_code": {"title": "自定义代码", "type": "string", "default": ""},
+            "top_n": {"title": "Top N", "type": "integer", "default": 5, "minimum": 1, "maximum": 50},
+        }
+        return defn
+
+    @staticmethod
+    def _fetch_strategy_options() -> list[dict]:
+        """Get list of {id, name} for saved strategies."""
+        try:
+            from src.api.strategy_lab_routes import _get_repo, _repo_kind
+            repo = _get_repo()
+            if _repo_kind == "pg":
+                items = repo.list_strategies()
+                return [{"id": i["id"], "name": i["name"]} for i in items]
+            else:
+                items = repo.list()
+                return [{"id": i.id, "name": i.name} for i in items]
+        except Exception:
+            return []
 
     async def execute(self, inputs: dict, config: dict) -> dict:
         ohlcv = inputs.get("ohlcv_data", {})
