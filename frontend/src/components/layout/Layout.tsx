@@ -138,26 +138,6 @@ export function Layout() {
           )}
         </nav>
 
-        {/* Secondary Nav */}
-        <div className={cn("py-1.5 border-t border-border-subtle", collapsed ? "px-1.5" : "px-2")}>
-          {SECONDARY_NAV_KEYS.map(({ to, icon: Icon, i18nKey }) => {
-            return (
-              <Link
-                key={to}
-                to={to}
-                className={cn(
-                  "sidebar-nav-item",
-                  collapsed ? "justify-center h-9 w-9 mx-auto rounded-md border-l-0" : "h-9 px-3 gap-2.5"
-                )}
-                title={collapsed ? t[i18nKey] : undefined}
-              >
-                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                {!collapsed && <span>{t[i18nKey]}</span>}
-              </Link>
-            );
-          })}
-        </div>
-
         {/* Sessions — hidden when collapsed */}
         {!collapsed && (
           <div className="flex-1 overflow-hidden border-t border-border-subtle flex flex-col">
@@ -333,7 +313,7 @@ export function Layout() {
               </button>
             </div>
             <nav className="flex-1 py-2 px-2 space-y-0.5 overflow-auto">
-              {[...MAIN_NAV_KEYS, ...SECONDARY_NAV_KEYS].map(({ to, icon: Icon, i18nKey }) => (
+              {MAIN_NAV_KEYS.map(({ to, icon: Icon, i18nKey }) => (
                 <Link key={to} to={to} onClick={() => setMobileOpen(false)}
                   className="sidebar-nav-item h-10 px-3 gap-2.5 rounded-r-md">
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
