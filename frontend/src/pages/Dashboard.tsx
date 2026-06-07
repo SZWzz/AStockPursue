@@ -90,12 +90,12 @@ export function Dashboard() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto p-6 gap-4 page-enter-stagger max-w-7xl mx-auto">
+    <div className="flex flex-col h-full overflow-y-auto p-3 gap-3 page-enter-stagger max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">{(t as any).dashTitle || "Dashboard"}</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">System overview & quick navigation</p>
+          <h1 className="text-xl font-bold">{(t as any).dashTitle || "Dashboard"}</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">System overview & quick navigation</p>
         </div>
         <button onClick={fetchData} className="btn btn-ghost btn-sm" title={(t as any).dashRefresh || "Refresh"}>
           <RefreshCw className="w-4 h-4" />
@@ -433,20 +433,20 @@ function PipelineCard({ data, t }: { data: DashboardData["pipeline"]; t: any }) 
         <Microscope className="w-4 h-4 text-purple-500" /> {(t as any).dashFactorPipeline || "Factor Pipeline"}
       </h3>
       <div className="grid grid-cols-4 gap-3 mb-4">
-        <div className="text-center p-3 rounded-xl bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/30">
-          <div className="text-xl font-bold text-purple-600">{data.mining?.active_gp_runs ?? 0}</div>
+        <div className="text-center p-3 rounded-lg bg-purple-950/30 border border-purple-800/30">
+          <div className="text-xl font-bold text-purple-400">{data.mining?.active_gp_runs ?? 0}</div>
           <div className="text-xs text-muted-foreground mt-0.5">{(t as any).dashGpRuns || "GP Runs"}</div>
         </div>
-        <div className="text-center p-3 rounded-xl bg-cyan-50 dark:bg-cyan-950/30 border border-cyan-200 dark:border-cyan-800/30">
-          <div className="text-xl font-bold text-cyan-600">{data.candidates?.pending_validation ?? 0}</div>
+        <div className="text-center p-3 rounded-lg bg-cyan-950/30 border border-cyan-800/30">
+          <div className="text-xl font-bold text-cyan-400">{data.candidates?.pending_validation ?? 0}</div>
           <div className="text-xs text-muted-foreground mt-0.5">{(t as any).dashPendingValidation || "Pending"}</div>
         </div>
-        <div className="text-center p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/30">
+        <div className="text-center p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/30">
           <div className="text-xl font-bold text-up">{data.zoo?.total_factors ?? 0}</div>
           <div className="text-xs text-muted-foreground mt-0.5">{(t as any).dashZooFactors || "Zoo Factors"}</div>
         </div>
-        <div className="text-center p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/30">
-          <div className="text-xl font-bold text-amber-600">{data.zoo?.alive ?? 0}</div>
+        <div className="text-center p-3 rounded-lg bg-amber-950/30 border border-amber-800/30">
+          <div className="text-xl font-bold text-amber-400">{data.zoo?.alive ?? 0}</div>
           <div className="text-xs text-muted-foreground mt-0.5">{(t as any).dashProduction || "Production"}</div>
         </div>
       </div>

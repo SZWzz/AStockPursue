@@ -9,7 +9,7 @@ export default function TradeHistoryTable({ trades }: Props) {
   const { t } = useI18n();
 
   if (trades.length === 0) {
-    return <div className="text-center text-gray-400 py-8 text-sm">{t.ptNoTrades}</div>;
+    return <div className="text-center text-muted-foreground py-8 text-sm">{t.ptNoTrades}</div>;
   }
 
   const reasonKeyMap: Record<string, string> = {
@@ -26,7 +26,7 @@ export default function TradeHistoryTable({ trades }: Props) {
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b text-left text-gray-500">
+          <tr className="border-b text-left text-muted-foreground">
             <th className="py-2 pr-3">{t.ptSymbol}</th>
             <th className="py-2 pr-3">{t.ptDirection}</th>
             <th className="py-2 pr-3 text-right">{t.ptEntryPrice}</th>
@@ -43,7 +43,7 @@ export default function TradeHistoryTable({ trades }: Props) {
           {trades.map((tr) => {
             const reasonKey = reasonKeyMap[tr.exit_reason] || tr.exit_reason;
             return (
-              <tr key={tr.id} className="border-b last:border-0 hover:bg-gray-50">
+              <tr key={tr.id} className="border-b last:border-0 hover:bg-muted/20">
                 <td className="py-2 pr-3 font-mono font-medium">{tr.symbol}</td>
                 <td className="py-2 pr-3">
                   <span
@@ -64,14 +64,14 @@ export default function TradeHistoryTable({ trades }: Props) {
                   {tr.pnl_pct >= 0 ? "+" : ""}{tr.pnl_pct.toFixed(2)}%
                 </td>
                 <td className="py-2 pr-3">
-                  <span className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">
+                  <span className="text-xs bg-muted/30 px-1.5 py-0.5 rounded">
                     {t[reasonKey as keyof typeof t] || tr.exit_reason}
                   </span>
                 </td>
-                <td className="py-2 pr-3 text-xs text-gray-500">
+                <td className="py-2 pr-3 text-xs text-muted-foreground">
                   {new Date(tr.entry_time).toLocaleString()}
                 </td>
-                <td className="py-2 pr-3 text-xs text-gray-500">
+                <td className="py-2 pr-3 text-xs text-muted-foreground">
                   {new Date(tr.exit_time).toLocaleString()}
                 </td>
               </tr>

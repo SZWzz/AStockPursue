@@ -42,38 +42,38 @@ export default function PaperTradingCard({
           />
           <h3 className="font-semibold text-sm truncate max-w-[180px]">{run.run_name}</h3>
         </div>
-        <span className="text-xs text-gray-500">{run.market}</span>
+        <span className="text-xs text-muted-foreground">{run.market}</span>
       </div>
 
       <div className="grid grid-cols-2 gap-1 mb-3 text-sm">
         <div>
-          <span className="text-gray-500">{t.ptEquity}</span>
+          <span className="text-muted-foreground">{t.ptEquity}</span>
           <p className="font-mono font-medium">
             {run.current_equity.toLocaleString(undefined, { maximumFractionDigits: 0 })}
           </p>
         </div>
         <div>
-          <span className="text-gray-500">{t.ptReturn}</span>
+          <span className="text-muted-foreground">{t.ptReturn}</span>
           <p className={`font-mono font-medium ${run.total_return_pct >= 0 ? "text-up" : "text-down"}`}>
             {run.total_return_pct >= 0 ? "+" : ""}{run.total_return_pct.toFixed(2)}%
           </p>
         </div>
         <div>
-          <span className="text-gray-500">{t.ptPositions}</span>
+          <span className="text-muted-foreground">{t.ptPositions}</span>
           <p className="font-mono">
             {run.open_positions}
             {run.state !== "flat" && (
-              <span className="text-xs text-gray-400 ml-1">({t[stateKey as keyof typeof t]})</span>
+              <span className="text-xs text-muted-foreground ml-1">({t[stateKey as keyof typeof t]})</span>
             )}
           </p>
         </div>
         <div>
-          <span className="text-gray-500">{t.ptTrades}</span>
+          <span className="text-muted-foreground">{t.ptTrades}</span>
           <p className="font-mono">{run.trade_count}</p>
         </div>
       </div>
 
-      <div className="h-10 bg-gray-50 rounded mb-3 flex items-center justify-center text-xs text-gray-400">
+      <div className="h-10 bg-muted/20 rounded mb-3 flex items-center justify-center text-xs text-muted-foreground">
         {run.last_bar_time
           ? `${t.ptLastBar}: ${new Date(run.last_bar_time).toLocaleDateString()}`
           : t.ptNoData}

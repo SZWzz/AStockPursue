@@ -209,7 +209,7 @@ export default function DataSourceStatus() {
 
                         {/* Test connection result */}
                         {testResults[l.name] && (
-                          <div className={`text-xs px-3 py-1.5 rounded-lg ${testResults[l.name].ok ? "bg-green-100 text-green-700" : "bg-down/10 text-down"}`}>
+                          <div className={`text-xs px-3 py-1.5 rounded-lg ${testResults[l.name].ok ? "bg-success/15 text-success" : "bg-down/10 text-down"}`}>
                             {testResults[l.name].ok ? "✅ " : "❌ "}{testResults[l.name].msg}
                           </div>
                         )}

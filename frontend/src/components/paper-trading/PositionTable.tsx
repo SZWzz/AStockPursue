@@ -10,14 +10,14 @@ export default function PositionTable({ positions, onClosePosition }: Props) {
   const { t } = useI18n();
 
   if (positions.length === 0) {
-    return <div className="text-center text-gray-400 py-8 text-sm">{t.ptNoPositions}</div>;
+    return <div className="text-center text-muted-foreground py-8 text-sm">{t.ptNoPositions}</div>;
   }
 
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
-          <tr className="border-b text-left text-gray-500">
+          <tr className="border-b text-left text-muted-foreground">
             <th className="py-2 pr-3">{t.ptSymbol}</th>
             <th className="py-2 pr-3">{t.ptDirection}</th>
             <th className="py-2 pr-3 text-right">{t.ptSize}</th>
@@ -30,7 +30,7 @@ export default function PositionTable({ positions, onClosePosition }: Props) {
         </thead>
         <tbody>
           {positions.map((p, i) => (
-            <tr key={`${p.symbol}-${i}`} className="border-b last:border-0 hover:bg-gray-50">
+            <tr key={`${p.symbol}-${i}`} className="border-b last:border-0 hover:bg-muted/20">
               <td className="py-2 pr-3 font-mono font-medium">{p.symbol}</td>
               <td className="py-2 pr-3">
                 <span
