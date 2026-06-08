@@ -1,144 +1,201 @@
-"""Tests for RiskPipeline — stop-loss, take-profit, trailing-stop, daily loss limit."""
+"""Tests for RiskPipeline — gap detection, daily loss, intraday checks."""
+
+from __future__ import annotations
 
 import pytest
-from src.trading.risk_pipeline import RiskConfig, RiskPipeline
+
+from src.trading.risk_pipeline import RiskPipeline, RiskConfig
 
 
-class TestRiskPipeline:
-    """Happy-path and boundary tests for the composable risk layer."""
+def _make_risk(config: dict | None = None) -> RiskPipeline:
+    c = RiskConfig(**(config or {}))
+    return RiskPipeline(c, initial_capital=100_000)
 
-    # ── helpers ──────────────────────────────────────────────────────
 
-    @staticmethod
-    def _pipeline(**overrides) -> RiskPipeline:
-        cfg = RiskConfig()
-        for k, v in overrides.items():
-            setattr(cfg, k, v)
-        return RiskPipeline(cfg, initial_capital=100_000.0)
+class TestCheckGap:
+    def test_stop_loss_gap_long(self):
+        r = _make_risk({"stop_loss_pct": 5.0})
+        reason, price = r.check_gap("A", 1, 100.0, 105.0, 93.0)
+        assert reason == "gap_stop"
+        assert price == 93.0
 
-    # ── stop-loss ────────────────────────────────────────────────────
+    def test_stop_loss_gap_short(self):
+        r = _make_risk({"stop_loss_pct": 5.0})
+        reason, price = r.check_gap("A", -1, 100.0, 95.0, 108.0)
+        assert reason == "gap_stop"
+        assert price == 108.0
 
-    def test_stop_loss_long(self):
-        rp = self._pipeline(stop_loss_pct=5.0)
-        reason = rp.check_position("TEST", 1, 100.0, 94.0, "2024-01-02")
-        assert reason == "stop_loss"
+    def test_take_profit_gap_long(self):
+        r = _make_risk({"take_profit_pct": 10.0})
+        reason, price = r.check_gap("A", 1, 100.0, 105.0, 115.0)
+        assert reason == "gap_target"
+        assert price == 115.0
 
-    def test_stop_loss_not_triggered(self):
-        rp = self._pipeline(stop_loss_pct=5.0)
-        reason = rp.check_position("TEST", 1, 100.0, 96.0, "2024-01-02")
-        assert reason is None
+    def test_take_profit_gap_short(self):
+        r = _make_risk({"take_profit_pct": 10.0})
+        reason, price = r.check_gap("A", -1, 100.0, 95.0, 85.0)
+        assert reason == "gap_target"
+        assert price == 85.0
 
-    def test_stop_loss_short(self):
-        rp = self._pipeline(stop_loss_pct=5.0)
-        reason = rp.check_position("TEST", -1, 100.0, 106.0, "2024-01-02")
-        assert reason == "stop_loss"
+    def test_trailing_stop_gap_long(self):
+        r = _make_risk({"stop_loss_pct": 10.0, "trailing_stop_pct": 5.0})
+        r._trailing_highs["A"] = 110.0  # price ran up to 110
+        r.check_position("A", 1, 100.0, 110.0, "2024-01-02")  # registers the high
+        reason, price = r.check_gap("A", 1, 100.0, 110.0, 103.0)
+        # trailing stop = 110 * (1 - 0.05) = 104.5, open 103 < 104.5 → triggered
+        assert reason == "gap_trail"
+        assert price == 103.0
 
-    # ── take-profit ──────────────────────────────────────────────────
-
-    def test_take_profit_long(self):
-        rp = self._pipeline(take_profit_pct=10.0)
-        reason = rp.check_position("TEST", 1, 100.0, 111.0, "2024-01-02")
-        assert reason == "take_profit"
-
-    def test_take_profit_not_triggered(self):
-        rp = self._pipeline(take_profit_pct=10.0)
-        reason = rp.check_position("TEST", 1, 100.0, 109.0, "2024-01-02")
-        assert reason is None
-
-    # ── trailing-stop ────────────────────────────────────────────────
-
-    def test_trailing_stop_activated(self):
-        rp = self._pipeline(trailing_stop_pct=3.0, take_profit_pct=20.0)
-        # Price rises to 110 → trailing_high = 110 → stop at 110 * 0.97 = 106.7
-        assert rp.check_position("TEST", 1, 100.0, 110.0, "2024-01-02") is None
-        # Price drops to 106 → below 106.7 → trailing_stop
-        reason = rp.check_position("TEST", 1, 100.0, 106.0, "2024-01-03")
-        assert reason == "trailing_stop"
-
-    def test_trailing_stop_disabled(self):
-        rp = self._pipeline(trailing_stop_pct=0.0)
-        rp.check_position("TEST", 1, 100.0, 110.0, "2024-01-02")
-        reason = rp.check_position("TEST", 1, 100.0, 90.0, "2024-01-03")
-        # Without trailing, 90.0 triggers stop_loss at 5%, not trailing
-        assert reason == "stop_loss"
-
-    # ── daily loss limit ─────────────────────────────────────────────
-
-    def test_daily_loss_not_breached(self):
-        rp = self._pipeline(max_daily_loss_pct=3.0)
-        # initial_capital=100k, max_daily_loss=3000
-        # Simulate daily PnL -2000
-        rp._daily_pnl = -2000.0
-        assert rp.check_daily_loss() is False
-
-    def test_daily_loss_breached(self):
-        rp = self._pipeline(max_daily_loss_pct=3.0)
-        rp._daily_pnl = -3500.0
-        assert rp.check_daily_loss() is True
-
-    # ── position size ────────────────────────────────────────────────
-
-    def test_position_size_ok(self):
-        rp = self._pipeline(max_position_pct=30.0)
-        # 30% of 100k = 30k; 20k < 30k
-        assert rp.check_position_size(20_000.0, 100_000.0) is True
-
-    def test_position_size_exceeded(self):
-        rp = self._pipeline(max_position_pct=30.0)
-        assert rp.check_position_size(35_000.0, 100_000.0) is False
-
-    # ── intraday checks ──────────────────────────────────────────────
-
-    def test_intraday_stop_loss_touched(self):
-        rp = self._pipeline(stop_loss_pct=5.0)
-        # Long at 100, bar low=94 (< 95 stop) → stop_loss at open
-        reason, exec_price = rp.check_position_intraday(
-            "TEST", 1, 100.0, bar_open=98.0, bar_high=99.0, bar_low=94.0, bar_close=96.0,
-        )
-        assert reason == "stop_loss"
-        assert exec_price is not None
-
-    def test_intraday_no_trigger(self):
-        rp = self._pipeline(stop_loss_pct=5.0)
-        reason, exec_price = rp.check_position_intraday(
-            "TEST", 1, 100.0, bar_open=98.0, bar_high=102.0, bar_low=97.0, bar_close=101.0,
-        )
-        assert reason is None
-        assert exec_price is None
-
-    def test_intraday_take_profit_touched(self):
-        rp = self._pipeline(take_profit_pct=10.0)
-        # Long at 100, bar high=111 (> 110 target) → take_profit
-        reason, exec_price = rp.check_position_intraday(
-            "TEST", 1, 100.0, bar_open=105.0, bar_high=111.0, bar_low=104.0, bar_close=110.0,
-        )
-        assert reason == "take_profit"
-        assert exec_price is not None
-
-    # ── priority: stop > trail > target ──────────────────────────────
-
-    def test_intraday_priority_stop_over_target(self):
-        rp = self._pipeline(stop_loss_pct=5.0, take_profit_pct=10.0)
-        # Both touched: low=93 (<95 stop), high=112 (>110 target) → stop wins
-        reason, _ = rp.check_position_intraday(
-            "TEST", 1, 100.0, bar_open=100.0, bar_high=112.0, bar_low=93.0, bar_close=105.0,
-        )
-        assert reason == "stop_loss"
-
-    # ── edge cases ───────────────────────────────────────────────────
-
-    def test_zero_entry_price(self):
-        rp = self._pipeline()
-        assert rp.check_position("TEST", 1, 0.0, 100.0, "2024-01-02") is None
-
-    def test_negative_entry_price(self):
-        rp = self._pipeline()
-        assert rp.check_position("TEST", 1, -10.0, 100.0, "2024-01-02") is None
-
-    def test_intraday_zero_entry(self):
-        rp = self._pipeline()
-        reason, price = rp.check_position_intraday(
-            "TEST", 1, 0.0, 100.0, 105.0, 95.0, 100.0,
-        )
+    def test_no_gap(self):
+        r = _make_risk({"stop_loss_pct": 5.0, "take_profit_pct": 10.0})
+        reason, price = r.check_gap("A", 1, 100.0, 105.0, 102.0)
         assert reason is None
         assert price is None
+
+    def test_invalid_inputs_return_none(self):
+        r = _make_risk()
+        assert r.check_gap("A", 1, -1, 100, 100) == (None, None)
+        assert r.check_gap("A", 1, 100, -1, 100) == (None, None)
+        assert r.check_gap("A", 1, 100, 100, -1) == (None, None)
+
+    def test_stop_priority_over_target(self):
+        r = _make_risk({"stop_loss_pct": 5.0, "take_profit_pct": 10.0})
+        reason, _ = r.check_gap("A", 1, 100.0, 105.0, 90.0)
+        assert reason == "gap_stop"
+
+    def test_stop_priority_over_trail(self):
+        r = _make_risk({"stop_loss_pct": 5.0, "trailing_stop_pct": 10.0})
+        r._trailing_highs["A"] = 110.0
+        r.check_position("A", 1, 100.0, 110.0, "2024-01-02")
+        # Gap down triggers both stop (95) and trail (110 * 0.9 = 99)
+        # Stop has priority
+        reason, _ = r.check_gap("A", 1, 100.0, 110.0, 93.0)
+        assert reason == "gap_stop"
+
+
+class TestCheckDailyLoss:
+    def test_no_loss_allowed(self):
+        r = _make_risk({"max_daily_loss_pct": 3.0})
+        assert not r.check_daily_loss()
+
+    def test_exceeds_threshold(self):
+        r = _make_risk({"max_daily_loss_pct": 3.0})
+        r.accumulate_daily(-4000, "2024-01-02")
+        assert r.check_daily_loss()  # 4000 > 3000
+
+    def test_below_threshold(self):
+        r = _make_risk({"max_daily_loss_pct": 3.0})
+        r.accumulate_daily(-2000, "2024-01-02")
+        assert not r.check_daily_loss()  # 2000 < 3000
+
+    def test_dynamic_equity_updates_threshold(self):
+        r = _make_risk({"max_daily_loss_pct": 10.0})
+        r.accumulate_daily(-5000, "2024-01-02")
+        # With initial 100k, threshold = 10000 → 5000 < 10000 → not triggered
+        assert not r.check_daily_loss()
+        # With equity = 30000, threshold = 3000 → 5000 > 3000 → triggered
+        assert r.check_daily_loss(equity=30_000)
+
+    def test_resets_on_new_day(self):
+        r = _make_risk({"max_daily_loss_pct": 3.0})
+        r.accumulate_daily(-4000, "2024-01-02")
+        assert r.check_daily_loss()
+        r.accumulate_daily(1000, "2024-01-03")  # new day
+        assert not r.check_daily_loss()
+        assert r.daily_pnl == 1000
+
+
+class TestCheckPositionIntraday:
+    def test_stop_touched_long(self):
+        r = _make_risk({"stop_loss_pct": 5.0, "use_intraday_stop": True})
+        reason, price = r.check_position_intraday("A", 1, 100.0, 101.0, 102.0, 94.0, 101.0)
+        # stop at 95, low 94 → touched
+        assert reason == "stop_loss"
+        # open 101 > stop 95 → no gap → exec at stop
+        assert price == 95.0
+
+    def test_stop_touched_short(self):
+        r = _make_risk({"stop_loss_pct": 5.0, "use_intraday_stop": True})
+        reason, price = r.check_position_intraday("A", -1, 100.0, 99.0, 108.0, 98.0, 106.0)
+        # stop at 105, high 108 → touched
+        assert reason == "stop_loss"
+
+    def test_target_touched_long(self):
+        r = _make_risk({"take_profit_pct": 10.0, "use_intraday_stop": True})
+        reason, price = r.check_position_intraday("A", 1, 100.0, 101.0, 115.0, 100.0, 112.0)
+        # target at 110, high 115 → touched
+        assert reason == "take_profit"
+        # open 101 < target 110 → no gap → exec at target price
+        assert abs(price - 110.0) < 1e-9
+
+    def test_trailing_stop_touched(self):
+        r = _make_risk({"trailing_stop_pct": 5.0, "use_intraday_stop": True})
+        r._trailing_highs["A"] = 120.0
+        reason, _ = r.check_position_intraday("A", 1, 100.0, 115.0, 122.0, 112.0, 118.0)
+        # trailing_highs updated to 122. trail at 122 * 0.95 = 115.9. low 112 → touched
+        assert reason == "trailing_stop"
+
+    def test_no_touch(self):
+        r = _make_risk({"stop_loss_pct": 5.0, "take_profit_pct": 10.0, "use_intraday_stop": True})
+        reason, price = r.check_position_intraday("A", 1, 100.0, 101.0, 104.0, 99.0, 102.0)
+        assert reason is None
+        assert price is None
+
+    def test_invalid_inputs(self):
+        r = _make_risk({"use_intraday_stop": True})
+        assert r.check_position_intraday("A", 1, -1, 100, 100, 100, 100) == (None, None)
+        assert r.check_position_intraday("A", 1, 100, -1, 100, 100, 100) == (None, None)
+
+
+class TestCheckPosition:
+    def test_stop_loss_long(self):
+        r = _make_risk({"stop_loss_pct": 5.0})
+        assert r.check_position("A", 1, 100.0, 93.0, "2024-01-02") == "stop_loss"
+
+    def test_stop_loss_short(self):
+        r = _make_risk({"stop_loss_pct": 5.0})
+        assert r.check_position("A", -1, 100.0, 107.0, "2024-01-02") == "stop_loss"
+
+    def test_take_profit_long(self):
+        r = _make_risk({"take_profit_pct": 10.0})
+        assert r.check_position("A", 1, 100.0, 112.0, "2024-01-02") == "take_profit"
+
+    def test_trailing_stop(self):
+        r = _make_risk({"trailing_stop_pct": 5.0, "take_profit_pct": 50.0})
+        # First call registers the high
+        assert r.check_position("A", 1, 100.0, 120.0, "2024-01-02") is None
+        assert r._trailing_highs["A"] == 120.0
+        # Price drops below trail threshold (120 * 0.95 = 114)
+        assert r.check_position("A", 1, 100.0, 110.0, "2024-01-03") == "trailing_stop"
+
+    def test_no_exit(self):
+        r = _make_risk({"stop_loss_pct": 5.0, "take_profit_pct": 10.0})
+        assert r.check_position("A", 1, 100.0, 103.0, "2024-01-02") is None
+
+
+class TestOnPositionClosed:
+    def test_cleans_up_trailing_highs(self):
+        r = _make_risk({"trailing_stop_pct": 5.0})
+        r._trailing_highs["A"] = 120.0
+        r._trailing_highs["B"] = 200.0
+        r.on_position_closed("A")
+        assert "A" not in r._trailing_highs
+        assert "B" in r._trailing_highs
+
+    def test_no_error_for_missing_symbol(self):
+        r = _make_risk()
+        r.on_position_closed("UNKNOWN")  # should not raise
+
+
+class TestCheckPositionSize:
+    def test_within_limit(self):
+        r = _make_risk({"max_position_pct": 30.0})
+        assert r.check_position_size(25_000, 100_000)
+
+    def test_exceeds_limit(self):
+        r = _make_risk({"max_position_pct": 30.0})
+        assert not r.check_position_size(35_000, 100_000)
+
+    def test_exact_limit(self):
+        r = _make_risk({"max_position_pct": 30.0})
+        assert r.check_position_size(30_000, 100_000)

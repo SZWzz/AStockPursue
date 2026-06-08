@@ -271,8 +271,6 @@ class EastMoneyWebSocketFeed(MarketFeed):
                 raw = self._ws.recv()
             except websocket.WebSocketTimeoutException:
                 continue
-            except Exception:
-                raise
 
             if not raw:
                 continue

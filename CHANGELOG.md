@@ -5,6 +5,8 @@
 ### 修复
 - **[GPEngine] `_random_tree_restricted` 内部节点构造错误** — 修正 `ExpressionTree(op=op, children=[child])` → `ExpressionTree(ExpressionNode(op=op, children=[child.root]))`，修复 TypeError
 - **[Engine] Gap/暂停退出使用 `BaseEngine._close_position`** — 改为调用 `TradingEngine._close_position`，确保滑点应用和 `TradeRecord` 返回，修复 `BarResult.trades` 缺失
+- **[WSFeed] 移除 `_recv_loop` 中死代码 `except Exception: raise`** — 无操作代码清理
+- **[Tests] 新增 RiskPipeline、SignalAdapter、TradingEngine 核心路径测试** — gap 检测、日内止损、日亏损、批量模式 look-ahead 防护、_close_position/ _process_signals 等 56 个测试
 
 ## [2026.6.7] - 2026-06-07
 
