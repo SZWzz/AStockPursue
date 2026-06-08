@@ -1,5 +1,11 @@
 # 更新日志
 
+## [2026.6.8] - 2026-06-08
+
+### 修复
+- **[GPEngine] `_random_tree_restricted` 内部节点构造错误** — 修正 `ExpressionTree(op=op, children=[child])` → `ExpressionTree(ExpressionNode(op=op, children=[child.root]))`，修复 TypeError
+- **[Engine] Gap/暂停退出使用 `BaseEngine._close_position`** — 改为调用 `TradingEngine._close_position`，确保滑点应用和 `TradeRecord` 返回，修复 `BarResult.trades` 缺失
+
 ## [2026.6.7] - 2026-06-07
 
 ### 新增

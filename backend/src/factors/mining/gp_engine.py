@@ -1676,16 +1676,16 @@ def _random_tree_restricted(
         op = rng.choice(unary_ops)
         child = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
         window = rng.choice(WINDOW_OPTIONS) if op.startswith("ts_") else 20
-        return ExpressionTree(op=op, children=[child], window=window)
+        return ExpressionTree(ExpressionNode(op=op, children=[child.root], window=window))
     elif choice == "binary":
         op = rng.choice(binary_ops)
         left = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
         right = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
         window = rng.choice(WINDOW_OPTIONS) if op.startswith("ts_") else 20
-        return ExpressionTree(op=op, children=[left, right], window=window)
+        return ExpressionTree(ExpressionNode(op=op, children=[left.root, right.root], window=window))
     else:
         op = rng.choice(ternary_ops) if ternary_ops else rng.choice(unary_ops)
         cond = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
         t_branch = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
         f_branch = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
-        return ExpressionTree(op=op, children=[cond, t_branch, f_branch])
+        return ExpressionTree(ExpressionNode(op=op, children=[cond.root, t_branch.root, f_branch.root]))

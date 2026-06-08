@@ -244,7 +244,7 @@ class TradingEngine:
                     sym, pos.direction, pos.entry_price, prev_close, bar_open,
                 )
                 if reason:
-                    trade = self._market._close_position(sym, exec_price, self._last_bar_time, reason=reason)
+                    trade = self._close_position(sym, exec_price, self._last_bar_time, reason=reason)
                     if trade:
                         gap_trades.append(trade)
                         logger.info("Gap exit: %s %s at %.2f (prev_close=%.2f, open=%.2f)",
@@ -273,7 +273,7 @@ class TradingEngine:
                 pos = self._market.positions.get(c)
                 if pos is not None:
                     exit_price = float(row.get("open", close_val))
-                    trade = self._market._close_position(c, exit_price, timestamp, reason="suspended")
+                    trade = self._close_position(c, exit_price, timestamp, reason="suspended")
                     if trade:
                         suspension_trades.append(trade)
 
