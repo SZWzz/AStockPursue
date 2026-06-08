@@ -7,6 +7,7 @@
 - **[Engine] Gap/暂停退出使用 `BaseEngine._close_position`** — 改为调用 `TradingEngine._close_position`，确保滑点应用和 `TradeRecord` 返回，修复 `BarResult.trades` 缺失
 - **[WSFeed] 移除 `_recv_loop` 中死代码 `except Exception: raise`** — 无操作代码清理
 - **[Tests] 新增 RiskPipeline、SignalAdapter、TradingEngine 核心路径测试** — gap 检测、日内止损、日亏损、批量模式 look-ahead 防护、_close_position/ _process_signals 等 56 个测试
+- **[Correlation] 修复 Pandas 3.x `np.fill_diagonal` 只读数组崩溃** — `corr_df.values` → `corr_df.to_numpy(dtype=float, copy=True)`
 
 ## [2026.6.7] - 2026-06-07
 

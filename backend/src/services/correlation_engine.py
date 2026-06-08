@@ -230,7 +230,9 @@ class CorrelationEngine:
 
         # Fill NaN diagonals
         corr_df = corr_df.fillna(0.0)
-        np.fill_diagonal(corr_df.values, 1.0)
+        arr = corr_df.to_numpy(dtype=float, copy=True)
+        np.fill_diagonal(arr, 1.0)
+        corr_df = pd.DataFrame(arr, index=corr_df.index, columns=corr_df.columns)
 
         labels = list(corr_df.columns)
         matrix = corr_df.values.tolist()
