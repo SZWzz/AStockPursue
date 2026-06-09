@@ -9,7 +9,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams } from "react-router-dom";
-import { History, Clock } from "lucide-react";
+import { History, Clock, Download, Upload, PlaySquare, Layers } from "lucide-react";
 import { useWorkflowStore } from "@/workflow/store/workflowStore";
 import { api } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
@@ -31,6 +31,11 @@ export default function WorkflowPage() {
   const [versions, setVersions] = useState<any[]>([]);
   const [showSchedule, setShowSchedule] = useState(false);
   const [cronExpr, setCronExpr] = useState("0 9 * * 1-5");
+  const [showBatch, setShowBatch] = useState(false);
+  const [batchParams, setBatchParams] = useState("");
+  const [batchResults, setBatchResults] = useState<any[] | null>(null);
+  const [showReplay, setShowReplay] = useState(false);
+  const [replayRunId, setReplayRunId] = useState("");
 
   // Load node definitions + workflow data
   useEffect(() => {
@@ -104,6 +109,62 @@ export default function WorkflowPage() {
     }
   };
 
+  const handleExport = async () => {
+    if (!workflowId) return;
+    try {
+      const data = await api.exportWorkflow(workflowId);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${store.workflowName || "workflow"}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setError(e.message || "Export failed");
+    }
+  };
+
+  const handleImport = async (file: File) => {
+    if (!projectId) return;
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+      await api.importWorkflow(projectId, {
+        name: json.name || file.name.replace(/\.json$/, ""),
+        nodes: json.nodes || [],
+        edges: json.edges || [],
+      });
+      window.location.reload();
+    } catch (e: any) {
+      setError(e.message || (t as any).wfImportError);
+    }
+  };
+
+  const handleBatch = async () => {
+    if (!workflowId) return;
+    try {
+      const paramGrid = JSON.parse(batchParams);
+      const results = await api.batchRunWorkflow(workflowId, { param_grid: paramGrid });
+      setBatchResults(results?.results || []);
+    } catch (e: any) {
+      setError(e.message || "Batch run failed");
+    }
+  };
+
+  const handleReplay = async () => {
+    if (!replayRunId) return;
+    try {
+      const result = await api.replayRun(replayRunId);
+      if (result?.run_id) {
+        setReplayRunId("");
+        setShowReplay(false);
+      }
+    } catch (e: any) {
+      setError(e.message || "Replay failed");
+    }
+  };
+
   // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -158,6 +219,34 @@ export default function WorkflowPage() {
             className="px-2 py-1 text-xs rounded border hover:bg-muted transition-colors"
           >
             {(t as any).wfValidate}
+          </button>
+          <button
+            onClick={handleExport}
+            className="px-2 py-1 text-xs rounded border hover:bg-muted transition-colors flex items-center gap-1"
+            title={(t as any).wfExport}
+          >
+            <Download className="h-3 w-3" />
+          </button>
+          <label
+            className="px-2 py-1 text-xs rounded border hover:bg-muted transition-colors flex items-center gap-1 cursor-pointer"
+            title={(t as any).wfImport}
+          >
+            <Upload className="h-3 w-3" />
+            <input type="file" accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImport(f); }} />
+          </label>
+          <button
+            onClick={() => setShowBatch(!showBatch)}
+            className="px-2 py-1 text-xs rounded border hover:bg-muted transition-colors flex items-center gap-1"
+            title={(t as any).wfBatch}
+          >
+            <Layers className="h-3 w-3" />
+          </button>
+          <button
+            onClick={() => setShowReplay(!showReplay)}
+            className="px-2 py-1 text-xs rounded border hover:bg-muted transition-colors flex items-center gap-1"
+            title={(t as any).wfReplay}
+          >
+            <PlaySquare className="h-3 w-3" />
           </button>
           <button
             onClick={handleSave}
@@ -240,6 +329,62 @@ export default function WorkflowPage() {
             </button>
           </div>
           <p className="text-[10px] text-muted-foreground">{(t as any).wfScheduleHint}</p>
+        </div>
+      )}
+
+      {/* Batch panel */}
+      {showBatch && (
+        <div className="px-3 py-2 border-b bg-card text-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold">{(t as any).wfBatchTitle}</span>
+            <button onClick={() => { setShowBatch(false); setBatchResults(null); }} className="text-muted-foreground hover:text-foreground">✕</button>
+          </div>
+          <textarea
+            value={batchParams}
+            onChange={(e) => setBatchParams(e.target.value)}
+            placeholder='{"window": [10, 20, 30], "top_n": [5, 10]}'
+            className="w-full px-2 py-1 rounded border bg-background font-mono text-[11px] h-16"
+          />
+          <button
+            onClick={handleBatch}
+            className="px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            <Layers className="h-3 w-3 inline mr-1" />
+            Run Batch
+          </button>
+          {batchResults && (
+            <div className="mt-2 overflow-auto max-h-40">
+              <table className="w-full text-[10px]">
+                <thead><tr className="border-b">{Object.keys(batchResults[0] || {}).map((k) => <th key={k} className="px-1 py-0.5 text-left">{k}</th>)}</tr></thead>
+                <tbody>{batchResults.map((r: any, i: number) => <tr key={i} className="border-b">{Object.values(r).map((v: any, j: number) => <td key={j} className="px-1 py-0.5">{typeof v === "number" ? v.toFixed(4) : String(v)}</td>)}</tr>)}</tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Replay panel */}
+      {showReplay && (
+        <div className="px-3 py-2 border-b bg-card text-xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="font-semibold">{(t as any).wfReplayTitle}</span>
+            <button onClick={() => setShowReplay(false)} className="text-muted-foreground hover:text-foreground">✕</button>
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={replayRunId}
+              onChange={(e) => setReplayRunId(e.target.value)}
+              placeholder="Run ID to replay"
+              className="flex-1 px-2 py-1 rounded border bg-background"
+            />
+            <button
+              onClick={handleReplay}
+              className="px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              <PlaySquare className="h-3 w-3 inline mr-1" />
+              Replay
+            </button>
+          </div>
         </div>
       )}
 

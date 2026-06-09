@@ -533,4 +533,23 @@ export const api = {
   scheduleWorkflow: (id: string, body: { cron_expression: string; name?: string }) => request<any>(`/workflow/workflows/${id}/schedule`, { method: "POST", body: JSON.stringify(body) }),
   // Cleanup
   cleanupWorkflowData: () => request<any>("/workflow/cleanup", { method: "POST" }),
+
+  // Export / Import
+  exportWorkflow: (id: string) => request<any>(`/workflow/workflows/${id}/export`),
+  importWorkflow: (projectId: string, body: { name: string; nodes: any[]; edges: any[] }) =>
+    request<any>("/workflow/import", { method: "POST", body: JSON.stringify({ project_id: projectId, ...body }) }),
+
+  // Batch run
+  batchRunWorkflow: (id: string, body: { param_grid: Record<string, any[]> }) =>
+    request<any>(`/workflow/workflows/${id}/batch`, { method: "POST", body: JSON.stringify(body) }),
+
+  // Replay
+  replayRun: (runId: string) => request<any>(`/workflow/runs/${runId}/replay`, { method: "POST" }),
+
+  // Node I/O preview
+  previewNodeRun: (runId: string, nodeId: string) =>
+    request<any>(`/workflow/runs/${runId}/node/${nodeId}/preview`),
+
+  // Presets
+  listPresets: () => request<any[]>("/workflow/presets"),
 };

@@ -18,6 +18,12 @@ export const PortType = {
   CORRELATION_MATRIX: "correlation_matrix",
   SENTIMENT: "sentiment",
   COMPARISON_RESULT: "comparison_result",
+  VAR_RESULT: "var_result",
+  STRESS_RESULT: "stress_result",
+  TURNOVER_RESULT: "turnover_result",
+  DECAY_RESULT: "decay_result",
+  HEATMAP_RESULT: "heatmap_result",
+  PORTFOLIO_SIGNAL: "portfolio_signal",
   ANY: "any",
 } as const;
 export type PortType = (typeof PortType)[keyof typeof PortType];

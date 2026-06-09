@@ -141,6 +141,11 @@ export default function NodePanel() {
         <StrategyPicker config={config} onUpdate={(patch) => updateNodeConfig(selectedNodeId!, { ...config, ...patch })} />
       )}
 
+      {/* Workflow picker (special for sub_workflow node) */}
+      {nodeData.node_type === "sub_workflow" && (
+        <WorkflowPicker config={config} onUpdate={(patch) => updateNodeConfig(selectedNodeId!, { ...config, ...patch })} projectId={useWorkflowStore.getState().projectId} />
+      )}
+
       {/* Config form */}
       {def?.config_schema && Object.keys(def.config_schema).length > 0 && (
         <div className="p-3 border-b">
@@ -323,6 +328,44 @@ function StrategyPicker({ config, onUpdate }: { config: Record<string, unknown>;
             </select>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+function WorkflowPicker({ config, onUpdate, projectId }: { config: Record<string, unknown>; onUpdate: (patch: Record<string, unknown>) => void; projectId?: string | null }) {
+  const [workflows, setWorkflows] = useState<{ id: string; name: string }[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (projectId) {
+      setLoading(true);
+      import("@/lib/api").then(({ api }) =>
+        api.listWorkflows(projectId).then((data: any) => {
+          setWorkflows(data || []);
+        }).catch(() => {}).finally(() => setLoading(false))
+      );
+    }
+  }, [projectId]);
+
+  return (
+    <div className="p-3 border-b space-y-2">
+      <h4 className="text-xs font-semibold uppercase text-muted-foreground">Sub-Workflow</h4>
+      {loading ? (
+        <p className="text-xs text-muted-foreground">Loading workflows…</p>
+      ) : workflows.length === 0 ? (
+        <p className="text-xs text-muted-foreground">No workflows in this project.</p>
+      ) : (
+        <select
+          value={(config.workflow_id as string) || ""}
+          onChange={(e) => onUpdate({ workflow_id: e.target.value })}
+          className="w-full px-2 py-1 text-xs rounded border bg-background"
+        >
+          <option value="">-- Select a workflow --</option>
+          {workflows.map((w) => (
+            <option key={w.id} value={w.id}>{w.name}</option>
+          ))}
+        </select>
       )}
     </div>
   );

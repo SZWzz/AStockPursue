@@ -16,6 +16,9 @@ const NODE_ICONS: Record<string, string> = {
   send_notification: "🔔", notify: "🔔", broker: "🔌",
   report: "📄", export: "📦", factor_persist: "💾",
   strategy_history: "📉", crowding: "📐", factor_to_strategy: "🧩",
+  sub_workflow: "🔀", var_analysis: "📉", stress_test: "⚡",
+  turnover_analysis: "🔄", factor_decay: "⏳", param_heatmap: "🗺️",
+  pdf_report: "📄", portfolio_combiner: "💼",
 };
 
 function formatSummary(nodeType: string, summary: Record<string, unknown>): string[] {
@@ -42,6 +45,30 @@ function formatSummary(nodeType: string, summary: Record<string, unknown>): stri
       if (r) Object.entries(r).forEach(([ch, ok]) => lines.push(`${ok ? "✅" : "❌"} ${ch}`));
       break;
     }
+    case "var_analysis":
+      if (summary.var_95 != null) lines.push(`VaR 95%: ${(Number(summary.var_95) * 100).toFixed(2)}%`);
+      if (summary.cvar_95 != null) lines.push(`CVaR: ${(Number(summary.cvar_95) * 100).toFixed(2)}%`);
+      break;
+    case "stress_test":
+      lines.push(`${summary.scenario_count || 5} scenarios`);
+      if (summary.max_drawdown != null) lines.push(`MaxDD: ${(Number(summary.max_drawdown) * 100).toFixed(1)}%`);
+      break;
+    case "turnover_analysis":
+      if (summary.daily_turnover != null) lines.push(`Daily: ${(Number(summary.daily_turnover) * 100).toFixed(1)}%`);
+      if (summary.annualized_turnover != null) lines.push(`Annual: ${(Number(summary.annualized_turnover) * 100).toFixed(0)}%`);
+      break;
+    case "factor_decay":
+      if (summary.half_life != null) lines.push(`Half-life: ${summary.half_life}d`);
+      break;
+    case "param_heatmap":
+      if (summary.best_sharpe != null) lines.push(`Best Sharpe: ${Number(summary.best_sharpe).toFixed(2)}`);
+      break;
+    case "pdf_report":
+      lines.push(`📄 ${summary.filename || "Report generated"}`);
+      break;
+    case "portfolio_combiner":
+      lines.push(`${summary.strategy_count || "?"} strategies · ${summary.method || "equal"}`);
+      break;
     default:
       lines.push("✓ Completed");
   }

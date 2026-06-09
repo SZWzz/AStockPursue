@@ -955,7 +955,7 @@ const en = {
   wfNode_order: "Place Order", wfNode_order_desc: "Submit, cancel, or list trading orders with position sizing",
   wfNode_chat_input: "Chat Input", wfNode_chat_input_desc: "Type a natural-language research question for the AI Agent",
   wfNode_agent: "AI Agent", wfNode_agent_desc: "LLM-powered research agent with full tool access — auto-formats upstream context",
-  wfNode_if_condition: "IF Condition", wfNode_if_condition_desc: "Route execution based on metric threshold (e.g. Sharpe > 1.0)",
+  wfNode_if_condition: "IF Condition", wfNode_if_condition_desc: "Branch workflow based on AND/OR multi-condition logic with 8 operators",
   wfNode_news_sentiment: "News Sentiment", wfNode_news_sentiment_desc: "Analyze sentiment of news articles with SnowNLP or keyword scoring",
   wfNode_macro_sentiment: "Macro Sentiment", wfNode_macro_sentiment_desc: "Fetch macro indicators: VIX, DXY, yield curve spread, Fear & Greed Index",
   wfNode_report: "Report Generator", wfNode_report_desc: "Generate a structured text report from upstream analysis results (Markdown/JSON/Text)",
@@ -1004,6 +1004,11 @@ const en = {
   wfDismiss: "Dismiss", wfDeleteNode: "Delete Node",
   wfFailedLoad: "Failed to load workflow", wfFailedSave: "Failed to save",
   wfFailedRun: "Failed to run workflow", wfFailedStop: "Failed to stop workflow",
+  wfExport: "Export", wfImport: "Import", wfImportFile: "Import workflow JSON file",
+  wfBatch: "Batch", wfBatchTitle: "Batch Parameter Search",
+  wfReplay: "Replay", wfReplayTitle: "Replay Execution",
+  wfExportSuccess: "Workflow exported", wfImportSuccess: "Workflow imported",
+  wfImportError: "Failed to import workflow",
 
   // New atomic factor nodes
   wfNode_column_extract: "Column Extract", wfNode_column_extract_desc: "Extract a single column (close/volume/high/low/open) from OHLCV data",
@@ -1290,6 +1295,15 @@ const en = {
   wfNode_save_as_template: "Save as Template", wfNode_save_as_template_desc: "Save current workflow as a reusable template for later projects",
   wfNode_crowding: "Crowding Check", wfNode_crowding_desc: "Detect factor crowding: high pairwise correlations between factors → crowded trade risk",
   wfNode_walk_forward: "Walk-Forward", wfNode_walk_forward_desc: "Anchored rolling-window OOS validation with parameter stability analysis",
+  // Phase 1-4 workflow nodes
+  wfNode_sub_workflow: "Sub-Workflow", wfNode_sub_workflow_desc: "Execute another workflow as a nested sub-process with input/output mapping",
+  wfNode_var_analysis: "VaR Analysis", wfNode_var_analysis_desc: "Value at Risk and Conditional VaR via historical or parametric method",
+  wfNode_stress_test: "Stress Test", wfNode_stress_test_desc: "Run portfolio through 5 historical stress scenarios (2015 crash, 2018 deleveraging, etc.)",
+  wfNode_turnover_analysis: "Turnover Analysis", wfNode_turnover_analysis_desc: "Analyze signal turnover rate and estimate trading costs",
+  wfNode_factor_decay: "Factor Decay", wfNode_factor_decay_desc: "Measure IC decay curve and estimate factor half-life",
+  wfNode_param_heatmap: "Parameter Heatmap", wfNode_param_heatmap_desc: "2D parameter grid search with Sharpe ratio heatmap visualization",
+  wfNode_pdf_report: "PDF Report", wfNode_pdf_report_desc: "Generate professional PDF report from workflow results using Jinja2 templates",
+  wfNode_portfolio_combiner: "Portfolio Combiner", wfNode_portfolio_combiner_desc: "Combine multiple strategy signals via equal-weight, risk-parity, min-variance, or max-Sharpe",
 
   dashNavSection: "Navigation", dashWorkflowSection: "Workflow", dashAdvancedSection: "Advanced",
   dashNavResearchProjects: "Research Projects", dashNavResearchProjectsDetail: "Workflow pipelines",
@@ -2258,7 +2272,7 @@ const zh: Messages = {
   wfNode_order: "下单", wfNode_order_desc: "提交、撤销或查询交易订单，支持仓位管理",
   wfNode_chat_input: "对话输入", wfNode_chat_input_desc: "用自然语言输入研究问题，传递给 AI Agent",
   wfNode_agent: "AI 智能体", wfNode_agent_desc: "LLM 驱动的量化研究 Agent（89 技能）— 自动格式化上游数据作为上下文",
-  wfNode_if_condition: "条件分支", wfNode_if_condition_desc: "根据指标阈值分流执行路径（如 Sharpe > 1.0）",
+  wfNode_if_condition: "IF 条件", wfNode_if_condition_desc: "基于 AND/OR 多条件逻辑的分支节点，支持 8 种运算符",
   wfNode_news_sentiment: "新闻情绪", wfNode_news_sentiment_desc: "对新闻文本进行情感评分（SnowNLP/关键词），按股票或主题聚合",
   wfNode_macro_sentiment: "宏观情绪", wfNode_macro_sentiment_desc: "拉取宏观情绪指标：VIX、美元指数、美债利差、恐惧贪婪指数",
   wfNode_report: "报告生成器", wfNode_report_desc: "将上游分析结果格式化为结构化报告（Markdown/JSON/纯文本）",
@@ -2307,6 +2321,11 @@ const zh: Messages = {
   wfDismiss: "关闭", wfDeleteNode: "删除节点",
   wfFailedLoad: "加载工作流失败", wfFailedSave: "保存失败",
   wfFailedRun: "运行失败", wfFailedStop: "停止失败",
+  wfExport: "导出", wfImport: "导入", wfImportFile: "导入工作流 JSON 文件",
+  wfBatch: "批量", wfBatchTitle: "批量参数搜索",
+  wfReplay: "回放", wfReplayTitle: "执行回放",
+  wfExportSuccess: "工作流已导出", wfImportSuccess: "工作流已导入",
+  wfImportError: "导入工作流失败",
 
   // New atomic factor nodes
   wfNode_column_extract: "列提取", wfNode_column_extract_desc: "从OHLCV数据中提取单列（收盘价/成交量/最高/最低/开盘）",
@@ -2591,6 +2610,15 @@ const zh: Messages = {
   wfNode_save_as_template: "保存为模板", wfNode_save_as_template_desc: "将当前工作流保存为可复用模板",
   wfNode_crowding: "拥挤度检测", wfNode_crowding_desc: "检测因子拥挤：因子间高相关性→拥挤交易风险",
   wfNode_walk_forward: "滚动验证", wfNode_walk_forward_desc: "锚定滚动窗口OOS验证，含参数稳定性分析",
+  // Phase 1-4 工作流节点
+  wfNode_sub_workflow: "子工作流", wfNode_sub_workflow_desc: "嵌套执行另一个工作流，支持输入/输出映射",
+  wfNode_var_analysis: "VaR 分析", wfNode_var_analysis_desc: "历史模拟法或参数法计算 VaR 和 CVaR",
+  wfNode_stress_test: "压力测试", wfNode_stress_test_desc: "用 5 个历史压力场景回测组合（2015股灾/2018去杠杆等）",
+  wfNode_turnover_analysis: "换手率分析", wfNode_turnover_analysis_desc: "分析信号换手率，估算交易成本",
+  wfNode_factor_decay: "因子衰减", wfNode_factor_decay_desc: "测量 IC 衰减曲线，估算因子半衰期",
+  wfNode_param_heatmap: "参数热力图", wfNode_param_heatmap_desc: "2D 参数网格搜索 + Sharpe 比率热力图可视化",
+  wfNode_pdf_report: "PDF 报告", wfNode_pdf_report_desc: "使用 Jinja2 模板从工作流结果生成专业级 PDF 报告",
+  wfNode_portfolio_combiner: "组合器", wfNode_portfolio_combiner_desc: "通过等权/风险平价/最小方差/最大 Sharpe 组合多策略信号",
 
   dashNavSection: "导航", dashWorkflowSection: "工作流", dashAdvancedSection: "高级功能",
   dashNavResearchProjects: "研究项目", dashNavResearchProjectsDetail: "工作流流水线",

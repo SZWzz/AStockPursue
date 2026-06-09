@@ -117,6 +117,12 @@ const PORT_HANDLE_COLORS: Record<string, string> = {
   correlation_matrix: "!border-pink-400 !bg-pink-50 dark:!bg-pink-950",
   sentiment: "!border-red-300 !bg-red-50 dark:!bg-red-950",
   comparison_result: "!border-violet-400 !bg-violet-50 dark:!bg-violet-950",
+  var_result: "!border-red-400 !bg-red-50 dark:!bg-red-950",
+  stress_result: "!border-orange-500 !bg-orange-50 dark:!bg-orange-950",
+  turnover_result: "!border-yellow-500 !bg-yellow-50 dark:!bg-yellow-950",
+  decay_result: "!border-purple-500 !bg-purple-50 dark:!bg-purple-950",
+  heatmap_result: "!border-fuchsia-400 !bg-fuchsia-50 dark:!bg-fuchsia-950",
+  portfolio_signal: "!border-cyan-500 !bg-cyan-50 dark:!bg-cyan-950",
   any: "!border-muted-foreground !bg-muted",
 };
 
@@ -135,6 +141,12 @@ const PORT_DOT_COLORS: Record<string, string> = {
   correlation_matrix: "bg-pink-400",
   sentiment: "bg-red-300",
   comparison_result: "bg-violet-400",
+  var_result: "bg-red-400",
+  stress_result: "bg-orange-500",
+  turnover_result: "bg-yellow-500",
+  decay_result: "bg-purple-500",
+  heatmap_result: "bg-fuchsia-400",
+  portfolio_signal: "bg-cyan-500",
   any: "bg-muted-foreground",
 };
 
@@ -145,6 +157,9 @@ const PORT_TYPE_LABELS: Record<string, string> = {
   stock_list: "股票", params: "参数", attribution: "归因",
   technical_indicator: "指标", correlation_matrix: "相关",
   sentiment: "情绪", comparison_result: "对比",
+  var_result: "VaR", stress_result: "压力",
+  turnover_result: "换手", decay_result: "衰减",
+  heatmap_result: "热力图", portfolio_signal: "组合",
 };
 
 // ── Port handle ──────────────────────────────────────────────────────────────
@@ -211,6 +226,24 @@ const NODE_BADGE_FORMATTERS: Record<string, (s: Record<string, unknown>) => stri
   report: (s) => `${s.format || "Report"} generated`,
   export: (s) => `${s.format || "File"} exported`,
   factor_persist: (s) => `${s.saved != null ? s.saved : "?"} factors saved`,
+  sub_workflow: (s) => `${s.workflow_name || "Sub-workflow"} ${s.status === "completed" ? "✓" : "..."}`,
+  var_analysis: (s) => {
+    const parts: string[] = [];
+    if (s.var_95 != null) parts.push(`VaR 95%: ${(Number(s.var_95) * 100).toFixed(2)}%`);
+    if (s.cvar_95 != null) parts.push(`CVaR: ${(Number(s.cvar_95) * 100).toFixed(2)}%`);
+    return parts.join(" · ") || "VaR done";
+  },
+  stress_test: (s) => `${s.scenario_count || 5} scenarios · MaxDD: ${s.max_drawdown != null ? (Number(s.max_drawdown) * 100).toFixed(1) + "%" : "?"}`,
+  turnover_analysis: (s) => {
+    const parts: string[] = [];
+    if (s.daily_turnover != null) parts.push(`Daily: ${(Number(s.daily_turnover) * 100).toFixed(1)}%`);
+    if (s.annualized_turnover != null) parts.push(`Annual: ${(Number(s.annualized_turnover) * 100).toFixed(0)}%`);
+    return parts.join(" · ") || "Turnover done";
+  },
+  factor_decay: (s) => `Half-life: ${s.half_life != null ? s.half_life + "d" : "?"}`,
+  param_heatmap: (s) => `Grid: ${s.grid_size || "?"} · Best: ${s.best_sharpe != null ? Number(s.best_sharpe).toFixed(2) : "?"}`,
+  pdf_report: (s) => `📄 ${s.filename || "Report"}`,
+  portfolio_combiner: (s) => `${s.strategy_count || "?"} strategies · ${s.method || "equal"}`,
 };
 
 function formatNodeBadge(nodeType: string, summary: Record<string, unknown>): string {
