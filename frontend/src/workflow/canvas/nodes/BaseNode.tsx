@@ -122,7 +122,7 @@ const PORT_HANDLE_COLORS: Record<string, string> = {
   turnover_result: "!border-yellow-500 !bg-yellow-50 dark:!bg-yellow-950",
   decay_result: "!border-purple-500 !bg-purple-50 dark:!bg-purple-950",
   heatmap_result: "!border-fuchsia-400 !bg-fuchsia-50 dark:!bg-fuchsia-950",
-  portfolio_signal: "!border-cyan-500 !bg-cyan-50 dark:!bg-cyan-950",
+  portfolio_signal: "!border-green-400 !bg-green-50 dark:!bg-green-950",
   any: "!border-muted-foreground !bg-muted",
 };
 
@@ -146,7 +146,7 @@ const PORT_DOT_COLORS: Record<string, string> = {
   turnover_result: "bg-yellow-500",
   decay_result: "bg-purple-500",
   heatmap_result: "bg-fuchsia-400",
-  portfolio_signal: "bg-cyan-500",
+  portfolio_signal: "bg-green-400",
   any: "bg-muted-foreground",
 };
 
@@ -263,9 +263,9 @@ function NodeFooter({ nodeType, status, durationMs, summary, errorMessage }: {
   if (status === "done" && summary) {
     const badge = formatNodeBadge(nodeType, summary);
     return (
-      <div className="border-t border-green-200 dark:border-green-800 px-2 py-1 text-[10px] text-muted-foreground bg-green-50/30 dark:bg-green-950/20 flex items-center gap-1">
+      <div className="border-t border-green-200 dark:border-green-800 px-2 py-1 text-[10px] text-muted-foreground bg-green-50/30 dark:bg-green-950/20 flex items-center gap-1 max-w-[220px]">
         <span className="text-green-500 shrink-0">✓</span>
-        <span className="truncate">{badge}</span>
+        <span className="truncate" title={badge}>{badge.length > 40 ? badge.slice(0, 38) + "…" : badge}</span>
         {durationMs ? <span className="text-muted-foreground/50 ml-auto shrink-0">{durationMs}ms</span> : null}
       </div>
     );

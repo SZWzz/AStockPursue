@@ -143,7 +143,21 @@ export default function NodePanel() {
 
       {/* Workflow picker (special for sub_workflow node) */}
       {nodeData.node_type === "sub_workflow" && (
-        <WorkflowPicker config={config} onUpdate={(patch) => updateNodeConfig(selectedNodeId!, { ...config, ...patch })} projectId={useWorkflowStore.getState().projectId} />
+        <>
+          <WorkflowPicker config={config} onUpdate={(patch) => updateNodeConfig(selectedNodeId!, { ...config, ...patch })} projectId={useWorkflowStore.getState().projectId} />
+          <MappingEditor
+            title="Input Mapping"
+            configKey="input_mapping"
+            config={config}
+            onUpdate={(patch) => updateNodeConfig(selectedNodeId!, { ...config, ...patch })}
+          />
+          <MappingEditor
+            title="Output Mapping"
+            configKey="output_mapping"
+            config={config}
+            onUpdate={(patch) => updateNodeConfig(selectedNodeId!, { ...config, ...patch })}
+          />
+        </>
       )}
 
       {/* Config form */}
@@ -195,6 +209,74 @@ export default function NodePanel() {
                   min={schema.minimum}
                   max={schema.maximum}
                 />
+              ) : schema.type === "boolean" ? (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!config[key]}
+                    onChange={(e) => updateNodeConfig(selectedNodeId!, { ...config, [key]: e.target.checked })}
+                    className="rounded border-muted"
+                  />
+                  <span className="text-xs text-muted-foreground">{schema.title || key}</span>
+                </label>
+              ) : schema.type === "array" ? (
+                schema.items?.enum ? (
+                  <div className="flex flex-wrap gap-1">
+                    {(schema.items.enum as string[]).map((opt: string) => {
+                      const arr = Array.isArray(config[key]) ? config[key] as string[] : (schema.default as string[]) || [];
+                      const checked = arr.includes(opt);
+                      return (
+                        <label key={opt} className="flex items-center gap-1 text-xs cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              const next = checked ? arr.filter((v: string) => v !== opt) : [...arr, opt];
+                              updateNodeConfig(selectedNodeId!, { ...config, [key]: next });
+                            }}
+                            className="rounded border-muted"
+                          />
+                          {opt}
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {(() => {
+                      const arr = Array.isArray(config[key]) ? config[key] as (string | number)[] : [];
+                      return arr.map((item, idx) => (
+                        <div key={idx} className="flex items-center gap-1">
+                          <input
+                            type={schema.items?.type === "number" || schema.items?.type === "integer" ? "number" : "text"}
+                            value={item}
+                            onChange={(e) => {
+                              const next = [...arr];
+                              next[idx] = schema.items?.type === "number" || schema.items?.type === "integer" ? Number(e.target.value) : e.target.value;
+                              updateNodeConfig(selectedNodeId!, { ...config, [key]: next });
+                            }}
+                            className="flex-1 px-2 py-0.5 text-xs rounded border bg-background"
+                          />
+                          <button
+                            onClick={() => {
+                              const next = arr.filter((_: any, i: number) => i !== idx);
+                              updateNodeConfig(selectedNodeId!, { ...config, [key]: next });
+                            }}
+                            className="text-destructive hover:text-destructive/80 text-xs px-1"
+                          >✕</button>
+                        </div>
+                      ));
+                    })()}
+                    <button
+                      onClick={() => {
+                        const arr = Array.isArray(config[key]) ? config[key] as any[] : [];
+                        const defaultVal = schema.items?.type === "number" || schema.items?.type === "integer" ? 0 : "";
+                        updateNodeConfig(selectedNodeId!, { ...config, [key]: [...arr, defaultVal] });
+                      }}
+                      className="text-xs text-primary hover:underline"
+                    >+ Add item</button>
+                  </div>
+                )
               ) : (
                 <input
                   type="text"
@@ -367,6 +449,48 @@ function WorkflowPicker({ config, onUpdate, projectId }: { config: Record<string
           ))}
         </select>
       )}
+    </div>
+  );
+}
+
+function MappingEditor({ title, configKey, config, onUpdate }: {
+  title: string; configKey: string; config: Record<string, unknown>; onUpdate: (patch: Record<string, unknown>) => void;
+}) {
+  const mapping = (config[configKey] as Record<string, string>) || {};
+  const entries = Object.entries(mapping);
+
+  const addEntry = () => onUpdate({ [configKey]: { ...mapping, "": "" } });
+  const removeEntry = (key: string) => {
+    const next = { ...mapping };
+    delete next[key];
+    onUpdate({ [configKey]: next });
+  };
+  const updateKey = (oldKey: string, newKey: string) => {
+    const next: Record<string, string> = {};
+    for (const [k, v] of Object.entries(mapping)) {
+      next[k === oldKey ? newKey : k] = v;
+    }
+    onUpdate({ [configKey]: next });
+  };
+  const updateValue = (key: string, val: string) => {
+    onUpdate({ [configKey]: { ...mapping, [key]: val } });
+  };
+
+  return (
+    <div className="p-3 border-b space-y-1">
+      <div className="flex items-center justify-between">
+        <h4 className="text-xs font-semibold uppercase text-muted-foreground">{title}</h4>
+        <button onClick={addEntry} className="text-[10px] text-primary hover:underline">+ Add</button>
+      </div>
+      {entries.length === 0 && <p className="text-[10px] text-muted-foreground">No mappings configured</p>}
+      {entries.map(([k, v]) => (
+        <div key={k} className="flex items-center gap-1">
+          <input value={k} onChange={(e) => updateKey(k, e.target.value)} placeholder="from" className="flex-1 px-1 py-0.5 text-[10px] rounded border bg-background" />
+          <span className="text-muted-foreground text-[10px]">→</span>
+          <input value={v} onChange={(e) => updateValue(k, e.target.value)} placeholder="to" className="flex-1 px-1 py-0.5 text-[10px] rounded border bg-background" />
+          <button onClick={() => removeEntry(k)} className="text-destructive text-[10px] px-0.5">✕</button>
+        </div>
+      ))}
     </div>
   );
 }

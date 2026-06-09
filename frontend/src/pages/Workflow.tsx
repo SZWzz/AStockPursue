@@ -34,8 +34,9 @@ export default function WorkflowPage() {
   const [showBatch, setShowBatch] = useState(false);
   const [batchParams, setBatchParams] = useState("");
   const [batchResults, setBatchResults] = useState<any[] | null>(null);
+  const [batchError, setBatchError] = useState("");
   const [showReplay, setShowReplay] = useState(false);
-  const [replayRunId, setReplayRunId] = useState("");
+  const [replayHistory, setReplayHistory] = useState<any[]>([]);
 
   // Load node definitions + workflow data
   useEffect(() => {
@@ -130,12 +131,22 @@ export default function WorkflowPage() {
     try {
       const text = await file.text();
       const json = JSON.parse(text);
-      await api.importWorkflow(projectId, {
-        name: json.name || file.name.replace(/\.json$/, ""),
-        nodes: json.nodes || [],
-        edges: json.edges || [],
-      });
-      window.location.reload();
+      if (workflowId && json.nodes?.length) {
+        // Merge mode: import into current canvas with ID remapping
+        store.importNodes({ nodes: json.nodes, edges: json.edges || [] }, { x: 50, y: 50 });
+      } else {
+        // New workflow mode
+        const result = await api.importWorkflow(projectId, {
+          name: json.name || file.name.replace(/\.json$/, ""),
+          nodes: json.nodes || [],
+          edges: json.edges || [],
+        });
+        if (result?.id && projectId) {
+          window.location.href = `/workflow/${projectId}/${result.id}`;
+        } else {
+          window.location.reload();
+        }
+      }
     } catch (e: any) {
       setError(e.message || (t as any).wfImportError);
     }
@@ -152,12 +163,11 @@ export default function WorkflowPage() {
     }
   };
 
-  const handleReplay = async () => {
-    if (!replayRunId) return;
+  const handleReplay = async (runId: string) => {
+    if (!runId) return;
     try {
-      const result = await api.replayRun(replayRunId);
+      const result = await api.replayRun(runId);
       if (result?.run_id) {
-        setReplayRunId("");
         setShowReplay(false);
       }
     } catch (e: any) {
@@ -180,6 +190,26 @@ export default function WorkflowPage() {
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  // ── Auto-save (3s debounce) ──
+  useEffect(() => {
+    if (!store.isDirty || !workflowId) return;
+    const timer = setTimeout(() => {
+      store.saveWorkflow().catch(() => {});
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [store.isDirty, store.nodes, store.edges, workflowId]);
+
+  // ── Warn before leaving with unsaved changes ──
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (store.isDirty) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [store.isDirty]);
 
   // ── Render ─────────────────────────────────────────────────────────────
 
@@ -242,7 +272,12 @@ export default function WorkflowPage() {
             <Layers className="h-3 w-3" />
           </button>
           <button
-            onClick={() => setShowReplay(!showReplay)}
+            onClick={() => {
+              setShowReplay(!showReplay);
+              if (!showReplay && workflowId) {
+                api.listWorkflowVersions(workflowId).then((d: any) => setReplayHistory(d?.versions || [])).catch(() => {});
+              }
+            }}
             className="px-2 py-1 text-xs rounded border hover:bg-muted transition-colors flex items-center gap-1"
             title={(t as any).wfReplay}
           >
@@ -341,13 +376,25 @@ export default function WorkflowPage() {
           </div>
           <textarea
             value={batchParams}
-            onChange={(e) => setBatchParams(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setBatchParams(val);
+              try {
+                const parsed = JSON.parse(val);
+                const valid = typeof parsed === "object" && parsed !== null && Object.values(parsed).every((v) => Array.isArray(v));
+                setBatchError(valid ? "" : "Each value must be an array, e.g. {\"key\": [1,2,3]}");
+              } catch {
+                setBatchError(val.trim() ? "Invalid JSON" : "");
+              }
+            }}
             placeholder='{"window": [10, 20, 30], "top_n": [5, 10]}'
-            className="w-full px-2 py-1 rounded border bg-background font-mono text-[11px] h-16"
+            className={`w-full px-2 py-1 rounded border bg-background font-mono text-[11px] h-16 ${batchError ? "border-red-400" : ""}`}
           />
+          {batchError && <p className="text-[10px] text-red-500">{batchError}</p>}
           <button
             onClick={handleBatch}
-            className="px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
+            disabled={!!batchError || !batchParams.trim()}
+            className="px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Layers className="h-3 w-3 inline mr-1" />
             Run Batch
@@ -358,6 +405,29 @@ export default function WorkflowPage() {
                 <thead><tr className="border-b">{Object.keys(batchResults[0] || {}).map((k) => <th key={k} className="px-1 py-0.5 text-left">{k}</th>)}</tr></thead>
                 <tbody>{batchResults.map((r: any, i: number) => <tr key={i} className="border-b">{Object.values(r).map((v: any, j: number) => <td key={j} className="px-1 py-0.5">{typeof v === "number" ? v.toFixed(4) : String(v)}</td>)}</tr>)}</tbody>
               </table>
+              <button
+                onClick={() => {
+                  try {
+                    const parsed = JSON.parse(batchParams);
+                    const keys = Object.keys(parsed);
+                    if (keys.length >= 2) {
+                      store.addNode("param_heatmap", { x: 300, y: 300 });
+                      const nodes = store.nodes;
+                      const lastNode = nodes[nodes.length - 1];
+                      if (lastNode) {
+                        store.updateNodeConfig(lastNode.id, {
+                          param1_name: keys[0], param1_range: parsed[keys[0]],
+                          param2_name: keys[1], param2_range: parsed[keys[1]],
+                          metric: "sharpe",
+                        });
+                      }
+                    }
+                  } catch {}
+                }}
+                className="mt-1 text-[10px] text-primary hover:underline"
+              >
+                Export to ParamHeatmap node
+              </button>
             </div>
           )}
         </div>
@@ -365,26 +435,28 @@ export default function WorkflowPage() {
 
       {/* Replay panel */}
       {showReplay && (
-        <div className="px-3 py-2 border-b bg-card text-xs space-y-2">
+        <div className="px-3 py-2 border-b bg-card text-xs space-y-2 max-h-40 overflow-y-auto">
           <div className="flex items-center justify-between">
             <span className="font-semibold">{(t as any).wfReplayTitle}</span>
             <button onClick={() => setShowReplay(false)} className="text-muted-foreground hover:text-foreground">✕</button>
           </div>
-          <div className="flex gap-2">
-            <input
-              value={replayRunId}
-              onChange={(e) => setReplayRunId(e.target.value)}
-              placeholder="Run ID to replay"
-              className="flex-1 px-2 py-1 rounded border bg-background"
-            />
-            <button
-              onClick={handleReplay}
-              className="px-2 py-1 rounded bg-primary text-primary-foreground hover:bg-primary/90"
-            >
-              <PlaySquare className="h-3 w-3 inline mr-1" />
-              Replay
-            </button>
-          </div>
+          {replayHistory.length === 0 ? (
+            <p className="text-muted-foreground">No execution history yet.</p>
+          ) : (
+            replayHistory.map((run: any) => (
+              <div key={run.run_id} className="flex items-center justify-between py-0.5">
+                <span className="truncate">
+                  {run.run_id.slice(0, 8)} — {run.status} — {run.started_at?.slice(0, 16) || "unknown"}
+                </span>
+                <button
+                  onClick={() => handleReplay(run.run_id)}
+                  className="text-primary hover:underline shrink-0 ml-2"
+                >
+                  Replay
+                </button>
+              </div>
+            ))
+          )}
         </div>
       )}
 

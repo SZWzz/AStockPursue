@@ -92,6 +92,10 @@ interface WorkflowState {
   copySelectedNode: () => void;
   pasteNode: (position: XYPosition) => void;
   hasClipboard: () => boolean;
+  /** Execute multiple mutations as a single undo step */
+  batchUpdate: (fn: () => void) => void;
+  /** Import nodes/edges from JSON with ID remapping to avoid collisions */
+  importNodes: (json: { nodes: any[]; edges: any[] }, offset?: { x: number; y: number }) => void;
 
   // ── Validation ──────────────────────────────────────────────────────────
 
@@ -122,6 +126,7 @@ const MAX_HISTORY = 50;
 
 /** Copied node data (without position — position is offset on paste). */
 let _clipboard: { node_type: string; label: string; config: Record<string, unknown> } | null = null;
+let _batchUpdating = false;
 
 interface HistorySnapshot {
   nodes: Node[];
@@ -132,6 +137,7 @@ let _history: HistorySnapshot[] = [];
 let _future: HistorySnapshot[] = [];
 
 function _pushHistory(nodes: Node[], edges: Edge[]) {
+  if (_batchUpdating) return; // skip during batch operations
   _history.push({ nodes: structuredClone(nodes), edges: structuredClone(edges) });
   if (_history.length > MAX_HISTORY) _history.shift();
   _future = [];  // new action clears redo stack
@@ -174,6 +180,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   onEdgesChange: (changes: EdgeChange[]) => {
+    // Push history for edge deletions so they are undoable
+    const hasDeletion = changes.some((c) => (c as any).type === "remove");
+    if (hasDeletion) _pushHistory(get().nodes, get().edges);
     set({ edges: applyEdgeChanges(changes, get().edges), isDirty: true });
   },
 
@@ -597,6 +606,64 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   hasClipboard: () => _clipboard !== null,
+
+  batchUpdate: (fn: () => void) => {
+    _pushHistory(get().nodes, get().edges);
+    _batchUpdating = true;
+    try {
+      fn();
+    } finally {
+      _batchUpdating = false;
+    }
+  },
+
+  importNodes: (json: { nodes: any[]; edges: any[] }, offset?: { x: number; y: number }) => {
+    const defs = get().nodeDefinitions;
+    const idMap: Record<string, string> = {};
+    const posOffset = offset || { x: 50, y: 50 };
+
+    // Push current state to history before mutation
+    _pushHistory(get().nodes, get().edges);
+
+    // Remap node IDs
+    const newNodes: Node[] = (json.nodes || []).map((n: any) => {
+      const newId = nextNodeId();
+      idMap[n.id] = newId;
+      const def = defs.find((d) => d.node_type === n.node_type);
+      return {
+        id: newId,
+        type: "workflowNode",
+        position: { x: (n.position?.x || 0) + posOffset.x, y: (n.position?.y || 0) + posOffset.y },
+        data: {
+          id: newId,
+          node_type: n.node_type,
+          label: n.label || n.node_type,
+          position: { x: (n.position?.x || 0) + posOffset.x, y: (n.position?.y || 0) + posOffset.y },
+          config: n.config || {},
+          status: "pending",
+          error_message: "",
+          duration_ms: 0,
+          definition: def,
+        },
+      } as Node;
+    });
+
+    // Remap edge source/target references
+    const newEdges: Edge[] = (json.edges || []).map((e: any) => ({
+      id: `e_${idMap[e.source] || e.source}_${idMap[e.target] || e.target}`,
+      source: idMap[e.source] || e.source,
+      target: idMap[e.target] || e.target,
+      sourceHandle: e.source_port || e.sourceHandle,
+      targetHandle: e.target_port || e.targetHandle,
+      data: e,
+    } as Edge));
+
+    set({
+      nodes: [...get().nodes, ...newNodes],
+      edges: [...get().edges, ...newEdges],
+      isDirty: true,
+    });
+  },
 
   // ── Initialisation ──────────────────────────────────────────────────────
 
