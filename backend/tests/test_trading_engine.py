@@ -47,7 +47,7 @@ class MockMarketEngine:
     def calc_commission(self, size, price, direction, is_open):
         return max(size * price * 0.00025, 5.0)
 
-    def apply_slippage(self, price, direction):
+    def apply_slippage(self, price, direction, volume=0.0):
         return price * (1.0 + direction * 0.001)
 
     def _calc_margin(self, symbol, size, price, leverage):

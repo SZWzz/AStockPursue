@@ -22,6 +22,7 @@ Usage::
 from __future__ import annotations
 
 import logging
+import threading
 import time
 from typing import Any
 
@@ -508,11 +509,14 @@ class DataStore:
 # ── Global singleton ──────────────────────────────────────────────────────────
 
 _data_store: DataStore | None = None
+_data_store_lock = threading.Lock()
 
 
 def get_data_store() -> DataStore:
     """Get or create the global DataStore singleton."""
     global _data_store
     if _data_store is None:
-        _data_store = DataStore()
+        with _data_store_lock:
+            if _data_store is None:
+                _data_store = DataStore()
     return _data_store

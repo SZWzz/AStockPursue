@@ -2,6 +2,9 @@
 
 基于月份效应、周内效应等时间规律生成交易信号。
 纯 pandas 实现，适用于任何 OHLCV 数据。
+
+Note: OKX API base URL is hardcoded here for example self-containment.
+      Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
 from typing import Dict, List

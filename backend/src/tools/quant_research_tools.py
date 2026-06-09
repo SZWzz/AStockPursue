@@ -150,6 +150,7 @@ Use this to understand what data you can work with before designing factors."""
             data_status = "available" if stats.get("cache_hits", 0) + stats.get("api_fetches", 0) > 0 else "unverified"
             sample_count = stats.get("cache_hits", 0) + stats.get("store_hits", 0)
         except Exception:
+            logger.debug("DataStore not available", exc_info=True)
             data_status = "unavailable"
 
         # Available fields
@@ -181,7 +182,7 @@ Use this to understand what data you can work with before designing factors."""
             from src.factors.registry import get_default_registry
             zoo_count = len(get_default_registry().list())
         except Exception:
-            pass
+            logger.debug("Failed to load alpha zoo count", exc_info=True)
 
         # Data sources by market
         data_sources = {
@@ -480,9 +481,9 @@ If max_zoo_correlation > 0.7, your factor is too similar to an existing one — 
                                 if not np.isnan(corr) and abs(corr) > max_zoo_corr:
                                     max_zoo_corr = abs(corr)
                 except Exception:
-                    pass
+                    logger.debug("Zoo correlation check failed for %s", aid, exc_info=True)
         except Exception:
-            pass
+            logger.debug("Registry unavailable for zoo correlation check", exc_info=True)
 
         # Coverage
         arr = factor_values.to_numpy(dtype=np.float64)
@@ -591,7 +592,7 @@ Returns factor IDs, themes, universes, and nicknames."""
                         "zoo": alpha.zoo,
                     })
                 except Exception:
-                    pass
+                    logger.debug("Skipping alpha %s: failed to read metadata", aid, exc_info=True)
                 if len(factors) >= limit:
                     break
 

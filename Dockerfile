@@ -16,7 +16,7 @@ FROM python:3.11-slim AS runtime
 
 LABEL org.opencontainers.image.title="AStockPursue" \
       org.opencontainers.image.description="AI-powered quantitative trading research platform" \
-      org.opencontainers.image.version="2026.5.24" \
+      org.opencontainers.image.version="2026.6.9" \
       org.opencontainers.image.licenses="MIT" \
       org.opencontainers.image.url="https://github.com/SZWzz/AStockPursue"
 

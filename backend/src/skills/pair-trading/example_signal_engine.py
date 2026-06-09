@@ -2,6 +2,9 @@
 
 基于两个相关标的的价格比值 Z-score 进行均值回归交易。
 需要恰好两个标的，等权分配。纯 pandas 实现。
+
+Note: OKX API base URL is hardcoded here for example self-containment.
+      Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
 from typing import Dict

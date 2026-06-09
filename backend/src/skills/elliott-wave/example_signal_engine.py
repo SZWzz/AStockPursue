@@ -3,6 +3,9 @@
 通过 Zigzag 检测 Swing 点，匹配 5 浪推动和 3 浪调整结构，
 结合 Fibonacci 浪间关系验证，生成趋势见顶/调整结束信号。
 纯 pandas/numpy 实现，无外部波浪库依赖。
+
+Note: OKX API base URL is hardcoded here for example self-containment.
+      Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
 from typing import Dict, List, Optional, Tuple

@@ -2,6 +2,9 @@
 
 基于历史波动率（HV）百分位排名进行均值回归交易：
 低波区间做多等待扩张，高波区间做空等待收缩。纯 pandas 实现。
+
+Note: OKX API base URL is hardcoded here for example self-containment.
+      Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
 from typing import Dict

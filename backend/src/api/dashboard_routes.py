@@ -61,7 +61,8 @@ async def _fetch_market_overview() -> dict[str, Any] | None:
                     prev_close = float(parts[4]) if len(parts) > 4 else price
                     if prev_close > 0:
                         change_pct = round((price / prev_close - 1) * 100, 2)
-            except Exception:
+            except Exception as e:
+                logger.debug("Tencent index code parse failed for %s: %s", qt_code, e)
                 pass
             result.append({"name": name, "code": qt_code, "price": price, "change_pct": change_pct})
 
@@ -119,7 +120,8 @@ async def _fetch_sentiment_overview() -> dict[str, Any] | None:
         try:
             from src.db.sentiment_store import get_recent_news
             articles = list(get_recent_news(limit=20, hours=48))
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to load cached news from DB: %s", e)
             pass
 
         # Fallback: quick web search for recent financial headlines
@@ -136,7 +138,8 @@ async def _fetch_sentiment_overview() -> dict[str, Any] | None:
                         "source": r.get("source", ""),
                         "published_at": r.get("date", ""),
                     })
-            except Exception:
+            except Exception as e:
+                logger.debug("DuckDuckGo news fallback failed: %s", e)
                 pass
 
         if not articles:
@@ -227,7 +230,8 @@ async def _fetch_factor_pipeline(user_id: int) -> dict[str, Any] | None:
         try:
             from src.api.factor_mining_routes import _jobs
             active_gp_runs = sum(1 for j in _jobs.values() if j.get("status") == "running")
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to count active GP runs from factor_mining_routes: %s", e)
             pass
 
         # Real candidate breakdown from KB
@@ -312,9 +316,9 @@ async def _fetch_recent_activity(user_id: int) -> dict[str, Any] | None:
                             "time": str(last_bar)[-8:-3] if len(str(last_bar)) >= 8 else "",
                             "event": f"模拟盘 {name} 运行中 @ {last_bar}",
                         })
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to fetch paper trading status for activity feed: %s", e)
             pass
-
         # Sort by time descending and deduplicate roughly
         seen = set()
         deduped = []

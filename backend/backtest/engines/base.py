@@ -161,7 +161,7 @@ def _load_optimizer(config: Dict[str, Any]) -> Optional[Callable]:
         mod = importlib.import_module(f"backtest.optimizers.{opt_name}")
         return lambda ret, pos, dates: mod.optimize(ret, pos, dates, **opt_params)
     except (ImportError, AttributeError) as e:
-        print(f"[WARN] Failed to load optimizer '{opt_name}': {e}, falling back to equal weight")
+        logger.warning("Failed to load optimizer '%s': %s, falling back to equal weight", opt_name, e)
         return None
 
 

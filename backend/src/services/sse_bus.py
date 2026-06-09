@@ -135,7 +135,7 @@ class SSEBus:
         host = os.getenv("DB_HOST", "localhost")
         port = os.getenv("DB_PORT", "5433")
         dbname = os.getenv("DB_NAME", "stock-data")
-        user = os.getenv("DB_USER", "shenzhiwei")
+        user = os.getenv("DB_USER", "postgres")
         password = os.getenv("DB_PASSWORD", "")
         if not password:
             try:
@@ -145,6 +145,7 @@ class SSEBus:
                 if enc and key:
                     password = decrypt_password(enc, key)
             except Exception:
+                logger.debug("Failed to decrypt DB password for SSEBus DSN — no password available")
                 pass
         if not password:
             return None
@@ -187,6 +188,7 @@ class SSEBus:
                     try:
                         await conn.close()
                     except Exception:
+                        logger.debug("Failed to close PG connection after publish on channel %s", channel)
                         pass
 
     # ------------------------------------------------------------------
@@ -244,6 +246,7 @@ class SSEBus:
                             if pg_queue is not None:
                                 asyncio.ensure_future(pg_queue.put(evt))
                         except Exception:
+                            logger.debug("Failed to parse PG NOTIFY payload on channel %s", channel)
                             pass
 
                     pg_conn.add_termination_listener(lambda c: logger.debug("PG SSE conn terminated"))
@@ -253,6 +256,7 @@ class SSEBus:
                     try:
                         await pg_conn.close()
                     except Exception:
+                        logger.debug("Failed to close PG connection during subscribe setup for %s", channel)
                         pass
                 pg_conn = None
                 pg_queue = None
@@ -292,6 +296,7 @@ class SSEBus:
                 try:
                     await pg_conn.close()
                 except Exception:
+                    logger.debug("Failed to close PG connection in subscribe finally for channel %s", channel)
                     pass
 
 

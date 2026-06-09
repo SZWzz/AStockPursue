@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json as _json
+import logging
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Security, status
@@ -10,6 +11,8 @@ from pydantic import BaseModel, Field
 
 from src.api.common import safe_error
 from src.auth.rate_limit import check_rate_limit
+
+logger = logging.getLogger(__name__)
 
 
 class LoginRequest(BaseModel):
@@ -122,11 +125,19 @@ def create_router(require_auth) -> APIRouter:
                         (user_id, token_hash, expires_at),
                     )
 
+            import os as _os
+            is_dev = _os.getenv("API_AUTH_KEY", "").strip() == ""
+            if is_dev:
+                return {
+                    "ok": True,
+                    "token": raw_token,
+                    "expires_in_minutes": _RESET_TOKEN_MINUTES,
+                    "message": "Use this token to reset your password. (Dev mode — token returned directly.)",
+                }
             return {
                 "ok": True,
-                "token": raw_token,
                 "expires_in_minutes": _RESET_TOKEN_MINUTES,
-                "message": "Use this token to reset your password. (Dev mode — token returned directly.)",
+                "message": "If the account exists, a reset token has been sent.",
             }
         except HTTPException:
             raise
@@ -192,8 +203,8 @@ def create_router(require_auth) -> APIRouter:
             body = await request.json()
             old_pw = body.get("old_password", "")
             new_pw = body.get("new_password", "")
-            if len(new_pw) < 4:
-                raise HTTPException(status_code=400, detail="Password must be at least 4 characters")
+            if len(new_pw) < 8:
+                raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
             from src.db.pool import get_connection
             from src.auth.jwt import verify_password, hash_password
             with get_connection() as conn:
@@ -249,6 +260,7 @@ def create_router(require_auth) -> APIRouter:
                             "llm_config": row[4] if isinstance(row[4], dict) else {},
                         }
         except Exception:
+            logger.debug("Failed to load user profile from DB for user_id=%s", user_id)
             pass
         return auth
 
@@ -291,6 +303,7 @@ def create_router(require_auth) -> APIRouter:
                         cfg = decrypt_config(cfg, _SENSITIVE_LLM_FIELDS)
                         return {"llm_config": cfg}
         except Exception:
+            logger.debug("Failed to load LLM config for user_id=%s", user_id)
             pass
         return {"llm_config": {}}
 
@@ -310,6 +323,7 @@ def create_router(require_auth) -> APIRouter:
                         cfg = decrypt_config(cfg, _SENSITIVE_DS_FIELDS)
                         return {"data_source_config": cfg}
         except Exception:
+            logger.debug("Failed to load data source config for user_id=%s", user_id)
             pass
         return {"data_source_config": {}}
 

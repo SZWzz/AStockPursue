@@ -153,7 +153,7 @@ def build_registry(
 def build_filtered_registry(tool_names: list[str], *, include_shell_tools: bool = False) -> ToolRegistry:
     """Build a ToolRegistry with only specified tools.
 
-    TODO(v1): Keep this path local-only for now. Swarm workers currently use
+    DEFERRED: Keep this path local-only for now. Swarm workers currently use
     filtered registries, and v1 MCP support does not propagate agent_config
     into swarm execution until a separate design pass defines how remote MCP
     tools should be configured and constrained there.

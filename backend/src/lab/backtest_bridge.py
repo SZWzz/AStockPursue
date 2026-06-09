@@ -112,6 +112,7 @@ def fetch_ohlcv(
         from backtest.loaders.cache import query_cache, write_cache
         _cache_available = True
     except Exception:
+        logger.debug("PG cache module not available", exc_info=True)
         _cache_available = False
 
     if _cache_available:
@@ -158,14 +159,14 @@ def fetch_ohlcv(
                             from backtest.loaders.health import get_health_tracker
                             get_health_tracker().record_success(name, latency)
                         except Exception:
-                            pass
+                            logger.debug("Failed to record loader health success", exc_info=True)
                         # Write back to cache
                         if _cache_available:
                             try:
                                 n = write_cache(symbol, interval, data[symbol])
                                 logger.debug("Cached %d bars for %s/%s", n, symbol, interval)
                             except Exception:
-                                pass
+                                logger.debug("Failed to write OHLCV cache for %s", symbol, exc_info=True)
                         # Wrap with provenance metadata
                         df = data[symbol]
                         from backtest.loaders.base import FetchResult
@@ -197,7 +198,7 @@ def fetch_ohlcv(
                 from backtest.loaders.health import get_health_tracker
                 get_health_tracker().record_failure(name)
             except Exception:
-                pass
+                logger.debug("Failed to record loader health failure", exc_info=True)
             continue
 
     # When specific source fails, try auto fallback chain
@@ -226,9 +227,10 @@ def fetch_ohlcv(
                         try:
                             write_cache(symbol, interval, data[symbol])
                         except Exception:
-                            pass
+                            logger.debug("Failed to write fallback cache for %s", symbol, exc_info=True)
                     return data
             except Exception:
+                logger.debug("Fallback loader %s failed for %s", name, symbol, exc_info=True)
                 continue
 
     tried_str = "; ".join(tried) if tried else "none"

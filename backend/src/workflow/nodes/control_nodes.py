@@ -182,8 +182,8 @@ class AgentNode(BaseNode):
                     f"Columns ({len(cols)}): {', '.join(str(c)[:30] for c in cols)}\n"
                     f"Date range: {context.index[0]} → {context.index[-1]}"
                 )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("DataFrame detection failed in context formatter, falling back to str: %s", exc)
 
         return str(context)[:500]
 

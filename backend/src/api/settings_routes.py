@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -16,6 +17,8 @@ from pydantic import BaseModel, Field
 
 from src.api.common import ENV_PATH, ENV_EXAMPLE_PATH, AGENT_DIR, LLM_PROVIDER_CONFIG_PATH
 from src.api.common import LLM_API_KEY_PLACEHOLDERS, TUSHARE_TOKEN_PLACEHOLDERS
+
+logger = logging.getLogger(__name__)
 
 # ============================================================================
 # Pydantic Models
@@ -270,7 +273,8 @@ def _build_llm_settings_response(values: Optional[Dict[str, str]] = None, *, db_
         try:
             from src.providers.openai_codex import get_openai_codex_login_status
             token = get_openai_codex_login_status()
-        except Exception:
+        except Exception as _e:
+            logger.debug("OAuth login status check failed: %s", _e)
             token = None
         api_key_configured = bool(token)
         api_key_hint = None
@@ -339,7 +343,8 @@ def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None
                     inst = cls()
                     f = ex.submit(inst.is_available)
                     avail = f.result(timeout=timeout)
-                except Exception:
+                except Exception as _e:
+                    logger.debug("Loader %s availability check failed: %s", name, _e)
                     avail = False
                 finally:
                     ex.shutdown(wait=False)
@@ -372,7 +377,8 @@ def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None
         for name, cls in LOADER_REGISTRY.items():
             try:
                 all_loaders.append(check_one(name, cls))
-            except Exception:
+            except Exception as _e:
+                logger.debug("Loader %s check failed: %s", name, _e)
                 all_loaders.append({
                     "name": name,
                     "display": getattr(cls, "name", name),
@@ -381,8 +387,8 @@ def _build_data_source_settings_response(values: Optional[Dict[str, str]] = None
                     "requires_auth": getattr(cls, "requires_auth", False),
                     "health": None,
                 })
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("Failed to enumerate data source loaders: %s", _e)
 
     return DataSourceSettingsResponse(
         tushare_token_configured=token_configured,
@@ -419,8 +425,8 @@ def _read_user_ds_config(user_id: int) -> dict:
                 row = cur.fetchone()
                 if row and isinstance(row[0], dict):
                     return decrypt_config(dict(row[0]), _SENSITIVE_DS_FIELDS)
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.warning("Failed to read data source config for user %s: %s", user_id, _e)
     return {}
 
 
@@ -452,7 +458,8 @@ def _write_user_ds_config(user_id: int, updates: dict) -> bool:
                 )
             conn.commit()
         return True
-    except Exception:
+    except Exception as _e:
+        logger.warning("Failed to write data source config for user %s: %s", user_id, _e)
         return False
 
 
@@ -467,8 +474,8 @@ def _read_user_llm_config(user_id: int) -> dict:
                 row = cur.fetchone()
                 if row and isinstance(row[0], dict):
                     return decrypt_config(dict(row[0]), _SENSITIVE_LLM_FIELDS)
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.warning("Failed to read LLM config for user %s: %s", user_id, _e)
     return {}
 
 
@@ -499,7 +506,8 @@ def _write_user_llm_config(user_id: int, updates: dict) -> bool:
                 )
             conn.commit()
         return True
-    except Exception:
+    except Exception as _e:
+        logger.warning("Failed to write LLM config for user %s: %s", user_id, _e)
         return False
 
 
@@ -564,7 +572,8 @@ def _read_skill_config(user_id: int) -> dict:
                 cur.execute("SELECT skill_config FROM vt_users WHERE id = %s", (user_id,))
                 row = cur.fetchone()
                 return (row[0] or {}) if row else {}
-    except Exception:
+    except Exception as _e:
+        logger.warning("Failed to read skill config for user %s: %s", user_id, _e)
         return {}
 
 
@@ -577,7 +586,8 @@ def _write_skill_config(user_id: int, updates: dict) -> None:
                     "UPDATE vt_users SET skill_config = skill_config || %s::jsonb WHERE id = %s",
                     (json.dumps(updates), user_id),
                 )
-    except Exception:
+    except Exception as _e:
+        logger.warning("Failed to write skill config for user %s: %s", user_id, _e)
         pass
 
 
@@ -821,7 +831,8 @@ def _rebuild_ds_status() -> list[dict]:
                     try:
                         inst = cls()
                         avail = ex.submit(inst.is_available).result(timeout=_ds_check_timeout)
-                    except Exception:
+                    except Exception as _e:
+                        logger.debug("Loader %s availability check failed: %s", name, _e)
                         avail = False
             else:
                 avail = True
@@ -840,13 +851,14 @@ def _rebuild_ds_status() -> list[dict]:
             for f in _cf.as_completed(futures, timeout=10.0):
                 try:
                     all_loaders.append(f.result(timeout=_ds_check_timeout))
-                except Exception:
+                except Exception as _e:
+                    logger.debug("Loader status check failed: %s", _e)
                     all_loaders.append({
                         "name": futures.get(f, "?"), "display": futures.get(f, "?"),
                         "markets": [], "available": False, "requires_auth": False, "health": None,
                     })
-    except Exception:
-        pass
+    except Exception as _e:
+        logger.debug("Failed to enumerate data source loaders for status: %s", _e)
     return sorted(all_loaders, key=lambda x: (not x["available"], x["name"]))
 
 

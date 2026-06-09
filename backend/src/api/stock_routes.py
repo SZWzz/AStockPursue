@@ -150,7 +150,8 @@ async def get_ohlcv(
     try:
         from src.auth.user_config import load_user_config
         load_user_config(user_id)
-    except Exception:
+    except Exception as _e:
+        logger.debug("Failed to load user config for OHLCV: %s", _e)
         pass
 
     # ── Try cache first (1D only) ──────────────────────────────────────────
@@ -191,7 +192,8 @@ async def get_ohlcv(
         if interval == "1D" and not refresh:
             try:
                 write_cache(symbol, interval, df)
-            except Exception:
+            except Exception as _e:
+                logger.debug("Failed to write OHLCV cache for %s: %s", symbol, _e)
                 pass
 
     if df.empty:
@@ -231,7 +233,8 @@ async def get_minute_line(
     try:
         from src.auth.user_config import load_user_config
         load_user_config(user_id)
-    except Exception:
+    except Exception as _e:
+        logger.debug("Failed to load user config for minute-line: %s", _e)
         pass
 
     # Resolve date
@@ -313,7 +316,8 @@ async def get_minute_line(
         # Write to cache
         try:
             write_minute_cache(upper, date, df)
-        except Exception:
+        except Exception as _e:
+            logger.debug("Failed to write minute-line cache for %s: %s", upper, _e)
             pass
 
         # Compute preClose (ohlcv_cache first, then TDX, then fallback)
@@ -329,14 +333,16 @@ async def get_minute_line(
                             pre_close = round(float(ohlcv[upper]["close"].iloc[-1]), 2)
                             break
                     prev = prev - pd.Timedelta(days=1)
-            except Exception:
+            except Exception as _e:
+                logger.debug("Failed to fetch preClose from TDX for %s: %s", upper, _e)
                 pass
 
     # Fallback preClose
     if pre_close is None:
         try:
             pre_close = round(float(df["price"].iloc[0]), 2)
-        except Exception:
+        except Exception as _e:
+            logger.debug("Failed to derive preClose from first bar for %s: %s", upper, _e)
             pass
 
     minutes = []

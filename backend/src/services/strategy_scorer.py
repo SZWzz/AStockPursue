@@ -9,8 +9,11 @@ Penalties apply for insufficient sample size (<5 trades: -12, <12: -5).
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_WEIGHTS = {
@@ -198,4 +201,5 @@ def _equity_r2(equity_curve: list[dict]) -> float:
             return 1.0
         return float(1 - ss_res / ss_tot)
     except Exception:
+        logger.debug("Failed to compute equity R²", exc_info=True)
         return 0.0

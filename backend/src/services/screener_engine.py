@@ -476,7 +476,7 @@ class ScreenerEngine:
                     if result is not None and not result.empty:
                         factor_vals[aid] = result
                 except Exception:
-                    pass
+                    logger.debug("Failed to compute factor %s: %s", aid, exc_info=True)
             return factor_vals
         except Exception:
             return {}
@@ -503,7 +503,7 @@ class ScreenerEngine:
                         source=alpha.zoo,
                     ))
                 except Exception:
-                    pass
+                    logger.debug("Failed to load Alpha Zoo condition %s: %s", alpha_id, exc_info=True)
         except Exception as e:
             logger.debug("Could not load Alpha Zoo conditions: %s", e)
 
@@ -534,7 +534,7 @@ class ScreenerEngine:
             except ValueError:
                 raise
             except Exception:
-                pass
+                logger.warning("Field whitelist reset failed: %s", exc_info=True)
 
     @staticmethod
     def _sanitise_field_name(field: str) -> str:
@@ -683,6 +683,7 @@ class PresetManager:
                     )
                     return int(cur.fetchone()[0])
         except Exception:
+            logger.warning("Failed to save screener preset %r: %s", name, exc_info=True)
             return 0
 
     def delete_preset(self, preset_id: int) -> bool:
@@ -697,6 +698,7 @@ class PresetManager:
                     )
                     return cur.rowcount > 0
         except Exception:
+            logger.warning("Failed to delete screener preset %s: %s", preset_id, exc_info=True)
             return False
 
     def ai_recommend(self) -> list[dict[str, Any]]:
@@ -730,7 +732,7 @@ class PresetManager:
                                 "theme": row[3] or "unknown",
                             })
             except Exception:
-                pass
+                logger.debug("Failed to load AI recommendation bench data: %s", exc_info=True)
 
             # If no bench data, use registry metadata
             if not scored_alphas and alpha_ids:
@@ -788,4 +790,5 @@ class PresetManager:
             return combos[:4]
 
         except Exception:
+            logger.warning("AI recommendation failed, returning defaults: %s", exc_info=True)
             return [{"name": "AI Recommended #1", "factors": ["momentum_01", "value_03"], "estimated_ic": 0.035}]

@@ -34,7 +34,7 @@
 import requests
 import pandas as pd
 
-BASE_URL = "https://www.okx.com/api/v5"
+BASE_URL = "https://www.okx.com/api/v5"  # see _constants.OKX_API_BASE
 
 # 获取 BTC 指数日K
 resp = requests.get(f"{BASE_URL}/market/index-candles", params={

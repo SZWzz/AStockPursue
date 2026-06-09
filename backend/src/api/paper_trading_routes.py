@@ -93,7 +93,8 @@ async def create_run(
     try:
         from src.api.dashboard_routes import log_activity
         log_activity(f"模拟盘 {req.run_name} 已创建", user_id)
-    except Exception:
+    except Exception as e:
+        logger.debug("log_activity failed for create_run: %s", e)
         pass
     return {"id": run_id, "message": "Run created"}
 
@@ -249,7 +250,8 @@ async def start_run(
         row = _repo.get_run(run_id) if hasattr(_repo, "get_run") else None
         name = (row.get("run_name") if row else None) or run_id[:12]
         log_activity(f"模拟盘 {name} 已启动", user_id)
-    except Exception:
+    except Exception as e:
+        logger.debug("log_activity failed for start_run: %s", e)
         pass
     return {"message": "Run started", "run_id": run_id}
 
@@ -275,7 +277,8 @@ async def stop_run(
         row = _repo.get_run(run_id) if hasattr(_repo, "get_run") else None
         name = (row.get("run_name") if row else None) or run_id[:12]
         log_activity(f"模拟盘 {name} 已停止", user_id)
-    except Exception:
+    except Exception as e:
+        logger.debug("log_activity failed for stop_run: %s", e)
         pass
     return {"message": "Run stopped", "run_id": run_id}
 

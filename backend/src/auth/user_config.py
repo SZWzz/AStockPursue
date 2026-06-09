@@ -86,7 +86,7 @@ def decrypt_config(config: dict, sensitive_fields: set) -> dict:
             try:
                 result[field] = decrypt_password(str(result[field]), key)
             except Exception:
-                # Field might not be encrypted (plain text, old data)
+                logger.debug("Field %s not encrypted (plain text or old data), skipping decryption", field)
                 pass
     return result
 

@@ -152,8 +152,13 @@ def _hmac_path(cache_path: Path) -> Path:
 
 
 def _read_pickle_cache(cache_path: Path) -> dict[str, pd.DataFrame] | None:
-    """Load a pickle cache, validating its HMAC sidecar. None on any failure."""
-    import pickle
+    """Load a JSON cache, validating its HMAC sidecar. None on any failure.
+
+    Uses JSON instead of pickle to avoid deserialization of untrusted payloads.
+    The HMAC sidecar provides integrity verification, but JSON eliminates the
+    attack surface entirely (no turing-complete deserialization).
+    """
+    import json
 
     sidecar = _hmac_path(cache_path)
     try:
@@ -184,12 +189,13 @@ def _read_pickle_cache(cache_path: Path) -> dict[str, pd.DataFrame] | None:
         return None
 
     try:
-        cached = pickle.loads(blob)  # noqa: S301 — local cache, integrity-checked above
+        raw = json.loads(blob)
+        if not isinstance(raw, dict) or "close" not in raw:
+            logger.warning("cache %s has unexpected shape; refetching", cache_path.name)
+            return None
+        cached = {k: pd.DataFrame.from_dict(v) for k, v in raw.items()}
     except Exception as exc:  # noqa: BLE001 — degrade to fresh fetch
-        logger.warning("cache unpickle failed (%s); refetching", exc)
-        return None
-    if not isinstance(cached, dict) or "close" not in cached:
-        logger.warning("cache %s has unexpected shape; refetching", cache_path.name)
+        logger.warning("cache decode failed (%s); refetching", exc)
         return None
     return cached
 
@@ -197,12 +203,13 @@ def _read_pickle_cache(cache_path: Path) -> dict[str, pd.DataFrame] | None:
 def _write_pickle_cache(
     cache_dir: Path, cache_path: Path, panel: dict[str, Any]
 ) -> None:
-    """Pickle ``panel`` + write its HMAC sidecar. Failures are non-fatal."""
-    import pickle
+    """Serialize ``panel`` as JSON + write its HMAC sidecar. Failures are non-fatal."""
+    import json
 
     try:
         cache_dir.mkdir(parents=True, exist_ok=True)
-        blob = pickle.dumps(panel, protocol=pickle.HIGHEST_PROTOCOL)
+        serializable = {k: v.to_dict() for k, v in panel.items()}
+        blob = json.dumps(serializable, ensure_ascii=False).encode("utf-8")
         cache_path.write_bytes(blob)
         _hmac_key = os.getenv("CACHE_HMAC_KEY", "AStockPursue-cache-v1").encode("utf-8")
         _hmac_path(cache_path).write_text(

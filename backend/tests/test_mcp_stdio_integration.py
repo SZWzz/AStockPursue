@@ -18,8 +18,9 @@ IMPORTANT — v1 limits exercised here:
   - tools-only exposure (resources / prompts excluded)
   - Swarm path NOT tested (excluded from MCP config propagation in v1)
 
-TODO(v1): Add Swarm-path integration tests once Swarm worker registries are
-allowed to load MCP config.
+DEFERRED: Add Swarm-path integration tests once Swarm worker registries are
+allowed to load MCP config. Blocked by v1 design decision to keep Swarm
+local-tool-only; unblock after MCP-config propagation is designed for workers.
 """
 
 from __future__ import annotations

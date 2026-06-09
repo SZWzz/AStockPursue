@@ -5,6 +5,9 @@
 - 公允价值缺口 (FVG)
 
 信号逻辑：ChoCH 优先触发方向，BOS 确认，FVG 同向过滤。
+
+Note: OKX API base URL is hardcoded here for example self-containment.
+      Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
 import os

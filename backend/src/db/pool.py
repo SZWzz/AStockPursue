@@ -42,7 +42,7 @@ def _build_database_url() -> str:
     host = os.getenv("DB_HOST", "localhost")
     port = os.getenv("DB_PORT", "5433")
     dbname = os.getenv("DB_NAME", "stock-data")
-    user = os.getenv("DB_USER", "shenzhiwei")
+    user = os.getenv("DB_USER", "postgres")
 
     enc = os.getenv("DB_PASSWORD_ENC", "")
     key = os.getenv("DB_ENCRYPTION_KEY", "")

@@ -2,6 +2,9 @@
 
 五线系统：转换线/基准线交叉触发，云带位置+方向三重过滤。
 纯 pandas 实现，无外部技术分析库依赖。
+
+Note: OKX API base URL is hardcoded here for example self-containment.
+      Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
 from typing import Dict, Optional

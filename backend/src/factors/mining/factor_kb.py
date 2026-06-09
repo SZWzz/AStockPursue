@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any
@@ -749,11 +750,14 @@ class FactorKnowledgeBase:
 # ---------------------------------------------------------------------------
 
 _default_kb: FactorKnowledgeBase | None = None
+_kb_lock = threading.Lock()
 
 
 def get_kb(user_id: int = 1) -> FactorKnowledgeBase:
     """Get or create the default FactorKnowledgeBase instance."""
     global _default_kb
     if _default_kb is None:
-        _default_kb = FactorKnowledgeBase(user_id=user_id)
+        with _kb_lock:
+            if _default_kb is None:
+                _default_kb = FactorKnowledgeBase(user_id=user_id)
     return _default_kb

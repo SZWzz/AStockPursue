@@ -113,7 +113,11 @@ class SignalAdapter:
                     if hasattr(row, "name") and row.name is not None:
                         ts = row.name
                     elif len(df) > 0:
-                        ts = df.index[-1] + pd.Timedelta(days=1)
+                        freq = pd.infer_freq(df.index[-5:]) if len(df) >= 3 else None
+                        if freq is not None:
+                            ts = df.index[-1] + pd.tseries.frequencies.to_offset(freq)
+                        else:
+                            ts = df.index[-1] + pd.Timedelta(days=1)
                     else:
                         ts = pd.Timestamp.now()
                     new_row = pd.DataFrame([row], index=[ts])

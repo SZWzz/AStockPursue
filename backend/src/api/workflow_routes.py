@@ -316,7 +316,8 @@ async def run_workflow(workflow_id: str, body: dict, user_id: int = Depends(_get
     try:
         from src.api.dashboard_routes import log_activity
         log_activity(f"Workflow {wf.name or workflow_id[:8]} started ({len(wf.nodes)} nodes)", user_id)
-    except Exception:
+    except Exception as _e:
+        logger.debug("Failed to log workflow activity: %s", _e)
         pass
 
     return {"run_id": run_id, "status": "running"}
@@ -808,7 +809,8 @@ async def _execute_and_persist(
             log_activity(
                 f"Workflow {run_id[:8]} {status.value}: {done}/{len(node_results)} nodes done",
             )
-        except Exception:
+        except Exception as _e:
+            logger.debug("Failed to log workflow activity: %s", _e)
             pass
     except asyncio.CancelledError:
         logger.warning("Workflow run %s cancelled", run_id)

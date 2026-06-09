@@ -183,6 +183,7 @@ def _run_bench_blocking(job_id: str, zoo: str, universe: str, period: str, top: 
         from src.auth.user_config import load_user_config
         load_user_config(user_id)
     except Exception:
+        logger.debug("Failed to load user config for user_id=%s in bench worker", user_id)
         pass
 
     with _JOBS_LOCK:
@@ -333,6 +334,7 @@ def create_alpha_router(
             if runtime_zoo.is_dir():
                 registries.append(Registry(zoo_root=runtime_zoo))
         except Exception:
+            logger.debug("Failed to load runtime zoo for alpha listing")
             pass
 
         alphas: list[dict[str, Any]] = []
@@ -402,6 +404,7 @@ def create_alpha_router(
             if runtime_zoo.is_dir():
                 registries.append(Registry(zoo_root=runtime_zoo))
         except Exception:
+            logger.debug("Failed to load runtime zoo for alpha %s", alpha_id)
             pass
 
         for reg in registries:

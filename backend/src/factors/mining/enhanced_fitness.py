@@ -226,9 +226,10 @@ def orthogonality_penalty(
 
     residual_ic = ic_fitness(residual_df, fr_df)
 
-    # R² of the regression
+    # R² of the regression — compute manually from residuals to handle
+    # rank-deficient cases where lstsq returns an empty residuals array.
     ss_total = float(np.sum((y_clean.values - y_clean.values.mean()) ** 2))
-    ss_residual = float(np.sum(residuals)) if len(residuals) > 0 else ss_total
+    ss_residual = float(np.sum(residual ** 2))
     r_squared = 1.0 - ss_residual / max(ss_total, 1e-12)
     incremental_r2 = max(0.0, 1.0 - r_squared)
 

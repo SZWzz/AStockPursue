@@ -2,6 +2,9 @@
 
 将趋势（EMA/ADX）、均值回归（BB/RSI）、量价（OBV/量比）三维度合并，
 通过投票机制生成综合交易信号。纯 pandas 实现，适用于任何 OHLCV 数据。
+
+Note: OKX API base URL is hardcoded here for example self-containment.
+      Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
 from typing import Dict

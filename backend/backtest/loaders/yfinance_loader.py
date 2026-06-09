@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from typing import Dict, List, Optional, Union
 
 import pandas as pd
 import yfinance as yf
+
+logger = logging.getLogger(__name__)
 
 from backtest.loaders.base import validate_date_range
 from backtest.loaders.registry import register
@@ -246,7 +249,7 @@ class DataLoader:
         try:
             bulk_data = _download_history(unique_symbols, start_date, end_date, yf_interval)
         except Exception as exc:
-            print(f"[WARN] yfinance bulk download failed for {unique_symbols}: {exc}")
+            logger.warning("yfinance bulk download failed for %s: %s", unique_symbols, exc)
             bulk_data = pd.DataFrame()
 
         for symbol in unique_symbols:
@@ -257,13 +260,13 @@ class DataLoader:
 
                 normalized = _normalize_frame(symbol_frame, requested_interval)
                 if normalized.empty:
-                    print(f"[WARN] yfinance returned no usable data for {symbol}")
+                    logger.warning("yfinance returned no usable data for %s", symbol)
                     continue
 
                 for original_code in symbol_groups[symbol]:
                     results[original_code] = normalized.copy()
             except Exception as exc:
-                print(f"[WARN] Failed to fetch data for {symbol}: {exc}")
+                logger.warning("Failed to fetch data for %s: %s", symbol, exc)
                 continue
 
         return results

@@ -157,7 +157,7 @@ class AttributionEngine:
                         symbols = list(data.keys())
                         return {"holdings": data, "symbols": symbols, "source": "file"}
         except Exception:
-            pass
+            logger.debug("Failed to load holdings file for run %s: %s", run_id, exc_info=True)
 
         return None
 
@@ -198,7 +198,7 @@ class AttributionEngine:
                         df["date"] = pd.to_datetime(df["date"])
                         return df.set_index("date")
         except Exception:
-            pass
+            logger.debug("Failed to load equity file for run %s: %s", run_id, exc_info=True)
 
         return None
 
@@ -299,6 +299,7 @@ class AttributionEngine:
                 from .sector_mapper import get_sector_benchmark_weights
                 bench_w = get_sector_benchmark_weights(sector_field)
             except Exception:
+                logger.debug("Sector benchmark weights unavailable, using equal-weight: %s", exc_info=True)
                 bench_w = {s: 1.0 / len(sectors) for s in sectors}
 
         # Load real returns to compute sector-level returns
@@ -390,6 +391,7 @@ class AttributionEngine:
                 # Priority: production > approved > any
                 factor_ids = active[:10] if active else [f"alpha_{i}" for i in range(5)]
             except Exception:
+                logger.debug("Failed to load factor IDs from registry: %s", exc_info=True)
                 factor_ids = [f"alpha_{i}" for i in range(5)]
 
         if returns_df is not None and not returns_df.empty:
@@ -510,7 +512,7 @@ class AttributionEngine:
                             factor_values[fid] = result
                 except Exception:
                     # Skip factors that fail to compute
-                    pass
+                    logger.debug("Factor %s failed to compute for attribution: %s", fid, exc_info=True)
 
             if factor_values:
                 logger.info("Computed %d/%d factor values for attribution", len(factor_values), len(factor_ids))
@@ -642,6 +644,7 @@ class AttributionEngine:
             else:
                 raise ValueError("Not enough data for Savitzky-Golay")
         except Exception:
+            logger.debug("Savitzky-Golay filter failed, falling back to rolling mean: %s", exc_info=True)
             window = min(21, max(3, n // 4 + 1))
             trend = (
                 pd.Series(observed_arr)
@@ -669,6 +672,7 @@ class AttributionEngine:
                         )
             except Exception:
                 # Fallback: weekly cycle (5-day)
+                logger.debug("FFT seasonal detection failed, using 5-day cycle: %s", exc_info=True)
                 seasonal = 0.001 * np.sin(np.arange(n) * 2 * np.pi / 5)
 
         residual = observed_arr - trend - seasonal
@@ -855,6 +859,7 @@ class AttributionEngine:
                     days = (pd.Timestamp(last_date) - pd.Timestamp(first_date)).days
                     annual_factor = max(1, 252 / max(days, 1))
                 except Exception:
+                    logger.debug("Failed to compute annualization factor: %s", exc_info=True)
                     annual_factor = 1.0
             else:
                 annual_factor = 1.0

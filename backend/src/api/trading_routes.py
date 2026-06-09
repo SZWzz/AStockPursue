@@ -266,7 +266,8 @@ def _get_broker_ctx(user_id: int) -> Any:
         # Config changed — close old context
         try:
             ctx.close()
-        except Exception:
+        except Exception as _e:
+            logger.debug("Failed to close old broker context for user %s: %s", user_id, _e)
             pass
         _broker_contexts.pop(user_id, None)
 
@@ -987,7 +988,8 @@ async def get_indices(user: dict = Depends(require_auth)):
                     price = float(parts[3]) if parts[3] else 0
                 if len(parts) > 32:
                     change = float(parts[32]) if parts[32] else 0
-        except Exception:
+        except Exception as _e:
+            logger.debug("Failed to fetch price for %s: %s", code, _e)
             pass
         result.append({
             "code": code, "name": it["name"],
@@ -1065,7 +1067,8 @@ async def get_news(
                             "published_at": str(item.get("datetime", "")),
                         })
                     source = "finnhub"
-        except Exception:
+        except Exception as _e:
+            logger.debug("Finnhub news fetch failed for %s: %s", upper, _e)
             pass
 
     # Apply sentiment analysis to all articles

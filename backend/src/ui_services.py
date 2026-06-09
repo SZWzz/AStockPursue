@@ -445,11 +445,11 @@ def reconstruct_price_series(run_dir: Path) -> List[Dict[str, Any]]:
         loader = loader_cls()
         data_map = loader.fetch(codes, fetch_start_date, end_date)
     except Exception as exc:
-        print(f"[WARN] reconstruct_price_series: DataLoader failed ({exc})")
+        logger.warning("reconstruct_price_series: DataLoader failed (%s)", exc)
         return []
 
     if not data_map:
-        print(f"[WARN] reconstruct_price_series: DataLoader returned empty")
+        logger.warning("reconstruct_price_series: DataLoader returned empty")
         return []
 
     return _flatten_data_map(data_map, start_date=start_date)

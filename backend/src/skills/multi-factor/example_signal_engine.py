@@ -2,6 +2,9 @@
 
 对多只股票计算动量/波动率/量比等因子，截面标准化后综合打分，
 选取 TopN 等权做多。纯 pandas 实现。
+
+Note: OKX API base URL is hardcoded here for example self-containment.
+      Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
 from typing import Dict, List

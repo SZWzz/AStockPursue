@@ -4,6 +4,9 @@
 在 PRZ（潜在反转区）生成交易信号。
 
 优先使用 pyharmonics 库，若不可用则回退到内置检测器。
+
+Note: OKX API base URL is hardcoded here for example self-containment.
+      Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
 from typing import Dict, List, Optional, Tuple

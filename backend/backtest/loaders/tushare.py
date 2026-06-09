@@ -4,10 +4,13 @@ Supports ``interval``: 1D (default) / 1m / 5m / 15m / 30m / 1H.
 Minute data uses ``pro.stk_mins()`` (Tushare points >= 2000).
 """
 
+import logging
 import os
 from typing import Dict, List, Optional
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 from backtest.loaders.base import validate_date_range
 from backtest.loaders.registry import register
@@ -81,7 +84,7 @@ class DataLoader:
                 )
                 result[code] = ohlcv
             except Exception as exc:
-                print(f"[WARN] failed to fetch {code}: {exc}")
+                logger.warning("failed to fetch %s: %s", code, exc)
 
         return self._merge_basic_fields(result, codes, start_date, end_date, fields)
 
@@ -127,7 +130,7 @@ class DataLoader:
                         if f in basic.columns:
                             result[code][f] = basic[f]
             except Exception as exc:
-                print(f"[WARN] daily_basic for {code} failed: {exc}")
+                logger.warning("daily_basic for %s failed: %s", code, exc)
 
         return result
 
@@ -163,7 +166,7 @@ class DataLoader:
             try:
                 df = self.api.stk_mins(ts_code=code, freq=freq, start_date=sd, end_date=ed)
                 if df is None or df.empty:
-                    print(f"[WARN] empty Tushare minute data: {code} (points >= 2000 required)")
+                    logger.warning("empty Tushare minute data: %s (points >= 2000 required)", code)
                     continue
                 df = df.sort_values("trade_time")
                 df["trade_date"] = pd.to_datetime(df["trade_time"])
@@ -177,5 +180,5 @@ class DataLoader:
                 )
                 result[code] = ohlcv
             except Exception as exc:
-                print(f"[WARN] failed to fetch minute data {code}: {exc}")
+                logger.warning("failed to fetch minute data %s: %s", code, exc)
         return result

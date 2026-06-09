@@ -294,7 +294,8 @@ async def start_gp_evolution(req: GPSetupRequest, auth: dict = Depends(require_a
                 from src.api.dashboard_routes import log_activity
                 n_candidates = len(result.best_individuals) if result.best_individuals else 0
                 log_activity(f"GP 演化 #{job_id} 完成 → 发现 {n_candidates} 个候选因子", user_id)
-            except Exception:
+            except Exception as e:
+                logger.debug("log_activity failed for GP completion: %s", e)
                 pass
             _jobs[job_id]["result"] = {
                 "best_individuals": [ind.to_dict() for ind in result.best_individuals],
@@ -325,7 +326,8 @@ async def start_gp_evolution(req: GPSetupRequest, auth: dict = Depends(require_a
             try:
                 from src.api.dashboard_routes import log_activity
                 log_activity(f"GP 演化 #{job_id} 失败: {str(e)[:80]}", user_id)
-            except Exception:
+            except Exception as e2:
+                logger.debug("log_activity failed for GP failure: %s", e2)
                 pass
 
     t = threading.Thread(target=_run, daemon=True)
@@ -333,7 +335,8 @@ async def start_gp_evolution(req: GPSetupRequest, auth: dict = Depends(require_a
     try:
         from src.api.dashboard_routes import log_activity
         log_activity(f"GP 演化 #{job_id} 已启动", user_id)
-    except Exception:
+    except Exception as e:
+        logger.debug("log_activity failed for GP start: %s", e)
         pass
 
     return {"job_id": job_id, "status": "running"}
@@ -463,7 +466,8 @@ async def llm_extract_from_pdf(file: UploadFile, auth: dict = Depends(require_au
         try:
             import os
             os.unlink(tmp_path)
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to remove temp PDF file: %s", e)
             pass
 
 
@@ -555,7 +559,8 @@ async def start_hybrid_mining(req: HybridSetupRequest, auth: dict = Depends(requ
     try:
         from src.api.dashboard_routes import log_activity
         log_activity(f"Hybrid 演化 #{job_id} 已启动", user_id)
-    except Exception:
+    except Exception as e:
+        logger.debug("log_activity failed for hybrid start: %s", e)
         pass
 
     return {"job_id": job_id, "status": "running"}

@@ -882,6 +882,7 @@ class AgentLoop:
             try:
                 self._event_callback(event_type, data)
             except Exception:
+                logger.debug("Event callback failed for %s: %s", event_type, exc_info=True)
                 pass
 
     def _update_memory(self, tool_name: str) -> None:

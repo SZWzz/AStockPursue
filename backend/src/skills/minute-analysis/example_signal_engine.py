@@ -2,6 +2,9 @@
 
 通过 OKX API 获取分钟 K 线，计算 VWAP/TWAP/成交量分布等日内指标。
 仅供分析输出，不可用于回测引擎（仅支持日线）。
+
+Note: OKX API base URL is hardcoded here for example self-containment.
+      Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
 from typing import Optional
@@ -11,7 +14,7 @@ import pandas as pd
 import requests
 
 
-BASE_URL = "https://www.okx.com/api/v5"
+BASE_URL = "https://www.okx.com/api/v5"  # see _constants.OKX_API_BASE
 
 
 def fetch_minute_candles(

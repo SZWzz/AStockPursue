@@ -84,6 +84,7 @@ class VersionControlService:
                         for r in cur.fetchall()
                     ]
         except Exception:
+            logger.debug("Failed to list versions for strategy %d", strategy_id, exc_info=True)
             return []
 
     def get_version(self, strategy_id: int, version_num: int) -> dict[str, Any] | None:
@@ -113,6 +114,7 @@ class VersionControlService:
                         "created_at": row[7].isoformat() if hasattr(row[7], "isoformat") else str(row[7]),
                     }
         except Exception:
+            logger.debug("Failed to get version %d for strategy %d", version_num, strategy_id, exc_info=True)
             return None
 
     def get_diff(self, strategy_id: int, from_version: int, to_version: int) -> str:
@@ -157,6 +159,7 @@ class VersionControlService:
                     row = cur.fetchone()
                     return row[0] if row else None
         except Exception:
+            logger.debug("Failed to get latest code for strategy %d", strategy_id, exc_info=True)
             return None
 
     def _next_version_num(self, strategy_id: int) -> int:
@@ -171,4 +174,5 @@ class VersionControlService:
                     )
                     return int(cur.fetchone()[0])
         except Exception:
+            logger.debug("Failed to compute next version number for strategy %d", strategy_id, exc_info=True)
             return 1

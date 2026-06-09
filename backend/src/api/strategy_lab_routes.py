@@ -390,6 +390,14 @@ def _execute_strategy_code(code: str) -> dict[str, Any]:
     }
 
     try:
+        is_safe, err = validate_code_safety(code)
+        if not is_safe:
+            return {
+                "success": False,
+                "error": f"Code safety check failed: {err}",
+                "symbol_count": 0,
+            }
+
         exec(code, exec_env)
 
         if "SignalEngine" not in exec_env:

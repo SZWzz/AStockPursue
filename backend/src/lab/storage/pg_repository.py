@@ -77,6 +77,7 @@ class PgIndicatorRepository:
                     r = cur.fetchone()
                     return r[0] if r else None
         except Exception:
+            logger.warning("Failed to get code for indicator %s: %s", indicator_id, exc_info=True)
             return None
 
     def save(self, code: str, indicator_id: str | None = None) -> dict:
@@ -120,6 +121,7 @@ class PgIndicatorRepository:
                     cur.execute("DELETE FROM vt_indicators WHERE id = %s", (indicator_id,))
                     return cur.rowcount > 0
         except Exception:
+            logger.warning("Failed to delete indicator %s: %s", indicator_id, exc_info=True)
             return False
 
     def history(self, indicator_id: str) -> list[dict]:
@@ -136,6 +138,7 @@ class PgIndicatorRepository:
                         for r in cur.fetchall()
                     ]
         except Exception:
+            logger.warning("Failed to load history for indicator %s: %s", indicator_id, exc_info=True)
             return []
 
     def rollback(self, indicator_id: str, version_id: str) -> dict | None:
@@ -149,6 +152,7 @@ class PgIndicatorRepository:
                     old_code = r[0]
                     return self.save(code=old_code, indicator_id=indicator_id)
         except Exception:
+            logger.warning("Failed to rollback indicator %s to version %s: %s", indicator_id, version_id, exc_info=True)
             return None
 
     # ── Strategies ─────────────────────────────────────────────────────────
@@ -168,6 +172,7 @@ class PgIndicatorRepository:
                         for r in cur.fetchall()
                     ]
         except Exception:
+            logger.warning("Failed to list strategies: %s", exc_info=True)
             return []
 
     def get_strategy(self, strategy_id: str) -> dict | None:
@@ -184,6 +189,7 @@ class PgIndicatorRepository:
                     return {"id": str(r[0]), "name": r[1], "description": r[2] or "",
                             "code": r[3], "created_at": str(r[4]), "updated_at": str(r[5])}
         except Exception:
+            logger.warning("Failed to get strategy %s: %s", strategy_id, exc_info=True)
             return None
 
     def save_strategy(self, code: str, strategy_id: str | None = None, name: str = "") -> dict:
@@ -219,6 +225,7 @@ class PgIndicatorRepository:
                     return {"id": str(row[0]), "name": name, "description": description,
                             "created_at": now, "updated_at": now}
         except Exception:
+            logger.warning("Failed to save strategy %s: %s", strategy_id or name, exc_info=True)
             raise
 
     def delete_strategy(self, strategy_id: str) -> bool:
@@ -228,4 +235,5 @@ class PgIndicatorRepository:
                     cur.execute("DELETE FROM vt_strategies WHERE id = %s", (strategy_id,))
                     return cur.rowcount > 0
         except Exception:
+            logger.warning("Failed to delete strategy %s: %s", strategy_id, exc_info=True)
             return False

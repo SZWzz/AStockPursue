@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import re
 import signal
@@ -30,6 +31,8 @@ from src.api.common import (
 )
 
 _SHADOW_ID_RE = re.compile(r"^shadow_[0-9a-f]{8}$")
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Swarm lazy-init singleton
@@ -289,6 +292,7 @@ def create_router(require_auth) -> APIRouter:
                 if len(parts) > 1 and parts[1].strip():
                     return parts[1].strip()
         except Exception:
+            logger.debug("Failed to resolve stock name for code=%s via Tencent", code)
             pass
         return code
 
@@ -365,6 +369,7 @@ def create_router(require_auth) -> APIRouter:
 
             load_user_config(user_id)
         except Exception:
+            logger.debug("Failed to load user config for watchlist prices, user_id=%s", user_id)
             pass
         try:
             from src.db.async_pool import async_get_connection

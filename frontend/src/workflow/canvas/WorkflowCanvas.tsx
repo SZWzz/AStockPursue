@@ -23,6 +23,7 @@ import "@xyflow/react/dist/style.css";
 import { useWorkflowStore } from "@/workflow/store/workflowStore";
 import BaseNode from "@/workflow/canvas/nodes/BaseNode";
 import RunSummaryPanel from "@/workflow/canvas/RunSummaryPanel";
+import { isCompatible, type PortType } from "@/workflow/types/workflow";
 
 // ── Custom node types ────────────────────────────────────────────────────────
 
@@ -98,8 +99,49 @@ function CanvasInner() {
     [onConnect]
   );
 
-  // TODO: re-enable isValidConnection after debugging connection issues
-  // const isValidConnection = useCallback(...)
+  // ── Instant connection validation (prevents the edge from being drawn) ─────
+  const nodeDefinitions = useWorkflowStore((s) => s.nodeDefinitions);
+
+  const isValidConnection = useCallback(
+    (conn: { source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null }): boolean => {
+      if (!conn.source || !conn.target) return false;
+      if (conn.source === conn.target) return false;
+
+      const nodes = useWorkflowStore.getState().nodes;
+      const sourceNode = nodes.find((n) => n.id === conn.source);
+      const targetNode = nodes.find((n) => n.id === conn.target);
+      if (!sourceNode || !targetNode) return false;
+
+      const sourceDef = nodeDefinitions.find((d) => d.node_type === sourceNode.data?.node_type);
+      const targetDef = nodeDefinitions.find((d) => d.node_type === targetNode.data?.node_type);
+      if (!sourceDef || !targetDef) return false;
+
+      // Determine source port type
+      let sourcePortType: PortType | null = null;
+      if (conn.sourceHandle) {
+        const port = sourceDef.outputs.find((p) => p.name === conn.sourceHandle);
+        if (port) sourcePortType = port.port_type;
+      }
+      if (!sourcePortType && sourceDef.outputs.length === 1) {
+        sourcePortType = sourceDef.outputs[0].port_type;
+      }
+      if (!sourcePortType) return false;
+
+      // Determine target port type
+      let targetPortType: PortType | null = null;
+      if (conn.targetHandle) {
+        const port = targetDef.inputs.find((p) => p.name === conn.targetHandle);
+        if (port) targetPortType = port.port_type;
+      }
+      if (!targetPortType && targetDef.inputs.length === 1) {
+        targetPortType = targetDef.inputs[0].port_type;
+      }
+      if (!targetPortType) return false;
+
+      return isCompatible(sourcePortType, targetPortType);
+    },
+    [nodeDefinitions]
+  );
 
   // Click on pane deselects node
   const onPaneClick = useCallback(() => {
@@ -185,6 +227,7 @@ function CanvasInner() {
       onConnect={onConnectWrapped}
       onConnectStart={onConnectStart}
       onConnectEnd={onConnectEnd}
+      isValidConnection={isValidConnection}
       onInit={onInit}
       onDragOver={onDragOver}
       onDrop={onDrop}

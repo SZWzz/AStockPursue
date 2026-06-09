@@ -25,7 +25,7 @@ pip install requests pandas
 import requests
 import pandas as pd
 
-BASE_URL = "https://www.okx.com/api/v5"
+BASE_URL = "https://www.okx.com/api/v5"  # see _constants.OKX_API_BASE
 
 # Get the latest BTC-USDT market quote
 resp = requests.get(f"{BASE_URL}/market/ticker", params={"instId": "BTC-USDT"})

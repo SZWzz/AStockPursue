@@ -244,7 +244,8 @@ class TradingEngine:
                     sym, pos.direction, pos.entry_price, prev_close, bar_open,
                 )
                 if reason:
-                    trade = self._close_position(sym, exec_price, self._last_bar_time, reason=reason)
+                    vol = float(bar[sym].get("volume", 0)) if sym in bar else 0.0
+                    trade = self._close_position(sym, exec_price, self._last_bar_time, reason=reason, volume=vol)
                     if trade:
                         gap_trades.append(trade)
                         logger.info("Gap exit: %s %s at %.2f (prev_close=%.2f, open=%.2f)",
@@ -273,7 +274,7 @@ class TradingEngine:
                 pos = self._market.positions.get(c)
                 if pos is not None:
                     exit_price = float(row.get("open", close_val))
-                    trade = self._close_position(c, exit_price, timestamp, reason="suspended")
+                    trade = self._close_position(c, exit_price, timestamp, reason="suspended", volume=float(row.get("volume", 0)))
                     if trade:
                         suspension_trades.append(trade)
 
@@ -486,7 +487,7 @@ class TradingEngine:
                     close,
                 )
                 if reason:
-                    trade = self._close_position(symbol, exec_price, timestamp, reason)
+                    trade = self._close_position(symbol, exec_price, timestamp, reason, volume=float(row.get("volume", 0)))
                     if trade:
                         trades.append(trade)
                         self._risk.on_position_closed(symbol)
@@ -500,7 +501,7 @@ class TradingEngine:
                 symbol, pos.direction, pos.entry_price, close, today
             )
             if reason_str:
-                trade = self._close_position(symbol, close, timestamp, reason_str)
+                trade = self._close_position(symbol, close, timestamp, reason_str, volume=float(row.get("volume", 0)))
                 if trade:
                     trades.append(trade)
                     self._risk.on_position_closed(symbol)
@@ -549,7 +550,8 @@ class TradingEngine:
 
                 # Close existing position if direction differs
                 if current_pos is not None and target_dir != current_dir:
-                    trade = self._close_position(symbol, price, timestamp, "signal")
+                    vol = float(bar[symbol].get("volume", 0)) if symbol in bar else 0.0
+                    trade = self._close_position(symbol, price, timestamp, "signal", volume=vol)
                     if trade:
                         trades.append(trade)
                         if self._risk:
@@ -572,7 +574,8 @@ class TradingEngine:
                     if not self._market.can_execute(symbol, target_dir, bar[symbol]):
                         continue
 
-                    trade = self._open_position(symbol, target_dir, price, weight, timestamp, equity)
+                    vol = float(bar[symbol].get("volume", 0)) if symbol in bar else 0.0
+                    trade = self._open_position(symbol, target_dir, price, weight, timestamp, equity, volume=vol)
                     if trade:
                         trades.append(trade)
                         if self._sm:
@@ -603,12 +606,19 @@ class TradingEngine:
         weight: float,
         timestamp: pd.Timestamp,
         equity: float | None = None,
+        volume: float = 0.0,
     ) -> Position | None:
         """Open a position using the market engine's sizing rules.
 
         [P0-1 fix] ``equity`` should be pre-computed from *yesterday's* close
         prices (cached before _check_risk_exits updated _last_bar_prices).
-        This prevents today's unrealised PnL from influencing trade sizes.
+        This prevents today's unrealised P&L from influencing trade sizes.
+
+        NOTE: ``_active_symbol`` is shared mutable state on the market engine.
+        This is safe for single-threaded backtest (each engine has its own
+        market instance), but would race in concurrent scenarios sharing the
+        same engine.  If concurrent use becomes necessary, pass symbol as a
+        parameter to calc_commission / _calc_margin instead.
         """
         self._market._active_symbol = symbol
         leverage = getattr(self._market, "default_leverage", 1.0)
@@ -620,13 +630,18 @@ class TradingEngine:
             logger.debug("Position size limit exceeded for %s", symbol)
             return None
 
-        slipped = self._market.apply_slippage(price, direction)
+        slipped = self._market.apply_slippage(price, direction, volume=volume)
         if slipped <= 0:
             return None
 
         raw_size = target_notional / slipped
         size = self._market.round_size(raw_size, slipped)
         if size <= 0:
+            return None
+
+        from src.trading.config import MIN_NOTIONAL
+        if size * slipped < MIN_NOTIONAL:
+            logger.debug("Position notional %.2f < MIN_NOTIONAL %.2f for %s", size * slipped, MIN_NOTIONAL, symbol)
             return None
 
         commission = self._market.calc_commission(size, slipped, direction, is_open=True)
@@ -666,6 +681,7 @@ class TradingEngine:
         price: float,
         timestamp: pd.Timestamp,
         reason: str,
+        volume: float = 0.0,
     ) -> TradeRecord | None:
         """Close a position, record trade, return capital + P&L."""
         self._market._active_symbol = symbol
@@ -673,7 +689,7 @@ class TradingEngine:
         if pos is None:
             return None
 
-        exit_price = self._market.apply_slippage(price, -pos.direction)
+        exit_price = self._market.apply_slippage(price, -pos.direction, volume=volume)
         pnl = self._market._calc_pnl(symbol, pos.direction, pos.size, pos.entry_price, exit_price)
         margin = self._market._calc_margin(symbol, pos.size, pos.entry_price, pos.leverage)
         pnl_pct = (pnl / margin * 100.0) if margin > 1e-9 else 0.0

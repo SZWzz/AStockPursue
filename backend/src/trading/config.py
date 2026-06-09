@@ -64,3 +64,10 @@ DATA_FETCH_WORKERS: int = int(os.getenv("DATA_FETCH_WORKERS", "16"))
 
 # Data loader timeout in seconds.
 DATA_LOADER_TIMEOUT: float = float(os.getenv("DATA_LOADER_TIMEOUT", "1.0"))
+
+# ── Position sizing ─────────────────────────────────────────────────────────
+
+# Minimum notional value (price × size) for a position to be opened.
+# Prevents opening trivially small positions that would be consumed by fees.
+# Override: set TRADING_MIN_NOTIONAL env var.
+MIN_NOTIONAL: float = float(os.getenv("TRADING_MIN_NOTIONAL", "100"))

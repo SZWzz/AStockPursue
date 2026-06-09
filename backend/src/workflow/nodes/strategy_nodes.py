@@ -169,8 +169,8 @@ class InMemoryLoader:
             try:
                 s, e = pd.Timestamp(start), pd.Timestamp(end)
                 df = df.loc[s:e]
-            except Exception:
-                pass
+            except Exception as exc:
+                logger.debug("InMemoryLoader: failed to slice date range for %s: %s", code, exc)
             if len(df) > 0:
                 result[code] = df
         return result
@@ -322,8 +322,8 @@ class BacktestNode(BaseNode):
                             "reason": getattr(t, 'exit_reason', ''),
                             "pnl": float(t.pnl) if hasattr(t, 'pnl') else 0,
                         })
-                except Exception:
-                    pass
+                except Exception as exc:
+                    logger.debug("Failed to extract trade record: %s", exc)
 
         return {
             "backtest_result": {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -9,6 +10,8 @@ from pydantic import BaseModel, Field
 
 from src.api.common import safe_error
 from src.auth.dependencies import require_auth
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/compare", tags=["compare"])
 
@@ -52,6 +55,7 @@ async def get_equity_overlay(run_id_a: str, run_id_b: str):
         if run_b:
             equity_b = run_b.get("equity", [])
     except Exception:
+        logger.debug("Failed to load equity overlay for runs %s / %s", run_id_a, run_id_b)
         pass
 
     return {"equity_a": equity_a, "equity_b": equity_b}

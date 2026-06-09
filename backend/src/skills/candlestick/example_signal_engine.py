@@ -6,6 +6,9 @@
 - 三根形态 (4): 晨星、暮星、三白兵、三乌鸦
 
 信号约定: 1=做多, -1=做空, 0=观望
+
+Note: OKX API base URL is hardcoded here for example self-containment.
+      Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
 from typing import Dict

@@ -16,9 +16,9 @@ IMPORTANT notes:
   and fast.
 - Do not add functional tests for individual mcp_server tools here; those
   belong in their own test files.
-- TODO(v1): Add a live smoke test that spawns `AStockPursue-mcp` as a stdio
+- DEFERRED: Add a live smoke test that spawns `AStockPursue-mcp` as a stdio
   subprocess once CI has network access and the SSE transport is tested end-
-  to-end in Phase 6+.
+  to-end in Phase 6+. Requires CI network egress and SSE transport maturity.
 """
 
 from __future__ import annotations

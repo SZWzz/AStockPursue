@@ -1,5 +1,35 @@
 # 更新日志
 
+## [2026.6.9] - 2026-06-09
+
+### 修复
+- **[Security] alpha_bench_tool 缓存改用 JSON 替代 pickle** — 移除 `pickle.loads/pickle.dumps`，改用 `json.dumps` + `DataFrame.to_dict/from_dict`，消除反序列化攻击面（P0-1）
+- **[Security] background_tools shell=True 安全文档** — `shell=True` 已有 `shell_tools_enabled_for_request()` 访问控制，补充安全说明（P0-2）
+- **[FactorMining] enhanced_fitness R² 计算修复** — `np.sum(residuals)` 在秩亏时返回空数组导致 R²=1.0，改为手动 `np.sum(residual**2)` 计算（P0-3）
+- **[Auth] change_password 密码长度验证统一** — 从 4 位改为 8 位，与 register/reset 一致
+- **[Auth] forgot-password token 泄露修复** — 仅 dev 模式（无 API_AUTH_KEY）返回 token 到响应体
+- **[FactorKB] get_kb 单例线程安全** — 加 `threading.Lock` 双检锁
+- **[DataStore] get_data_store 单例线程安全** — 加 `threading.Lock` 双检锁
+- **[SignalAdapter] 频率推断修复** — 批量模式回退路径从 `Timedelta(days=1)` 改为 `pd.infer_freq()`，修复日内数据时间线错乱
+- **[SignalAdapter] 条形记录一致性** — 与 engine.py `_record_bars()` 使用相同的频率推断逻辑
+- **[StrategyLab] exec() 安全校验** — `_execute_strategy_code` 执行前调用 `validate_code_safety()`
+- **[Engine] os.environ 中间件文档** — async 竞态限制说明，多用户部署建议 `--workers N`
+- **[Engine] _active_symbol 并发文档** — 共享可变状态在并发场景的限制说明
+
+### 变更
+- **[Engine] 成交量滑点模型接通** — `_open_position`/`_close_position` 新增 `volume` 参数，A 股分级滑点（<50 万 0.3%/50-500 万 0.15%/>500 万 0.05%）正式启用
+- **[Engine] 最小交易名义金额检查** — 新增 `TRADING_MIN_NOTIONAL`（默认 100），低于阈值的仓位不再开仓
+- **[Logging] 96 个静默异常块添加日志** — 全局 `except Exception: pass` 替换为 `logger.debug()/warning()`
+- **[Logging] 14 处 print("[WARN]") 替换** — `yfinance_loader/tushare/okx/base/ui_services` 改用 `logger.warning()`
+- **[Config] DB_USER 默认值修正** — `pool.py/sse_bus.py` 从 `"shenzhiwei"` 改为 `"postgres"`
+- **[API] FastAPI on_event 迁移至 lifespan** — 移除废弃的 `@app.on_event("startup")`，改用 `@asynccontextmanager` lifespan
+
+### 新增
+- **[Workflow] isValidConnection 恢复** — 工作流画布连接类型校验重新启用，拖拽时即时阻止不兼容连接
+- **[Template] 7 个策略模板生成器** — grid_trading/dca_buy/breakout_volume/mean_reversion_bb/turtle_trading/pairs_trading/momentum_rotation 从占位符改为可运行的骨架代码
+- **[Skills] OKX API URL 常量化** — 新建 `skills/_constants.py`，30 处硬编码 URL 添加共享常量引用
+- **[Config] MIN_NOTIONAL 配置** — `trading/config.py` 新增最小交易名义金额环境变量
+
 ## [2026.6.8] - 2026-06-08
 
 ### 修复

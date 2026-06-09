@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""加密货币K线数据获取示例脚本。"""
+"""加密货币K线数据获取示例脚本。
+
+Note: OKX API base URL is hardcoded here for example self-containment.
+      Production code should import from backend.src.skills._constants.OKX_API_BASE.
+"""
 
 from typing import Optional
 
@@ -8,7 +12,7 @@ import requests
 import pandas as pd
 from datetime import datetime
 
-BASE_URL = "https://www.okx.com/api/v5"
+BASE_URL = "https://www.okx.com/api/v5"  # see _constants.OKX_API_BASE
 
 CANDLE_COLUMNS = ["ts", "open", "high", "low", "close", "vol", "volCcy", "volCcyQuote", "confirm"]
 INDEX_CANDLE_COLUMNS = ["ts", "open", "high", "low", "close", "confirm"]

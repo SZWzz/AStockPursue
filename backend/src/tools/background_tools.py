@@ -37,6 +37,10 @@ class BackgroundManager:
         return json.dumps({"status": "ok", "task_id": task_id, "message": f"Started: {command[:80]}"})
 
     def _execute(self, task_id: str, command: str) -> None:
+        # SECURITY: shell=True is intentional — this tool IS a shell executor.
+        # Access is gated behind shell_tools_enabled_for_request() which restricts
+        # to local clients or explicit ASTOCKPURSUE_ENABLE_SHELL_TOOLS opt-in.
+        # See: src/tools/__init__.py _SHELL_TOOL_NAMES, src/api/common.py:244
         try:
             r = subprocess.run(command, shell=True, cwd=WORKDIR,
                                capture_output=True, text=True, timeout=300,

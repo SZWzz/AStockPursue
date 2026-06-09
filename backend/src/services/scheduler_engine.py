@@ -172,6 +172,7 @@ class SchedulerEngine:
             try:
                 store.unlock(wf_id)
             except Exception:
+                logger.debug("Failed to unlock workflow %s during error cleanup", wf_id)
                 pass
 
     # ---- Persistence ----

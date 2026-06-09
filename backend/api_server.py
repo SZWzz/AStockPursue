@@ -10,9 +10,10 @@ import ipaddress
 import os
 import signal
 import time
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import AsyncIterator, Dict, List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request, Security
 from fastapi.middleware.cors import CORSMiddleware
@@ -47,6 +48,54 @@ for _s in ("stdout", "stderr"):
 console = Console()
 
 # ---------------------------------------------------------------------------
+# Lifespan (replaces deprecated @app.on_event("startup"))
+# ---------------------------------------------------------------------------
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    """Run preflight checks and initialization on server startup."""
+    from src.preflight import run_preflight
+
+    run_preflight(console)
+
+    # Initialize PostgreSQL connection pool and auto-migrate
+    try:
+        from src.db import init_pool, init_database
+        init_pool()
+        init_database()
+        from src.db.pool import run_paper_trading_migration
+        run_paper_trading_migration()
+        from papertrade.repository import PaperTradeRepository
+        PaperTradeRepository().mark_stopped_on_startup()
+        from src.db.pool import run_trading_migration
+        run_trading_migration()
+    except Exception as e:
+        console.print(f"[yellow]PG init skipped:[/yellow] {e}")
+
+    # Load default user's data-source tokens into os.environ
+    # Single-user design: user_id=1 is the default admin user.
+    try:
+        from src.auth.user_config import load_user_config
+        load_user_config(1)
+        console.print("[green]Default user data-source tokens loaded[/green]")
+    except Exception as e:
+        console.print(f"[yellow]Default user tokens not loaded:[/yellow] {e}")
+
+    # Initialize paper trading scheduler
+    try:
+        from papertrade.scheduler import PaperTradingScheduler
+        app.state.paper_trading_scheduler = PaperTradingScheduler()
+        console.print("[green]Paper trading scheduler initialized[/green]")
+    except Exception as e:
+        console.print(f"[yellow]Paper trading scheduler init skipped:[/yellow] {e}")
+
+    yield  # app is running
+
+    # -- shutdown logic (if any) goes here --
+
+
+# ---------------------------------------------------------------------------
 # FastAPI Application
 # ---------------------------------------------------------------------------
 
@@ -56,12 +105,21 @@ app = FastAPI(
     version="5.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 
 # ── Per-request os.environ isolation middleware ────────────────────────────
 # Saves managed env keys before each request, restores after.
 # Prevents user A's API keys from leaking to user B's request context.
+#
+# WARNING: In async FastAPI, this save/restore is racy — multiple coroutines
+# execute concurrently on the same thread, and `await call_next()` yields
+# control between save and restore.  The real fix is to migrate all config
+# consumers to use contextvars (already partially done in user_config.py)
+# and stop writing to os.environ entirely.  Until then, this middleware
+# provides best-effort protection for single-worker deployments.
+# For multi-user production, use `uvicorn --workers N` (one process per user).
 
 
 @app.middleware("http")
@@ -121,50 +179,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ---------------------------------------------------------------------------
-# Startup event
-# ---------------------------------------------------------------------------
-
-
-@app.on_event("startup")
-async def _run_startup_preflight() -> None:
-    """Run preflight checks on server startup."""
-    from src.preflight import run_preflight
-
-    run_preflight(console)
-
-    # Initialize PostgreSQL connection pool and auto-migrate
-    try:
-        from src.db import init_pool, init_database
-        init_pool()
-        init_database()
-        from src.db.pool import run_paper_trading_migration
-        run_paper_trading_migration()
-        from papertrade.repository import PaperTradeRepository
-        PaperTradeRepository().mark_stopped_on_startup()
-        from src.db.pool import run_trading_migration
-        run_trading_migration()
-    except Exception as e:
-        console.print(f"[yellow]PG init skipped:[/yellow] {e}")
-
-    # Load default user's data-source tokens into os.environ
-    # Single-user design: user_id=1 is the default admin user.
-    try:
-        from src.auth.user_config import load_user_config
-        load_user_config(1)
-        console.print("[green]Default user data-source tokens loaded[/green]")
-    except Exception as e:
-        console.print(f"[yellow]Default user tokens not loaded:[/yellow] {e}")
-
-    # Initialize paper trading scheduler
-    try:
-        from papertrade.scheduler import PaperTradingScheduler
-        app.state.paper_trading_scheduler = PaperTradingScheduler()
-        console.print("[green]Paper trading scheduler initialized[/green]")
-    except Exception as e:
-        console.print(f"[yellow]Paper trading scheduler init skipped:[/yellow] {e}")
-
 
 # ---------------------------------------------------------------------------
 # Authentication
