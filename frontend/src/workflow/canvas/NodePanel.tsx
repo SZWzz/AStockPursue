@@ -277,6 +277,18 @@ export default function NodePanel() {
                     >+ Add item</button>
                   </div>
                 )
+              ) : key === "template_content" ? (
+                <div className="space-y-1">
+                  <textarea
+                    value={(config[key] as string) || schema.default || ""}
+                    onChange={(e) => updateNodeConfig(selectedNodeId!, { ...config, [key]: e.target.value })}
+                    className="w-full px-2 py-1 text-[11px] font-mono rounded border bg-background h-32"
+                    placeholder="Jinja2 HTML template... leave empty to use built-in template"
+                  />
+                  <p className="text-[9px] text-muted-foreground">
+                    Variables: {"{{ title }}"} {"{{ author }}"} {"{{ metrics }}"} {"{{ equity_points }}"} {"{{ trade_summary }}"} {"{{ risk_metrics }}"}
+                  </p>
+                </div>
               ) : (
                 <input
                   type="text"

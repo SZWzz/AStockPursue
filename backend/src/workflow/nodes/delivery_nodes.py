@@ -171,6 +171,10 @@ class PDFReportNode(BaseNode):
             "title": "Output Directory", "type": "string", "default": "",
             "description": "Override output directory. Empty = auto (runs/{run_id}/reports/).",
         },
+        "template_content": {
+            "title": "Custom Template (Jinja2)", "type": "string", "default": "",
+            "description": "Override built-in template with custom Jinja2 HTML. Available variables: title, author, generated_at, template_name, metrics, include_charts, equity_points, trade_summary, risk_metrics. Leave empty to use built-in template.",
+        },
     }
 
     async def execute(self, inputs: dict, config: dict) -> dict:
@@ -207,12 +211,14 @@ class PDFReportNode(BaseNode):
             from jinja2 import Environment, BaseLoader
             env = Environment(loader=BaseLoader(), autoescape=True)
 
-            template_str = _DEFAULT_PDF_TEMPLATE
-            if template_name == "compact":
-                template_str = _COMPACT_PDF_TEMPLATE
-            # "detailed" uses the default template with charts enabled
-            if template_name == "detailed":
-                include_charts = True
+            template_str = config.get("template_content", "").strip()
+            if not template_str:
+                template_str = _DEFAULT_PDF_TEMPLATE
+                if template_name == "compact":
+                    template_str = _COMPACT_PDF_TEMPLATE
+                # "detailed" uses the default template with charts enabled
+                if template_name == "detailed":
+                    include_charts = True
 
             tmpl = env.from_string(template_str)
             html = tmpl.render(
