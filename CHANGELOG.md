@@ -30,6 +30,15 @@
 #### 新增 PortType
 - VAR_RESULT / STRESS_RESULT / TURNOVER_RESULT / DECAY_RESULT / HEATMAP_RESULT / PORTFOLIO_SIGNAL
 
+#### 前端集成
+- **[Frontend] 端口类型修复** — 新增 6 个 PortType 的 TypeScript 定义、Handle 颜色、Dot 颜色、中文标签，修复连接验证降级问题
+- **[Frontend] 节点 i18n** — 8 个新节点的中英文翻译 + 6 个工具栏按钮翻译
+- **[Frontend] 工具栏增强** — 新增 Export（下载 JSON）、Import（上传 JSON）、Batch（参数网格搜索）、Replay（历史回放）4 个按钮及完整面板 UI
+- **[Frontend] 节点 Badge** — 8 个新节点的快速结果格式化（VaR 指标、压力场景数、换手率、半衰期、热力图网格、PDF 文件名、组合策略数）
+- **[Frontend] RunSummaryPanel** — 8 个新节点图标 + formatSummary 指标展示
+- **[Frontend] SubWorkflow 选择器** — 子工作流节点的 workflow_id 字段改为下拉选择器，自动加载当前项目的工作流列表
+- **[Frontend] api.ts** — 新增 exportWorkflow, importWorkflow, batchRunWorkflow, replayRun, previewNodeRun, listPresets 6 个方法
+
 ### 修复
 - **[Security] alpha_bench_tool 缓存改用 JSON 替代 pickle** — 移除 `pickle.loads/pickle.dumps`，改用 `json.dumps` + `DataFrame.to_dict/from_dict`，消除反序列化攻击面（P0-1）
 - **[Security] background_tools shell=True 安全文档** — `shell=True` 已有 `shell_tools_enabled_for_request()` 访问控制，补充安全说明（P0-2）
