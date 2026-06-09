@@ -54,6 +54,13 @@ class WorkflowEngine:
 
     State is reset at the start of each :meth:`execute` call — the engine
     instance can be reused across multiple workflow runs.
+
+    Debug mode:
+        When ``debug_mode=True`` is passed to :meth:`execute`, the engine will
+        pause before executing any node whose ID is in ``debug_node_ids``.
+        It emits a ``node_breakpoint`` event and waits for a ``resume_node()``
+        call before continuing.  This allows the frontend to step through
+        execution and inspect intermediate results.
     """
 
     def __init__(self, max_concurrency: int = 32, continue_on_error: bool = False,
@@ -77,6 +84,11 @@ class WorkflowEngine:
         # cache_key → {outputs, node_type, config}
         self._node_cache: Dict[str, Dict[str, Any]] = {}
 
+        # Debug mode state
+        self._debug_mode: bool = False
+        self._debug_node_ids: Optional[Set[str]] = None
+        self._debug_events: Dict[str, asyncio.Event] = {}
+
     def _reset(self):
         self._results.clear()
         self._node_status.clear()
@@ -84,6 +96,9 @@ class WorkflowEngine:
         self._progress = None
         self._cancelled = False
         self._running_tasks.clear()
+        self._debug_mode = False
+        self._debug_node_ids = None
+        self._debug_events.clear()
 
     def clear_cache(self):
         """Clear the node result cache (e.g. when data sources change)."""
@@ -97,14 +112,35 @@ class WorkflowEngine:
             if not t.done():
                 t.cancel()
 
+    def resume_node(self, node_id: str):
+        """Resume execution of a paused debug breakpoint.
+
+        Called by the frontend (or API) after inspecting intermediate results.
+        Sets the corresponding asyncio.Event so the waiting coroutine can
+        proceed with node execution.
+        """
+        event = self._debug_events.get(node_id)
+        if event is not None:
+            event.set()
+            logger.debug("WorkflowEngine: resumed node %s", node_id)
+        else:
+            logger.warning("WorkflowEngine: resume_node(%s) called but no pending event", node_id)
+
     # ── Public API ──────────────────────────────────────────────────────────
 
     async def execute(
         self, nodes: List[WorkflowNodeData], edges: List[WorkflowEdge],
         target_node_id: Optional[str] = None, progress_queue: Optional[asyncio.Queue] = None,
+        debug_mode: bool = False, debug_node_ids: Optional[Set[str]] = None,
     ) -> Dict[str, NodeRunResult]:
         self._reset()
         self._progress = progress_queue
+
+        # Debug mode setup
+        self._debug_mode = debug_mode
+        self._debug_node_ids = debug_node_ids or set()
+        if debug_mode and self._debug_node_ids:
+            logger.info("WorkflowEngine: debug mode enabled, breakpoints at %s", self._debug_node_ids)
         self._node_status = {n.id: NodeStatus.PENDING for n in nodes}
         self._edge_map = {(e.target, e.target_port): (e.source, e.source_port) for e in edges}
 
@@ -166,6 +202,37 @@ class WorkflowEngine:
         self._node_status = {node.id: NodeStatus.PENDING}
         await self._execute_node(node, inputs)
         return self._results.get(node.id, {})
+
+    async def replay_run(
+        self,
+        run_id: str,
+        target_node_id: Optional[str] = None,
+    ) -> Dict[str, NodeRunResult]:
+        """Re-execute a workflow from a stored run snapshot.
+
+        Loads the WorkflowRun from the DB, re-runs the captured DAG
+        (snapshot_nodes / snapshot_edges), and optionally stops at
+        *target_node_id*.  Results are returned but NOT persisted —
+        use the normal execute() path for durable runs.
+        """
+        from src.workflow.workflow_store import WorkflowStore
+
+        store = WorkflowStore()
+        run = store.get_run(run_id)
+        if run is None:
+            raise ValueError(f"Run not found: {run_id}")
+
+        nodes = run.snapshot_nodes
+        edges = run.snapshot_edges
+        if not nodes:
+            raise ValueError(f"Run {run_id} has no snapshot nodes")
+
+        logger.info("Replay: run=%s, nodes=%d, target=%s", run_id, len(nodes), target_node_id)
+        return await self.execute(
+            nodes=nodes,
+            edges=edges,
+            target_node_id=target_node_id,
+        )
 
     # ── Internal ────────────────────────────────────────────────────────────
 
@@ -250,6 +317,10 @@ class WorkflowEngine:
         self._node_status[nid] = NodeStatus.RUNNING
         await self._emit("node_start", {"node_id": nid, "node_type": node.node_type})
 
+        # ── Debug breakpoint check ──────────────────────────────────────
+        if self._debug_mode and nid in self._debug_node_ids:
+            await self._handle_breakpoint(nid, node, inputs)
+
         impl = None  # scoped outside try for cancel handler access
 
         try:
@@ -332,6 +403,46 @@ class WorkflowEngine:
             self._results[nid] = {"_error": str(e), "_summary": {}}
             await self._emit("node_error", {
                 "node_id": nid, "error_message": str(e), "retryable": True})
+
+    async def _handle_breakpoint(self, nid: str, node: WorkflowNodeData, inputs: dict):
+        """Pause execution at a debug breakpoint and wait for resume signal.
+
+        Emits a ``node_breakpoint`` event containing the node's current
+        state (id, type, inputs, upstream results) so the frontend can
+        display an inspection panel.  Then blocks on an asyncio.Event
+        until :meth:`resume_node` is called for this node.
+        """
+        # Snapshot upstream results for inspection
+        upstream_results = {}
+        for port_name, value in inputs.items():
+            if isinstance(value, pd.DataFrame):
+                upstream_results[port_name] = {"type": "DataFrame", "shape": list(value.shape)}
+            elif isinstance(value, dict):
+                upstream_results[port_name] = {k: v for k, v in list(value.items())[:10]
+                                                if not isinstance(v, pd.DataFrame)}
+            else:
+                upstream_results[port_name] = value
+
+        event = asyncio.Event()
+        self._debug_events[nid] = event
+
+        await self._emit("node_breakpoint", {
+            "node_id": nid,
+            "node_type": node.node_type,
+            "node_label": node.label,
+            "config": node.config,
+            "inputs": upstream_results,
+        })
+
+        logger.debug("WorkflowEngine: breakpoint hit at node %s (%s), waiting for resume...",
+                      nid, node.node_type)
+
+        # Block until resume_node(nid) is called
+        await event.wait()
+
+        # Clean up the event
+        self._debug_events.pop(nid, None)
+        logger.debug("WorkflowEngine: resumed from breakpoint at node %s", nid)
 
     def _gather_inputs(self, nid: str, node: WorkflowNodeData) -> dict:
         definition = self._registry.get(node.node_type)

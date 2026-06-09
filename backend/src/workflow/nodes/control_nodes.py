@@ -1,4 +1,4 @@
-"""Control-flow and AI Agent nodes — ChatInput, Agent, IF."""
+"""Control-flow and AI Agent nodes — ChatInput, Agent, IF (multi-condition)."""
 
 from __future__ import annotations
 
@@ -380,8 +380,20 @@ class AgentNode(BaseNode):
 
 @register_node
 class IFNode(BaseNode):
+    """Multi-condition routing node with AND/OR logic.
+
+    Supports both legacy single-condition config (backward compatible) and
+    multi-condition config with configurable logic combinator.
+
+    Legacy config:  {field, operator, threshold}
+    Multi config:   {logic: "and"|"or", conditions: [{field, operator, value}, ...]}
+
+    Each condition extracts a numeric value from the input dict (checking
+    summary, metrics, and top-level keys), evaluates the operator, and
+    combines results via AND (all true) or OR (any true).
+    """
     node_type = "if_condition"; category = "control"; label = "IF Condition"
-    description = "Route execution based on metric threshold (e.g. Sharpe > 1.0)"
+    description = "Route execution based on one or more metric conditions (AND/OR logic)"
     icon = "GitBranch"
     inputs = [BaseNode.in_port("input", PortType.ANY)]
     outputs = [
@@ -389,27 +401,166 @@ class IFNode(BaseNode):
         BaseNode.out_port("false_branch", PortType.ANY),
     ]
     config_schema = {
-        "field": {"title": "Metric", "type": "string", "default": "sharpe"},
-        "operator": {"title": "Operator", "type": "string", "enum": [">", ">=", "<", "<=", "==", "!="], "default": ">"},
-        "threshold": {"title": "Threshold", "type": "number", "default": 0.0},
+        "logic": {
+            "title": "Logic", "type": "string", "enum": ["and", "or"], "default": "and",
+            "description": "Combine conditions with AND (all must be true) or OR (any must be true)",
+        },
+        "conditions": {
+            "title": "Conditions", "type": "array", "default": [],
+            "description": "List of conditions to evaluate. Each: {field, operator, value}",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "field": {"title": "Metric", "type": "string", "default": "sharpe",
+                              "description": "Dot-path metric key (e.g. 'sharpe', 'metrics.total_return')"},
+                    "operator": {"title": "Operator", "type": "string",
+                                 "enum": [">", ">=", "<", "<=", "==", "!=", "contains", "in"], "default": ">"},
+                    "value": {"title": "Value", "type": "number", "default": 0.0,
+                              "description": "Threshold value for comparison"},
+                },
+            },
+        },
+        # Legacy single-condition fields (auto-migrated to conditions[])
+        "field": {"title": "Metric (legacy)", "type": "string", "default": "sharpe",
+                  "description": "Legacy: single metric field. Prefer using conditions array."},
+        "operator": {"title": "Operator (legacy)", "type": "string",
+                     "enum": [">", ">=", "<", "<=", "==", "!="], "default": ">",
+                     "description": "Legacy: single operator. Prefer using conditions array."},
+        "threshold": {"title": "Threshold (legacy)", "type": "number", "default": 0.0,
+                      "description": "Legacy: single threshold. Prefer using conditions array."},
     }
+
+    _OPS = {
+        ">": lambda a, b: a > b,
+        ">=": lambda a, b: a >= b,
+        "<": lambda a, b: a < b,
+        "<=": lambda a, b: a <= b,
+        "==": lambda a, b: abs(a - b) < 1e-9,
+        "!=": lambda a, b: abs(a - b) >= 1e-9,
+        "contains": lambda a, b: str(b) in str(a),
+        "in": lambda a, b: a in (b if isinstance(b, (list, tuple, set)) else [b]),
+    }
+
+    @classmethod
+    def _migrate_config(cls, config: dict) -> dict:
+        """Auto-migrate legacy single-condition config to multi-condition format.
+
+        If ``conditions`` is already populated, returns config unchanged.
+        Otherwise, wraps the legacy ``field``/``operator``/``threshold`` into
+        a single-element conditions list.
+        """
+        conditions = config.get("conditions") or []
+        if conditions:
+            return config
+
+        field = config.get("field", "sharpe")
+        operator = config.get("operator", ">")
+        threshold = config.get("threshold", 0.0)
+        if field or threshold:
+            migrated = dict(config)
+            migrated["conditions"] = [{"field": field, "operator": operator, "value": threshold}]
+            migrated.setdefault("logic", "and")
+            logger.debug("IF: migrated legacy config → conditions=[{field=%s, op=%s, val=%s}]",
+                         field, operator, threshold)
+            return migrated
+        return config
+
+    @classmethod
+    def _resolve_value(cls, data: Any, field: str) -> Any:
+        """Extract a value from input data by field name.
+
+        Supports dot-separated paths for nested access (e.g. ``metrics.sharpe``).
+        Checks ``data[field]``, ``data["summary"][field]``, and ``data["metrics"][field]``
+        for simple field names.
+        """
+        if not isinstance(data, dict):
+            return None
+
+        # Dot-path: traverse nested dicts
+        if "." in field:
+            parts = field.split(".", 1)
+            current = data
+            for part in parts:
+                if isinstance(current, dict):
+                    current = current.get(part)
+                else:
+                    return None
+            return current
+
+        # Direct lookup
+        val = data.get(field)
+        if val is not None:
+            return val
+
+        # Summary/metrics fallback
+        val = (data.get("summary") or {}).get(field)
+        if val is not None:
+            return val
+
+        if "metrics" in data and isinstance(data["metrics"], dict):
+            val = data["metrics"].get(field)
+            if val is not None:
+                return val
+
+        return None
+
+    def _eval_condition(self, data: Any, condition: dict) -> bool:
+        """Evaluate a single condition against the input data.
+
+        Returns True if the condition is satisfied, False otherwise.
+        """
+        field = condition.get("field", "")
+        operator = condition.get("operator", ">")
+        threshold = condition.get("value", 0.0)
+
+        value = self._resolve_value(data, field)
+
+        if value is None:
+            logger.debug("IF: field=%s not found in input, treating as 0", field)
+            value = 0
+
+        try:
+            numeric_value = float(value)
+            numeric_threshold = float(threshold)
+        except (TypeError, ValueError):
+            # For non-numeric operators (contains, in), use raw values
+            numeric_value = value
+            numeric_threshold = threshold
+
+        op_fn = self._OPS.get(operator, self._OPS[">"])
+        result = op_fn(numeric_value, numeric_threshold)
+        logger.debug("IF: %s=%s %s %s → %s", field, numeric_value, operator, numeric_threshold, result)
+        return result
 
     async def execute(self, inputs: dict, config: dict) -> dict:
         data = inputs.get("input", {})
-        field = config.get("field", "sharpe")
-        threshold = float(config.get("threshold", 0))
 
-        value = None
-        if isinstance(data, dict):
-            value = (data.get("summary", {}) or {}).get(field) or data.get(field)
-            if value is None and "metrics" in data:
-                value = data["metrics"].get(field)
+        # Auto-migrate legacy single-condition config
+        config = self._migrate_config(config)
 
-        if value is None:
-            value = 0
+        logic = config.get("logic", "and").lower()
+        conditions = config.get("conditions", [])
 
-        ops = {">": lambda a, b: a > b, ">=": lambda a, b: a >= b, "<": lambda a, b: a < b, "<=": lambda a, b: a <= b, "==": lambda a, b: abs(a - b) < 1e-9, "!=": lambda a, b: abs(a - b) >= 1e-9}
-        condition = ops.get(config.get("operator", ">"), ops[">"])(float(value), threshold)
+        if not conditions:
+            # No conditions at all — default to true
+            logger.warning("IF: no conditions configured, defaulting to true")
+            return {"true_branch": data, "false_branch": None}
 
-        logger.info("IF: %s=%.4f %s %.4f → %s", field, float(value), config.get("operator", ">"), threshold, condition)
+        # Evaluate each condition
+        results = [self._eval_condition(data, c) for c in conditions]
+
+        if logic == "or":
+            condition = any(results)
+        else:
+            condition = all(results)
+
+        logger.info("IF: %s logic=%s conditions=%s → %s",
+                     self._summarize_conditions(conditions), logic, results, condition)
         return {"true_branch": data if condition else None, "false_branch": None if condition else data}
+
+    @staticmethod
+    def _summarize_conditions(conditions: list) -> str:
+        parts = []
+        for c in conditions:
+            parts.append(f"{c.get('field', '?')} {c.get('operator', '?')} {c.get('value', '?')}")
+        return " AND ".join(parts) if len(parts) <= 3 else f"{len(parts)} conditions"

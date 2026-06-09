@@ -63,12 +63,23 @@ class PortType(str, Enum):
     EXPERIMENT_RESULT = "experiment_result"         # Experiment output dict
     SCORE_RESULT = "score_result"                   # Strategy scoring result dict
 
+    PORTFOLIO_SIGNAL = "portfolio_signal"           # Combined multi-strategy portfolio signal
+
+    VAR_RESULT = "var_result"                       # VaR / CVaR analysis result dict
+    STRESS_RESULT = "stress_result"                 # Stress test result dict
+    TURNOVER_RESULT = "turnover_result"             # Turnover analysis result dict
+    DECAY_RESULT = "decay_result"                   # Factor decay analysis result dict
+    HEATMAP_RESULT = "heatmap_result"               # Parameter heatmap result dict
+
     ANY = "any"                        # Wildcard — accepts anything
 
 
 # Compatibility: same type or wildcard
 def is_compatible(source: PortType, target: PortType) -> bool:
     if target == PortType.ANY or source == target:
+        return True
+    # PORTFOLIO_SIGNAL is compatible with SIGNAL (downstream consumers accept both)
+    if source == PortType.PORTFOLIO_SIGNAL and target == PortType.SIGNAL:
         return True
     return False
 

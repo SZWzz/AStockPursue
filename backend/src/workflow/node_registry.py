@@ -76,6 +76,7 @@ def init_workflow_nodes():
     from src.workflow.nodes import analysis_nodes   # noqa: F401
     from src.workflow.nodes import thin_nodes       # noqa: F401
     from src.workflow.nodes import control_nodes    # noqa: F401
+    from src.workflow.nodes import subworkflow_nodes  # noqa: F401
     from src.workflow.nodes import correlation_nodes   # noqa: F401
     from src.workflow.nodes import indicator_nodes     # noqa: F401
     from src.workflow.nodes import comparison_nodes    # noqa: F401
@@ -90,3 +91,5 @@ def init_workflow_nodes():
     from src.workflow.nodes import notify_nodes        # noqa: F401
     from src.workflow.nodes import experiment_nodes    # noqa: F401
     from src.workflow.nodes import regime_nodes        # noqa: F401
+    from src.workflow.nodes import delivery_nodes      # noqa: F401
+    from src.workflow.nodes import risk_analysis_nodes # noqa: F401

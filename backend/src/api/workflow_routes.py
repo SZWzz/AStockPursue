@@ -358,6 +358,74 @@ def stop_workflow(workflow_id: str, user_id: int = Depends(_get_user_id)):
     return {"status": "ok"}
 
 
+# ── Batch Run ─────────────────────────────────────────────────────────────
+
+@router.post("/workflows/{workflow_id}/batch")
+async def batch_run_workflow(workflow_id: str, body: dict, user_id: int = Depends(_get_user_id)):
+    """Run the same workflow with multiple parameter combinations.
+
+    POST /workflow/workflows/{workflow_id}/batch
+    {
+        "param_grid": {
+            "alpha.zoo": ["alpha101", "gtja191"],
+            "backtest.initial_capital": [500000, 1000000]
+        }
+    }
+
+    Keys in param_grid are ``node_id.config_key`` paths.
+    Returns a batch_id; results are returned when complete.
+    """
+    from src.workflow.batch_runner import BatchRunner
+
+    wf = _store.get_workflow(workflow_id, user_id)
+    if not wf:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+    if wf.is_locked:
+        if workflow_id not in _running_workflows:
+            _store.unlock(workflow_id)
+            wf.is_locked = False
+        else:
+            raise HTTPException(status_code=423, detail="Workflow is already running")
+
+    param_grid = body.get("param_grid", {})
+    if not param_grid:
+        raise HTTPException(status_code=422, detail="param_grid is required")
+
+    # Lock workflow for batch run
+    _store.lock(workflow_id)
+
+    try:
+        runner = BatchRunner(continue_on_error=True)
+        queue: asyncio.Queue = asyncio.Queue(maxsize=256)
+
+        async def _run():
+            try:
+                result = await runner.run_batch(
+                    base_workflow=wf,
+                    param_grid=param_grid,
+                    progress_queue=queue,
+                )
+                return result
+            finally:
+                _store.unlock(workflow_id)
+                _running_workflows.pop(workflow_id, None)
+
+        task = asyncio.create_task(_run())
+        _running_workflows[workflow_id] = task
+
+        # Wait for completion (with timeout)
+        try:
+            result = await asyncio.wait_for(task, timeout=600)
+            return result.to_dict()
+        except asyncio.TimeoutError:
+            return {"status": "timeout", "message": "Batch run timed out after 600s"}
+
+    except Exception:
+        _store.unlock(workflow_id)
+        logger.exception("Batch run failed to start")
+        raise HTTPException(status_code=500, detail="Failed to start batch run")
+
+
 @router.get("/runs/{run_id}")
 def get_run(run_id: str):
     """Get run status and per-node results."""
@@ -441,6 +509,353 @@ def get_node_result(run_id: str, node_id: str):
     return result.to_dict()
 
 
+# ── Node I/O Preview ──────────────────────────────────────────────────────
+
+@router.get("/runs/{run_id}/node/{node_id}/preview")
+def get_node_io_preview(run_id: str, node_id: str):
+    """Preview a node's inputs and outputs from a completed run.
+
+    For DataFrames: returns first 5 rows + shape + dtypes.
+    For dicts: returns first 10 key-value pairs.
+    For lists: returns first 5 items.
+    """
+    import pandas as pd
+
+    run = _store.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+
+    result = run.node_results.get(node_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Node result not found")
+
+    # Reconstruct the node's inputs from the run snapshot and edge map
+    node_map = {n.id: n for n in run.snapshot_nodes}
+    edge_map = {(e.target, e.target_port): (e.source, e.source_port) for e in run.snapshot_edges}
+    target_node = node_map.get(node_id)
+
+    preview: Dict[str, Any] = {
+        "node_id": node_id,
+        "status": result.status.value,
+        "duration_ms": result.duration_ms,
+        "inputs": {},
+        "outputs": {},
+    }
+
+    # We can only preview outputs from the stored result summary
+    # (raw DataFrames are not persisted in node_results; only summaries are)
+    summary = result.summary or {}
+    preview["outputs"] = _preview_value(summary)
+
+    # Try to reconstruct inputs from upstream node results
+    if target_node:
+        registry = get_node_registry()
+        try:
+            definition = registry.get(target_node.node_type)
+        except KeyError:
+            definition = None
+
+        if definition:
+            for port in definition.inputs:
+                upstream = edge_map.get((node_id, port.name))
+                if upstream:
+                    uid, uport = upstream
+                    upstream_result = run.node_results.get(uid)
+                    if upstream_result and upstream_result.summary:
+                        preview["inputs"][port.name] = _preview_value(
+                            upstream_result.summary.get(uport, {})
+                        )
+
+    return preview
+
+
+def _preview_value(value: Any) -> Any:
+    """Create a preview-safe representation of a value."""
+    import pandas as pd
+
+    if isinstance(value, pd.DataFrame):
+        return {
+            "type": "DataFrame",
+            "shape": list(value.shape),
+            "columns": list(value.columns[:20]),
+            "dtypes": {str(k): str(v) for k, v in value.dtypes.head(10).items()},
+            "head": _sanitize_for_preview(value.head(5).to_dict(orient="records")),
+        }
+    elif isinstance(value, dict):
+        items = list(value.items())[:10]
+        return {
+            "type": "dict",
+            "length": len(value),
+            "keys": list(value.keys())[:20],
+            "preview": {str(k): _sanitize_for_preview(v) for k, v in items},
+        }
+    elif isinstance(value, (list, tuple)):
+        return {
+            "type": "list",
+            "length": len(value),
+            "items": [_sanitize_for_preview(v) for v in value[:5]],
+        }
+    elif isinstance(value, (int, float, str, bool, type(None))):
+        return value
+    else:
+        return {"type": type(value).__name__, "repr": repr(value)[:200]}
+
+
+def _sanitize_for_preview(obj: Any) -> Any:
+    """Make a value JSON-safe for preview display."""
+    import numpy as np
+    import pandas as pd
+
+    if isinstance(obj, (pd.DataFrame,)):
+        return {"type": "DataFrame", "shape": list(obj.shape)}
+    if isinstance(obj, (pd.Series,)):
+        return {"type": "Series", "length": len(obj)}
+    if isinstance(obj, dict):
+        return {str(k): _sanitize_for_preview(v) for k, v in list(obj.items())[:5]}
+    if isinstance(obj, (list, tuple)):
+        return [_sanitize_for_preview(v) for v in obj[:3]]
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, (np.floating,)):
+        return round(float(obj), 6)
+    if isinstance(obj, (np.bool_,)):
+        return bool(obj)
+    if isinstance(obj, np.ndarray):
+        return {"type": "ndarray", "shape": list(obj.shape)}
+    if isinstance(obj, (pd.Timestamp,)):
+        return str(obj)
+    if hasattr(obj, 'isoformat'):
+        return str(obj)
+    if isinstance(obj, (int, float, str, bool, type(None))):
+        return obj
+    return repr(obj)[:100]
+
+
+# ── Workflow Import / Export ──────────────────────────────────────────────
+
+class ImportRequest:
+    """Placeholder — real implementation uses Pydantic or dict body."""
+    pass
+
+
+@router.post("/export")
+def export_workflow(body: dict, user_id: int = Depends(_get_user_id)):
+    """Export a workflow as a JSON structure for download/sharing.
+
+    POST /workflow/export
+    {"workflow_id": "wf_abc123"}
+
+    Returns the full workflow definition as JSON with metadata.
+    """
+    workflow_id = body.get("workflow_id", "").strip()
+    if not workflow_id:
+        raise HTTPException(status_code=422, detail="workflow_id is required")
+
+    wf = _store.get_workflow(workflow_id, user_id)
+    if not wf:
+        raise HTTPException(status_code=404, detail="Workflow not found")
+
+    export_data = {
+        "format_version": "1.0",
+        "exported_at": _now_str(),
+        "workflow": wf.to_dict(),
+    }
+
+    return export_data
+
+
+@router.post("/import")
+def import_workflow(body: dict, user_id: int = Depends(_get_user_id)):
+    """Import a workflow from a JSON export.
+
+    POST /workflow/import
+    {
+        "workflow": { ... full workflow dict ... },
+        "project_id": "proj_abc123"   // optional — auto-creates if omitted
+    }
+
+    Validates that all node types exist in the registry and ports are
+    compatible before creating the workflow.
+    """
+    wf_data = body.get("workflow")
+    if not wf_data or not isinstance(wf_data, dict):
+        raise HTTPException(status_code=422, detail="workflow dict is required")
+
+    project_id = body.get("project_id", "").strip()
+
+    # ── Validate node types ──────────────────────────────────────────────
+    registry = get_node_registry()
+    nodes_data = wf_data.get("nodes", [])
+    edges_data = wf_data.get("edges", [])
+
+    validation_errors: list = []
+    node_ids = set()
+
+    for n in nodes_data:
+        nid = n.get("id", "")
+        node_type = n.get("node_type", "")
+        node_ids.add(nid)
+
+        if not node_type:
+            validation_errors.append({"node_id": nid, "error": "Missing node_type"})
+            continue
+
+        try:
+            registry.get(node_type)
+        except KeyError:
+            validation_errors.append({
+                "node_id": nid,
+                "error": f"Unknown node type: {node_type}",
+            })
+
+    # ── Validate edges ───────────────────────────────────────────────────
+    for e in edges_data:
+        src = e.get("source", "")
+        tgt = e.get("target", "")
+        if src not in node_ids:
+            validation_errors.append({
+                "edge_id": e.get("id", ""),
+                "error": f"Edge references unknown source node: {src}",
+            })
+        if tgt not in node_ids:
+            validation_errors.append({
+                "edge_id": e.get("id", ""),
+                "error": f"Edge references unknown target node: {tgt}",
+            })
+
+        # Port type compatibility
+        if src in node_ids and tgt in node_ids:
+            src_node = next((n for n in nodes_data if n["id"] == src), None)
+            tgt_node = next((n for n in nodes_data if n["id"] == tgt), None)
+            if src_node and tgt_node:
+                try:
+                    src_def = registry.get(src_node["node_type"])
+                    tgt_def = registry.get(tgt_node["node_type"])
+                    src_port = e.get("source_port", "")
+                    tgt_port = e.get("target_port", "")
+
+                    src_port_type = next(
+                        (p.port_type for p in src_def.outputs if p.name == src_port), None
+                    )
+                    tgt_port_type = next(
+                        (p.port_type for p in tgt_def.inputs if p.name == tgt_port), None
+                    )
+
+                    if src_port_type and tgt_port_type:
+                        from src.workflow.schema import is_compatible
+                        if not is_compatible(src_port_type, tgt_port_type):
+                            validation_errors.append({
+                                "edge_id": e.get("id", ""),
+                                "error": f"Type mismatch: {src_port_type.value} → {tgt_port_type.value}",
+                            })
+                except Exception:
+                    pass  # Skip validation for nodes we can't resolve
+
+    if validation_errors:
+        raise HTTPException(
+            status_code=400,
+            detail={"message": "Workflow validation failed", "errors": validation_errors},
+        )
+
+    # ── Create the workflow ──────────────────────────────────────────────
+    wf_name = wf_data.get("name", "Imported Workflow")
+    wf_desc = wf_data.get("description", "")
+
+    # Auto-create project if not provided
+    if not project_id:
+        try:
+            proj = _store.create_project(user_id, f"Import — {wf_name}", "Imported from JSON")
+            project_id = proj["id"]
+        except Exception:
+            logger.exception("Failed to auto-create project for import")
+            raise HTTPException(status_code=500, detail="Failed to create project")
+
+    try:
+        wf_id = _store.create_workflow(project_id, user_id, wf_name, wf_desc)
+    except Exception:
+        logger.exception("Failed to create workflow for import")
+        raise HTTPException(status_code=500, detail="Failed to create workflow")
+
+    # Save nodes and edges
+    try:
+        wf = _store.get_workflow(wf_id, user_id)
+        wf.nodes = [WorkflowNodeData.from_dict(n) for n in nodes_data]
+        wf.edges = [WorkflowEdge.from_dict(e) for e in edges_data]
+        if "viewport" in wf_data:
+            wf.viewport = wf_data["viewport"]
+        _store.save_workflow(wf)
+    except Exception:
+        logger.exception("Failed to save imported workflow")
+        raise HTTPException(status_code=500, detail="Failed to save workflow")
+
+    logger.info("Imported workflow %s into project %s (%d nodes, %d edges)",
+                wf_id, project_id, len(nodes_data), len(edges_data))
+
+    return {
+        "id": wf_id,
+        "project_id": project_id,
+        "name": wf_name,
+        "node_count": len(nodes_data),
+        "edge_count": len(edges_data),
+    }
+
+
+# ── Replay ────────────────────────────────────────────────────────────────────
+
+@router.post("/runs/{run_id}/replay")
+async def replay_run(run_id: str, body: dict, user_id: int = Depends(_get_user_id)):
+    """Re-execute a workflow from a stored run snapshot.
+
+    Optionally pass { "target_node_id": "..." } to replay only up to
+    a specific node.  Results are returned but NOT persisted as a new run.
+    """
+    target_node_id = body.get("target_node_id")
+
+    # Verify the run exists and belongs to this user
+    run = _store.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    if run.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Lock the workflow to prevent concurrent edits
+    wf_id = run.workflow_id
+    if wf_id:
+        wf = _store.get_workflow(wf_id, user_id)
+        if wf and wf.is_locked:
+            if wf_id not in _running_workflows:
+                _store.unlock(wf_id)
+                wf.is_locked = False
+            else:
+                raise HTTPException(status_code=423, detail="Workflow is locked during execution")
+        if wf_id:
+            _store.lock(wf_id)
+
+    replay_engine = WorkflowEngine(continue_on_error=False)
+
+    try:
+        node_results = await replay_engine.replay_run(
+            run_id=run_id,
+            target_node_id=target_node_id,
+        )
+        return {
+            "run_id": run_id,
+            "replayed": True,
+            "target_node_id": target_node_id,
+            "results": {nid: r.to_dict() for nid, r in node_results.items()},
+            "completed_nodes": sum(1 for r in node_results.values() if r.status == "done"),
+            "failed_nodes": sum(1 for r in node_results.values() if r.status == "error"),
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception:
+        logger.exception("Replay failed")
+        raise HTTPException(status_code=500, detail="An internal error occurred during replay")
+    finally:
+        if wf_id:
+            _store.unlock(wf_id)
+
+
 # ── Node registry ────────────────────────────────────────────────────────────
 
 @router.get("/node-types")
@@ -504,6 +919,57 @@ def list_templates():
     """List all available strategy templates."""
     from src.workflow.templates import TEMPLATES
     return [{"id": t["id"], "name": t["name"], "description": t["description"]} for t in TEMPLATES]
+
+
+# ── Pipeline presets ──────────────────────────────────────────────────────
+
+@router.get("/presets")
+def list_presets():
+    """List all available pipeline presets (complete end-to-end DAGs)."""
+    from src.workflow.templates.presets import list_presets as _list
+    return _list()
+
+
+@router.get("/presets/{preset_id}")
+def get_preset(preset_id: str):
+    """Get a pipeline preset's full {nodes, edges} for canvas insertion."""
+    from src.workflow.templates.presets import load_preset
+    preset = load_preset(preset_id)
+    if not preset:
+        raise HTTPException(status_code=404, detail=f"Preset not found: {preset_id}")
+    return preset.to_dict()
+
+
+@router.post("/presets/{preset_id}/instantiate")
+def instantiate_preset(preset_id: str, body: dict, user_id: int = Depends(_get_user_id)):
+    """Instantiate a pipeline preset into a project (creates a new workflow)."""
+    from src.workflow.templates.presets import load_preset
+    preset = load_preset(preset_id)
+    if not preset:
+        raise HTTPException(status_code=404, detail=f"Preset not found: {preset_id}")
+
+    project_id = body.get("project_id", "")
+    name = body.get("name", preset.name)
+
+    if not project_id:
+        try:
+            proj = _store.create_project(user_id, name, f"Created from preset: {preset.name}")
+            project_id = proj["id"]
+        except Exception:
+            logger.exception("Failed to auto-create project for preset")
+            raise HTTPException(status_code=500, detail="Failed to create project")
+
+    try:
+        wf_id = _store.create_workflow(project_id, user_id, name, preset.description)
+        preset.id = wf_id
+        preset.project_id = project_id
+        preset.user_id = user_id
+        _store.save_workflow(preset)
+    except Exception:
+        logger.exception("Failed to create workflow from preset")
+        raise HTTPException(status_code=500, detail="Failed to create workflow")
+
+    return {"id": wf_id, "project_id": project_id, "name": name}
 
 
 @router.get("/templates/{template_id}")

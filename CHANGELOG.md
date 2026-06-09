@@ -2,6 +2,34 @@
 
 ## [2026.6.9] - 2026-06-09
 
+### 新增 — 工作流引擎增强（Phase 1-4）
+
+#### Phase 1：基础能力
+- **[Workflow] IF 条件节点增强** — 支持 AND/OR 多条件逻辑 + 8 种运算符（> >= < <= == != contains in）+ dot-path 字段解析，向后兼容单条件配置
+- **[Workflow] SubWorkflowNode** — 子工作流嵌套执行节点，支持 workflow_id 加载或内联 JSON，输入/输出通过端口传递
+- **[Workflow] 调试模式** — WorkflowEngine 新增 debug_mode + breakpoint 支持，可在指定节点暂停执行、查看中间数据、逐步推进
+
+#### Phase 2：风控研究节点
+- **[Workflow] VaRNode** — 历史模拟法 + 参数法 VaR/CVaR 计算，支持多置信区间 + 持有期缩放
+- **[Workflow] StressTestNode** — 5 个历史压力场景（2015 股灾/2018 去杠杆/2020 熔断/2022 加息/2024 震荡），输出情景 P&L + 最大回撤 + 恢复天数
+- **[Workflow] TurnoverNode** — 信号换手率分析，日/年化换手率 + 交易成本估算
+- **[Workflow] FactorDecayNode** — 因子 IC 衰减曲线 + 半衰期估算，支持 Rank IC 和标准 IC
+- **[Workflow] ParamHeatmapNode** — 2D 参数网格搜索 Sharpe 热力图
+
+#### Phase 3：执行交付节点
+- **[Workflow] PDFReportNode** — Jinja2 + WeasyPrint 生成专业级 PDF 报告，内置 default/compact 模板
+- **[Workflow] PortfolioNode** — 多策略组合器，支持等权/风险平价/最小方差/最大 Sharpe 4 种分配方法
+- **[Workflow] 历史回放 API** — `POST /runs/{run_id}/replay` 重新执行历史工作流
+
+#### Phase 4：体验生态
+- **[Workflow] 5 个预置模板** — 动量/均值回归/多因子/配对/因子挖掘完整 DAG 模板
+- **[Workflow] 批量运行对比** — `POST /workflows/{id}/batch` 参数网格搜索 + 结果对比
+- **[Workflow] 节点 I/O 预览** — `GET /runs/{run_id}/node/{id}/preview` 查看节点输入输出摘要
+- **[Workflow] 导入/导出** — `POST /export` + `POST /import` JSON 格式工作流分享
+
+#### 新增 PortType
+- VAR_RESULT / STRESS_RESULT / TURNOVER_RESULT / DECAY_RESULT / HEATMAP_RESULT / PORTFOLIO_SIGNAL
+
 ### 修复
 - **[Security] alpha_bench_tool 缓存改用 JSON 替代 pickle** — 移除 `pickle.loads/pickle.dumps`，改用 `json.dumps` + `DataFrame.to_dict/from_dict`，消除反序列化攻击面（P0-1）
 - **[Security] background_tools shell=True 安全文档** — `shell=True` 已有 `shell_tools_enabled_for_request()` 访问控制，补充安全说明（P0-2）
@@ -25,6 +53,13 @@
 - **[API] FastAPI on_event 迁移至 lifespan** — 移除废弃的 `@app.on_event("startup")`，改用 `@asynccontextmanager` lifespan
 
 ### 新增
+- **[Workflow] Phase 4: Templates, Batch, Preview, Import/Export** — complete workflow enhancement suite
+  - **[Presets] 5 pipeline presets** — `momentum_strategy`, `mean_reversion_strategy`, `multi_factor_strategy`, `pair_trading_strategy`, `factor_mining_pipeline`; each returns a full `WorkflowModel` with wired nodes and edges
+  - **[BatchRunner] Parameter grid execution** — `BatchRunner.run_batch()` generates all `itertools.product` combinations, clones workflow per combo, executes via `WorkflowEngine`, and builds metric comparison summary
+  - **[API] Node I/O preview** — `GET /workflow/runs/{run_id}/node/{node_id}/preview` returns DataFrame shape/head/dtypes, dict keys/values, list items for debugging node outputs
+  - **[API] Workflow export/import** — `POST /workflow/export` serialises workflow to JSON; `POST /workflow/import` validates node types against registry, checks port compatibility, and creates workflow in DB
+  - **[API] Batch run endpoint** — `POST /workflow/workflows/{id}/batch` with `param_grid` body for parameter sensitivity analysis
+  - **[API] Pipeline preset endpoints** — `GET /presets`, `GET /presets/{id}`, `POST /presets/{id}/instantiate`
 - **[Workflow] isValidConnection 恢复** — 工作流画布连接类型校验重新启用，拖拽时即时阻止不兼容连接
 - **[Template] 7 个策略模板生成器** — grid_trading/dca_buy/breakout_volume/mean_reversion_bb/turtle_trading/pairs_trading/momentum_rotation 从占位符改为可运行的骨架代码
 - **[Skills] OKX API URL 常量化** — 新建 `skills/_constants.py`，30 处硬编码 URL 添加共享常量引用
