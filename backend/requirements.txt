@@ -42,7 +42,7 @@ pyharmonics>=1.5.0
 tushare>=1.2.89
 requests>=2.31.0
 yfinance>=0.2.30
-akshare>=1.12.0
+akshare>=1.18.64
 ccxt>=4.0.0
 
 # Cache
