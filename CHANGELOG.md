@@ -13,6 +13,11 @@
 ### 修复
 - **[Docs] CLAUDE.md 断链** — 移除指向不存在的 `13-核心缺陷分析.md` 的引用，改为指向 CHANGELOG.md
 
+### 清理 — 过时文档归档
+- **[Docs]** 将 3 份已实施的规划文档从 `docs/superpowers/plans/` 移至 `docs/archive/`：`ENHANCEMENT_PLAN.md`、`implementation-plan.md`、`2026-06-07-oled-trading-terminal.md`，并添加 `README.md` 说明
+- **[Docs]** 创建 `docs/archive/optimization-suggestions.md` 占位文件，消除 `implementation-plan.md` 中的死引用
+- **[Docs]** VERSION 和 README 版本号从 v2026.6.9 更新至 v2026.6.10
+
 ## [2026.6.9] - 2026-06-09
 
 ### 新增 — 工作流引擎增强（Phase 1-4）
