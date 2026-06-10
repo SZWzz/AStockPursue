@@ -47,7 +47,7 @@ jobs:
       - name: Install Python deps
         run: pip install -e ".[dev]"
       - name: Run pip-audit
-        run: pip-audit --strict --progress-spinner --desc on
+        run: pip-audit --strict --progress-spinner=on --desc=on
       - name: Run npm audit (frontend)
         working-directory: frontend
         run: npm ci --ignore-scripts && npm audit --audit-level=high
