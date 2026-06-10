@@ -43,5 +43,8 @@
     "typescript": "^5.9.3",
     "vite": "^6.4.2",
     "vitest": "^4.1.7"
+  },
+  "overrides": {
+    "dompurify": "^3.4.8"
   }
 }
