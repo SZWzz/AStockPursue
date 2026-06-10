@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **New to the project?** See `docs/` for user-facing documentation: [architecture.md](docs/architecture.md), [getting-started.md](docs/getting-started.md), [testing.md](docs/testing.md).
+
 ## Build, Test, and Run Commands
 
 ```bash
@@ -196,4 +198,4 @@ This codebase has undergone 5 rounds of P0-P3 defect fixes (see git log `39c4294
 - **Intraday timestamps**: Use `pd.infer_freq()` not `Timedelta(days=1)` for bar timestamp inference.
 - **SIGALRM**: Only works on Unix main thread. Use `threading.Thread + join(timeout)` for circuit breakers.
 
-Detailed analysis in `13-核心缺陷分析.md`.
+See `CHANGELOG.md` for the full defect fix history.

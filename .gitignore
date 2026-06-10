@@ -43,8 +43,7 @@ data/.duckdb_tmp/
 data/parquet/
 data/backup/
 
-# Internal docs (plans, specs)
-docs/
+# Internal wiki docs
 !wiki/docs/
 !wiki/docs/**
 data/minutes/

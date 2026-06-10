@@ -1,5 +1,18 @@
 # 更新日志
 
+## [2026.6.10] - 2026-06-10
+
+### 新增 — 文档与安全审计
+- **[Docs] architecture.md** — Mermaid 架构图，覆盖系统分层、数据流、引擎管道、因子挖掘、部署拓扑
+- **[Docs] getting-started.md** — 新手入门指南：Docker / 本地开发 / 测试 / 核心概念
+- **[Docs] testing.md** — 测试指南：markers、隔离机制、CI 管道、编写规范
+- **[CI] Dependabot** — pip / npm / GitHub Actions / Docker 四个生态系统自动依赖更新
+- **[CI] security job** — pip-audit (Python) + npm audit (frontend) 在每次 push/PR 时扫描已知 CVE
+- **[CI] test-fast depends on security** — 安全扫描不通过则阻止测试合并
+
+### 修复
+- **[Docs] CLAUDE.md 断链** — 移除指向不存在的 `13-核心缺陷分析.md` 的引用，改为指向 CHANGELOG.md
+
 ## [2026.6.9] - 2026-06-09
 
 ### 新增 — 工作流引擎增强（Phase 1-4）

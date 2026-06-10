@@ -29,9 +29,32 @@ jobs:
           python -m py_compile src/tools/__init__.py
           python -m py_compile backtest/runner.py
 
+  # ── Security: dependency vulnerability scanning ──
+  security:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install Python deps
+        run: pip install -e ".[dev]"
+      - name: Run pip-audit
+        run: pip-audit --strict --progress-spinner --desc on
+      - name: Run npm audit (frontend)
+        working-directory: frontend
+        run: npm ci --ignore-scripts && npm audit --audit-level=high
+
   # ── Fast tests: everything EXCEPT subprocess-spawning MCP integration tests ──
   test-fast:
-    needs: syntax
+    needs: [syntax, security]
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
