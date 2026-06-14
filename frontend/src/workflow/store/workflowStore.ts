@@ -120,6 +120,13 @@ function edgeId(source: string, target: string): string {
   return `e_${source}_${target}`;
 }
 
+/** Return the ReactFlow node type name for a given backend node_type.
+ *  Visualization nodes use their own type for custom rendering;
+ *  all others use the shared BaseNode (workflowNode). */
+function rfType(nodeType: string): string {
+  return ["equity_curve", "metrics_view", "trades_view"].includes(nodeType) ? nodeType : "workflowNode";
+}
+
 // ── Undo/Redo history + clipboard (outside store — not reactive) ──────────────
 
 const MAX_HISTORY = 50;
@@ -279,7 +286,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
     const newNode: Node = {
       id: nextNodeId(),
-      type: "workflowNode", // Custom node component name
+      type: rfType(nodeType),
       position,
       data: {
         id: "", // filled below
@@ -382,7 +389,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         const def = defs.find((d) => d.node_type === n.node_type);
         return {
           id: n.id,
-          type: "workflowNode",
+          type: rfType(n.node_type),
           position: n.position,
           data: { ...n, definition: def },
         } as Node;
@@ -586,7 +593,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     const def = get().nodeDefinitions.find((d) => d.node_type === _clipboard!.node_type);
     const newNode: Node = {
       id: nextNodeId(),
-      type: "workflowNode",
+      type: rfType(_clipboard.node_type),
       position,
       data: {
         id: "",
@@ -632,7 +639,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const def = defs.find((d) => d.node_type === n.node_type);
       return {
         id: newId,
-        type: "workflowNode",
+        type: rfType(n.node_type),
         position: { x: (n.position?.x || 0) + posOffset.x, y: (n.position?.y || 0) + posOffset.y },
         data: {
           id: newId,

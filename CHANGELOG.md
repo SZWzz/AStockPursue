@@ -1,5 +1,14 @@
 # 更新日志
 
+## [2026.6.14] - 2026-06-14
+
+### 新增 — Visualizer 工作流节点
+- **[Workflow] VisualizerNode** — 前端可视化节点组件，支持运行摘要图表的嵌入式展示
+- **[Workflow] visualizer_nodes.py** — 后端可视化节点实现，提供数据可视化能力
+- **[Workflow] i18n 条目** — 新增 visualizer 相关多语言 key（en/zh/ja/ko）
+- **[Workflow] NodePalette 更新** — 注册 Visualizer 节点到调色板
+- **[Workflow] RunSummaryPanel** — 运行摘要面板增强，集成图表展示
+
 ## [2026.6.10] - 2026-06-10
 
 ### 新增 — 文档与安全审计

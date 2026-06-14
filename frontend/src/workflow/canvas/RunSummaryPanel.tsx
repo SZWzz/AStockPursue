@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import { useWorkflowStore } from "@/workflow/store/workflowStore";
 import type { WorkflowNodeData } from "@/workflow/types/workflow";
 
-const OUTPUT_CATEGORIES = new Set(["output", "analysis", "execution"]);
+const OUTPUT_CATEGORIES = new Set(["output", "analysis", "execution", "visualization"]);
 
 const NODE_ICONS: Record<string, string> = {
   backtest: "📊", score: "🏆", regime: "📈", experiment: "🧪",
@@ -19,6 +19,7 @@ const NODE_ICONS: Record<string, string> = {
   sub_workflow: "🔀", var_analysis: "📉", stress_test: "⚡",
   turnover_analysis: "🔄", factor_decay: "⏳", param_heatmap: "🗺️",
   pdf_report: "📄", portfolio_combiner: "💼",
+  equity_curve: "📈", metrics_view: "📊", trades_view: "📋",
 };
 
 function formatSummary(nodeType: string, summary: Record<string, unknown>): string[] {
@@ -68,6 +69,22 @@ function formatSummary(nodeType: string, summary: Record<string, unknown>): stri
       break;
     case "portfolio_combiner":
       lines.push(`${summary.strategy_count || "?"} strategies · ${summary.method || "equal"}`);
+      break;
+    case "equity_curve":
+      if (summary.sharpe != null) lines.push(`Sharpe: ${Number(summary.sharpe).toFixed(2)}`);
+      if (summary.total_return != null) lines.push(`Return: ${(Number(summary.total_return) * 100).toFixed(1)}%`);
+      if (summary.final_equity != null) lines.push(`Final: ${Number(summary.final_equity).toLocaleString()}`);
+      break;
+    case "metrics_view":
+      if (summary.metrics) {
+        const m = summary.metrics as Record<string, number>;
+        if (m.sharpe != null) lines.push(`Sharpe: ${m.sharpe.toFixed(2)}`);
+        if (m.annual_return != null) lines.push(`Ann: ${(m.annual_return * 100).toFixed(1)}%`);
+        if (m.max_drawdown != null) lines.push(`MaxDD: ${(m.max_drawdown * 100).toFixed(1)}%`);
+      }
+      break;
+    case "trades_view":
+      lines.push(`${summary.trade_count || ((summary.trades as any[])?.length || 0)} trades`);
       break;
     default:
       lines.push("✓ Completed");

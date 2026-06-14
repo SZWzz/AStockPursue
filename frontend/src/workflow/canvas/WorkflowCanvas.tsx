@@ -24,11 +24,13 @@ import { useWorkflowStore } from "@/workflow/store/workflowStore";
 import BaseNode from "@/workflow/canvas/nodes/BaseNode";
 import RunSummaryPanel from "@/workflow/canvas/RunSummaryPanel";
 import { isCompatible, type PortType } from "@/workflow/types/workflow";
+import { visualizerNodeTypes } from "@/workflow/canvas/nodes/VisualizerNode";
 
 // ── Custom node types ────────────────────────────────────────────────────────
 
 const nodeTypes = {
   workflowNode: BaseNode,
+  ...visualizerNodeTypes,
 };
 
 // ── Inner canvas (needs ReactFlowProvider context) ───────────────────────────

@@ -93,3 +93,4 @@ def init_workflow_nodes():
     from src.workflow.nodes import regime_nodes        # noqa: F401
     from src.workflow.nodes import delivery_nodes      # noqa: F401
     from src.workflow.nodes import risk_analysis_nodes # noqa: F401
+    from src.workflow.nodes import visualizer_nodes   # noqa: F401

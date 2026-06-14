@@ -992,6 +992,7 @@ const en = {
   wfCat_deploy: "Deploy",
   wfCat_control: "Control",
   wfCat_output: "Output",
+  wfCat_visualization: "Visualization",
 
   // Workflow toolbar
   wfRun: "Run", wfStop: "Stop", wfSave: "Save", wfSaving: "Saving...",
@@ -1270,6 +1271,7 @@ const en = {
   wfPort_series: "series",
   wfPort_signal: "signal",
   wfPort_slow: "← slow (crossed)",
+  wfPort_source: "source",
   wfPort_std: "std",
   wfPort_strategy_code: "strategy_code",
   wfPort_true_branch: "true_branch",
@@ -1304,6 +1306,10 @@ const en = {
   wfNode_param_heatmap: "Parameter Heatmap", wfNode_param_heatmap_desc: "2D parameter grid search with Sharpe ratio heatmap visualization",
   wfNode_pdf_report: "PDF Report", wfNode_pdf_report_desc: "Generate professional PDF report from workflow results using Jinja2 templates",
   wfNode_portfolio_combiner: "Portfolio Combiner", wfNode_portfolio_combiner_desc: "Combine multiple strategy signals via equal-weight, risk-parity, min-variance, or max-Sharpe",
+  // Visualization nodes
+  wfNode_equity_curve: "Equity Curve", wfNode_equity_curve_desc: "Display equity curve chart from backtest result",
+  wfNode_metrics_view: "Metrics", wfNode_metrics_view_desc: "Display backtest performance metrics as KPI cards",
+  wfNode_trades_view: "Trades", wfNode_trades_view_desc: "Display trade history table from backtest result",
 
   dashNavSection: "Navigation", dashWorkflowSection: "Workflow", dashAdvancedSection: "Advanced",
   dashNavResearchProjects: "Research Projects", dashNavResearchProjectsDetail: "Workflow pipelines",
@@ -2309,6 +2315,7 @@ const zh: Messages = {
   wfCat_deploy: "部署",
   wfCat_control: "控制流",
   wfCat_output: "输出",
+  wfCat_visualization: "可视化",
 
   // Workflow toolbar
   wfRun: "运行", wfStop: "停止", wfSave: "保存", wfSaving: "保存中...",
@@ -2585,6 +2592,7 @@ const zh: Messages = {
   wfPort_series: "序列",
   wfPort_signal: "信号",
   wfPort_slow: "←慢线(被穿)",
+  wfPort_source: "数据源",
   wfPort_std: "标准差",
   wfPort_strategy_code: "策略代码",
   wfPort_true_branch: "真分支",
@@ -2619,6 +2627,10 @@ const zh: Messages = {
   wfNode_param_heatmap: "参数热力图", wfNode_param_heatmap_desc: "2D 参数网格搜索 + Sharpe 比率热力图可视化",
   wfNode_pdf_report: "PDF 报告", wfNode_pdf_report_desc: "使用 Jinja2 模板从工作流结果生成专业级 PDF 报告",
   wfNode_portfolio_combiner: "组合器", wfNode_portfolio_combiner_desc: "通过等权/风险平价/最小方差/最大 Sharpe 组合多策略信号",
+  // 可视化节点
+  wfNode_equity_curve: "权益曲线", wfNode_equity_curve_desc: "显示回测结果的权益曲线图表",
+  wfNode_metrics_view: "业绩指标", wfNode_metrics_view_desc: "以KPI卡片显示回测绩效指标",
+  wfNode_trades_view: "交易记录", wfNode_trades_view_desc: "显示回测结果的交易历史表格",
 
   dashNavSection: "导航", dashWorkflowSection: "工作流", dashAdvancedSection: "高级功能",
   dashNavResearchProjects: "研究项目", dashNavResearchProjectsDetail: "工作流流水线",

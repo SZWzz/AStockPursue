@@ -26,9 +26,10 @@ const CATEGORY_LABELS_FALLBACK: Record<string, string> = {
   deploy: "Deploy",
   control: "Control",
   output: "Output",
+  visualization: "Visualization",
 };
 
-const CATEGORY_ORDER = ["data", "alpha", "filter", "strategy", "execution", "analysis", "deploy", "control", "output"];
+const CATEGORY_ORDER = ["data", "alpha", "filter", "strategy", "execution", "analysis", "deploy", "control", "output", "visualization"];
 
 // ── i18n helpers ──────────────────────────────────────────────────────────────
 
