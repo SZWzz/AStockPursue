@@ -39,13 +39,21 @@ func (t *TencentLoader) IsAvailable() bool {
 }
 
 func (t *TencentLoader) FetchBars(symbol string, start, end time.Time) ([]*commonv1.Bar, error) {
+	if !start.IsZero() && !end.IsZero() {
+		return nil, fmt.Errorf("tencent loader does not support historical data")
+	}
 	prefix := "sh"
 	if strings.HasPrefix(symbol, "0") || strings.HasPrefix(symbol, "3") {
 		prefix = "sz"
 	}
 	url := fmt.Sprintf("%s/q=sd_%s%s", t.baseURL, prefix, symbol)
 
-	resp, err := t.client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("tencent create request: %w", err)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	resp, err := t.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("tencent fetch: %w", err)
 	}

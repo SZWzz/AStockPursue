@@ -9,7 +9,7 @@ import (
 )
 
 func TestDataStoreReturnsErrorWithoutAnyTier(t *testing.T) {
-	mc := NewMemoryCache(100 * time.Second)
+	mc := NewMemoryCache(100*time.Second, 10000)
 	ds := NewDataStore(nil, mc)
 	_, err := ds.GetBars("000001", time.Now(), time.Now(), "1d")
 	assert.Error(t, err)
@@ -17,7 +17,7 @@ func TestDataStoreReturnsErrorWithoutAnyTier(t *testing.T) {
 }
 
 func TestDataStoreUsesCache(t *testing.T) {
-	mc := NewMemoryCache(100 * time.Second)
+	mc := NewMemoryCache(100*time.Second, 10000)
 	ds := NewDataStore(nil, mc)
 	mc.SetBars("000001:1d:0:0", []*commonv1.Bar{{Symbol: "000001"}})
 	assert.NotNil(t, ds)

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -41,10 +42,15 @@ func (e *EastMoneyLoader) IsAvailable() bool {
 
 func (e *EastMoneyLoader) FetchBars(symbol string, start, end time.Time) ([]*commonv1.Bar, error) {
 	secID := e.toSecID(symbol)
-	url := fmt.Sprintf("%s/api/qt/stock/kline/get?secid=%s&fields=f43,f44,f45,f46,f44,f47&klt=101&fqt=1",
+	url := fmt.Sprintf("%s/api/qt/stock/kline/get?secid=%s&fields=f43,f44,f45,f46,f47&klt=101&fqt=1",
 		e.baseURL, secID)
 
-	resp, err := e.client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("eastmoney create request: %w", err)
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+	resp, err := e.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("eastmoney fetch: %w", err)
 	}
@@ -80,6 +86,9 @@ func (e *EastMoneyLoader) toSecID(symbol string) string {
 	if strings.HasPrefix(symbol, "6") {
 		return "1." + symbol
 	}
+	if strings.HasPrefix(symbol, "4") || strings.HasPrefix(symbol, "8") || strings.HasPrefix(symbol, "9") {
+		return "2." + symbol
+	}
 	return "0." + symbol
 }
 
@@ -92,11 +101,26 @@ func (e *EastMoneyLoader) parseKLine(kline string) (*commonv1.Bar, error) {
 	if err != nil {
 		return nil, err
 	}
-	open, _ := strconv.ParseFloat(parts[1], 64)
-	high, _ := strconv.ParseFloat(parts[2], 64)
-	low, _ := strconv.ParseFloat(parts[3], 64)
-	close, _ := strconv.ParseFloat(parts[4], 64)
-	vol, _ := strconv.ParseInt(parts[5], 10, 64)
+	open, err := strconv.ParseFloat(parts[1], 64)
+	if err != nil {
+		log.Printf("parse error for field open: %v", err)
+	}
+	close, err := strconv.ParseFloat(parts[2], 64)
+	if err != nil {
+		log.Printf("parse error for field close: %v", err)
+	}
+	high, err := strconv.ParseFloat(parts[3], 64)
+	if err != nil {
+		log.Printf("parse error for field high: %v", err)
+	}
+	low, err := strconv.ParseFloat(parts[4], 64)
+	if err != nil {
+		log.Printf("parse error for field low: %v", err)
+	}
+	vol, err := strconv.ParseInt(parts[5], 10, 64)
+	if err != nil {
+		log.Printf("parse error for field vol: %v", err)
+	}
 
 	return &commonv1.Bar{
 		Open: open, Close: close, High: high, Low: low,

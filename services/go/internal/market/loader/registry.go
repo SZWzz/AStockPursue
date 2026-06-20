@@ -22,6 +22,11 @@ func Register(l Loader) {
 func RegisterPriority(l Loader, priority int) {
 	mu.Lock()
 	defer mu.Unlock()
+	for _, e := range entries {
+		if e.loader.Name() == l.Name() {
+			return
+		}
+	}
 	entries = append(entries, entry{loader: l, priority: priority})
 	sort.Slice(entries, func(i, j int) bool {
 		return entries[i].priority < entries[j].priority

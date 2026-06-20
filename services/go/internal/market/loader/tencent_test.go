@@ -19,7 +19,7 @@ func TestTencentFetchBars(t *testing.T) {
 	assert.Equal(t, "tencent", tl.Name())
 	assert.True(t, tl.IsAvailable())
 
-	bars, err := tl.FetchBars("000001", time.Now().Add(-7*24*time.Hour), time.Now())
+	bars, err := tl.FetchBars("000001", time.Time{}, time.Time{})
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(bars))
 	assert.Equal(t, "000001", bars[0].Symbol)

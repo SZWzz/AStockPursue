@@ -1,6 +1,7 @@
 package market
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -26,7 +27,7 @@ func (ds *DataStore) GetBars(symbol string, start, end time.Time, freq string) (
 	}
 
 	if ds.timescale != nil {
-		bars, err := ds.timescale.QueryBars(nil, db.BarQuery{
+		bars, err := ds.timescale.QueryBars(context.Background(), db.BarQuery{
 			Symbol: symbol, StartTime: start, EndTime: end, Frequency: freq,
 		})
 		if err == nil && len(bars) > 0 {
@@ -34,6 +35,8 @@ func (ds *DataStore) GetBars(symbol string, start, end time.Time, freq string) (
 			return bars, nil
 		}
 	}
+
+	// Tier 2: Parquet local store (not yet implemented)
 
 	available := loader.GetAvailable()
 	for _, l := range available {

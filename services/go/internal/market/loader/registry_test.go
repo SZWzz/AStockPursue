@@ -35,9 +35,9 @@ func TestRegisterAndGet(t *testing.T) {
 func TestPriorityOrder(t *testing.T) {
 	Clear()
 	RegisterPriority(&mockLoader{}, 2)
-	RegisterPriority(&mockLoader{}, 1) // higher priority = lower number
+	RegisterPriority(&mockLoader{}, 1) // duplicate name, skipped
 	loaders := GetAvailable()
-	assert.Equal(t, 2, len(loaders))
+	assert.Equal(t, 1, len(loaders))
 }
 
 func TestIsAvailableFilter(t *testing.T) {

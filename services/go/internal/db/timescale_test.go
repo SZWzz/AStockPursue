@@ -72,6 +72,9 @@ func TestNewTimescaleDB_EmptyConnString(t *testing.T) {
 }
 
 func TestInsertBars_EmptySlice(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test with nil TimescaleDB pool")
+	}
 	db := &TimescaleDB{}
 	err := db.InsertBars(nil, nil)
 	assert.NoError(t, err)

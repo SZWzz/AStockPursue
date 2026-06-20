@@ -119,6 +119,9 @@ func (db *TimescaleDB) InsertBars(ctx context.Context, bars []*commonv1.Bar) err
 	if len(bars) == 0 {
 		return nil
 	}
+	if db.pool == nil {
+		return fmt.Errorf("timescale pool is nil")
+	}
 	batch := &pgx.Batch{}
 	for _, bar := range bars {
 		batch.Queue(db.buildInsertSQL(),

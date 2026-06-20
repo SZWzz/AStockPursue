@@ -12,7 +12,7 @@ import (
 func TestEastMoneyFetchBars(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"data":{"klines":[
-			"2026-01-02,10.0,11.0,9.5,10.5,1000000"
+			"2026-01-02,10.0,10.5,11.0,9.5,1000000"
 		]}}`))
 	}))
 	defer server.Close()
