@@ -29,11 +29,21 @@ func (db *TimescaleDB) Close() {
 }
 
 func (db *TimescaleDB) InitSchema(ctx context.Context) error {
-	_, err := db.pool.Exec(ctx, db.buildCreateTableSQL())
-	return err
+	statements := []string{
+		db.buildBarsTableSQL(),
+		db.buildBacktestRunsSQL(),
+		db.buildEquityCurvesSQL(),
+		db.buildTradesSQL(),
+	}
+	for _, s := range statements {
+		if _, err := db.pool.Exec(ctx, s); err != nil {
+			return fmt.Errorf("schema init: %w", err)
+		}
+	}
+	return nil
 }
 
-func (db *TimescaleDB) buildCreateTableSQL() string {
+func (db *TimescaleDB) buildBarsTableSQL() string {
 	return `
 CREATE TABLE IF NOT EXISTS bars (
     symbol     TEXT NOT NULL,
@@ -49,6 +59,60 @@ CREATE TABLE IF NOT EXISTS bars (
 
 SELECT create_hypertable('bars', 'timestamp', if_not_exists => TRUE);
 `
+}
+
+func (db *TimescaleDB) buildBacktestRunsSQL() string {
+	return `
+CREATE TABLE IF NOT EXISTS backtest_runs (
+    id              UUID PRIMARY KEY,
+    symbols         TEXT[] NOT NULL,
+    frequency       TEXT NOT NULL DEFAULT '1d',
+    start_date      TIMESTAMPTZ NOT NULL,
+    end_date        TIMESTAMPTZ NOT NULL,
+    initial_cash    DOUBLE PRECISION NOT NULL,
+    final_equity    DOUBLE PRECISION NOT NULL DEFAULT 0,
+    total_return    DOUBLE PRECISION NOT NULL DEFAULT 0,
+    sharpe_ratio    DOUBLE PRECISION NOT NULL DEFAULT 0,
+    max_drawdown    DOUBLE PRECISION NOT NULL DEFAULT 0,
+    max_drawdown_pct DOUBLE PRECISION NOT NULL DEFAULT 0,
+    win_rate        DOUBLE PRECISION NOT NULL DEFAULT 0,
+    total_trades    INT NOT NULL DEFAULT 0,
+    winning_trades  INT NOT NULL DEFAULT 0,
+    losing_trades   INT NOT NULL DEFAULT 0,
+    signal_name     TEXT,
+    risk_config     JSONB,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);`
+}
+
+func (db *TimescaleDB) buildEquityCurvesSQL() string {
+	return `
+CREATE TABLE IF NOT EXISTS equity_curves (
+    run_id          UUID NOT NULL REFERENCES backtest_runs(id) ON DELETE CASCADE,
+    timestamp       TIMESTAMPTZ NOT NULL,
+    equity          DOUBLE PRECISION NOT NULL,
+    cash            DOUBLE PRECISION NOT NULL,
+    position_count  INT NOT NULL DEFAULT 0,
+    PRIMARY KEY (run_id, timestamp)
+);
+SELECT create_hypertable('equity_curves', 'timestamp', if_not_exists => TRUE);`
+}
+
+func (db *TimescaleDB) buildTradesSQL() string {
+	return `
+CREATE TABLE IF NOT EXISTS trades (
+    id          UUID PRIMARY KEY,
+    run_id      UUID NOT NULL REFERENCES backtest_runs(id) ON DELETE CASCADE,
+    symbol      TEXT NOT NULL,
+    side        TEXT NOT NULL,
+    quantity    DOUBLE PRECISION NOT NULL,
+    price       DOUBLE PRECISION NOT NULL,
+    commission  DOUBLE PRECISION NOT NULL DEFAULT 0,
+    pnl         DOUBLE PRECISION,
+    timestamp   TIMESTAMPTZ NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_trades_run_id ON trades(run_id);`
 }
 
 func (db *TimescaleDB) InsertBars(ctx context.Context, bars []*commonv1.Bar) error {

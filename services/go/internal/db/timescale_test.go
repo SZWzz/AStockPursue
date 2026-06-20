@@ -22,11 +22,32 @@ func TestBuildInsertSQL(t *testing.T) {
 	assert.Contains(t, sql, "ON CONFLICT (symbol, timestamp, frequency)")
 }
 
-func TestBuildCreateTableSQL(t *testing.T) {
+func TestBuildBarsTableSQL(t *testing.T) {
 	db := &TimescaleDB{}
-	sql := db.buildCreateTableSQL()
+	sql := db.buildBarsTableSQL()
 	assert.Contains(t, sql, "CREATE TABLE IF NOT EXISTS bars")
 	assert.Contains(t, sql, "create_hypertable")
+}
+
+func TestBuildBacktestRunsSQL(t *testing.T) {
+	db := &TimescaleDB{}
+	sql := db.buildBacktestRunsSQL()
+	assert.Contains(t, sql, "CREATE TABLE IF NOT EXISTS backtest_runs")
+	assert.Contains(t, sql, "UUID")
+}
+
+func TestBuildEquityCurvesSQL(t *testing.T) {
+	db := &TimescaleDB{}
+	sql := db.buildEquityCurvesSQL()
+	assert.Contains(t, sql, "CREATE TABLE IF NOT EXISTS equity_curves")
+	assert.Contains(t, sql, "create_hypertable")
+}
+
+func TestBuildTradesSQL(t *testing.T) {
+	db := &TimescaleDB{}
+	sql := db.buildTradesSQL()
+	assert.Contains(t, sql, "CREATE TABLE IF NOT EXISTS trades")
+	assert.Contains(t, sql, "idx_trades_run_id")
 }
 
 func TestBarQueryStruct(t *testing.T) {
