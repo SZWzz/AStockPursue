@@ -18,9 +18,10 @@ import grpc
 import numpy as np
 import pandas as pd
 
-from src.gen import data_pb2_grpc, factor_pb2_grpc, signal_pb2, signal_pb2_grpc
+from src.gen import data_pb2_grpc, factor_pb2_grpc, llm_pb2_grpc, signal_pb2, signal_pb2_grpc
 from src.grpc.data_service import DataServiceServicer
 from src.grpc.factor_service import FactorServiceServicer
+from src.grpc.llm_service import LLMServiceServicer
 
 logger = logging.getLogger(__name__)
 
@@ -154,10 +155,13 @@ def serve(port: int = 8902, max_workers: int = 10) -> grpc.Server:
     factor_servicer = FactorServiceServicer()
     factor_pb2_grpc.add_FactorServiceServicer_to_server(factor_servicer, server)
 
-    server.add_insecure_port(f"[::]:{port}")
-    logger.info("gRPC server (SignalService + DataService + FactorService) listening on port %d", port)
+    llm_servicer = LLMServiceServicer()
+    llm_pb2_grpc.add_LLMServiceServicer_to_server(llm_servicer, server)
 
-    return server, signal_servicer, data_servicer, factor_servicer
+    server.add_insecure_port(f"[::]:{port}")
+    logger.info("gRPC server (SignalService + DataService + FactorService + LLMService) listening on port %d", port)
+
+    return server, signal_servicer, data_servicer, factor_servicer, llm_servicer
 
 
 if __name__ == "__main__":
@@ -170,7 +174,7 @@ if __name__ == "__main__":
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    server, _, _ = serve(port=args.port)
+    server, *_ = serve(port=args.port)
     server.start()
     logger.info("Server started. Press Ctrl+C to stop.")
     server.wait_for_termination()
