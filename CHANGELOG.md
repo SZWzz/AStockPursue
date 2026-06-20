@@ -31,6 +31,15 @@
 - [Frontend] Add CodeEditor (Monaco wrapper) and ChartPanel (Recharts equity chart) components for Strategy Lab
 - [Frontend] Add i18n keys for Strategy Lab, Screener modes, and workflow labels (en + zh)
 - [Frontend] Add @xyflow/react and @monaco-editor/react dependencies
+- [Go] Add 503 graceful degradation for factor/workflow/signal handlers when Python gRPC is down — routes always registered
+- [Go] Add Workflow list (GET) and save (POST) endpoints with in-memory store
+- [Go] Increase seed data preload from 5 to 12 A-share symbols
+
+### Changed
+- [Go] Always register factor/workflow/signal API routes regardless of gRPC connection status
+- [Frontend] Dashboard KPIs wired to real portfolio API data (was hardcoded)
+- [Frontend] Trading PriceTicker wired to market API data (was hardcoded $12.50)
+- [Frontend] Strategy Lab backtest POST now includes user's code in request body
 
 ### Changed
 - [Frontend] Replace workflow detail page with visual DAG canvas editor (3-column: palette + canvas + panel)
