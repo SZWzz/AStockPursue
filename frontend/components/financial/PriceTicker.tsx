@@ -1,4 +1,5 @@
 // frontend/components/financial/PriceTicker.tsx
+import { useTranslations } from 'next-intl'
 import { cn } from '@/lib/utils'
 
 interface PriceTickerProps {
@@ -13,6 +14,7 @@ interface PriceTickerProps {
 }
 
 export function PriceTicker({ symbol, name, price, change, changePct, high, low, className }: PriceTickerProps) {
+  const t = useTranslations()
   const isUp = change >= 0
   return (
     <div className={cn(
@@ -36,8 +38,8 @@ export function PriceTicker({ symbol, name, price, change, changePct, high, low,
       </div>
       {(high !== undefined && low !== undefined) && (
         <div className="flex items-center gap-4 ml-auto text-[12px] text-[var(--foreground-secondary)]">
-          <span>H: <span className="font-mono text-[var(--foreground)]">{high.toFixed(2)}</span></span>
-          <span>L: <span className="font-mono text-[var(--foreground)]">{low.toFixed(2)}</span></span>
+          <span>{t('market.high')}: <span className="font-mono text-[var(--foreground)]">{high.toFixed(2)}</span></span>
+          <span>{t('market.low')}: <span className="font-mono text-[var(--foreground)]">{low.toFixed(2)}</span></span>
         </div>
       )}
     </div>

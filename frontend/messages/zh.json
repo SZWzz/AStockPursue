@@ -102,6 +102,27 @@
     "fiveMinute": "5分钟",
     "daily": "日线",
     "weekly": "周线",
-    "depth": "深度"
+    "depth": "深度",
+    "high": "高",
+    "low": "低",
+    "spread": "价差",
+    "up": "上涨",
+    "down": "下跌",
+    "upPct": "上涨%",
+    "total": "总计",
+    "topMovers": "热门股票"
+  },
+  "screener": {
+    "change": "涨跌幅",
+    "volume": "成交量"
+  },
+  "status": {
+    "running": "运行中",
+    "filled": "已成交",
+    "cancelled": "已取消",
+    "paused": "已暂停",
+    "pending": "等待中",
+    "stopped": "已停止",
+    "error": "错误"
   }
 }

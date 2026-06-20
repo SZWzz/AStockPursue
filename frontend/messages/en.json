@@ -102,6 +102,27 @@
     "fiveMinute": "5min",
     "daily": "Daily",
     "weekly": "Weekly",
-    "depth": "Depth"
+    "depth": "Depth",
+    "high": "H",
+    "low": "L",
+    "spread": "Spread",
+    "up": "Up",
+    "down": "Down",
+    "upPct": "Up %",
+    "total": "Total",
+    "topMovers": "Top Movers"
+  },
+  "screener": {
+    "change": "Change",
+    "volume": "Volume"
+  },
+  "status": {
+    "running": "Running",
+    "filled": "Filled",
+    "cancelled": "Cancelled",
+    "paused": "Paused",
+    "pending": "Pending",
+    "stopped": "Stopped",
+    "error": "Error"
   }
 }

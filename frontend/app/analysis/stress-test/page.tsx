@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { useAnalysis } from '@/hooks'
+import { DividerSection } from '@/components/financial/DividerSection'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
@@ -41,7 +42,7 @@ export default function StressTestPage() {
         <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('analysis.stressTest')}</h1>
 
         {/* Input card */}
-        <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
+        <Card className="p-[var(--card-padding)]">
           <div className="space-y-3">
             <div>
               <label className="block text-[13px] font-medium text-[var(--foreground)] mb-1.5">
@@ -107,7 +108,9 @@ export default function StressTestPage() {
 
         {/* Results table */}
         {results.length > 0 && !isMutating && !error && (
-          <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-0 overflow-hidden">
+          <>
+          <DividerSection title={t('analysis.stressTest')} />
+          <Card className="p-0 overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--border-default)] text-[11px] text-[var(--foreground-muted)] uppercase tracking-wider">
@@ -145,6 +148,7 @@ export default function StressTestPage() {
               </tbody>
             </table>
           </Card>
+          </>
         )}
 
         {/* Empty state */}

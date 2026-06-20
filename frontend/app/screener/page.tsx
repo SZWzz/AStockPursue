@@ -19,9 +19,9 @@ interface ScreenerRow {
 }
 
 const SORT_FIELDS = [
-  { key: 'change_pct', label: 'Change %' },
-  { key: 'volume', label: 'Volume' },
-  { key: 'price', label: 'Price' },
+  { key: 'change_pct', labelKey: 'screener.change' },
+  { key: 'volume', labelKey: 'screener.volume' },
+  { key: 'price', labelKey: 'trading.price' },
 ]
 
 export default function ScreenerPage() {
@@ -69,7 +69,7 @@ export default function ScreenerPage() {
         <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('nav.screener')}</h1>
 
         {/* Filter form */}
-        <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
+        <Card className="p-[var(--card-padding)]">
           <div className="grid grid-cols-4 gap-3 mb-3">
             <div>
               <label className="block text-[12px] font-medium text-[var(--foreground-secondary)] mb-1">
@@ -145,7 +145,7 @@ export default function ScreenerPage() {
                     : 'border-[var(--border-default)] text-[var(--foreground-muted)] hover:text-[var(--foreground-secondary)]'
                 )}
               >
-                {field.label}
+                {t(field.labelKey)}
                 {sortField === field.key && (
                   <span className="ml-1">{sortOrder === 'desc' ? '--' : '+'}</span>
                 )}
@@ -180,7 +180,7 @@ export default function ScreenerPage() {
 
         {/* Error state */}
         {error && !isMutating && (
-          <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-0 overflow-hidden">
+          <Card className="p-0 overflow-hidden">
             <div className="text-[13px] text-[var(--down)] text-center py-12">
               {t('common.error')}
               <button
@@ -195,7 +195,7 @@ export default function ScreenerPage() {
 
         {/* Results */}
         {results.length > 0 && !isMutating && !error && (
-          <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
+          <Card className="p-[var(--card-padding)]">
             <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">
               Results ({results.length})
             </h2>
@@ -205,7 +205,7 @@ export default function ScreenerPage() {
 
         {/* Empty state */}
         {!data && !isMutating && !error && (
-          <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-0 overflow-hidden">
+          <Card className="p-0 overflow-hidden">
             <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">
               Set filters and click Search to find stocks
             </div>
@@ -214,7 +214,7 @@ export default function ScreenerPage() {
 
         {/* No results after search */}
         {data && !isMutating && !error && !results.length && (
-          <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-0 overflow-hidden">
+          <Card className="p-0 overflow-hidden">
             <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">{t('common.noData')}</div>
           </Card>
         )}

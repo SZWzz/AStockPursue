@@ -14,8 +14,8 @@ export function ScreenerGrid({ data }: { data: Row[] }) {
         <TableRow className="border-[var(--border-subtle)] hover:bg-transparent">
           <TableHead className="text-[11px] text-[var(--foreground-muted)] h-8">{t('trading.symbol')}</TableHead>
           <TableHead className="text-[11px] text-[var(--foreground-muted)] h-8 text-right">{t('trading.price')}</TableHead>
-          <TableHead className="text-[11px] text-[var(--foreground-muted)] h-8 text-right">Change</TableHead>
-          <TableHead className="text-[11px] text-[var(--foreground-muted)] h-8 text-right">Volume</TableHead>
+          <TableHead className="text-[11px] text-[var(--foreground-muted)] h-8 text-right">{t('screener.change')}</TableHead>
+          <TableHead className="text-[11px] text-[var(--foreground-muted)] h-8 text-right">{t('screener.volume')}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>

@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { useAnalysis } from '@/hooks'
 import { CorrelationMatrix } from '@/components/financial/CorrelationMatrix'
+import { DividerSection } from '@/components/financial/DividerSection'
 import { Card } from '@/components/ui/card'
 
 export default function CorrelationPage() {
@@ -28,7 +29,7 @@ export default function CorrelationPage() {
         <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('analysis.correlation')}</h1>
 
         {/* Input card */}
-        <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
+        <Card className="p-[var(--card-padding)]">
           <div className="space-y-3">
             <div>
               <label className="block text-[13px] font-medium text-[var(--foreground)] mb-1.5">
@@ -74,12 +75,15 @@ export default function CorrelationPage() {
 
         {/* Results */}
         {result && !isMutating && !error && (
-          <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
+          <>
+          <DividerSection title={t('analysis.correlation')} />
+          <Card className="p-[var(--card-padding)]">
             <CorrelationMatrix
               symbols={result.symbols || []}
               matrix={result.matrix || []}
             />
           </Card>
+          </>
         )}
 
         {/* Empty state */}

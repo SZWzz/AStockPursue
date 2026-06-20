@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { useAnalysis } from '@/hooks'
 import { DrawdownChart } from '@/components/financial/DrawdownChart'
+import { DividerSection } from '@/components/financial/DividerSection'
 import { Card } from '@/components/ui/card'
 
 export default function DrawdownPage() {
@@ -36,7 +37,7 @@ export default function DrawdownPage() {
         <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('analysis.drawdown')}</h1>
 
         {/* Input card */}
-        <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
+        <Card className="p-[var(--card-padding)]">
           <div className="space-y-3">
             <div>
               <label className="block text-[13px] font-medium text-[var(--foreground)] mb-1.5">
@@ -105,9 +106,12 @@ export default function DrawdownPage() {
 
         {/* Results */}
         {result && !isMutating && !error && (
-          <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
+          <>
+          <DividerSection title={t('analysis.drawdown')} />
+          <Card className="p-[var(--card-padding)]">
             <DrawdownChart data={Array.isArray(result) ? result : result.data || []} />
           </Card>
+          </>
         )}
 
         {/* Empty state */}

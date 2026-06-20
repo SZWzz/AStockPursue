@@ -60,21 +60,21 @@ export default function MarketOverviewPage() {
         {!overviewLoading && overview && (overview.total_stocks !== undefined || overview.up_count !== undefined) && (
           <div className="grid grid-cols-4 gap-[var(--grid-gap)]">
             <KpiCard
-              label={t('market.overview') + ' — ' + 'Total'}
+              label={t('market.overview') + ' — ' + t('market.total')}
               value={overview.total_stocks !== undefined ? String(overview.total_stocks) : '--'}
             />
             <KpiCard
-              label="Up"
+              label={t('market.up')}
               value={overview.up_count !== undefined ? String(overview.up_count) : '--'}
               direction="up"
             />
             <KpiCard
-              label="Down"
+              label={t('market.down')}
               value={overview.down_count !== undefined ? String(overview.down_count) : '--'}
               direction="down"
             />
             <KpiCard
-              label="Up %"
+              label={t('market.upPct')}
               value={overview.up_pct !== undefined ? formatPercent(overview.up_pct / 100) : '--'}
               direction={overview.up_pct !== undefined && overview.up_pct >= 50 ? 'up' : 'down'}
             />
@@ -83,14 +83,14 @@ export default function MarketOverviewPage() {
 
         {/* Loading state */}
         {isLoading && (
-          <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-0 overflow-hidden">
+          <Card className="p-0 overflow-hidden">
             <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">{t('common.loading')}</div>
           </Card>
         )}
 
         {/* Error state */}
         {hasError && !isLoading && (
-          <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-0 overflow-hidden">
+          <Card className="p-0 overflow-hidden">
             <div className="text-[13px] text-[var(--down)] text-center py-12">
               {t('common.error')}
               <button
@@ -105,15 +105,15 @@ export default function MarketOverviewPage() {
 
         {/* Top Movers */}
         {!isLoading && !hasError && movers.length > 0 && (
-          <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
-            <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">Top Movers</h2>
+          <Card className="p-[var(--card-padding)]">
+            <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">{t('market.topMovers')}</h2>
             <ScreenerGrid data={movers} />
           </Card>
         )}
 
         {/* Empty state */}
         {!isLoading && !hasError && !movers.length && (
-          <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-0 overflow-hidden">
+          <Card className="p-0 overflow-hidden">
             <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">{t('common.noData')}</div>
           </Card>
         )}
