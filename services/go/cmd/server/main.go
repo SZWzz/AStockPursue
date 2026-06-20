@@ -112,7 +112,34 @@ func main() {
 	}
 
 	healthH := &handler.HealthHandler{}
-	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH, factorH, workflowH, signalH)
+	wsHub := api.NewWSHub()
+	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH, factorH, workflowH, signalH, wsHub)
+
+	// Preload seed data + simulated ticker feed
+	go func() {
+		time.Sleep(3 * time.Second)
+		seedSymbols := []string{"000001.SZ", "600519.SH", "000300.SH", "600036.SH", "000858.SZ"}
+		end := time.Now()
+		start := end.AddDate(0, 0, -30)
+		loaded := 0
+		for _, sym := range seedSymbols {
+			if _, err := ds.GetBars(sym, start, end, "daily"); err == nil {
+				loaded++
+			}
+		}
+		log.Printf("seed data: %d/%d symbols preloaded", loaded, len(seedSymbols))
+	}()
+
+	go func() {
+		prices := map[string]float64{"000001.SZ": 12.50, "600519.SH": 1680.00, "000300.SH": 3850.00}
+		for range time.NewTicker(3 * time.Second).C {
+			for sym, price := range prices {
+				change := (float64(time.Now().UnixNano()%200) - 100) / 10000
+				prices[sym] = price * (1 + change)
+				wsHub.TickerFeed(sym, prices[sym], change)
+			}
+		}
+	}()
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,

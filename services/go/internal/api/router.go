@@ -23,6 +23,7 @@ func NewRouter(
 	factorH *handler.FactorHandler,
 	workflowH *handler.WorkflowHandler,
 	signalH *handler.SignalHandler,
+	wsHub *WSHub,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -36,6 +37,7 @@ func NewRouter(
 	sys.GET("/ping", systemH.Ping)
 
 	r.GET("/health", health.Health)
+	r.GET("/ws", func(c *gin.Context) { wsHub.HandleWebSocket(c.Writer, c.Request) })
 
 	// Protected routes
 	v1 := r.Group("/api/v1")
@@ -50,6 +52,7 @@ func NewRouter(
 		tr.POST("/start", trading.Start)
 		tr.POST("/stop", trading.Stop)
 		tr.GET("/status", trading.Status)
+		tr.GET("/orders", trading.ListOrders)
 
 		mk := v1.Group("/market")
 		mk.GET("/bars", marketH.GetBars)

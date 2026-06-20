@@ -31,6 +31,10 @@ func (h *TradingHandler) Stop(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": h.runner.Status()})
 }
 
+func (h *TradingHandler) ListOrders(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"orders": h.runner.Orders()})
+}
+
 func (h *TradingHandler) Status(c *gin.Context) {
 	p := h.runner.Portfolio()
 	copy := &engine.Portfolio{

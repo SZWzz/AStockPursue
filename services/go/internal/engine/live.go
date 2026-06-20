@@ -61,6 +61,19 @@ type FeedHandler interface {
 
 // ── LiveTradingRunner ─────────────────────────────────────────────
 
+// TrackedOrder is a lightweight record of a placed order.
+type TrackedOrder struct {
+	OrderID    string  `json:"order_id"`
+	Symbol     string  `json:"symbol"`
+	Side       string  `json:"side"`
+	OrderType  string  `json:"order_type"`
+	Quantity   float64 `json:"quantity"`
+	Price      float64 `json:"price"`
+	FilledQty  float64 `json:"filled_qty"`
+	Status     string  `json:"status"`
+	CreatedAt  string  `json:"created_at"`
+}
+
 type LiveTradingRunner struct {
 	mu       sync.RWMutex
 	status   TradingStatus
@@ -73,6 +86,9 @@ type LiveTradingRunner struct {
 	broker   BrokerExecutor
 	symbols  []string
 	freq     string
+
+	orders     []TrackedOrder
+	orderCount int
 
 	OnBarResult func(symbol string, equity float64)
 	OnError     func(err error)
@@ -151,7 +167,37 @@ func (l *LiveTradingRunner) ExecuteOrder(ctx context.Context, order *Order) (*Br
 	if l.broker == nil {
 		return nil, fmt.Errorf("broker not connected")
 	}
-	return l.broker.PlaceOrder(ctx, order.Symbol, string(order.Side), string(order.Type), order.Quantity, order.Price)
+	result, err := l.broker.PlaceOrder(ctx, order.Symbol, string(order.Side), string(order.Type), order.Quantity, order.Price)
+	if err == nil && result != nil {
+		l.recordOrder(order, result)
+	}
+	return result, err
+}
+
+func (l *LiveTradingRunner) recordOrder(order *Order, result *BrokerOrder) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.orderCount++
+	tracked := TrackedOrder{
+		OrderID:   fmt.Sprintf("ord-%d", l.orderCount),
+		Symbol:    order.Symbol,
+		Side:      string(order.Side),
+		OrderType: string(order.Type),
+		Quantity:  order.Quantity,
+		Price:     order.Price,
+		FilledQty: result.FilledQty,
+		Status:    result.Status,
+		CreatedAt: time.Now().Format(time.RFC3339),
+	}
+	l.orders = append(l.orders, tracked)
+}
+
+func (l *LiveTradingRunner) Orders() []TrackedOrder {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	result := make([]TrackedOrder, len(l.orders))
+	copy(result, l.orders)
+	return result
 }
 
 func (l *LiveTradingRunner) SyncPositions(ctx context.Context) error {

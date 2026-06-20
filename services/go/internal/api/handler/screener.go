@@ -177,13 +177,50 @@ func (h *ScreenerHandler) TopMovers(c *gin.Context) {
 // MarketOverview returns summary stats for major indices and sectors.
 // GET /api/v1/screener/overview
 func (h *ScreenerHandler) MarketOverview(c *gin.Context) {
+	symbols := defaultSymbolsForMarket("a_share")
+	end := time.Now()
+	start := end.AddDate(0, 0, -7)
+
+	up, down, total := 0, 0, 0
+	for _, sym := range symbols {
+		bars, err := h.ds.GetBars(sym, start, end, "1d")
+		if err != nil || len(bars) < 2 {
+			continue
+		}
+		total++
+		if bars[len(bars)-1].Close >= bars[0].Close {
+			up++
+		} else {
+			down++
+		}
+	}
+
+	if total == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"markets": gin.H{
+				"a_share":   gin.H{"status": "active", "description": "沪深京 A 股"},
+				"us_equity": gin.H{"status": "active", "description": "美股"},
+				"hk_equity": gin.H{"status": "active", "description": "港股"},
+				"crypto":    gin.H{"status": "active", "description": "加密货币永续合约"},
+				"futures":   gin.H{"status": "active", "description": "期货"},
+			},
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"markets": gin.H{
-			"a_share":    gin.H{"status": "active", "description": "沪深京 A 股"},
-			"us_equity":  gin.H{"status": "active", "description": "美股"},
-			"hk_equity":  gin.H{"status": "active", "description": "港股"},
-			"crypto":     gin.H{"status": "active", "description": "加密货币永续合约"},
-			"futures":    gin.H{"status": "active", "description": "期货"},
+			"a_share": gin.H{
+				"status":      "active",
+				"description": "沪深京 A 股",
+				"up_count":    up,
+				"down_count":  down,
+				"total":       total,
+			},
+			"us_equity": gin.H{"status": "active", "description": "美股"},
+			"hk_equity": gin.H{"status": "active", "description": "港股"},
+			"crypto":    gin.H{"status": "active", "description": "加密货币永续合约"},
+			"futures":   gin.H{"status": "active", "description": "期货"},
 		},
 	})
 }
