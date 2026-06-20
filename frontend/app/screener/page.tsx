@@ -73,7 +73,7 @@ export default function ScreenerPage() {
           <div className="grid grid-cols-4 gap-3 mb-3">
             <div>
               <label className="block text-[12px] font-medium text-[var(--foreground-secondary)] mb-1">
-                Price Min
+                {t('screener.priceMin')}
               </label>
               <input
                 type="number"
@@ -86,7 +86,7 @@ export default function ScreenerPage() {
             </div>
             <div>
               <label className="block text-[12px] font-medium text-[var(--foreground-secondary)] mb-1">
-                Price Max
+                {t('screener.priceMax')}
               </label>
               <input
                 type="number"

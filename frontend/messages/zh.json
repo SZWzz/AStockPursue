@@ -91,6 +91,15 @@
     "tradeLog": "交易记录"
   },
   "analysis": {
+    "scenario": "场景",
+    "portfolioImpact": "组合影响",
+    "var": "在险价值",
+    "scenarioMarketCrash": "市场崩盘 -30%",
+    "scenarioRateHike": "加息 +2%",
+    "scenarioVolSpike": "波动飙升 +50%",
+    "scenarioCustom": "自定义",
+    "customImpact": "自定义影响 (%)",
+    "runStressTest": "运行",
     "correlation": "相关性分析",
     "drawdown": "回撤分析",
     "stressTest": "压力测试",
@@ -113,6 +122,8 @@
     "topMovers": "热门股票"
   },
   "screener": {
+    "priceMin": "最低价",
+    "priceMax": "最高价",
     "change": "涨跌幅",
     "volume": "成交量"
   },

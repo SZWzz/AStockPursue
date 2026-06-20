@@ -3,9 +3,15 @@
 ## [2026.6.20] - 2026-06-20
 
 ### Added
+- [Frontend] Add 5 new financial components: StatCallout (hero numbers), StatusBadge (8 variants), PriceTicker (real-time bar), MarketRow (dense list), DividerSection (section header)
+- [Frontend] Add i18n keys for market, screener, and status labels (en + zh)
 - [Frontend] Add StatCallout component — large hero number (52px lg / 44px md), 300w/400w mono, transparent bg, arrow trend indicator
 
 ### Changed
+- [Frontend] Redesign entire frontend from OLED dark/orange theme to Coinbase institutional light theme — white canvas, blue (#0052FF) primary, Inter + JetBrains Mono fonts, hairline-border elevation system, 6px radius, 16px body
+- [Frontend] Restyle 19 shadcn/ui Base components for Coinbase light theme — Button h-10/16px, Card border/hairline, Input h-10, Badge semitransparent, Table 40px rows, Tabs underline
+- [Frontend] Redesign 12 financial components — KpiCard 44px mono, PositionTable arrows, OrderBook depth bars, chart Coinbase colors
+- [Frontend] Adapt 27 pages for light theme — white border cards, StatCallout KPIs, StatusBadge, PriceTicker, DividerSection
 - [Frontend] Redesign KpiCard — Coinbase style gray bg (#F7F7F7), 44px 400w mono number, arrow trend indicator; props migrated from sub/trend to change/direction
 
 ### Added

@@ -10,10 +10,10 @@ import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 const SCENARIOS = [
-  { value: 'market_crash', label: 'Market Crash -30%' },
-  { value: 'rate_hike', label: 'Rate Hike +2%' },
-  { value: 'vol_spike', label: 'Vol Spike +50%' },
-  { value: 'custom', label: 'Custom' },
+  { value: 'market_crash', labelKey: 'analysis.scenarioMarketCrash' },
+  { value: 'rate_hike', labelKey: 'analysis.scenarioRateHike' },
+  { value: 'vol_spike', labelKey: 'analysis.scenarioVolSpike' },
+  { value: 'custom', labelKey: 'analysis.scenarioCustom' },
 ]
 
 export default function StressTestPage() {
@@ -46,7 +46,7 @@ export default function StressTestPage() {
           <div className="space-y-3">
             <div>
               <label className="block text-[13px] font-medium text-[var(--foreground)] mb-1.5">
-                Scenario
+                {t('analysis.scenario')}
               </label>
               <select
                 value={scenario}
@@ -55,7 +55,7 @@ export default function StressTestPage() {
               >
                 {SCENARIOS.map((s) => (
                   <option key={s.value} value={s.value}>
-                    {s.label}
+                    {t(s.labelKey)}
                   </option>
                 ))}
               </select>
@@ -64,7 +64,7 @@ export default function StressTestPage() {
             {scenario === 'custom' && (
               <div>
                 <label className="block text-[13px] font-medium text-[var(--foreground)] mb-1.5">
-                  Custom Impact (%)
+                  {t('analysis.customImpact')}
                 </label>
                 <input
                   type="number"
@@ -81,7 +81,7 @@ export default function StressTestPage() {
               disabled={isMutating || (scenario === 'custom' && !customPct)}
               className="bg-[var(--primary)] text-white text-[13px] font-medium px-4 py-1.5 rounded-[var(--radius-sm)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isMutating ? t('common.loading') : 'Run'}
+              {isMutating ? t('common.loading') : t('analysis.runStressTest')}
             </button>
           </div>
         </Card>
@@ -114,9 +114,9 @@ export default function StressTestPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--border-default)] text-[11px] text-[var(--foreground-muted)] uppercase tracking-wider">
-                  <th className="text-left py-2.5 px-4 font-medium">Scenario</th>
-                  <th className="text-right py-2.5 px-4 font-medium">Portfolio Impact</th>
-                  <th className="text-right py-2.5 px-4 font-medium">VaR</th>
+                  <th className="text-left py-2.5 px-4 font-medium">{t('analysis.scenario')}</th>
+                  <th className="text-right py-2.5 px-4 font-medium">{t('analysis.portfolioImpact')}</th>
+                  <th className="text-right py-2.5 px-4 font-medium">{t('analysis.var')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -126,7 +126,7 @@ export default function StressTestPage() {
                     className="border-b border-[var(--border-subtle)] last:border-0"
                   >
                     <td className="py-2.5 px-4 text-[13px] font-medium text-[var(--foreground)]">
-                      {r.scenario || r.name || SCENARIOS.find(s => s.value === scenario)?.label || '--'}
+                      {r.scenario || r.name || t(SCENARIOS.find(s => s.value === scenario)?.labelKey ?? '') || '--'}
                     </td>
                     <td
                       className={cn(

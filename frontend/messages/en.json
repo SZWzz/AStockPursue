@@ -91,6 +91,15 @@
     "tradeLog": "Trade Log"
   },
   "analysis": {
+    "scenario": "Scenario",
+    "portfolioImpact": "Portfolio Impact",
+    "var": "VaR",
+    "scenarioMarketCrash": "Market Crash -30%",
+    "scenarioRateHike": "Rate Hike +2%",
+    "scenarioVolSpike": "Vol Spike +50%",
+    "scenarioCustom": "Custom",
+    "customImpact": "Custom Impact (%)",
+    "runStressTest": "Run",
     "correlation": "Correlation",
     "drawdown": "Drawdown",
     "stressTest": "Stress Test",
@@ -113,6 +122,8 @@
     "topMovers": "Top Movers"
   },
   "screener": {
+    "priceMin": "Price Min",
+    "priceMax": "Price Max",
     "change": "Change",
     "volume": "Volume"
   },
