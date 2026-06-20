@@ -3,6 +3,7 @@
 ## [2026.6.20] - 2026-06-20
 
 ### Added
+- [Frontend] Add 5 Zustand stores: uiStore (sidebar collapse, persisted), themeStore (layout preset + fontSize, persisted), orderFormStore (order form draft state), screenerStore (conditions + sort), wsStore (WebSocket connection state + subscriptions Map)
 - [Frontend] Add OLED theme CSS variables (globals.css) with surface layers, borders, brand, semantic, text, layout, radius, and font tokens; scrollbar styling; zh locale red-up/green-down swap
 - [Frontend] Add frontend/lib/constants.ts with OLED color constants, API_BASE and WS_URL environment variables
 - [Frontend] Add frontend/lib/utils.ts with cn() class merger, format helpers (price, percent, volume, PnL, datetime), and colorForChange utility
