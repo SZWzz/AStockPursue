@@ -15,7 +15,7 @@ async function proxy(req: NextRequest, method: string) {
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // /api/papertrading → /api/v1/paper-trading, /api/papertrading/orders → /api/v1/paper-trading/orders
-  const path = req.nextUrl.pathname.replace('/api/', '/api/v1/')
+  const path = req.nextUrl.pathname.replace('/api/papertrading', '/api/v1/paper-trading')
   const url = `${API_BASE}${path}${req.nextUrl.search}`
 
   const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
