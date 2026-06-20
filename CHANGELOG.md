@@ -12,9 +12,19 @@
 - [Frontend] Add Sidebar component (220px fixed sidebar with nav links, active state highlighting, logo, user footer)
 - [Frontend] Add Header component (48px fixed header with breadcrumb, notifications bell, user dropdown with logout)
 - [Frontend] Add SidebarLayout component (wraps Sidebar + Header + main content area)
+- [Frontend] Add root layout with SessionProvider (next-auth), NextIntlClientProvider (i18n), ThemeProvider (OLED dark mode), Toaster (sonner), and Fira fonts from Google Fonts
+- [Frontend] Add Fira Sans and Fira Code font loading via Google Fonts preconnect + stylesheet links in root layout
+
+### Changed
+- [Frontend] Update next.config.ts with createNextIntlPlugin to enable next-intl server-side locale and message resolution
+
+### Fixed
+- [Frontend] Header.tsx: remove unsupported asChild prop from DropdownMenuTrigger (Base UI does not support Radix-style asChild)
+- [Frontend] api-client.ts: cast empty response to T to satisfy strict TypeScript return type
 
 ### Removed
 - [Frontend] Remove stale Vite scaffold files (vite.config.ts, index.html, src/, public/) — only Next.js config remains after scaffold migration
+- [Frontend] Remove duplicate postcss.config.js (conflicted with postcss.config.mjs Tailwind v4 config)
 
 ### Added
 - [Engine] OptionsEngine: US equity options trading with Black-Scholes pricing, per-contract commission, contract multiplier (100), short margin, and long/short PnL

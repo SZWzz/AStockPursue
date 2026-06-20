@@ -44,7 +44,7 @@ export function Header() {
           <Bell className="w-4 h-4" />
         </Button>
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger>
             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-full bg-[var(--surface-3)] text-[12px] font-semibold">
               U
             </Button>
