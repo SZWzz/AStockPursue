@@ -10,8 +10,11 @@
 - [Engine] ForexEngine: FX spot/CFD trading engine with pip-based PnL, margin (30:1 leverage), spread config, and zero commission
 - [Engine] CompositeEngine: updated ForSymbol routing for all 7 engine types with priority-based symbol matching (A-share → futures → options → crypto → forex → global equity)
 - [Infra] Go core project scaffold with gin HTTP server and health endpoint
+- [Market] Sina loader (P1): real-time A-share quotes from hq.sinajs.cn, text format, no API key
+- [Market] Baidu loader (P6): historical A-share daily bars from Baidu Finance, JSON format, no API key
+- [Market] TwelveData loader (P7): historical A-share daily bars with optional API key, string-value JSON parsing
 - [Market] Cache interface and MemoryCache implementation with TTL support
-- [Market] DataStore 3-tier fallback: cache → TimescaleDB → loader registry
+- [Market] DataStore 3-tier fallback: cache → TimescaleDB → loader registry (now 5 loaders in chain)
 - [Engine] Core Engine interface with 6 methods (CanExecute, RoundSize, CalcCommission, ApplySlippage, CalcMargin, CalcPnL)
 - [Engine] Domain types: Order, Position, Portfolio with validation and PnL calculations
 - [Engine] OnBar pipeline with gap detection, suspension detection, signal processing, risk exits, OMS, and equity recording
