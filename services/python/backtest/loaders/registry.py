@@ -76,14 +76,14 @@ def _ensure_registered() -> None:
 # ---------------------------------------------------------------------------
 
 FALLBACK_CHAINS: dict[str, list[str]] = {
-    "a_share":   ["mootdx", "tushare", "eastmoney", "tencent", "futu", "baidu", "twelvedata", "akshare"],
-    "us_equity": ["yfinance", "twelvedata", "finnhub", "akshare"],
-    "hk_equity": ["yfinance", "futu", "tencent", "twelvedata", "akshare"],
+    "a_share":   ["mootdx", "tushare", "tencent", "futu", "akshare"],
+    "us_equity": ["yfinance", "akshare"],
+    "hk_equity": ["yfinance", "futu", "tencent", "akshare"],
     "crypto":    ["okx", "ccxt", "coingecko"],
-    "futures":   ["tushare", "twelvedata", "akshare"],
+    "futures":   ["tushare", "akshare"],
     "fund":      ["tushare", "akshare"],
     "macro":     ["akshare", "tushare"],
-    "forex":     ["akshare", "twelvedata", "yfinance"],
+    "forex":     ["akshare", "yfinance"],
     "index":     ["global_indices", "yfinance"],
     "commodity": ["commodities", "yfinance"],
 }
