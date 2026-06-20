@@ -1,98 +1,95 @@
 services:
-  astockpursue:
-    build: .
+  go-core:
+    build:
+      context: services/go
+      dockerfile: Dockerfile
     ports:
       - "8899:8899"
-      - "8900:8900"      # MCP Server (SSE transport)
-    env_file:
-      - backend/.env
+      - "8901:8901"
     environment:
-      ASTOCKPURSUE_TRUST_DOCKER_LOOPBACK: 1
-      ASTOCKPURSUE_ALLOWED_RUN_ROOTS: "/opt/data,/root/.AStockPursue/workspace"
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - astockpursue-runs:/ap./backend/runs
-      - astockpursue-sessions:/ap./backend/sessions
-      - astockpursue-skills:/root/.AStockPursue/skills
-      - /opt/data:/opt/data
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8899/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    networks:
-      - vt-net
-
-  frontend:
-    image: node:20
-    working_dir: /app
-    ports:
-      - "5899:5899"
-    volumes:
-      - ./frontend:/app
-    environment:
-      - VITE_API_URL=http://astockpursue:8899
-    command: sh -c "npm install && chmod +x node_modules/.bin/* 2>/dev/null; node ./node_modules/vite/bin/vite.js --host --port 5899"
-    profiles:
-      - frontend
+      PORT: "8899"
+      GRPC_PORT: "8901"
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/astockpursue?sslmode=disable"
+      REDIS_URL: "redis://redis:6379/0"
     depends_on:
-      astockpursue:
+      postgres:
+        condition: service_healthy
+      redis:
         condition: service_started
     networks:
       - vt-net
 
-  # Auto-deployed PostgreSQL for users without an existing PG instance.
-  # If you already have a PostgreSQL instance, configure DB_HOST/DB_PORT/
-  # DB_NAME/DB_USER/DB_PASSWORD_ENC in backend/.env and skip the pg profile.
-  # WARNING: The default password below is for development only.
-  # Change it before exposing this service to a network.
-  # Set POSTGRES_PASSWORD in a .env file to override:
-  #   echo "POSTGRES_PASSWORD=your_secure_password" >> .env
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: AStockPursue
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-vr_pg_2026}
-      POSTGRES_DB: AStockPursue
+  python-research:
+    build:
+      context: services/python
+      dockerfile: Dockerfile.python
     ports:
-      - "5432:5432"
+      - "8900:8900"
+      - "8902:8902"
+    environment:
+      PYTHONUNBUFFERED: "1"
+      DATABASE_URL: "postgres://postgres:postgres@postgres:5432/astockpursue?sslmode=disable"
+      REDIS_URL: "redis://redis:6379/0"
+    depends_on:
+      go-core:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - vt-net
     volumes:
-      - pg-data:/var/lib/postgresql/data
-    restart: unless-stopped
+      - ./runs:/app/runs
+      - ./services/python/src:/app/src
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5899:80"
+    environment:
+      VITE_API_URL: "http://localhost:8899"
+    depends_on:
+      - go-core
     networks:
       - vt-net
     profiles:
-      - pg
+      - frontend
 
-  # Redis L0 cache — optional, graceful degradation if unavailable
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: astockpursue
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+      - ./services/python/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - vt-net
+
   redis:
     image: redis:7-alpine
-    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
     ports:
-      - "${REDIS_PORT:-127.0.0.1:6379}:6379"
+      - "6379:6379"
     volumes:
       - redis-data:/data
     networks:
       - vt-net
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-    restart: unless-stopped
-
-volumes:
-  astockpursue-runs:
-  astockpursue-sessions:
-  astockpursue-skills:
-  pg-data:
-  redis-data:
 
 networks:
   vt-net:
     driver: bridge
+
+volumes:
+  pg-data:
+  redis-data:
