@@ -32,7 +32,7 @@ export function CodeMirror({ value, readOnly = false, language = 'python', onCha
       EditorView.editable.of(!readOnly),
       EditorView.theme({
         '&': { height: '100%' },
-        '.cm-scroller': { overflow: 'auto', fontFamily: "'Fira Code', monospace", fontSize: '13px' },
+        '.cm-scroller': { overflow: 'auto', fontFamily: "var(--font-mono)", fontSize: '13px' },
         '.cm-content': { padding: '12px' },
         '.cm-gutters': { backgroundColor: 'var(--surface-1)', color: 'var(--foreground-muted)', borderRight: '1px solid var(--border-subtle)' },
       }),

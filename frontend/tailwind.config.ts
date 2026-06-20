@@ -38,7 +38,7 @@ export default {
         // -apple-system (San Francisco) has similar x-height and width
         // Segoe UI matches well on Windows
         sans: [
-          "Fira Sans",
+          "Inter",
           "-apple-system",
           "BlinkMacSystemFont",
           "Segoe UI",
@@ -52,7 +52,7 @@ export default {
         // ui-monospace picks SF Mono on macOS/iOS; Cascadia Code on Windows Terminal
         // Menlo/Consolas are good mid-width fallbacks
         mono: [
-          "Fira Code",
+          "JetBrains Mono",
           "ui-monospace",
           "SF Mono",
           "Cascadia Code",

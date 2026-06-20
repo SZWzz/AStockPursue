@@ -18,7 +18,7 @@ export function CorrelationMatrix({ symbols, matrix }: Props) {
     matrix.forEach((row, i) => row.forEach((v, j) => {
       g.append('rect').attr('x', j*cellSize).attr('y', i*cellSize).attr('width', cellSize-1).attr('height', cellSize-1).attr('fill', cs(v)).attr('rx', 2)
       g.append('text').attr('x', j*cellSize+cellSize/2).attr('y', i*cellSize+cellSize/2).attr('text-anchor','middle').attr('dy','0.35em')
-        .text(v.toFixed(2)).style('font-size',`${Math.max(9,cellSize/5)}px`).style('fill', Math.abs(v)>0.5?'#fff':OLED.foregroundSecondary).style('font-family','Fira Code, monospace')
+        .text(v.toFixed(2)).style('font-size',`${Math.max(9,cellSize/5)}px`).style('fill', Math.abs(v)>0.5?'#fff':OLED.foregroundSecondary).style('font-family','var(--font-mono)')
     }))
   }, [symbols, matrix])
   return <svg ref={ref} width="100%" height={300} />

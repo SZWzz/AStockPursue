@@ -46,3 +46,17 @@ Created `components/ui/theme-provider.tsx` — a client component that sets `doc
 - `frontend/lib/utils.ts` — created (cn utility)
 - `frontend/components/ui/*.tsx` — 18 component files created
 - `frontend/components/ui/theme-provider.tsx` — created
+
+## Fix Report (2026-06-20)
+
+**Commit:** `c0c4bd4` — `fix(frontend): remove dead radius CSS, restore format utilities`
+
+### Issue 1: Dead radius declarations in `:root`
+Lines `--radius-sm: 4px; --radius-md: 6px; --radius-lg: 8px; --radius-xl: 12px;` in the `:root` block of `globals.css` were dead code. The `@theme inline` block (lines 154-157) defines the same properties via `calc(var(--radius) * X)`, which wins the cascade. Removed the 4 lines; `--radius: 0.5rem` is preserved as the seed value for shadcn's computed radii.
+
+### Issue 2: Lost format utilities in `lib/utils.ts`
+shadcn init overwrote `lib/utils.ts`, discarding 6 utility functions from Task 3: `formatPrice`, `formatPercent`, `formatVolume`, `formatPnL`, `formatDateTime`, `colorForChange`. Merged by keeping shadcn's `cn()` (which uses `clsx` + `tailwind-merge` — same as the original) and appending all 6 restore functions. No code changes made to the function signatures.
+
+**Files modified:**
+- `frontend/app/globals.css` — removed 4 dead `--radius-*` lines from `:root`
+- `frontend/lib/utils.ts` — restored 6 format/color utility functions after `cn()`

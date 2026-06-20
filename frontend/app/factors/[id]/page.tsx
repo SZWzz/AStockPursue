@@ -73,10 +73,10 @@ function ICChart({ data }: { data: { date: string; value: number }[] }) {
       {/* IC line */}
       <path d={pathD} fill="none" stroke="var(--primary)" strokeWidth={1.5} />
       {/* Y-axis labels */}
-      <text x={padding.left - 8} y={padding.top + 4} textAnchor="end" fill="var(--foreground-muted)" fontSize="10" fontFamily="Fira Code, monospace">
+      <text x={padding.left - 8} y={padding.top + 4} textAnchor="end" fill="var(--foreground-muted)" fontSize="10" fontFamily="var(--font-mono)">
         {maxVal.toFixed(2)}
       </text>
-      <text x={padding.left - 8} y={padding.top + plotH} textAnchor="end" fill="var(--foreground-muted)" fontSize="10" fontFamily="Fira Code, monospace">
+      <text x={padding.left - 8} y={padding.top + plotH} textAnchor="end" fill="var(--foreground-muted)" fontSize="10" fontFamily="var(--font-mono)">
         {minVal.toFixed(2)}
       </text>
     </svg>
