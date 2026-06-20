@@ -27,6 +27,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import random
+import re
 import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable
@@ -131,6 +132,16 @@ OPERATOR_REGISTRY: dict[str, tuple[int, Callable[..., pd.DataFrame], str]] = {
 
 # Rolling window options (trading days) for GP to evolve
 WINDOW_OPTIONS: list[int] = [3, 5, 10, 20, 40, 60, 120]
+
+# Reverse mapping: display symbol -> operator name (e.g. "+" -> "add")
+SYMBOL_TO_OP: dict[str, str] = {}
+_SYMBOL_SEEN: dict[str, str] = {}
+for _op_name, (_arity, _fn, _sym) in OPERATOR_REGISTRY.items():
+    if _sym in _SYMBOL_SEEN:
+        # Keep first registration; symbols should be unique
+        continue
+    SYMBOL_TO_OP[_sym] = _op_name
+    _SYMBOL_SEEN[_sym] = _op_name
 
 def _safe_if_else(cond: pd.DataFrame, t: pd.DataFrame, f: pd.DataFrame) -> pd.DataFrame:
     """Ternary operator with guaranteed column alignment.
@@ -284,6 +295,103 @@ class ExpressionTree:
     def from_dict(cls, d: dict[str, Any]) -> ExpressionTree:
         """Deserialize from JSON-compatible dict."""
         return cls(_node_from_dict(d))
+
+    @classmethod
+    def from_formula(cls, formula: str) -> ExpressionTree:
+        """Parse a formula string into an ExpressionTree.
+
+        Supports the formats produced by ``to_formula()``:
+            - ``rank(close)`` — unary operator
+            - ``(close + high)`` — binary infix operator
+            - ``ts_mean(close, 5)`` — ts_ operator with window override
+            - ``ts_corr(close, volume, 10)`` — ts_ binary with window
+            - ``close`` — bare feature reference
+            - ``5.0`` — bare constant
+
+        Args:
+            formula: Human-readable formula string.
+
+        Returns:
+            ExpressionTree corresponding to the parsed formula.
+
+        Raises:
+            ValueError: If the formula cannot be parsed.
+        """
+        tokens = _tokenize_formula(formula)
+        if not tokens:
+            raise ValueError("empty formula")
+        pos = 0
+
+        def _peek():
+            nonlocal pos
+            return tokens[pos] if pos < len(tokens) else None
+
+        def _consume(expected_kind=None):
+            nonlocal pos
+            if pos >= len(tokens):
+                raise ValueError(f"unexpected end of formula, expected {expected_kind}")
+            tok = tokens[pos]
+            if expected_kind and tok[0] != expected_kind:
+                raise ValueError(
+                    f"expected {expected_kind}, got {tok[0]} ('{tok[1]}') "
+                    f"at position {tok[2]}"
+                )
+            pos += 1
+            return tok
+
+        def _parse_expr():
+            tok = _peek()
+            if tok is None:
+                raise ValueError("unexpected end of formula")
+
+            # Function call: IDENT ( args... )
+            if tok[0] == "IDENT":
+                name = _consume("IDENT")[1]
+                if _peek() and _peek()[0] == "LPAREN":
+                    _consume("LPAREN")
+                    args = []
+                    while _peek() and _peek()[0] != "RPAREN":
+                        if args:
+                            _consume("COMMA")
+                        args.append(_parse_expr())
+                    _consume("RPAREN")
+                    return _build_node(name, args)
+
+                # Bare identifier → feature leaf
+                return ExpressionNode(feature_id=name)
+
+            # Infix: ( expr OP expr )
+            if tok[0] == "LPAREN":
+                _consume("LPAREN")
+                left = _parse_expr()
+                if _peek() and _peek()[0] == "SYMBOL":
+                    op_sym = _consume("SYMBOL")[1]
+                else:
+                    op_sym = _consume("IDENT")[1]
+                right = _parse_expr()
+                _consume("RPAREN")
+                op_name = SYMBOL_TO_OP.get(op_sym)
+                if op_name is None:
+                    raise ValueError(f"unknown operator symbol: {op_sym!r}")
+                return ExpressionNode(op=op_name, children=[left, right])
+
+            # Number → constant leaf
+            if tok[0] == "NUMBER":
+                val = float(_consume("NUMBER")[1])
+                return ExpressionNode(value=val)
+
+            raise ValueError(
+                f"unexpected token {tok[0]} ({tok[1]!r}) at position {tok[2]}"
+            )
+
+        root = _parse_expr()
+        if pos < len(tokens):
+            extra = tokens[pos]
+            raise ValueError(
+                f"unexpected trailing token {extra[0]} ({extra[1]!r}) "
+                f"at position {extra[2]}"
+            )
+        return cls(root)
 
     # ---- formula consistency (single source of truth) ----
 
@@ -804,3 +912,102 @@ class {class_name}:
                 signals[code] = pd.Series(0.0, index=df.index)
         return signals
 '''
+
+
+# ---------------------------------------------------------------------------
+# Formula parser — string to ExpressionTree
+# ---------------------------------------------------------------------------
+
+# Token pattern: numbers, identifiers, punctuation, and operator symbols
+_TOKEN_RE = re.compile(r"""
+    (\d+\.?\d*(?:[eE][+-]?\d+)?)  |   # number (int or float)
+    ([a-zA-Z_][a-zA-Z0-9_]*)      |   # identifier (feature / op name)
+    ([(),])                        |   # punctuation
+    ([+\-*/^])                         # operator symbol
+""", re.VERBOSE)
+
+
+def _tokenize_formula(formula: str) -> list[tuple[str, str, int]]:
+    """Tokenize a formula string into (kind, value, pos) tuples.
+
+    Kinds: NUMBER, IDENT, LPAREN, RPAREN, COMMA, SYMBOL
+
+    Raises ValueError on unrecognized characters.
+    """
+    tokens: list[tuple[str, str, int]] = []
+    for m in _TOKEN_RE.finditer(formula):
+        num, ident, punct, symbol = m.groups()
+        start = m.start()
+        if num is not None:
+            tokens.append(("NUMBER", num, start))
+        elif ident is not None:
+            tokens.append(("IDENT", ident, start))
+        elif punct == "(":
+            tokens.append(("LPAREN", "(", start))
+        elif punct == ")":
+            tokens.append(("RPAREN", ")", start))
+        elif punct == ",":
+            tokens.append(("COMMA", ",", start))
+        elif symbol is not None:
+            # Map "^" to "pow" operator symbol
+            sym = symbol
+            tokens.append(("SYMBOL", sym, start))
+
+    # Check for unrecognized characters
+    consumed = sum(m.end() - m.start() for m in _TOKEN_RE.finditer(formula))
+    if consumed != len(formula):
+        # Find the first unrecognized character
+        for i, ch in enumerate(formula):
+            if not ch.strip():
+                continue
+            # Check if this position was covered by any match
+            covered = False
+            for m in _TOKEN_RE.finditer(formula):
+                if m.start() <= i < m.end():
+                    covered = True
+                    break
+            if not covered:
+                raise ValueError(
+                    f"unexpected character {ch!r} at position {i} "
+                    f"in formula {formula!r}"
+                )
+
+    return tokens
+
+
+def _build_node(name: str, args: list[ExpressionNode]) -> ExpressionNode:
+    """Build an ExpressionNode from a function name and parsed argument nodes.
+
+    Handles ts_ operators where the extra trailing numeric arg is the window,
+    and resolves operator names via SYMBOL_TO_OP.
+    """
+    # Resolve symbol to canonical operator name
+    op_name = SYMBOL_TO_OP.get(name)
+    if op_name is None:
+        op_name = name
+    if op_name not in OPERATOR_REGISTRY:
+        raise ValueError(f"unknown operator: {name!r}")
+
+    arity, _, _ = OPERATOR_REGISTRY[op_name]
+    is_ts = op_name.startswith("ts_") or op_name in ("ts_corr", "ts_cov")
+
+    window = 20  # default
+    children = list(args)
+
+    # ts_ operators: trailing numeric args are the window parameter
+    if is_ts and len(children) > arity:
+        if not children[-1].is_leaf or children[-1].feature_id is not None:
+            raise ValueError(
+                f"ts_ operator {op_name!r} expects numeric window "
+                f"argument, got expression"
+            )
+        window = int(children[-1].value)
+        children = children[:-1]
+
+    if len(children) != arity:
+        raise ValueError(
+            f"operator {op_name!r} expects {arity} argument(s), "
+            f"got {len(children)}"
+        )
+
+    return ExpressionNode(op=op_name, children=children, window=window)

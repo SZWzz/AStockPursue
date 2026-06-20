@@ -393,7 +393,7 @@ class GPEvolution:
 
             logger.info("Loaded REAL data: train=%d bars, test=%d bars, %d stocks",
                          train_bars, test_bars, n_stocks)
-        except (ValueError, KeyError, IOError, OSError, TypeError, RuntimeError) as e:
+        except (ValueError, KeyError, IOError, OSError, TypeError, RuntimeError, ImportError) as e:
             logger.warning("Failed to load real data (%s), using mock data", e)
             self.data_source = "mock"
             self.data_source_detail = f"Data loading error: {e}"
