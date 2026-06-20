@@ -2,6 +2,9 @@
 
 ## [2026.6.20] - 2026-06-20
 
+### Removed
+- [Frontend] Remove stale Vite scaffold files (vite.config.ts, index.html, src/, public/) — only Next.js config remains after scaffold migration
+
 ### Added
 - [Engine] OptionsEngine: US equity options trading with Black-Scholes pricing, per-contract commission, contract multiplier (100), short margin, and long/short PnL
 - [Engine] FuturesBase: embeddable struct with shared futures contract calculations (RoundSize, CalcCommission, CalcMargin, CalcPnL, ApplySlippage, CanExecute)
