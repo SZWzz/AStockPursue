@@ -14,6 +14,7 @@ func NewRouter(
 	brokerH *handler.BrokerHandler,
 	portfolioH *handler.PortfolioHandler,
 	authH *handler.AuthHandler,
+	paperTradeH *handler.PaperTradingHandler,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -48,6 +49,14 @@ func NewRouter(
 		br.GET("/list", brokerH.GetBrokers)
 
 		v1.GET("/portfolio", portfolioH.GetStatus)
+
+		pt := v1.Group("/paper-trading")
+		pt.POST("", paperTradeH.CreateRun)
+		pt.GET("", paperTradeH.ListRuns)
+		pt.GET("/:id", paperTradeH.GetRun)
+		pt.POST("/:id/start", paperTradeH.StartRun)
+		pt.POST("/:id/stop", paperTradeH.StopRun)
+		pt.DELETE("/:id", paperTradeH.DeleteRun)
 	}
 
 	return r
