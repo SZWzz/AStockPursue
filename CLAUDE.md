@@ -8,84 +8,117 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Full deploy
-docker compose up -d --build              # backend (8899) + MCP (8900)
+docker compose up -d --build              # Go core (8899) + Python (8900/8902)
 docker compose --profile pg up -d --build # also auto-deploy PostgreSQL
 docker compose --profile frontend up -d   # frontend dev server (5899)
 
-# Backend dev
-cd backend && pip install -r requirements.txt
-cp .env.example .env
-python api_server.py --port 8899          # FastAPI server
-python mcp_server.py                      # MCP (stdio)
-python mcp_server.py --transport sse      # MCP (SSE, port 8900)
+# Go core dev
+cd services/go && go run ./cmd/server     # HTTP API + gRPC
+
+# Python research layer dev
+cd services/python && pip install -r requirements.txt
+python mcp_server.py                      # MCP (stdio/SSE, port 8900)
+python -m src.grpc.server                 # gRPC server (port 8902)
 
 # Frontend dev
-cd frontend && npm install && npx vite --port 5899
+cd services/frontend && npm run dev
 
 # Tests
-cd frontend && npx tsc --noEmit           # TypeScript type-check
-cd backend && python -m pytest tests/ -x -q # backend tests
+cd services/go && go test ./...           # Go unit tests
+cd services/python && python -m pytest tests/ -x -q # Python tests
+cd services/frontend && npx vitest        # Frontend tests
 ```
 
-## Architecture
+## Architecture (Go + Python Hybrid)
+
+```
+┌─ Frontend (Next.js, port 5899) ───────────────────────────┐
+│  SSR pages → API Routes → REST (Go core)                  │
+└───────────────────────────────────────────────────────────┘
+                              │ HTTP JSON
+┌─ Go Core Services (port 8899) ────────────────────────────┐
+│  ├─ HTTP API (gin) — trading, backtest, auth, market      │
+│  ├─ Trading Engine — on_bar() pipeline, 7 engine types    │
+│  ├─ Market Data — 32 loaders, 3-tier store, WS feed       │
+│  ├─ Broker Gateways — Binance, Futu, OKX                  │
+│  ├─ Portfolio/Risk — sizing, margin, stop-loss            │
+│  └─ gRPC Client → Python Research Layer                   │
+└───────────────────────────────────────────────────────────┘
+                              │ gRPC + Protobuf
+┌─ Python Research Layer (port 8900/8902) ──────────────────┐
+│  ├─ MCP Server — 22 tools, 89 skills, swarm presets       │
+│  ├─ Factor Mining — GP evolution, 452 alpha zoo           │
+│  ├─ AI Agent — LLM agent, langgraph loop, memory          │
+│  ├─ Analysis — attribution, sentiment, correlation        │
+│  ├─ Workflow Engine — 25 node types, visual pipeline      │
+│  └─ gRPC Server — factor, signal, LLM, analysis services  │
+└───────────────────────────────────────────────────────────┘
+                              │ SQL + Pub/Sub
+┌─ Data Layer ──────────────────────────────────────────────┐
+│  PostgreSQL 16 + TimescaleDB (时序) + Redis 7 (缓存)      │
+└───────────────────────────────────────────────────────────┘
+```
 
 ### Core Pipeline: `TradingEngine.on_bar()`
 
-The unified engine processes every bar through the same pipeline for both backtest and live trading:
+The unified engine (Go) processes every bar through the same pipeline for both backtest and live trading:
 
 ```
-on_bar(bar, ts)
+on_bar(bar, ts)  [Go]
   ├─ 0a. Gap detection (overnight stop/trailing/target checks on open positions)
   ├─ 0b. Suspension detection (flat close + zero vol for ≥2 bars → force-close)
   ├─ 0.5 Market hooks (funding fees, liquidation — per-market)
-  ├─ 1. SignalAdapter → target weights (tick mode or batch generate())
-  ├─ 1.5 OptimizerAdapter → adjusted weights (optional)
+  ├─ 1. SignalAdapter → gRPC call Python → target weights
+  ├─ 1.5 OptimizerAdapter → adjusted weights (optional, Go)
   ├─ 2. RiskPipeline → forced exits (stop-loss / trailing-stop / take-profit)
-  ├─ 3. Process signals → open/close positions
+  ├─ 3. Process signals → open/close positions (OMS)
   └─ 4. Record equity snapshot
 ```
 
-**Critical ordering constraint**: `_record_bars()` MUST run AFTER `_generate_signals()` to prevent look-ahead bias. `equity_for_sizing` MUST be cached BEFORE `_check_risk_exits()` (which updates `_last_bar_prices` with today's close).
+**Critical ordering constraint**: `RecordBars()` MUST run AFTER `GenerateSignals()` to prevent look-ahead bias. `equity_for_sizing` MUST be cached BEFORE `CheckRiskExits()` (which updates last-bar prices with today's close).
 
-Key files: `backend/src/trading/engine.py`, `backend/src/trading/risk_pipeline.py`, `backend/src/trading/signal_adapter.py`
+Key files: `services/go/internal/engine/pipeline.go`, `services/go/internal/engine/risk.go`, `services/go/internal/engine/signal.go`
 
-### SignalAdapter Dispatch
+### SignalAdapter Flow
 
-The `SignalAdapter` auto-detects the strategy's capability:
-- **Tick mode** (`TickHandler` protocol): `on_bar(bar, state)` called per bar — O(n)
-- **Batch mode** (fallback): `generate(data_map)` computes from the full history, then the adapter extracts `iloc[-1]`. The strategy NEVER sees the current bar (look-ahead prevention).
+**Go side**: `SignalAdapter` in Go calls Python via gRPC:
+- **Tick mode**: Go streams each `OnBar` → Python returns `weights` in streaming response
+- **Batch mode**: Go sends window of bars → Python's strategy `generate()` computes, returns weights for `iloc[-1]`
 
-### Backtest Engine Hierarchy
+Protobuf: `services/proto/signal.proto` → `SignalService`
 
-```
-BaseEngine (base.py)
-  ├─ ChinaAEngine (china_a.py)      — A-share: T+1, price limits, stamp duty
-  ├─ GlobalEquityEngine              — US/HK markets
-  ├─ CryptoEngine (crypto.py)       — perpetuals: funding rate, liquidation
-  ├─ ForexEngine (forex.py)          — FX spot/CFD
-  ├─ FuturesBase (futures_base.py)   — contract multiplier awareness
-  │   ├─ ChinaFuturesEngine          — CFFEX/SHFE/DCE/ZCE/INE/GFEX
-  │   └─ GlobalFuturesEngine         — CME/ICE/Eurex
-  ├─ OptionsPortfolioEngine          — European/American via Black-Scholes
-  └─ CompositeEngine (composite.py)  — cross-market with shared capital pool
-```
-
-Each engine overrides market-rule methods: `can_execute()`, `round_size()`, `calc_commission()`, `apply_slippage()`, `_calc_margin()`, `_calc_pnl()`.
-
-### Data Loading: 3-Tier Access + Fallback Chains
+### Engine Hierarchy (Go)
 
 ```
-DataStore (data_store.py)
-  ├─ Tier 1: PostgreSQL cache
+Engine (interface in services/go/internal/engine/)
+  ├─ ChinaAEngine      — A-share: T+1, price limits, stamp duty
+  ├─ CryptoEngine      — perpetuals: funding rate, liquidation
+  ├─ GlobalEquityEngine— US/HK markets
+  ├─ ForexEngine       — FX spot/CFD
+  ├─ FuturesBase       — contract multiplier awareness
+  │   ├─ ChinaFuturesEngine  — CFFEX/SHFE/DCE/ZCE/INE/GFEX
+  │   └─ GlobalFuturesEngine — CME/ICE/Eurex
+  ├─ OptionsEngine     — European/American via Black-Scholes
+  └─ CompositeEngine   — cross-market with shared capital pool
+```
+
+Each engine implements the `Engine` interface: `CanExecute()`, `RoundSize()`, `CalcCommission()`, `ApplySlippage()`, `CalcMargin()`, `CalcPnL()`.
+
+### Data Loading: 3-Tier Access + Fallback Chains (Go)
+
+```
+DataStore (services/go/internal/market/store.go)
+  ├─ Tier 1: TimescaleDB
   ├─ Tier 2: Parquet local store
-  └─ Tier 3: Loader API (live fetch)
+  └─ Tier 3: Loader API (live fetch, concurrent goroutine fallback)
 ```
 
-A-share 8-source fallback: `mootdx → tushare → eastmoney → tencent → futu → baidu → twelvedata → akshare`
+A-share 8-source fallback (Go goroutines for concurrent fallback):
+`mootdx → tushare → eastmoney → tencent → futu → baidu → twelvedata → akshare`
 
-Loaders self-register via `@register` decorator. `is_available()` must do a real connectivity check (not just `import requests`).
+Loaders implement `Loader` interface and self-register. `IsAvailable()` must do a real connectivity check.
 
-Key files: `backend/backtest/data_store.py`, `backend/backtest/loaders/`
+Key files: `services/go/internal/market/loader/`, `services/go/internal/market/store.go`
 
 ### Factor Mining System
 
@@ -117,7 +150,7 @@ SafetyValidator (safety_validator.py)
 
 **Key rule**: Always use `ind.tree.formula_hash` for identity, never `ind.formula` (display string varies with operand order for commutative ops).
 
-Key files: `backend/src/factors/mining/`, `backend/src/factors/registry.py`
+Key files: `services/python/src/factors/mining/`, `services/python/src/factors/registry.py`
 
 ### Frontend State Management
 
@@ -129,13 +162,25 @@ Charts: ECharts via `CandlestickChart` / `EquityChart` components. Monaco Editor
 
 ### Skills System
 
-89 skill packs under `backend/src/skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`, `category`). Auto-discovered on server start. Each skill can include `example_signal_engine.py`, `references/`, `scripts/`. Skills are the AI agent's domain knowledge — they guide LLM behavior for specific trading topics.
+89 skill packs under `services/python/src/skills/<name>/SKILL.md` with YAML frontmatter (`name`, `description`, `category`). Auto-discovered on server start. Each skill can include `example_signal_engine.py`, `references/`, `scripts/`. Skills are the AI agent's domain knowledge — they guide LLM behavior for specific trading topics.
 
 ### Multi-User Isolation
 
 Per-user: orders (PG `user_id` FK), broker context (independent FutuOpenD cache), WS subscriptions, notify/indices/optimize config. JWT auth with PBKDF2 password hashing.
 
 ## Development Rules
+
+### Spec → Plan → Test → Development Flow
+
+**Before writing ANY code, the following three artifacts MUST be completed and reviewed in order:**
+
+1. **Spec** — design document saved to `docs/superpowers/specs/`
+2. **Plan** — implementation plan with phases and milestones, saved to `docs/superpowers/plans/`
+3. **Test cases** — test specification listing all test cases, edge cases, and expected outputs
+
+Only after all three are reviewed by the user and explicitly approved may implementation begin.
+
+Any modification that touches engine logic, financial calculations, or data pipelines must follow this flow. Trivial changes (typos, CSS, config) may skip with user consent.
 
 ### Version Date Check
 
@@ -148,9 +193,9 @@ Per-user: orders (PG `user_id` FK), broker context (independent FutuOpenD cache)
 Update all three to match today's date if stale.  For example, if today is 2026-06-03, the version should be `v2026.6.3`.
 
 ```
-APP_VERSION = "v2026.6.3"   // <-- update before commit if today's date doesn't match
-README.md badge:             Version-v2026.6.3-blueviolet
-README_zh.md badge:          版本-v2026.6.3-blueviolet
+APP_VERSION = "v2026.6.20"   // <-- update before commit if today's date doesn't match
+README.md badge:             Version-v2026.6.20-blueviolet
+README_zh.md badge:          版本-v2026.6.20-blueviolet
 ```
 
 This ensures the version number reflects when the code was actually shipped.
