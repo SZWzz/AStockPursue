@@ -9,6 +9,9 @@
 - [Engine] GlobalFuturesEngine: CME/ICE/EUREX with 8 contracts (ES, NQ, CL, GC, B, CC, FDAX, FESX), per-contract flat commission
 - [Engine] ForexEngine: FX spot/CFD trading engine with pip-based PnL, margin (30:1 leverage), spread config, and zero commission
 - [Engine] CompositeEngine: updated ForSymbol routing for all 7 engine types with priority-based symbol matching (A-share → futures → options → crypto → forex → global equity)
+- [Broker] Broker interface with Binance (USDT-M Futures) and OKX (perpetual swaps) via native REST API
+- [Broker] BrokerFactory with self-registration pattern, 13 mock-based tests
+- [Market] MarketFeed interface + OKXFeed WebSocket implementation with auto-reconnection
 - [Infra] Go core project scaffold with gin HTTP server and health endpoint
 - [Market] Sina loader (P1): real-time A-share quotes from hq.sinajs.cn, text format, no API key
 - [Market] Baidu loader (P6): historical A-share daily bars from Baidu Finance, JSON format, no API key
