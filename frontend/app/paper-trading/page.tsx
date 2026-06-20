@@ -1,4 +1,4 @@
-// frontend/app/paper-trading/page.tsx — Paper trading list
+// frontend/app/paper-trading/page.tsx — Paper trading list (Coinbase theme)
 'use client'
 
 import { useTranslations } from 'next-intl'
@@ -6,7 +6,9 @@ import { useRouter } from 'next/navigation'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { usePaperAccounts } from '@/hooks'
 import { cn, formatPercent, formatDateTime } from '@/lib/utils'
-import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import { StatusBadge } from '@/components/financial/StatusBadge'
 
 interface PaperAccount {
   id: string
@@ -51,17 +53,14 @@ export default function PaperTradingPage() {
       <div className="space-y-3">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('nav.paperTrading')}</h1>
-          <button
-            onClick={handleCreate}
-            className="bg-[var(--primary)] text-white text-[13px] font-medium px-4 py-1.5 rounded-[var(--radius-sm)] hover:opacity-90 transition-opacity"
-          >
+          <h1 className="text-[32px] font-[400] tracking-[-0.4px] text-[var(--foreground)]">{t('nav.paperTrading')}</h1>
+          <Button onClick={handleCreate}>
             {t('common.create')}
-          </button>
+          </Button>
         </div>
 
         {/* Content */}
-        <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-0 overflow-hidden">
+        <div className="bg-white border border-[var(--border)] rounded-[6px] overflow-hidden">
           {isLoading ? (
             <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">{t('common.loading')}</div>
           ) : error ? (
@@ -74,51 +73,40 @@ export default function PaperTradingPage() {
           ) : !accounts.length ? (
             <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">{t('common.noData')}</div>
           ) : (
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[var(--border-default)] text-[11px] text-[var(--foreground-muted)] uppercase tracking-wider">
-                  <th className="text-left py-2.5 px-4 font-medium">{t('trading.symbol')}</th>
-                  <th className="text-left py-2.5 px-4 font-medium">{t('backtest.strategy')}</th>
-                  <th className="text-left py-2.5 px-4 font-medium">{t('trading.status')}</th>
-                  <th className="text-right py-2.5 px-4 font-medium">{t('portfolio.pnl')}</th>
-                  <th className="text-right py-2.5 px-4 font-medium">{t('backtest.startDate')}</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>{t('trading.symbol')}</TableHead>
+                  <TableHead>{t('backtest.strategy')}</TableHead>
+                  <TableHead>{t('trading.status')}</TableHead>
+                  <TableHead className="text-right">{t('portfolio.pnl')}</TableHead>
+                  <TableHead className="text-right">{t('backtest.startDate')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {accounts.map((acct) => (
-                  <tr
+                  <TableRow
                     key={acct.id}
                     onClick={() => router.push(`/paper-trading/${acct.id}`)}
-                    className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-[var(--surface-3)] cursor-pointer transition-colors"
+                    className="cursor-pointer"
                   >
-                    <td className="py-2.5 px-4 text-[13px] font-medium text-[var(--foreground)]">{acct.name}</td>
-                    <td className="py-2.5 px-4 text-[13px] text-[var(--foreground-secondary)]">{acct.strategy || '--'}</td>
-                    <td className="py-2.5 px-4">
-                      <span
-                        className={cn(
-                          'inline-block text-[11px] font-medium px-2 py-0.5 rounded-[var(--radius-sm)]',
-                          acct.status === 'running'
-                            ? 'bg-[var(--up)]/10 text-[var(--up)]'
-                            : acct.status === 'stopped'
-                            ? 'bg-[var(--down)]/10 text-[var(--down)]'
-                            : 'bg-[var(--foreground-muted)]/10 text-[var(--foreground-muted)]'
-                        )}
-                      >
-                        {acct.status}
-                      </span>
-                    </td>
-                    <td className={cn('py-2.5 px-4 text-[13px] font-mono tabular-nums text-right', acct.pnl_pct !== undefined ? (acct.pnl_pct >= 0 ? 'text-[var(--up)]' : 'text-[var(--down)]') : 'text-[var(--foreground-secondary)]')}>
+                    <TableCell className="font-medium">{acct.name}</TableCell>
+                    <TableCell className="text-[var(--foreground-secondary)]">{acct.strategy || '--'}</TableCell>
+                    <TableCell>
+                      <StatusBadge status={(acct.status as any) || 'paused'} label={acct.status} />
+                    </TableCell>
+                    <TableCell className={cn('font-mono tabular-nums text-right', acct.pnl_pct !== undefined ? (acct.pnl_pct >= 0 ? 'text-[var(--up)]' : 'text-[var(--down)]') : 'text-[var(--foreground-secondary)]')}>
                       {acct.pnl_pct !== undefined ? formatPercent(acct.pnl_pct) : '--'}
-                    </td>
-                    <td className="py-2.5 px-4 text-[13px] font-mono text-[var(--foreground-muted)] text-right">
+                    </TableCell>
+                    <TableCell className="font-mono text-[var(--foreground-muted)] text-right">
                       {formatDateTime(acct.created_at)}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           )}
-        </Card>
+        </div>
       </div>
     </SidebarLayout>
   )

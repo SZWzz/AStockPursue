@@ -1,15 +1,16 @@
-// frontend/app/paper-trading/[id]/page.tsx — Paper trading detail
+// frontend/app/paper-trading/[id]/page.tsx — Paper trading detail (Coinbase theme)
 'use client'
 
 import { useParams } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import useSWR from 'swr'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
-import { KpiCard } from '@/components/financial/KpiCard'
+import { StatCallout } from '@/components/financial/StatCallout'
 import { EquityChart } from '@/components/financial/EquityChart'
 import { TradeTimeline } from '@/components/financial/TradeTimeline'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { formatPercent, formatDateTime } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
@@ -94,65 +95,58 @@ export default function PaperTradingDetailPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[20px] font-bold text-[var(--foreground)]">{detail.name}</h1>
+            <h1 className="text-[32px] font-[400] tracking-[-0.4px] text-[var(--foreground)]">{detail.name}</h1>
             <p className="text-[12px] text-[var(--foreground-muted)] mt-0.5">
               {detail.strategy || '--'} &middot; {t('backtest.startDate')}: {formatDateTime(detail.created_at)}
             </p>
           </div>
           <div className="flex items-center gap-2">
             {detail.status !== 'running' && (
-              <button
-                onClick={handleStart}
-                className="bg-[var(--up)] text-white text-[13px] font-medium px-4 py-1.5 rounded-[var(--radius-sm)] hover:opacity-90 transition-opacity"
-              >
+              <Button onClick={handleStart} variant="default">
                 Start
-              </button>
+              </Button>
             )}
             {detail.status === 'running' && (
-              <button
-                onClick={handleStop}
-                className="bg-[var(--down)] text-white text-[13px] font-medium px-4 py-1.5 rounded-[var(--radius-sm)] hover:opacity-90 transition-opacity"
-              >
+              <Button onClick={handleStop} variant="outline">
                 Stop
-              </button>
+              </Button>
             )}
           </div>
         </div>
 
-        {/* KPI Cards */}
-        <div className="grid grid-cols-4 gap-[var(--grid-gap)]">
-          <KpiCard
-            label={t('portfolio.totalEquity')}
-            value={`$${(detail.equity ?? detail.initial_capital ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            direction="up"
-          />
-          <KpiCard
-            label={t('backtest.totalReturn')}
-            value={detail.pnl_pct !== undefined ? formatPercent(detail.pnl_pct) : '--'}
-            direction={detail.pnl_pct !== undefined && detail.pnl_pct >= 0 ? 'up' : 'down'}
-          />
-          <KpiCard
-            label={t('backtest.maxDrawdown')}
-            value={detail.max_drawdown !== undefined ? formatPercent(detail.max_drawdown) : '--'}
-            direction="down"
-          />
-          <KpiCard
-            label={t('backtest.totalTrades')}
-            value={detail.total_trades !== undefined ? String(detail.total_trades) : '0'}
-          />
+        {/* KPI Cards — StatCallout on white card */}
+        <div className="bg-white border border-[var(--border)] rounded-[6px] p-6">
+          <div className="grid grid-cols-4 gap-[var(--grid-gap)]">
+            <StatCallout
+              label={t('portfolio.totalEquity')}
+              value={`$${(detail.equity ?? detail.initial_capital ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+            />
+            <StatCallout
+              label={t('backtest.totalReturn')}
+              value={detail.pnl_pct !== undefined ? formatPercent(detail.pnl_pct) : '--'}
+            />
+            <StatCallout
+              label={t('backtest.maxDrawdown')}
+              value={detail.max_drawdown !== undefined ? formatPercent(detail.max_drawdown) : '--'}
+            />
+            <StatCallout
+              label={t('backtest.totalTrades')}
+              value={detail.total_trades !== undefined ? String(detail.total_trades) : '0'}
+            />
+          </div>
         </div>
 
         {/* Chart + Timeline */}
         <div className="grid grid-cols-12 gap-[var(--grid-gap)]">
           <div className="col-span-8">
-            <div className="bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-[var(--card-padding)]">
-              <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">{t('backtest.equityCurve')}</h2>
+            <div className="bg-white border border-[var(--border)] rounded-[6px] p-[var(--card-padding)]">
+              <h2 className="text-[18px] font-semibold mb-4 text-[var(--foreground)]">{t('backtest.equityCurve')}</h2>
               <EquityChart data={detail.equity_curve || []} />
             </div>
           </div>
           <div className="col-span-4">
-            <div className="bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-[var(--card-padding)]">
-              <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">{t('backtest.tradeLog')}</h2>
+            <div className="bg-white border border-[var(--border)] rounded-[6px] p-[var(--card-padding)]">
+              <h2 className="text-[18px] font-semibold mb-4 text-[var(--foreground)]">{t('backtest.tradeLog')}</h2>
               <TradeTimeline trades={detail.trades || []} />
             </div>
           </div>

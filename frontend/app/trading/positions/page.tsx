@@ -1,4 +1,4 @@
-// frontend/app/trading/positions/page.tsx — Dedicated positions management page
+// frontend/app/trading/positions/page.tsx — Dedicated positions management page (Coinbase theme)
 'use client'
 
 import { useTranslations } from 'next-intl'
@@ -13,9 +13,9 @@ export default function PositionsPage() {
   return (
     <SidebarLayout>
       <div className="space-y-3">
-        <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('nav.positions')}</h1>
+        <h1 className="text-[32px] font-[400] tracking-[-0.4px] text-[var(--foreground)]">{t('nav.positions')}</h1>
 
-        <div className="bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-[var(--card-padding)]">
+        <div className="bg-white border border-[var(--border)] rounded-[6px] p-[var(--card-padding)]">
           <PositionTable />
         </div>
       </div>
