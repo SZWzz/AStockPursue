@@ -14,7 +14,8 @@
 - [Market] Baidu loader (P6): historical A-share daily bars from Baidu Finance, JSON format, no API key
 - [Market] TwelveData loader (P7): historical A-share daily bars with optional API key, string-value JSON parsing
 - [Market] Cache interface and MemoryCache implementation with TTL support
-- [Market] DataStore 3-tier fallback: cache → TimescaleDB → loader registry (now 5 loaders in chain)
+- [Market] DataStore 3-tier fallback: cache → TimescaleDB → local store → loader registry (now 5 loaders in chain)
+- [Market] LocalStore: JSONL-based Tier 2 bar storage with timestamp dedup, exchange-organized directories
 - [Engine] Core Engine interface with 6 methods (CanExecute, RoundSize, CalcCommission, ApplySlippage, CalcMargin, CalcPnL)
 - [Engine] Domain types: Order, Position, Portfolio with validation and PnL calculations
 - [Engine] OnBar pipeline with gap detection, suspension detection, signal processing, risk exits, OMS, and equity recording
