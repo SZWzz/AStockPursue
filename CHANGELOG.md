@@ -12,6 +12,9 @@
 - [Engine] RiskManager with stop-loss, take-profit, and trailing stop exit generation
 - [Engine] GrpcSignalAdapter calling Python SignalService via gRPC
 - [Engine] ChinaAEngine with A-share rules: 万三 commission, 千一 stamp duty, minimum 5 yuan, 100-share round lot, 0.1% slippage
+- [Engine] CompositeEngine with market-specific routing via symbol prefix
+- [Engine] EngineFactory for registering and resolving engines by market type
+- [Market] LocalStore stub for Parquet-based Tier 2 storage
 - [Infra] Protobuf definitions for 6 gRPC services (signal, factor, llm, analysis, workflow, common)
 - [Infra] Buf-based code generation pipeline
 - [Infra] Updated Docker Compose with go-core, python-research, frontend, postgres, redis services
