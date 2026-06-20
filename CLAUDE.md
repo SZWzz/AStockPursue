@@ -182,6 +182,28 @@ Only after all three are reviewed by the user and explicitly approved may implem
 
 Any modification that touches engine logic, financial calculations, or data pipelines must follow this flow. Trivial changes (typos, CSS, config) may skip with user consent.
 
+### Go 实现后删除 Python 旧代码
+
+**当 Go 端实现了 Python 端已有的功能模块后，必须删除 Python 端的对应代码**，保证项目脉络清晰、代码无冗余。
+
+具体对应关系（来自重构规范 `docs/superpowers/specs/2026-06-20-go-python-hybrid-refactoring-design.md` 第 2.2 节）：
+
+| Go 实现 | Python 删除 |
+|---------|------------|
+| `services/go/internal/engine/` | `services/python/backtest/engines/` |
+| `services/go/internal/market/loader/` | `services/python/backtest/loaders/` |
+| `services/go/internal/market/store.go` | `services/python/backtest/loaders/store.py` |
+| `services/go/internal/engine/risk.go` | `services/python/src/trading/risk_pipeline.py` |
+| `services/go/internal/api/handler/` | `services/python/src/api/` 对应 route |
+| `services/go/internal/engine/pipeline.go` | `services/python/src/trading/engine.py` |
+| `services/go/internal/broker/` | `services/python/src/trading/brokers/` |
+| `services/go/internal/papertrade/` | `services/python/papertrade/` |
+
+删除前必须满足：
+- Go 端实现**功能完整**（测试覆盖、与 Python 输出回归比对通过）
+- 所有调用方已切换到 Go 端
+- CHANGELOG 记录删除
+
 ### Version Date Check
 
 **Before every commit and push, verify that the project version matches the current date.**  The version is defined in three places and must be kept in sync:
