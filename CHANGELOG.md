@@ -5,7 +5,10 @@
 ### Added
 - [Engine] OptionsEngine: US equity options trading with Black-Scholes pricing, per-contract commission, contract multiplier (100), short margin, and long/short PnL
 - [Engine] FuturesBase: embeddable struct with shared futures contract calculations (RoundSize, CalcCommission, CalcMargin, CalcPnL, ApplySlippage, CanExecute)
+- [Engine] ChinaFuturesEngine: CFFEX/SHFE/DCE/ZCE/INE/GFEX with 16 contracts (IF, IC, IH, RB, CU, AU, I, JM, C, CF, SR, TA, SC, NR, SI, LC), percentage-based commission
+- [Engine] GlobalFuturesEngine: CME/ICE/EUREX with 8 contracts (ES, NQ, CL, GC, B, CC, FDAX, FESX), per-contract flat commission
 - [Engine] ForexEngine: FX spot/CFD trading engine with pip-based PnL, margin (30:1 leverage), spread config, and zero commission
+- [Engine] CompositeEngine: updated ForSymbol routing for all 7 engine types with priority-based symbol matching (A-share → futures → options → crypto → forex → global equity)
 - [Infra] Go core project scaffold with gin HTTP server and health endpoint
 - [Market] Cache interface and MemoryCache implementation with TTL support
 - [Market] DataStore 3-tier fallback: cache → TimescaleDB → loader registry
@@ -35,6 +38,25 @@
 - [Infra] Python code relocated from `backend/` to `services/python/`
 - [Infra] Architecture documented as Go + Python hybrid in CLAUDE.md
 - [Version] Updated to v2026.6.20
+
+### Fixed
+- [Engine] Pipeline: type assertion guard on bar, sorted bar window for deterministic signal generation
+- [Engine] Pipeline: order validation and slippage applied in executeOrder
+- [Engine] BacktestRunner: sorted symbol iteration for deterministic trade recording
+- [Engine] BacktestRunner: commission included in trade records
+- [Engine] BacktestRunner: std dev now uses sample variance (n-1 denominator), single-value edge case handled
+- [Engine] Composite: guard against empty symbol in ForSymbol
+- [Market] MemoryCache: maxEntries limit with 20% FIFO eviction to prevent unbounded growth
+- [Market] MemoryCache: proto.Clone on GetBars to prevent shared mutation bugs
+- [Market] EastMoney loader: BJ exchange (4/8/9 prefix) support via secID mapping, User-Agent header
+- [Market] Tencent loader: User-Agent header, historical data guard
+- [Market] Registry: dedup on Register to prevent duplicate loaders
+- [DB] TimescaleDB: nil pool guard in InsertBars
+- [API] Backtest handler: input validation (symbols, date range, cash, frequency)
+- [API] Trading handler: deep copy portfolio to prevent race conditions
+- [API] Auth middleware with API_KEY env var support
+- [Server] Graceful shutdown with SIGINT/SIGTERM handling
+- [Engine] ChinaAEngine: NewChinaAEngine() constructor replaces struct literal
 
 ### Removed
 - [Infra] Old `backend/` directory (replaced by `services/python/`)
