@@ -95,18 +95,24 @@ func NewRouter(
 		sr.GET("/overview", screenerH.MarketOverview)
 
 		// Factor routes
-		fc := v1.Group("/factor")
-		fc.POST("/compute", factorH.ComputeFactor)
-		fc.POST("/gp-mining", factorH.StartGPMining)
+		if factorH != nil {
+			fc := v1.Group("/factor")
+			fc.POST("/compute", factorH.ComputeFactor)
+			fc.POST("/gp-mining", factorH.StartGPMining)
+		}
 
 		// Workflow routes
-		wc := v1.Group("/workflow")
-		wc.POST("/execute", workflowH.ExecuteWorkflow)
-		wc.GET("/node/:id", workflowH.GetNodeResult)
+		if workflowH != nil {
+			wc := v1.Group("/workflow")
+			wc.POST("/execute", workflowH.ExecuteWorkflow)
+			wc.GET("/node/:id", workflowH.GetNodeResult)
+		}
 
 		// Signal routes
-		sg := v1.Group("/signal")
-		sg.POST("/generate", signalH.Generate)
+		if signalH != nil {
+			sg := v1.Group("/signal")
+			sg.POST("/generate", signalH.Generate)
+		}
 	}
 
 	return r

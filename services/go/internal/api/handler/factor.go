@@ -35,7 +35,7 @@ func (h *FactorHandler) ComputeFactor(c *gin.Context) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 	defer cancel()
 
 	pbReq := &factorv1.FactorRequest{
@@ -84,7 +84,7 @@ func (h *FactorHandler) StartGPMining(c *gin.Context) {
 		req.FitnessMetric = "composite"
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Minute)
 	defer cancel()
 
 	pbReq := &factorv1.GPRequest{
