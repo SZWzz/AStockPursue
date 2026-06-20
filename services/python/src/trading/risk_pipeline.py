@@ -11,6 +11,12 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 
 
+
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
 @dataclass(frozen=True)
 class RiskConfigFields:
     """Canonical field definitions shared between paper-trade and trading.

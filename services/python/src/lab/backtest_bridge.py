@@ -18,6 +18,11 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
 logger = logging.getLogger(__name__)
 
 
@@ -346,6 +351,7 @@ def run_indicator_backtest(
     # 6. Persist metadata to PostgreSQL
     try:
         from src.db.backtest_store import save_backtest_result
+
         summary = {
             "total_return": float(metrics.get("total_return", 0)),
             "sharpe": float(metrics.get("sharpe_ratio", 0)),

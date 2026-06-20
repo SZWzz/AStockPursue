@@ -7,6 +7,11 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
 logger = logging.getLogger(__name__)
 
 
@@ -159,6 +164,7 @@ class LiveBridge:
     def _check_balance(self, user_id: int) -> tuple[bool, str]:
         try:
             from src.trading.brokers.futu_broker import FutuBroker
+
             broker = FutuBroker(user_id=user_id)
             account = broker.get_account()
             if account and account.get("total_assets", 0) > 10000:

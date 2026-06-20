@@ -18,6 +18,11 @@ from typing import Optional
 from .base import BaseBroker, BrokerBalance, BrokerOrder, BrokerPosition
 from .factory import register_broker
 
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
 logger = logging.getLogger(__name__)
 
 
@@ -32,6 +37,7 @@ class OKXBroker(BaseBroker):
         passphrase: str = "", demo: bool = True, **kwargs,
     ) -> None:
         import ccxt.asyncio_support as ccxt_async
+
 
         config = {
             "apiKey": api_key,

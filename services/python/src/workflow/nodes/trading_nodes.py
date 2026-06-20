@@ -11,6 +11,11 @@ from src.workflow.node_base import BaseNode
 from src.workflow.node_registry import register_node
 from src.workflow.schema import NodePort, PortType
 
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
 logger = logging.getLogger(__name__)
 
 
@@ -353,6 +358,7 @@ class FundamentalsNode(BaseNode):
             # Fallback: use DataStore directly
             try:
                 from backtest.data_store import get_data_store
+
                 store = get_data_store()
                 for code in codes:
                     try:

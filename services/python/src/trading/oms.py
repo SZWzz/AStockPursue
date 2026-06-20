@@ -20,6 +20,11 @@ from typing import Any, Callable, Optional
 
 from pydantic import BaseModel, Field
 
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
 logger = logging.getLogger(__name__)
 
 
@@ -308,6 +313,7 @@ def save_order_to_db(order: Order) -> None:
     """Persist a single order to PostgreSQL."""
     try:
         from src.db.pool import get_connection
+
         with get_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(

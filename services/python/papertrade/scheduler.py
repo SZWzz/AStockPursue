@@ -28,6 +28,11 @@ from papertrade.repository import PaperTradeRepository
 from src.trading.live_driver import LiveDriver, interval_to_seconds
 from src.trading.signal_adapter import SignalAdapter
 
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
 logger = logging.getLogger(__name__)
 
 
@@ -378,6 +383,7 @@ class PaperTradingScheduler:
         from backtest.engines.china_a import ChinaAEngine
         from backtest.engines.global_equity import GlobalEquityEngine
         from backtest.engines.crypto import CryptoEngine
+
 
         market_lower = market.lower().replace("-", "_")
         if market_lower in ("a_share", "a_stock", "china_a"):

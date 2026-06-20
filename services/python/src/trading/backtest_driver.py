@@ -22,6 +22,11 @@ from backtest.metrics import by_exit_reason_stats, by_symbol_stats, calc_metrics
 
 import logging
 
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
 logger = logging.getLogger(__name__)
 
 
@@ -552,6 +557,7 @@ class BacktestDriver:
         """Remove codes whose trading session does not include this timestamp."""
         try:
             from backtest.engines.china_futures import bar_in_trading_session
+
         except ImportError:
             return bar
         return {c: s for c, s in bar.items() if bar_in_trading_session(c, ts)}

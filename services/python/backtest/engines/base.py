@@ -31,6 +31,11 @@ from backtest.metrics import (
 )
 from backtest.models import Position, TradeRecord
 
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
 logger = logging.getLogger(__name__)
 
 
@@ -338,6 +343,7 @@ class BaseEngine(ABC):
         ``BacktestDriver().run()`` directly.
         """
         from src.trading.backtest_driver import BacktestDriver
+
         driver = BacktestDriver()
         return driver.run(config, loader, signal_engine, run_dir, self, bars_per_year)
 

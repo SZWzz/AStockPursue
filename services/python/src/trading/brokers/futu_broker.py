@@ -17,6 +17,11 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Optional
 
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
 logger = logging.getLogger(__name__)
 
 
@@ -301,6 +306,7 @@ class FutuBroker:
             return None
         try:
             from futu import RET_OK
+
             ret, data = self._trade_ctx.order_list_query(order_id=order_id)
             if ret != RET_OK or data.empty:
                 return None

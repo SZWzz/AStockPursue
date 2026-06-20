@@ -18,6 +18,11 @@ from typing import Any
 
 import pandas as pd
 
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
 logger = logging.getLogger(__name__)
 
 
@@ -173,6 +178,7 @@ class LiveDriver:
             pass
 
         from backtest.loaders.registry import resolve_loader
+
 
         try:
             loader = resolve_loader(market)

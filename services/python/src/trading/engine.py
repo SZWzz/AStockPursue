@@ -29,6 +29,11 @@ import pandas as pd
 
 from backtest.models import EquitySnapshot, Position, TradeRecord
 
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
 logger = logging.getLogger(__name__)
 
 
@@ -784,6 +789,7 @@ class TradingEngine:
             ``StrategyState.FLAT``.
         """
         from src.trading.state_machine import StrategyState
+
         return StrategyState.FLAT
 
     def _weights_to_signal_dicts(

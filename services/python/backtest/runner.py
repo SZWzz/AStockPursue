@@ -71,6 +71,11 @@ from backtest.loaders.base import NoAvailableSourceError
 # ``backend/src/swarm/grounding.py`` and existing tests that import it
 # from ``backtest.runner``.
 from backtest.engines._market_hooks import (  # noqa: F401  (re-exported)
+# TODO(P5): migrate to Go gRPC equivalents:
+#   - engines → EngineService (not yet exposed)
+#   - risk → RiskService (not yet exposed)
+#   - brokers → BrokerService (not yet exposed)
+
     _detect_market,
     _detect_submarket,
     _is_china_futures,
@@ -1044,6 +1049,7 @@ def _fetch_auto(codes: List[str], config: dict, interval: str = "1D") -> dict:
         # Also write to Parquet store for cold storage
         try:
             from backtest.loaders.store import update_store
+
             for code, df in result.items():
                 try:
                     update_store(code, interval, df)
