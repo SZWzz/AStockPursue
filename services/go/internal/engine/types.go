@@ -71,6 +71,12 @@ func (p *Position) UnrealizedPnL() float64 {
 	return p.Size * (p.CurrentPrice - p.EntryPrice)
 }
 
+type Bar struct {
+	Symbol string
+	Open, High, Low, Close float64
+	Volume int64
+}
+
 type Portfolio struct {
 	Positions map[string]*Position `json:"positions"`
 	Cash      float64              `json:"cash"`

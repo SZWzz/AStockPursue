@@ -6,6 +6,12 @@
 - [Infra] Go core project scaffold with gin HTTP server and health endpoint
 - [Market] Cache interface and MemoryCache implementation with TTL support
 - [Market] DataStore 3-tier fallback: cache → TimescaleDB → loader registry
+- [Engine] Core Engine interface with 6 methods (CanExecute, RoundSize, CalcCommission, ApplySlippage, CalcMargin, CalcPnL)
+- [Engine] Domain types: Order, Position, Portfolio with validation and PnL calculations
+- [Engine] OnBar pipeline with gap detection, suspension detection, signal processing, risk exits, OMS, and equity recording
+- [Engine] RiskManager with stop-loss, take-profit, and trailing stop exit generation
+- [Engine] GrpcSignalAdapter calling Python SignalService via gRPC
+- [Engine] ChinaAEngine with A-share rules: 万三 commission, 千一 stamp duty, minimum 5 yuan, 100-share round lot, 0.1% slippage
 - [Infra] Protobuf definitions for 6 gRPC services (signal, factor, llm, analysis, workflow, common)
 - [Infra] Buf-based code generation pipeline
 - [Infra] Updated Docker Compose with go-core, python-research, frontend, postgres, redis services
