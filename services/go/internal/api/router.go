@@ -10,6 +10,8 @@ func NewRouter(
 	health *handler.HealthHandler,
 	backtest *handler.BacktestHandler,
 	trading *handler.TradingHandler,
+	marketH *handler.MarketHandler,
+	brokerH *handler.BrokerHandler,
 ) *gin.Engine {
 	r := gin.Default()
 	r.Use(middleware.Auth())
@@ -27,6 +29,15 @@ func NewRouter(
 		tr.POST("/start", trading.Start)
 		tr.POST("/stop", trading.Stop)
 		tr.GET("/status", trading.Status)
+
+		mk := v1.Group("/market")
+		mk.GET("/bars", marketH.GetBars)
+		mk.GET("/symbols", marketH.ListSymbols)
+
+		br := v1.Group("/broker")
+		br.GET("/account", brokerH.GetAccount)
+		br.GET("/positions", brokerH.GetPositions)
+		br.GET("/list", brokerH.GetBrokers)
 	}
 
 	return r

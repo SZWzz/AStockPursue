@@ -11,6 +11,7 @@ import (
 
 	"github.com/astockpursue/go-core/internal/api"
 	"github.com/astockpursue/go-core/internal/api/handler"
+	"github.com/astockpursue/go-core/internal/broker"
 	"github.com/astockpursue/go-core/internal/config"
 	"github.com/astockpursue/go-core/internal/db"
 	"github.com/astockpursue/go-core/internal/engine"
@@ -57,8 +58,31 @@ func main() {
 	runner := engine.NewLiveTradingRunner(pipeline, 1*time.Minute)
 	trHandler := handler.NewTradingHandler(runner)
 
+	marketH := handler.NewMarketHandler(ds)
+
+	// Try to connect brokers (optional — API keys from env)
+	var binanceBroker, okxBroker broker.Broker
+	if key := os.Getenv("BINANCE_API_KEY"); key != "" {
+		if b, err := broker.New("binance", broker.BrokerConfig{
+			APIKey: key, Secret: os.Getenv("BINANCE_SECRET"),
+			Testnet: os.Getenv("BINANCE_TESTNET") == "true",
+		}); err == nil {
+			binanceBroker = b
+			log.Print("Binance broker connected")
+		}
+	}
+	if key := os.Getenv("OKX_API_KEY"); key != "" {
+		if b, err := broker.New("okx", broker.BrokerConfig{
+			APIKey: key, Secret: os.Getenv("OKX_SECRET"), Passphrase: os.Getenv("OKX_PASSPHRASE"),
+		}); err == nil {
+			okxBroker = b
+			log.Print("OKX broker connected")
+		}
+	}
+	brokerH := handler.NewBrokerHandler(binanceBroker, okxBroker)
+
 	healthH := &handler.HealthHandler{}
-	r := api.NewRouter(healthH, btHandler, trHandler)
+	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
