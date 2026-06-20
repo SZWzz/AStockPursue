@@ -3,7 +3,9 @@
 
 import { useEffect, useRef } from 'react'
 import * as d3 from 'd3'
-import { OLED } from '@/lib/constants'
+
+const downColor = '#CF202F'
+const gridColor = '#EEF0F3'
 
 interface DD { time: string; drawdown: number }
 
@@ -24,13 +26,17 @@ export function DrawdownChart({ data }: { data: DD[] }) {
     const y = d3.scaleLinear().domain([d3.min(data, d => d.drawdown) || -1, 0]).range([height, 0])
 
     g.append('g').call(d3.axisLeft(y).ticks(5).tickFormat(d3.format('.0%')))
-      .selectAll('text').attr('fill', OLED.foregroundMuted).style('font-size', '10px')
-    g.selectAll('.domain, .tick line').attr('stroke', OLED.borderSubtle)
+      .selectAll('text').attr('fill', '#5E6673').style('font-size', '10px')
+    g.selectAll('.domain, .tick line').attr('stroke', gridColor)
 
     const area = d3.area<DD>().x(d => x(d.time)!).y0(y(0)).y1(d => y(d.drawdown))
-    g.append('path').datum(data).attr('fill', OLED.down).attr('fill-opacity', 0.2).attr('d', area)
-    g.append('path').datum(data).attr('fill', 'none').attr('stroke', OLED.down).attr('stroke-width', 1.5).attr('d', area)
+    g.append('path').datum(data).attr('fill', downColor).attr('fill-opacity', 0.2).attr('d', area)
+    g.append('path').datum(data).attr('fill', 'none').attr('stroke', downColor).attr('stroke-width', 1.5).attr('d', area)
   }, [data])
 
-  return <svg ref={ref} width="100%" height={200} />
+  return (
+    <div className="bg-white border border-[var(--border)] rounded-[6px]">
+      <svg ref={ref} width="100%" height={200} />
+    </div>
+  )
 }

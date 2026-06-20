@@ -11,7 +11,7 @@ export function TradeTimeline({ trades }: { trades: TradeItem[] }) {
   return (
     <div className="space-y-0">
       {trades.map(trade => (
-        <div key={trade.id} className="flex items-center gap-3 py-1.5 px-2 border-b border-[var(--border-subtle)] last:border-0 text-[12px]">
+        <div key={trade.id} className="flex items-center h-10 px-4 border-b border-[var(--border-subtle)] last:border-0 text-[14px]">
           <span className={cn('w-8 font-medium', trade.side === 'buy' ? 'text-[var(--up)]' : 'text-[var(--down)]')}>{trade.side.toUpperCase()}</span>
           <span className="font-mono w-20">{trade.symbol}</span>
           <span className="font-mono w-16 text-right">{formatPrice(trade.price)}</span>

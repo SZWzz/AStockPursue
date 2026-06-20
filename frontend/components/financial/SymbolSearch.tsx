@@ -22,13 +22,13 @@ export function SymbolSearch({ onSelect, className }: SymbolSearchProps) {
 
   return (
     <div className={cn('relative', className)}>
-      <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--foreground-muted)]" />
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--foreground-muted)]" />
       <Input
         value={query}
         onChange={e => setQuery(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Search symbol..."
-        className="pl-7 h-7 text-[12px] bg-[var(--surface-2)] border-[var(--border-default)] w-[180px]"
+        className="pl-9 pr-4 h-10 w-full rounded-[6px] border border-[var(--border)] bg-white text-[14px] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
       />
     </div>
   )
