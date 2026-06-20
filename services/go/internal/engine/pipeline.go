@@ -31,9 +31,13 @@ func (p *Pipeline) OnBar(bar interface{}, ts time.Time) {
 
 	p.checkSuspension(b)
 
-	weights, err := p.Signal.Generate(p.barWindow(), ts)
-	if err != nil {
-		log.Printf("signal error: %v", err)
+	var weights map[string]float64
+	var err error
+	if p.Signal != nil {
+		weights, err = p.Signal.Generate(p.barWindow(), ts)
+		if err != nil {
+			log.Printf("signal error: %v", err)
+		}
 	}
 
 	riskOrders := p.Risk.CheckExits(p.Portfolio, b)

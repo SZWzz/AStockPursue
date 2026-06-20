@@ -15,6 +15,13 @@
 - [Engine] CompositeEngine with market-specific routing via symbol prefix
 - [Engine] EngineFactory for registering and resolving engines by market type
 - [Market] LocalStore stub for Parquet-based Tier 2 storage
+- [Engine] BacktestRunner with multi-symbol bar alignment, equity curve, Sharpe/max-drawdown/win-rate metrics
+- [Engine] LiveTradingRunner with goroutine-based event loop and start/stop control
+- [Engine] NoopSignalAdapter for signal-free pipeline operation
+- [API] POST /api/v1/backtest — run backtest with configurable symbols/date range/capital
+- [API] GET /api/v1/backtest/:id — fetch backtest result
+- [API] POST /api/v1/trading/start|stop — live trading control
+- [API] GET /api/v1/trading/status — live trading status and portfolio
 - [Infra] Protobuf definitions for 6 gRPC services (signal, factor, llm, analysis, workflow, common)
 - [Infra] Buf-based code generation pipeline
 - [Infra] Updated Docker Compose with go-core, python-research, frontend, postgres, redis services
