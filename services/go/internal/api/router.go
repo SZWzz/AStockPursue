@@ -18,6 +18,8 @@ func NewRouter(
 	settingsH *handler.SettingsHandler,
 	systemH *handler.SystemHandler,
 	analysisH *handler.AnalysisHandler,
+	schedulerH *handler.SchedulerHandler,
+	screenerH *handler.ScreenerHandler,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -75,6 +77,19 @@ func NewRouter(
 		an.GET("/drawdown", analysisH.Drawdown)
 		an.POST("/attribution", analysisH.Attribution)
 		an.POST("/stress-test", analysisH.StressTest)
+
+		sc := v1.Group("/scheduler")
+		sc.POST("", schedulerH.CreateJob)
+		sc.GET("", schedulerH.ListJobs)
+		sc.GET("/:id", schedulerH.GetJob)
+		sc.POST("/:id/start", schedulerH.StartJob)
+		sc.POST("/:id/pause", schedulerH.PauseJob)
+		sc.DELETE("/:id", schedulerH.DeleteJob)
+
+		sr := v1.Group("/screener")
+		sr.POST("", screenerH.Screen)
+		sr.GET("/movers", screenerH.TopMovers)
+		sr.GET("/overview", screenerH.MarketOverview)
 	}
 
 	return r
