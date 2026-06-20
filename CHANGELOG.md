@@ -3,6 +3,7 @@
 ## [2026.6.20] - 2026-06-20
 
 ### Added
+- [Engine] FuturesBase: embeddable struct with shared futures contract calculations (RoundSize, CalcCommission, CalcMargin, CalcPnL, ApplySlippage, CanExecute)
 - [Infra] Go core project scaffold with gin HTTP server and health endpoint
 - [Market] Cache interface and MemoryCache implementation with TTL support
 - [Market] DataStore 3-tier fallback: cache → TimescaleDB → loader registry
