@@ -18,7 +18,8 @@ import grpc
 import numpy as np
 import pandas as pd
 
-from src.gen import data_pb2_grpc, factor_pb2_grpc, llm_pb2_grpc, signal_pb2, signal_pb2_grpc
+from src.gen import analysis_pb2_grpc, data_pb2_grpc, factor_pb2_grpc, llm_pb2_grpc, signal_pb2, signal_pb2_grpc
+from src.grpc.analysis_service import AnalysisServiceServicer
 from src.grpc.data_service import DataServiceServicer
 from src.grpc.factor_service import FactorServiceServicer
 from src.grpc.llm_service import LLMServiceServicer
@@ -158,10 +159,13 @@ def serve(port: int = 8902, max_workers: int = 10) -> grpc.Server:
     llm_servicer = LLMServiceServicer()
     llm_pb2_grpc.add_LLMServiceServicer_to_server(llm_servicer, server)
 
-    server.add_insecure_port(f"[::]:{port}")
-    logger.info("gRPC server (SignalService + DataService + FactorService + LLMService) listening on port %d", port)
+    analysis_servicer = AnalysisServiceServicer()
+    analysis_pb2_grpc.add_AnalysisServiceServicer_to_server(analysis_servicer, server)
 
-    return server, signal_servicer, data_servicer, factor_servicer, llm_servicer
+    server.add_insecure_port(f"[::]:{port}")
+    logger.info("gRPC server (SignalService + DataService + FactorService + LLMService + AnalysisService) listening on port %d", port)
+
+    return server, signal_servicer, data_servicer, factor_servicer, llm_servicer, analysis_servicer
 
 
 if __name__ == "__main__":

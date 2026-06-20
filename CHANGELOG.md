@@ -3,6 +3,7 @@
 ## [2026.6.20] - 2026-06-20
 
 ### Added
+- [gRPC] Add AnalysisService servicer with CalcAttribution, CalcCorrelation, StressTest RPCs
 - [Frontend] Add PositionTable component — renders positions via usePositions() SWR hook with shadcn Table (loading/error/empty states, up/down color coding)
 - [Frontend] Add OrderForm component — order submission form using useOrderFormStore() Zustand store, POST to /api/trading/orders with toast feedback
 - [Frontend] Add paper trading list page (app/paper-trading/page.tsx) — table with Name, Strategy, Status badge, PnL (color-coded), Created date; "New" button creates account via POST /api/papertrading; each row navigates to /paper-trading/[id]
@@ -47,6 +48,11 @@
 - [Frontend] Remove duplicate postcss.config.js (conflicted with postcss.config.mjs Tailwind v4 config)
 
 ### Added
+- [Broker] EngineAdapter — wraps broker.Broker to satisfy engine.BrokerExecutor interface, enabling live trading engine to use any registered broker
+- [Broker] FutuBroker — TCP connection to FutuOpenD gateway (default localhost:11111), JSON-encoded wire protocol with auto-reconnect (3 retries: 2s/5s/10s)
+- [Market] BinanceFeed — WebSocket kline feed (wss://stream.binance.com:9443/ws), implements MarketFeed interface with Subscribe/Unsubscribe/auto-reconnect
+- [Papertrade] Engine package — paper trade run management with state machine (created→running→paused→stopped→error), in-memory repository, CRUD operations
+- [API] PaperTradingHandler refactored to delegate to papertrade.Engine package, removing inline pipeline/runner logic
 - [Frontend] Add Dockerfile for Next.js production build (node:22-alpine multi-stage, port 5899)
 - [Frontend] Add Vitest test infrastructure: vitest.config.ts with React plugin + jsdom + @/ alias, __tests__/setup.ts, 28 passing tests (utils + KpiCard)
 - [Engine] OptionsEngine: US equity options trading with Black-Scholes pricing, per-contract commission, contract multiplier (100), short margin, and long/short PnL
