@@ -15,13 +15,36 @@ import (
 type GrpcSignalAdapter struct {
 	grpcAddr string
 	timeout  time.Duration
+	conn     *grpc.ClientConn
+	client   signalv1.SignalServiceClient
 }
 
 func NewSignalAdapter(addr string, timeout time.Duration) *GrpcSignalAdapter {
-	return &GrpcSignalAdapter{grpcAddr: addr, timeout: timeout}
+	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("signal adapter: grpc dial error: %v", err)
+		return &GrpcSignalAdapter{grpcAddr: addr, timeout: timeout}
+	}
+	client := signalv1.NewSignalServiceClient(conn)
+	return &GrpcSignalAdapter{
+		grpcAddr: addr,
+		timeout:  timeout,
+		conn:     conn,
+		client:   client,
+	}
+}
+
+func (s *GrpcSignalAdapter) Close() error {
+	if s.conn != nil {
+		return s.conn.Close()
+	}
+	return nil
 }
 
 func (s *GrpcSignalAdapter) Generate(bars []interface{}, ts time.Time) (map[string]float64, error) {
+	if s.client == nil {
+		return nil, fmt.Errorf("signal adapter: not connected")
+	}
 	log.Printf("signal adapter: calling Python gRPC at %s with %d bars", s.grpcAddr, len(bars))
 
 	pbBars := make([]*commonv1.Bar, len(bars))
@@ -38,17 +61,10 @@ func (s *GrpcSignalAdapter) Generate(bars []interface{}, ts time.Time) (map[stri
 		}
 	}
 
-	conn, err := grpc.Dial(s.grpcAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		return nil, fmt.Errorf("grpc dial: %w", err)
-	}
-	defer conn.Close()
-
-	client := signalv1.NewSignalServiceClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), s.timeout)
 	defer cancel()
 
-	resp, err := client.GenerateSignals(ctx, &signalv1.SignalRequest{Bars: pbBars})
+	resp, err := s.client.GenerateSignals(ctx, &signalv1.SignalRequest{Bars: pbBars})
 	if err != nil {
 		return nil, fmt.Errorf("generate signals: %w", err)
 	}

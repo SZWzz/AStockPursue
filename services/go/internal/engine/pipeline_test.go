@@ -38,7 +38,10 @@ func (m *mockEngine) Name() string                                    { return "
 func (m *mockEngine) CanExecute(order *Order) bool                    { return m.canExec }
 func (m *mockEngine) RoundSize(size float64) float64                  { return m.roundSizeFn(size) }
 func (m *mockEngine) CalcCommission(order *Order) float64             { return m.commFn(order) }
-func (m *mockEngine) ApplySlippage(order *Order, bar interface{}) float64 { return 0 }
+func (m *mockEngine) ApplySlippage(order *Order, bar interface{}) float64 {
+	b := bar.(*Bar)
+	return b.Close
+}
 func (m *mockEngine) CalcMargin(position *Position) float64           { return 0 }
 func (m *mockEngine) CalcPnL(position *Position) float64              { return 0 }
 

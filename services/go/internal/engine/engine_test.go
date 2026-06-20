@@ -64,7 +64,7 @@ func TestPositionSideLong(t *testing.T) {
 
 func TestPositionZeroSize(t *testing.T) {
 	pos := &Position{Symbol: "000001", Size: 0, EntryPrice: 10.0}
-	assert.Equal(t, "long", pos.Side())
+	assert.Equal(t, "", pos.Side())
 }
 
 func TestPositionUnrealizedPnLShort(t *testing.T) {

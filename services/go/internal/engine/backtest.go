@@ -91,11 +91,11 @@ func (br *BacktestRunner) Run(symbols []string, start, end time.Time, freq strin
 
 	initialCash := br.pipeline.Portfolio.Cash
 	var equityCurve []EquityPoint
-	openTrades := make(map[string]*TradeRecord)
 
 	for _, ts := range merged {
 		tsTime := time.UnixMilli(ts)
-		for _, bars := range symbolBars {
+		for _, sym := range sortedKeys(symbolBars) {
+			bars := symbolBars[sym]
 			for _, bar := range bars {
 				if bar.Timestamp != ts {
 					continue
@@ -109,12 +109,11 @@ func (br *BacktestRunner) Run(symbols []string, start, end time.Time, freq strin
 					Volume: bar.Volume,
 				}
 
-				cashBefore := br.pipeline.Portfolio.Cash
 				posBefore := copyPositions(br.pipeline.Portfolio.Positions)
 
 				br.pipeline.OnBar(eb, tsTime)
 
-				br.recordTrades(bar, cashBefore, posBefore, openTrades)
+				br.recordTrades(bar, posBefore)
 				break
 			}
 		}
@@ -137,6 +136,15 @@ func (br *BacktestRunner) Run(symbols []string, start, end time.Time, freq strin
 	return result, nil
 }
 
+func sortedKeys(m map[string][]*commonv1.Bar) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
 func (br *BacktestRunner) mergeBars(symbolBars map[string][]*commonv1.Bar) []int64 {
 	tsSet := make(map[int64]struct{})
 	for _, bars := range symbolBars {
@@ -152,38 +160,49 @@ func (br *BacktestRunner) mergeBars(symbolBars map[string][]*commonv1.Bar) []int
 	return ts
 }
 
-func (br *BacktestRunner) recordTrades(bar *commonv1.Bar, cashBefore float64, posBefore map[string]*Position, openTrades map[string]*TradeRecord) {
+func (br *BacktestRunner) recordTrades(bar *commonv1.Bar, posBefore map[string]*Position) {
 	portfolio := br.pipeline.Portfolio
 	for symbol, pos := range portfolio.Positions {
 		oldPos, existed := posBefore[symbol]
 		if !existed {
+			qty := pos.Size
+			comm := br.pipeline.Engine.CalcCommission(&Order{
+				Quantity: qty, Price: bar.Close, Side: Buy,
+			})
 			br.trades = append(br.trades, TradeRecord{
 				Symbol: symbol, Side: Buy,
-				Quantity: pos.Size, Price: bar.Close,
-				Timestamp: time.UnixMilli(bar.Timestamp),
+				Quantity: qty, Price: bar.Close,
+				Commission: comm,
+				Timestamp:  time.UnixMilli(bar.Timestamp),
 			})
 			continue
 		}
 		if oldPos.Size < pos.Size {
+			qty := pos.Size - oldPos.Size
+			comm := br.pipeline.Engine.CalcCommission(&Order{
+				Quantity: qty, Price: bar.Close, Side: Buy,
+			})
 			br.trades = append(br.trades, TradeRecord{
 				Symbol: symbol, Side: Buy,
-				Quantity: pos.Size - oldPos.Size,
-				Price:    bar.Close,
-				Timestamp: time.UnixMilli(bar.Timestamp),
+				Quantity: qty, Price: bar.Close,
+				Commission: comm,
+				Timestamp:  time.UnixMilli(bar.Timestamp),
 			})
 		}
 	}
 	for symbol, oldPos := range posBefore {
 		if _, stillHolding := portfolio.Positions[symbol]; !stillHolding {
 			pnl := oldPos.Size * (bar.Close - oldPos.EntryPrice)
+			comm := br.pipeline.Engine.CalcCommission(&Order{
+				Quantity: oldPos.Size, Price: bar.Close, Side: Sell,
+			})
 			br.trades = append(br.trades, TradeRecord{
 				Symbol: symbol, Side: Sell,
 				Quantity: oldPos.Size, Price: bar.Close,
+				Commission: comm,
 				PnL: pnl, Timestamp: time.UnixMilli(bar.Timestamp),
 			})
 		}
-	}
-	if cashBefore != portfolio.Cash {
 	}
 }
 
@@ -257,6 +276,9 @@ func meanStd(values []float64) (mean, std float64) {
 	if len(values) == 0 {
 		return 0, 0
 	}
+	if len(values) == 1 {
+		return values[0], 0
+	}
 	for _, v := range values {
 		mean += v
 	}
@@ -265,6 +287,6 @@ func meanStd(values []float64) (mean, std float64) {
 		diff := v - mean
 		std += diff * diff
 	}
-	std = math.Sqrt(std / float64(len(values)))
+	std = math.Sqrt(std / float64(len(values)-1))
 	return mean, std
 }

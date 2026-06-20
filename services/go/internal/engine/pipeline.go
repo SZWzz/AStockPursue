@@ -2,6 +2,7 @@ package engine
 
 import (
 	"log"
+	"sort"
 	"time"
 )
 
@@ -23,7 +24,11 @@ type Pipeline struct {
 }
 
 func (p *Pipeline) OnBar(bar interface{}, ts time.Time) {
-	b := bar.(*Bar)
+	b, ok := bar.(*Bar)
+	if !ok {
+		log.Printf("pipeline: expected *Bar, got %T", bar)
+		return
+	}
 
 	p.EquityCache = p.Portfolio.Equity
 
@@ -40,6 +45,8 @@ func (p *Pipeline) OnBar(bar interface{}, ts time.Time) {
 		}
 	}
 
+	p.LastBars[b.Symbol] = b
+
 	riskOrders := p.Risk.CheckExits(p.Portfolio, b)
 
 	p.processOrders(weights, riskOrders, b, ts)
@@ -55,7 +62,6 @@ func (p *Pipeline) checkGaps(b *Bar) {
 			log.Printf("gap detected: %s %.2f%%", b.Symbol, gap)
 		}
 	}
-	p.LastBars[b.Symbol] = b
 }
 
 func (p *Pipeline) checkSuspension(b *Bar) {
@@ -66,8 +72,13 @@ func (p *Pipeline) checkSuspension(b *Bar) {
 
 func (p *Pipeline) barWindow() []interface{} {
 	var bars []interface{}
-	for _, b := range p.LastBars {
-		bars = append(bars, b)
+	var keys []string
+	for sym := range p.LastBars {
+		keys = append(keys, sym)
+	}
+	sort.Strings(keys)
+	for _, sym := range keys {
+		bars = append(bars, p.LastBars[sym])
 	}
 	return bars
 }
@@ -126,8 +137,15 @@ func (p *Pipeline) generateSignalOrder(symbol string, targetWeight float64, bar 
 }
 
 func (p *Pipeline) executeOrder(order *Order, bar interface{}) {
+	if err := order.Validate(); err != nil {
+		log.Printf("order rejected: %v", err)
+		return
+	}
 	if p.Engine != nil && !p.Engine.CanExecute(order) {
 		return
+	}
+	if p.Engine != nil {
+		order.Price = p.Engine.ApplySlippage(order, bar)
 	}
 	cost := order.Quantity * order.Price
 	commission := p.Engine.CalcCommission(order)
@@ -157,10 +175,12 @@ func (p *Pipeline) executeOrder(order *Order, bar interface{}) {
 
 func (p *Pipeline) recordEquity(bar interface{}) {
 	b := bar.(*Bar)
+	if pos, ok := p.Portfolio.Positions[b.Symbol]; ok {
+		pos.CurrentPrice = b.Close
+	}
 	totalPositionValue := 0.0
 	for _, pos := range p.Portfolio.Positions {
-		pos.CurrentPrice = b.Close
-		totalPositionValue += pos.Size * b.Close
+		totalPositionValue += pos.Size * pos.CurrentPrice
 	}
 	p.Portfolio.Equity = p.Portfolio.Cash + totalPositionValue
 }

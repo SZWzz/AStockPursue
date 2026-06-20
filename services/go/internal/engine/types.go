@@ -61,7 +61,10 @@ type Position struct {
 }
 
 func (p *Position) Side() string {
-	if p.Size >= 0 {
+	if p.Size == 0 {
+		return ""
+	}
+	if p.Size > 0 {
 		return "long"
 	}
 	return "short"

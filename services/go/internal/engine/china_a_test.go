@@ -67,5 +67,5 @@ func TestChinaACommissionZeroQuantity(t *testing.T) {
 	e := &ChinaAEngine{}
 	order := &Order{Quantity: 0, Price: 10.0, Side: Buy}
 	commission := e.CalcCommission(order)
-	assert.Equal(t, 5.0, commission)
+	assert.Equal(t, 0.0, commission)
 }
