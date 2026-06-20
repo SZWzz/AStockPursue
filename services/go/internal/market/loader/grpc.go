@@ -72,6 +72,20 @@ func (g *GrpcDataLoader) FetchBars(symbol string, start, end time.Time) ([]*comm
 	return resp.Bars, nil
 }
 
+// Default gRPC data service address (Python DataService on port 8902).
+const grpcDataServiceAddr = "localhost:8902"
+
+func init() {
+	// Priority 2: mootdx — free TCP, fastest A-share source
+	RegisterPriority(NewGrpcDataLoader("mootdx", grpcDataServiceAddr), 2)
+	// Priority 3: tushare — needs API key, excellent coverage
+	RegisterPriority(NewGrpcDataLoader("tushare", grpcDataServiceAddr), 3)
+	// Priority 4: futu — needs FutuOpenD, HK + A-share
+	RegisterPriority(NewGrpcDataLoader("futu", grpcDataServiceAddr), 4)
+	// Priority 11: akshare — slow but multi-market, last resort
+	RegisterPriority(NewGrpcDataLoader("akshare", grpcDataServiceAddr), 11)
+}
+
 func (g *GrpcDataLoader) Close() error {
 	if g.conn != nil {
 		return g.conn.Close()
