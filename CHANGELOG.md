@@ -5,6 +5,8 @@
 ### Added
 - [Frontend] Add OLED theme CSS variables (globals.css) with surface layers, borders, brand, semantic, text, layout, radius, and font tokens; scrollbar styling; zh locale red-up/green-down swap
 - [Frontend] Add frontend/lib/constants.ts with OLED color constants, API_BASE and WS_URL environment variables
+- [Frontend] Add frontend/lib/utils.ts with cn() class merger, format helpers (price, percent, volume, PnL, datetime), and colorForChange utility
+- [Frontend] Add frontend/lib/api-client.ts with apiFetch() wrapper and setApiToken() for JWT-authenticated HTTP calls to the Go backend
 
 ### Removed
 - [Frontend] Remove stale Vite scaffold files (vite.config.ts, index.html, src/, public/) — only Next.js config remains after scaffold migration
