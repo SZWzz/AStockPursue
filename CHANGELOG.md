@@ -3,6 +3,7 @@
 ## [2026.6.20] - 2026-06-20
 
 ### Added
+- [Portfolio] Add Sizer interface with EqualWeight, Kelly, and RiskParity implementations in Go portfolio sizing package
 - [API] Add factor.go, workflow.go, signal.go handlers proxying HTTP to Python gRPC (FactorService, WorkflowService, SignalService); register /api/v1/factor, /api/v1/workflow, /api/v1/signal routes in router.go; wire gRPC connection in main.go
 - [gRPC] Add WorkflowService servicer with ExecuteWorkflow and GetNodeResult RPCs
 - [gRPC] Add AnalysisService servicer with CalcAttribution, CalcCorrelation, StressTest RPCs
