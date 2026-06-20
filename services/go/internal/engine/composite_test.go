@@ -47,7 +47,7 @@ func TestCompositeEngineApplySlippage(t *testing.T) {
 	f := NewEngineFactory()
 	c := NewCompositeEngine(f)
 
-	price := c.ApplySlippage(&Order{Side: Buy}, &Bar{Symbol: "000001", Close: 10.0})
+	price := c.ApplySlippage(&Order{Symbol: "000001", Side: Buy}, &Bar{Symbol: "000001", Close: 10.0})
 	assert.InDelta(t, 10.01, price, 0.001)
 }
 
@@ -60,8 +60,51 @@ func TestCompositeEngineMarginAndPnL(t *testing.T) {
 	assert.InDelta(t, 100.0, c.CalcPnL(pos), 0.01)
 }
 
-func TestEngineFactoryForCryptoFallsBack(t *testing.T) {
+func TestEngineFactoryForCrypto(t *testing.T) {
 	f := NewEngineFactory()
-	e := f.ForSymbol("BTC-USDT")
-	assert.Equal(t, "china_a", e.Name(), "crypto not registered, should fallback to china_a")
+	e := f.ForSymbol("BTCUSDT")
+	assert.Equal(t, "crypto", e.Name())
+}
+
+func TestEngineFactoryForForex(t *testing.T) {
+	f := NewEngineFactory()
+	e := f.ForSymbol("EURUSD")
+	assert.Equal(t, "forex", e.Name())
+}
+
+func TestEngineFactoryForChinaFutures(t *testing.T) {
+	f := NewEngineFactory()
+	e := f.ForSymbol("IF")
+	assert.Equal(t, "china_futures", e.Name())
+}
+
+func TestEngineFactoryForGlobalFutures(t *testing.T) {
+	f := NewEngineFactory()
+	e := f.ForSymbol("ES")
+	assert.Equal(t, "global_futures", e.Name())
+}
+
+func TestEngineFactoryForOptions(t *testing.T) {
+	f := NewEngineFactory()
+	e := f.ForSymbol("AAPL.OPT")
+	assert.Equal(t, "options", e.Name())
+}
+
+func TestEngineFactoryForGlobalEquity(t *testing.T) {
+	f := NewEngineFactory()
+	e := f.ForSymbol("AAPL")
+	assert.Equal(t, "global_equity", e.Name())
+}
+
+func TestEngineFactoryForGlobalEquityHSTech(t *testing.T) {
+	f := NewEngineFactory()
+	e := f.ForSymbol("0700")
+	assert.Equal(t, "china_a", e.Name(), "numeric code should route to china_a")
+}
+
+func TestEngineFactoryChinaFuturesExactMatch(t *testing.T) {
+	f := NewEngineFactory()
+	// "AU" is gold futures, NOT AUD forex
+	e := f.ForSymbol("AU")
+	assert.Equal(t, "china_futures", e.Name())
 }
