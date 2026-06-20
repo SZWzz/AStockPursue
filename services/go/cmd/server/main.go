@@ -22,7 +22,8 @@ func main() {
 
 	factory := engine.NewEngineFactory()
 	cache := market.NewMemoryCache(5*time.Minute, 10000)
-	ds := market.NewDataStore(nil, cache)
+	localStore := market.NewLocalStore(cfg.DataDir + "/bars")
+	ds := market.NewDataStore(nil, cache).WithLocalStore(localStore)
 
 	var repo handler.BacktestRepository
 	timescaleDB, err := db.NewTimescaleDB(context.Background(), cfg.DatabaseURL)

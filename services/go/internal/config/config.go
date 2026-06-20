@@ -7,6 +7,7 @@ type Config struct {
 	DatabaseURL string
 	RedisURL    string
 	GrpcPort    string
+	DataDir     string
 }
 
 func Load() *Config {
@@ -15,6 +16,7 @@ func Load() *Config {
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/astockpursue?sslmode=disable"),
 		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379/0"),
 		GrpcPort:    getEnv("GRPC_PORT", "8901"),
+		DataDir:     getEnv("DATA_DIR", "./data"),
 	}
 }
 
