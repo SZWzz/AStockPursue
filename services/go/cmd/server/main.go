@@ -48,7 +48,7 @@ func main() {
 			Equity:    100000,
 			Positions: make(map[string]*engine.Position),
 		},
-		Signal:   engine.NewNoopSignalAdapter(),
+		Signal:   engine.NewSignalAdapter("localhost:8902", 10*time.Second),
 		Risk:     engine.NewRiskManager(engine.RiskConfig{}),
 		LastBars: make(map[string]interface{}),
 	}

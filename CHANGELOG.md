@@ -20,7 +20,9 @@
 - [Engine] Domain types: Order, Position, Portfolio with validation and PnL calculations
 - [Engine] OnBar pipeline with gap detection, suspension detection, signal processing, risk exits, OMS, and equity recording
 - [Engine] RiskManager with stop-loss, take-profit, and trailing stop exit generation
-- [Engine] GrpcSignalAdapter calling Python SignalService via gRPC
+- [Engine] GrpcSignalAdapter calling Python SignalService via gRPC (verified end-to-end)
+- [Python] gRPC SignalService server with protobuf-to-DataFrame conversion, pluggable strategy
+- [Python] gen_proto.py: proto generation script for Go↔Python shared protobuf definitions
 - [Engine] ChinaAEngine with A-share rules: 万三 commission, 千一 stamp duty, minimum 5 yuan, 100-share round lot, 0.1% slippage
 - [Engine] CompositeEngine with market-specific routing via symbol prefix
 - [Engine] EngineFactory for registering and resolving engines by market type
