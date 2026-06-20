@@ -67,7 +67,7 @@ export default function SettingsPage() {
     <SidebarLayout>
       <div className="space-y-3 max-w-2xl">
         {/* Header */}
-        <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('nav.settings')}</h1>
+        <h1 className="text-[20px] font-semibold text-[var(--foreground)]">{t('nav.settings')}</h1>
 
         {/* Loading state */}
         {isLoading && (

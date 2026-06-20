@@ -121,7 +121,7 @@ export default function FactorDetailPage() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[20px] font-bold text-[var(--foreground)]">{detail.name}</h1>
+            <h1 className="text-[20px] font-semibold text-[var(--foreground)]">{detail.name}</h1>
             {detail.description && (
               <p className="text-[12px] text-[var(--foreground-muted)] mt-0.5">{detail.description}</p>
             )}

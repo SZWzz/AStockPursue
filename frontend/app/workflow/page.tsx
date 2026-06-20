@@ -63,7 +63,7 @@ export default function WorkflowPage() {
       <div className="space-y-3">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('nav.workflow')}</h1>
+          <h1 className="text-[20px] font-semibold text-[var(--foreground)]">{t('nav.workflow')}</h1>
           <div className="flex items-center gap-2">
             <button
               onClick={handleImport}

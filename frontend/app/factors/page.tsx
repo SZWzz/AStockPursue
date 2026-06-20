@@ -41,7 +41,7 @@ export default function FactorsPage() {
     <SidebarLayout>
       <div className="space-y-3">
         {/* Header */}
-        <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('nav.factors')}</h1>
+        <h1 className="text-[20px] font-semibold text-[var(--foreground)]">{t('nav.factors')}</h1>
 
         {/* Search bar */}
         <div className="flex items-center gap-2">

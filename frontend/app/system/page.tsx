@@ -86,7 +86,7 @@ export default function SystemPage() {
     <SidebarLayout>
       <div className="space-y-3">
         {/* Header */}
-        <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('nav.systemStatus')}</h1>
+        <h1 className="text-[20px] font-semibold text-[var(--foreground)]">{t('nav.systemStatus')}</h1>
 
         {/* Loading state */}
         {isLoading && (

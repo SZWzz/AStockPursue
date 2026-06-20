@@ -48,7 +48,7 @@ export default function SymbolDetailPage() {
         {/* Header with price display */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-[20px] font-bold text-[var(--foreground)]">{symbol}</h1>
+            <h1 className="text-[20px] font-semibold text-[var(--foreground)]">{symbol}</h1>
             {currentPrice !== null && (
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-[18px] font-mono font-semibold text-[var(--foreground)]">

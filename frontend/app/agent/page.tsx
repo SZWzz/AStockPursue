@@ -93,7 +93,7 @@ export default function AgentPage() {
     <SidebarLayout>
       <div className="flex flex-col" style={{ height: 'calc(100vh - var(--header-height) - var(--page-padding) * 2)' }}>
         {/* Header */}
-        <h1 className="text-[20px] font-bold text-[var(--foreground)] mb-3 shrink-0">{t('nav.agent')}</h1>
+        <h1 className="text-[20px] font-semibold text-[var(--foreground)] mb-3 shrink-0">{t('nav.agent')}</h1>
 
         {/* Message history */}
         <Card className="flex-1 bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)] overflow-hidden mb-3 min-h-0">

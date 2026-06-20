@@ -54,7 +54,7 @@ export default function MarketOverviewPage() {
     <SidebarLayout>
       <div className="space-y-3">
         {/* Header */}
-        <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('market.overview')}</h1>
+        <h1 className="text-[20px] font-semibold text-[var(--foreground)]">{t('market.overview')}</h1>
 
         {/* Overview KPI cards */}
         {!overviewLoading && overview && (overview.total_stocks !== undefined || overview.up_count !== undefined) && (

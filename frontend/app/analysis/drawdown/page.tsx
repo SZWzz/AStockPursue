@@ -34,7 +34,7 @@ export default function DrawdownPage() {
     <SidebarLayout>
       <div className="space-y-3">
         {/* Header */}
-        <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('analysis.drawdown')}</h1>
+        <h1 className="text-[20px] font-semibold text-[var(--foreground)]">{t('analysis.drawdown')}</h1>
 
         {/* Input card */}
         <Card className="p-[var(--card-padding)]">
