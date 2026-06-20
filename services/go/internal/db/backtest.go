@@ -15,6 +15,9 @@ type PostgresBacktestStore struct {
 }
 
 func NewPostgresBacktestStore(timescale *TimescaleDB) *PostgresBacktestStore {
+	if timescale == nil {
+		return &PostgresBacktestStore{}
+	}
 	return &PostgresBacktestStore{pool: timescale.pool}
 }
 

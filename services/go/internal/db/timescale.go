@@ -15,6 +15,12 @@ type TimescaleDB struct {
 }
 
 func NewTimescaleDB(ctx context.Context, connString string) (*TimescaleDB, error) {
+	if ctx == nil {
+		return nil, fmt.Errorf("timescale: context must not be nil")
+	}
+	if connString == "" {
+		return nil, fmt.Errorf("timescale: connection string must not be empty")
+	}
 	pool, err := pgxpool.New(ctx, connString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create timescale pool: %w", err)

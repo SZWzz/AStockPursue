@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -67,8 +68,17 @@ func TestNewTimescaleDB_EmptyConnString(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping integration test (requires TimescaleDB)")
 	}
-	_, err := NewTimescaleDB(nil, "")
+	_, err := NewTimescaleDB(context.Background(), "")
 	assert.Error(t, err)
+}
+
+func TestNewTimescaleDB_NilContext(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test")
+	}
+	_, err := NewTimescaleDB(nil, "postgres://localhost:5432/test")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "context must not be nil")
 }
 
 func TestInsertBars_EmptySlice(t *testing.T) {
