@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
-import { SymbolSearch } from '@/components/financial/SymbolSearch'
+import { PriceTicker } from '@/components/financial/PriceTicker'
 import { OrderForm } from '@/components/financial/OrderForm'
 import { CandlestickChart } from '@/components/financial/CandlestickChart'
 import { OrderBook } from '@/components/financial/OrderBook'
@@ -46,48 +46,47 @@ export default function TradingPage() {
     return unsub
   }, [symbol])
 
-  const handleSymbolSelect = (s: string) => {
-    setSymbol(s)
-  }
-
   const bars = klineData?.bars || []
 
   return (
     <SidebarLayout>
-      <div className="space-y-3">
-        {/* Header row */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('nav.trading')}</h1>
-          <SymbolSearch onSelect={handleSymbolSelect} />
-        </div>
+      <div className="space-y-4">
+        <h1 className="text-[32px] font-[400] tracking-[-0.4px] text-[var(--foreground)]">
+          {t('nav.trading')}
+        </h1>
 
-        {/* 12-column grid: OrderForm | Chart | OrderBook */}
+        {/* PriceTicker bar — new */}
+        <PriceTicker
+          symbol={symbol}
+          price={12.50}
+          change={0.32}
+          changePct={2.63}
+          high={12.65}
+          low={12.10}
+        />
+
+        {/* 12-column grid */}
         <div className="grid grid-cols-12 gap-[var(--grid-gap)]">
-          {/* Order Form — 3 cols */}
           <div className="col-span-3">
             <OrderForm />
           </div>
-
-          {/* Candlestick Chart — 6 cols */}
           <div className="col-span-6">
-            <div className="bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-[var(--card-padding)]">
-              <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">{symbol}</h2>
+            <div className="bg-white border border-[var(--border)] rounded-[6px] p-[var(--card-padding)]">
+              <h2 className="text-[18px] font-semibold text-[var(--foreground)] mb-4">{symbol}</h2>
               <CandlestickChart data={bars} />
             </div>
           </div>
-
-          {/* Order Book — 3 cols */}
           <div className="col-span-3">
-            <div className="bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-[var(--card-padding)]">
-              <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">{t('market.depth')}</h2>
+            <div className="bg-white border border-[var(--border)] rounded-[6px] p-[var(--card-padding)]">
+              <h2 className="text-[18px] font-semibold text-[var(--foreground)] mb-4">{t('market.depth')}</h2>
               <OrderBook bids={orderBook.bids} asks={orderBook.asks} />
             </div>
           </div>
         </div>
 
-        {/* Positions section below the grid */}
-        <div className="bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--radius-md)] p-[var(--card-padding)]">
-          <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">{t('nav.positions')}</h2>
+        {/* Positions */}
+        <div className="bg-white border border-[var(--border)] rounded-[6px] p-[var(--card-padding)]">
+          <h2 className="text-[18px] font-semibold text-[var(--foreground)] mb-4">{t('nav.positions')}</h2>
           <PositionTable />
         </div>
       </div>
