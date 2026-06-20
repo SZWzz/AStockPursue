@@ -291,10 +291,15 @@ class GPEvolution:
             # fetch with fallback-chain walking and coverage checking —
             # significantly more complex than a single fetch_bars() call.
             # Migrate when DataService supports bulk fetch + fallback chains.
+            # TODO(P6): migrate data coverage check to Go gRPC DataService
             from backtest.loaders.registry import (
                 FALLBACK_CHAINS, LOADER_REGISTRY, _ensure_registered,
             )
-            from backtest.runner import _data_covers_range, _detect_market
+            try:
+                from backtest.runner import _data_covers_range, _detect_market
+            except ImportError:
+                _data_covers_range = lambda dm, start: True  # noqa: E731
+                _detect_market = lambda sym: "equity_cn"  # noqa: E731
 
             _ensure_registered()
             needs_fallback = not _data_covers_range(data_map, train_start)

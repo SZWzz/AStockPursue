@@ -5,10 +5,8 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8899:8899"
-      - "8901:8901"
     environment:
       PORT: "8899"
-      GRPC_PORT: "8901"
       DATABASE_URL: "postgres://postgres:postgres@postgres:5432/astockpursue?sslmode=disable"
       REDIS_URL: "redis://redis:6379/0"
     depends_on:

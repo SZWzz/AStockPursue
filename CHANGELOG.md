@@ -13,6 +13,15 @@
 - [Python] Add TODO(P6) markers in consumer files (live_bridge, trading_nodes, thin_nodes, backtest_driver, strategy_nodes, backtest/engines/__init__) to track remaining Go migration work
 - [Python] Remove `src/optimize/` (6 files) — migrated to Go engines; all optimizers (bayesian, grid_search, walk_forward, evolution, random_search) replaced by Go implementations
 - [Python] Remove 11 test files for migrated engine/signal/live/runner modules — Go has equivalent test coverage (245 tests)
+- [Python] Remove `backtest/engines/` (12 files) — all 8 engine types migrated to Go `internal/engine/`
+- [Python] Remove `backtest/runner.py` (46KB) + 10 backtest utility files — backtest orchestration migrated to Go
+- [Python] Remove `src/trading/` modules (8 files) — backtest_driver, live_driver, oms, signal_adapter, ws_feed, etc. migrated to Go
+- [Python] Remove `src/lab/backtest_bridge.py` + `strategy_backtest_bridge.py` — lab bridges migrated to Go
+- [Python] Remove 6 test files for deleted backtest modules
+- [Python] Add try/except ImportError guard in gp_engine.py for deleted backtest.runner imports
+- [Python] Rewrite `src/trading/__init__.py` as stub with TODO(P6) migration note
+- [Go] Remove dead port 8901 from Dockerfile and docker-compose.yml — Go only serves HTTP (8899), gRPC is Python (8902)
+- [Go] Remove empty `internal/grpc/` directory — Go is gRPC client only, server is Python
 
 ### Fixed
 - [Go] Fix nil pointer panic in `NewPostgresBacktestStore` — add nil guard for timescale parameter

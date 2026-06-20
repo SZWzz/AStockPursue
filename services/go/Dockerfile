@@ -8,5 +8,5 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o /server ./cmd/server
 FROM alpine:3.19
 RUN apk --no-cache add ca-certificates tzdata
 COPY --from=builder /server /server
-EXPOSE 8899 8901
+EXPOSE 8899
 CMD ["/server"]
