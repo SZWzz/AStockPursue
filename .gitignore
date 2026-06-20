@@ -15,8 +15,8 @@ learn-claude-code-main/
 agent/sessions/
 runs/
 cache/
-backend/runs/
-backend/cache/
+services/python/runs/
+services/python/cache/
 agent/.ui_runtime/
 agent/.tasks/
 agent/uploads/
@@ -81,5 +81,5 @@ AGENTS.md
 # Alpha Zoo wiki artifacts (generated, not source)
 wiki/alpha-library/manifest.json
 wiki/alpha-library/content/
-backend/sessions/
+services/python/sessions/
 .superpowers/
