@@ -86,9 +86,10 @@ func main() {
 	paperTradeH := handler.NewPaperTradingHandler(ds, factory)
 	settingsH := handler.NewSettingsHandler()
 	systemH := handler.NewSystemHandler()
+	analysisH := handler.NewAnalysisHandler(ds)
 
 	healthH := &handler.HealthHandler{}
-	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH)
+	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,

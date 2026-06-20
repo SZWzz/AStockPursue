@@ -17,6 +17,7 @@ func NewRouter(
 	paperTradeH *handler.PaperTradingHandler,
 	settingsH *handler.SettingsHandler,
 	systemH *handler.SystemHandler,
+	analysisH *handler.AnalysisHandler,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -68,6 +69,12 @@ func NewRouter(
 		st.GET("", settingsH.Get)
 		st.PUT("", settingsH.Update)
 		st.DELETE("", settingsH.Reset)
+
+		an := v1.Group("/analysis")
+		an.POST("/correlation", analysisH.Correlation)
+		an.GET("/drawdown", analysisH.Drawdown)
+		an.POST("/attribution", analysisH.Attribution)
+		an.POST("/stress-test", analysisH.StressTest)
 	}
 
 	return r
