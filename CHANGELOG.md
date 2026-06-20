@@ -3,7 +3,9 @@
 ## [2026.6.20] - 2026-06-20
 
 ### Added
+- [Engine] OptionsEngine: US equity options trading with Black-Scholes pricing, per-contract commission, contract multiplier (100), short margin, and long/short PnL
 - [Engine] FuturesBase: embeddable struct with shared futures contract calculations (RoundSize, CalcCommission, CalcMargin, CalcPnL, ApplySlippage, CanExecute)
+- [Engine] ForexEngine: FX spot/CFD trading engine with pip-based PnL, margin (30:1 leverage), spread config, and zero commission
 - [Infra] Go core project scaffold with gin HTTP server and health endpoint
 - [Market] Cache interface and MemoryCache implementation with TTL support
 - [Market] DataStore 3-tier fallback: cache → TimescaleDB → loader registry
