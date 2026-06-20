@@ -21,7 +21,7 @@ export function OrderForm() {
         body: JSON.stringify({
           symbol, side, type: orderType,
           price: parseFloat(price) || 0,
-          quantity: parseFloat(quantity)
+          quantity: parseFloat(quantity) || 0,
         }),
       })
       if (!res.ok) throw new Error('Order failed')
