@@ -14,8 +14,8 @@ type PostgresBacktestStore struct {
 	pool *pgxpool.Pool
 }
 
-func NewPostgresBacktestStore(pool *pgxpool.Pool) *PostgresBacktestStore {
-	return &PostgresBacktestStore{pool: pool}
+func NewPostgresBacktestStore(timescale *TimescaleDB) *PostgresBacktestStore {
+	return &PostgresBacktestStore{pool: timescale.pool}
 }
 
 func (s *PostgresBacktestStore) Save(ctx context.Context, result *engine.BacktestResult) (string, error) {
