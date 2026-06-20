@@ -1,3 +1,7 @@
-node_modules
-dist
-package-lock.json
+node_modules/
+.next/
+out/
+.env.local
+.env*.local
+*.tsbuildinfo
+next-env.d.ts
