@@ -7,6 +7,10 @@
 - [Python] Remove `api_server.py` FastAPI entry point — replaced by Go HTTP server (port 8899)
 - [Python] Remove `papertrade/` package (6 files) — migrated to Go `papertrade.Engine` (state machine + repository + CRUD)
 - [Python] Remove 4 test files for deleted API routes (`test_security_auth_api`, `test_settings_api`, `test_upload_api`, `test_upload_security`)
+- [Python] Remove `src/trading/brokers/` (5 files) — Binance/OKX/Futu brokers migrated to Go `internal/broker/`
+- [Python] Remove `src/trading/engine.py` + `risk_pipeline.py` — migrated to Go `internal/engine/pipeline.go` + `risk.go`
+- [Python] Remove 4 test files for deleted trading modules (`test_backtest_integration`, `test_engine_robustness`, `test_risk_pipeline`, `test_trading_engine`)
+- [Python] Add TODO(P6) markers in consumer files (live_bridge, trading_nodes, thin_nodes, backtest_driver, strategy_nodes, backtest/engines/__init__) to track remaining Go migration work
 
 ### Added
 - [Frontend] Add 5 new financial components: StatCallout (hero numbers), StatusBadge (8 variants), PriceTicker (real-time bar), MarketRow (dense list), DividerSection (section header)

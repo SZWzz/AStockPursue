@@ -127,6 +127,7 @@ class LiveBridge:
 
     def _check_broker(self, user_id: int) -> bool:
         try:
+            # TODO(P6): migrate broker ops to Go gRPC BrokerService
             from src.trading.brokers.futu_broker import FutuBroker
             broker = FutuBroker(user_id=user_id)
             return broker.is_connected()
@@ -163,6 +164,7 @@ class LiveBridge:
 
     def _check_balance(self, user_id: int) -> tuple[bool, str]:
         try:
+            # TODO(P6): migrate broker ops to Go gRPC BrokerService
             from src.trading.brokers.futu_broker import FutuBroker
 
             broker = FutuBroker(user_id=user_id)

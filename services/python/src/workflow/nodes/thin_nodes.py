@@ -137,6 +137,7 @@ class PaperTradingNode(BaseNode):
         # ── Simulation mode ───────────────────────────────────────────────────
         if mode == "simulate" and signal and codes:
             try:
+                # TODO(P6): migrate simulation to Go TradingEngine gRPC
                 from src.trading.engine import TradingEngine
                 from src.trading.signal_adapter import SignalAdapter
                 from src.trading.risk_pipeline import RiskPipeline, RiskConfig

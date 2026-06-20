@@ -80,6 +80,7 @@ class BrokerNode(BaseNode):
         testnet = config.get("testnet", True)
 
         try:
+            # TODO(P6): migrate broker creation to Go gRPC BrokerService
             from src.trading.brokers import create_broker
             broker = create_broker(exchange, {"testnet": testnet})
         except ValueError as e:

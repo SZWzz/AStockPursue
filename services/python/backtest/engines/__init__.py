@@ -1,5 +1,9 @@
 """Backtest engines.
 
+TODO(P6): All engine types migrated to Go (services/go/internal/engine/).
+This Python module is retained for existing consumers (20+ files) until
+Go gRPC TradingEngine fully replaces the Python backtest runner.
+
 Wave 1 (v1):
   - BaseEngine: ABC for bar-by-bar execution with market rules
   - ChinaAEngine: A-share (T+1, no short, price limits)

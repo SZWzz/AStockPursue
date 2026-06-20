@@ -61,6 +61,7 @@ class BacktestDriver:
         Returns:
             Metrics dictionary.
         """
+        # TODO(P6): migrate backtest execution to Go TradingEngine
         from src.trading.engine import TradingEngine
         from src.trading.signal_adapter import SignalAdapter
 
