@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/astockpursue/go-core/internal/api/handler"
+	"github.com/astockpursue/go-core/internal/api/middleware"
 	"github.com/gin-gonic/gin"
 )
 
@@ -11,6 +12,7 @@ func NewRouter(
 	trading *handler.TradingHandler,
 ) *gin.Engine {
 	r := gin.Default()
+	r.Use(middleware.Auth())
 
 	r.GET("/health", health.Health)
 

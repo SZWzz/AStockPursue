@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -79,6 +80,10 @@ func (h *BacktestHandler) Run(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if len(req.Symbols) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "at least one symbol required"})
+		return
+	}
 
 	start, err := time.Parse("2006-01-02", req.StartDate)
 	if err != nil {
@@ -88,6 +93,19 @@ func (h *BacktestHandler) Run(c *gin.Context) {
 	end, err := time.Parse("2006-01-02", req.EndDate)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid end_date, use YYYY-MM-DD"})
+		return
+	}
+	if !end.After(start) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "end_date must be after start_date"})
+		return
+	}
+	if req.InitialCash <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "initial_cash must be positive"})
+		return
+	}
+	validFreqs := map[string]bool{"1m": true, "5m": true, "15m": true, "30m": true, "1h": true, "4h": true, "1d": true, "1w": true}
+	if !validFreqs[req.Frequency] {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid frequency: " + req.Frequency})
 		return
 	}
 
@@ -122,7 +140,8 @@ func (h *BacktestHandler) GetResult(c *gin.Context) {
 	id := c.Param("id")
 	result, err := h.repo.Get(c.Request.Context(), id)
 	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+		log.Printf("backtest get error: %v", err)
+		c.JSON(http.StatusNotFound, gin.H{"error": "backtest result not found"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"id": id, "result": result})

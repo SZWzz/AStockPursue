@@ -32,8 +32,18 @@ func (h *TradingHandler) Stop(c *gin.Context) {
 }
 
 func (h *TradingHandler) Status(c *gin.Context) {
+	p := h.runner.Portfolio()
+	copy := &engine.Portfolio{
+		Cash:   p.Cash,
+		Equity: p.Equity,
+		Positions: make(map[string]*engine.Position),
+	}
+	for k, v := range p.Positions {
+		pos := *v
+		copy.Positions[k] = &pos
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"status":    h.runner.Status(),
-		"portfolio": h.runner.Portfolio(),
+		"portfolio": copy,
 	})
 }

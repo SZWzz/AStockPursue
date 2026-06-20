@@ -3,6 +3,10 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/astockpursue/go-core/internal/api"
@@ -17,7 +21,7 @@ func main() {
 	cfg := config.Load()
 
 	factory := engine.NewEngineFactory()
-	cache := market.NewMemoryCache(5 * time.Minute)
+	cache := market.NewMemoryCache(5*time.Minute, 10000)
 	ds := market.NewDataStore(nil, cache)
 
 	var repo handler.BacktestRepository
@@ -53,6 +57,26 @@ func main() {
 	healthH := &handler.HealthHandler{}
 	r := api.NewRouter(healthH, btHandler, trHandler)
 
-	log.Printf("Starting go-core on :%s", cfg.Port)
-	r.Run(":" + cfg.Port)
+	srv := &http.Server{
+		Addr:    ":" + cfg.Port,
+		Handler: r,
+	}
+
+	go func() {
+		log.Printf("Starting go-core on :%s", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %v", err)
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Fatalf("server forced to shutdown: %v", err)
+	}
 }
