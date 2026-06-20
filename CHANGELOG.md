@@ -18,6 +18,11 @@
 - [Frontend] Add SidebarLayout component (wraps Sidebar + Header + main content area)
 - [Frontend] Add root layout with SessionProvider (next-auth), NextIntlClientProvider (i18n), ThemeProvider (OLED dark mode), Toaster (sonner), and Fira fonts from Google Fonts
 - [Frontend] Add Fira Sans and Fira Code font loading via Google Fonts preconnect + stylesheet links in root layout
+- [Frontend] Add OrderBook component — bid/ask depth visualization with proportional bar fills
+- [Frontend] Add TradeTimeline component — chronological trade list with side/price/PnL columns
+- [Frontend] Add CorrelationMatrix component — D3 heatmap with diverging color scale
+- [Frontend] Add ScreenerGrid component — sortable table for screened stock results
+- [Frontend] Add LogViewer component — scrollable log display with monospace formatting
 
 ### Changed
 - [Frontend] Update next.config.ts with createNextIntlPlugin to enable next-intl server-side locale and message resolution
