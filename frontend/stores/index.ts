@@ -2,6 +2,6 @@
 export { useUIStore } from './uiStore'
 export { useThemeStore } from './themeStore'
 export { useOrderFormStore } from './orderFormStore'
-export { useScreenerStore } from './screenerStore'
+export { useScreenerStore, type ScreenMode } from './screenerStore'
 export { useWSStore } from './wsStore'
 export { useWorkflowStore } from './workflowStore'

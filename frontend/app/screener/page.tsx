@@ -8,6 +8,7 @@ import { ScreenerGrid } from '@/components/financial/ScreenerGrid'
 import { Card } from '@/components/ui/card'
 import { useScreener } from '@/hooks'
 import { useScreenerStore } from '@/stores'
+import type { ScreenMode } from '@/stores'
 import { cn } from '@/lib/utils'
 
 interface ScreenerRow {
@@ -27,37 +28,36 @@ const SORT_FIELDS = [
 export default function ScreenerPage() {
   const t = useTranslations()
   const { trigger, data, isMutating, error } = useScreener()
-  const { conditions, setCondition, sortField, sortOrder, setSort, reset } = useScreenerStore()
+  const {
+    mode, setMode,
+    conditions, addCondition, updateCondition, removeCondition,
+    sortField, sortDir, setSort,
+    presets, savePreset, loadPreset,
+  } = useScreenerStore()
 
-  const [priceMin, setPriceMin] = useState('')
-  const [priceMax, setPriceMax] = useState('')
-  const [changeMin, setChangeMin] = useState('')
-  const [volumeMin, setVolumeMin] = useState('')
+  const [presetName, setPresetName] = useState('')
 
   const handleRun = () => {
     const params: Record<string, any> = {}
-    if (priceMin) params.price_min = Number(priceMin)
-    if (priceMax) params.price_max = Number(priceMax)
-    if (changeMin) params.change_pct_min = Number(changeMin)
-    if (volumeMin) params.volume_min = Number(volumeMin)
+    conditions.forEach((c) => {
+      if (c.field && c.value) {
+        params[`${c.field}_${c.operator}`] = Number(c.value)
+      }
+    })
     if (sortField) params.sort_by = sortField
-    if (sortOrder) params.sort_order = sortOrder
-
-    // Sync local inputs to store
-    if (priceMin) setCondition('price_min', Number(priceMin))
-    if (priceMax) setCondition('price_max', Number(priceMax))
-    if (changeMin) setCondition('change_pct_min', Number(changeMin))
-    if (volumeMin) setCondition('volume_min', Number(volumeMin))
-
+    if (sortDir) params.sort_order = sortDir
     trigger(params)
   }
 
   const handleReset = () => {
-    setPriceMin('')
-    setPriceMax('')
-    setChangeMin('')
-    setVolumeMin('')
-    reset()
+    conditions.length = 0
+  }
+
+  const handleSavePreset = () => {
+    if (presetName.trim()) {
+      savePreset(presetName.trim())
+      setPresetName('')
+    }
   }
 
   const results: ScreenerRow[] = data?.data || data?.results || data || []
@@ -70,60 +70,49 @@ export default function ScreenerPage() {
 
         {/* Filter form */}
         <Card className="p-[var(--card-padding)]">
-          <div className="grid grid-cols-4 gap-3 mb-3">
-            <div>
-              <label className="block text-[12px] font-medium text-[var(--foreground-secondary)] mb-1">
-                {t('screener.priceMin')}
-              </label>
-              <input
-                type="number"
-                value={priceMin}
-                onChange={(e) => setPriceMin(e.target.value)}
-                placeholder="0"
-                step="0.01"
-                className="w-full bg-[var(--surface-1)] border border-[var(--border-default)] text-[var(--foreground)] text-[13px] rounded-[var(--radius-sm)] px-3 py-1.5 placeholder:text-[var(--foreground-muted)] focus:outline-none focus:border-[var(--primary)]"
-              />
-            </div>
-            <div>
-              <label className="block text-[12px] font-medium text-[var(--foreground-secondary)] mb-1">
-                {t('screener.priceMax')}
-              </label>
-              <input
-                type="number"
-                value={priceMax}
-                onChange={(e) => setPriceMax(e.target.value)}
-                placeholder="9999"
-                step="0.01"
-                className="w-full bg-[var(--surface-1)] border border-[var(--border-default)] text-[var(--foreground)] text-[13px] rounded-[var(--radius-sm)] px-3 py-1.5 placeholder:text-[var(--foreground-muted)] focus:outline-none focus:border-[var(--primary)]"
-              />
-            </div>
-            <div>
-              <label className="block text-[12px] font-medium text-[var(--foreground-secondary)] mb-1">
-                Change % Min
-              </label>
-              <input
-                type="number"
-                value={changeMin}
-                onChange={(e) => setChangeMin(e.target.value)}
-                placeholder="-10"
-                step="0.1"
-                className="w-full bg-[var(--surface-1)] border border-[var(--border-default)] text-[var(--foreground)] text-[13px] rounded-[var(--radius-sm)] px-3 py-1.5 placeholder:text-[var(--foreground-muted)] focus:outline-none focus:border-[var(--primary)]"
-              />
-            </div>
-            <div>
-              <label className="block text-[12px] font-medium text-[var(--foreground-secondary)] mb-1">
-                Volume Min
-              </label>
-              <input
-                type="number"
-                value={volumeMin}
-                onChange={(e) => setVolumeMin(e.target.value)}
-                placeholder="0"
-                step="1"
-                className="w-full bg-[var(--surface-1)] border border-[var(--border-default)] text-[var(--foreground)] text-[13px] rounded-[var(--radius-sm)] px-3 py-1.5 placeholder:text-[var(--foreground-muted)] focus:outline-none focus:border-[var(--primary)]"
-              />
-            </div>
+          {/* Mode selector */}
+          <div className="flex gap-2 mb-4">
+            {(['filter', 'rank', 'score'] as ScreenMode[]).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={cn(
+                  'px-4 py-1.5 rounded-[6px] text-[13px] font-medium transition-colors',
+                  mode === m
+                    ? 'bg-[var(--primary)] text-white'
+                    : 'bg-[var(--surface-1)] text-[var(--foreground-secondary)] hover:text-[var(--foreground)]'
+                )}
+              >
+                {m === 'filter' ? 'Filter' : m === 'rank' ? 'Rank' : 'Score'}
+              </button>
+            ))}
           </div>
+
+          {/* Conditions */}
+          {conditions.map((cond, i) => (
+            <div key={i} className="flex gap-2 items-center mb-2">
+              <select value={cond.field} onChange={(e) => updateCondition(i, { field: e.target.value })}
+                className="h-9 rounded-[6px] border border-[var(--border)] px-2 text-[13px] bg-white">
+                <option value="price">Price</option>
+                <option value="change">Change %</option>
+                <option value="volume">Volume</option>
+                <option value="pe">P/E</option>
+              </select>
+              <select value={cond.operator} onChange={(e) => updateCondition(i, { operator: e.target.value })}
+                className="h-9 rounded-[6px] border border-[var(--border)] px-2 text-[13px] bg-white">
+                <option value=">">&gt;</option>
+                <option value="<">&lt;</option>
+                <option value=">=">&gt;=</option>
+                <option value="<=">&lt;=</option>
+              </select>
+              <input value={cond.value} onChange={(e) => updateCondition(i, { value: e.target.value })}
+                className="h-9 rounded-[6px] border border-[var(--border)] px-2 text-[13px] w-24 bg-white" />
+              <button onClick={() => removeCondition(i)}
+                className="text-[var(--destructive)] text-[12px]">✕</button>
+            </div>
+          ))}
+          <button onClick={addCondition}
+            className="text-[12px] text-[var(--primary)] hover:underline mb-4">+ Add Condition</button>
 
           {/* Sort selector row */}
           <div className="flex items-center gap-3 mb-3">
@@ -133,7 +122,7 @@ export default function ScreenerPage() {
                 key={field.key}
                 onClick={() => {
                   if (sortField === field.key) {
-                    setSort(field.key, sortOrder === 'desc' ? 'asc' : 'desc')
+                    setSort(field.key, sortDir === 'desc' ? 'asc' : 'desc')
                   } else {
                     setSort(field.key, 'desc')
                   }
@@ -147,10 +136,35 @@ export default function ScreenerPage() {
               >
                 {t(field.labelKey)}
                 {sortField === field.key && (
-                  <span className="ml-1">{sortOrder === 'desc' ? '--' : '+'}</span>
+                  <span className="ml-1">{sortDir === 'desc' ? '--' : '+'}</span>
                 )}
               </button>
             ))}
+          </div>
+
+          {/* Preset save/load */}
+          <div className="flex items-center gap-2 mb-3">
+            <input
+              type="text"
+              value={presetName}
+              onChange={(e) => setPresetName(e.target.value)}
+              placeholder="Preset name"
+              className="h-8 rounded-[6px] border border-[var(--border)] px-2 text-[13px] w-40 bg-white"
+            />
+            <button onClick={handleSavePreset}
+              className="text-[12px] text-[var(--primary)] hover:underline">Save Preset</button>
+            {presets.length > 0 && (
+              <select
+                onChange={(e) => { if (e.target.value) loadPreset(e.target.value) }}
+                className="h-8 rounded-[6px] border border-[var(--border)] px-2 text-[13px] bg-white"
+                defaultValue=""
+              >
+                <option value="" disabled>Load preset...</option>
+                {presets.map((p) => (
+                  <option key={p.name} value={p.name}>{p.name}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Action buttons */}
