@@ -1,5 +1,23 @@
 # 更新日志
 
+## [2026.6.20] - 2026-06-20
+
+### Added
+- [Infra] Go core project scaffold with gin HTTP server and health endpoint
+- [Infra] Protobuf definitions for 6 gRPC services (signal, factor, llm, analysis, workflow, common)
+- [Infra] Buf-based code generation pipeline
+- [Infra] Updated Docker Compose with go-core, python-research, frontend, postgres, redis services
+- [Infra] CI/CD pipeline with Go lint+test+race and Python lint+test
+- [CLAUDE.md] Spec → Plan → Test → Development Flow rule (development now requires spec + plan + tests before coding)
+
+### Changed
+- [Infra] Python code relocated from `backend/` to `services/python/`
+- [Infra] Architecture documented as Go + Python hybrid in CLAUDE.md
+- [Version] Updated to v2026.6.20
+
+### Removed
+- [Infra] Old `backend/` directory (replaced by `services/python/`)
+
 ## [2026.6.14] - 2026-06-14
 
 ### 新增 — Visualizer 工作流节点
