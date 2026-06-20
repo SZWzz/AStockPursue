@@ -23,6 +23,19 @@
 - [Go] Remove dead port 8901 from Dockerfile and docker-compose.yml — Go only serves HTTP (8899), gRPC is Python (8902)
 - [Go] Remove empty `internal/grpc/` directory — Go is gRPC client only, server is Python
 
+### Added
+- [Frontend] Add visual Workflow canvas editor — @xyflow/react DAG with NodePalette, WorkflowCanvas, BaseNode, NodePanel + Zustand workflowStore
+- [Frontend] Add Strategy Lab IDE — Monaco code editor, Recharts ChartPanel, BacktestPanel (symbol/date config + run button + metrics display)
+- [Frontend] Add IndexTickerBar to Dashboard — real-time WebSocket ticker for A-share indices
+- [Frontend] Add multi-mode Screener — Filter/Rank/Score tabs, condition builder (field/operator/value), preset save/load
+- [Frontend] Add CodeEditor (Monaco wrapper) and ChartPanel (Recharts equity chart) components for Strategy Lab
+- [Frontend] Add i18n keys for Strategy Lab, Screener modes, and workflow labels (en + zh)
+- [Frontend] Add @xyflow/react and @monaco-editor/react dependencies
+
+### Changed
+- [Frontend] Replace workflow detail page with visual DAG canvas editor (3-column: palette + canvas + panel)
+- [Frontend] Enhance screenerStore with ScreenMode, conditions array, and presets management
+
 ### Fixed
 - [Go] Fix nil pointer panic in `NewPostgresBacktestStore` — add nil guard for timescale parameter
 - [Go] Fix nil context panic in `NewTimescaleDB` — add nil/empty guards before pgxpool.New
