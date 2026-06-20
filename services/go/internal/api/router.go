@@ -20,6 +20,9 @@ func NewRouter(
 	analysisH *handler.AnalysisHandler,
 	schedulerH *handler.SchedulerHandler,
 	screenerH *handler.ScreenerHandler,
+	factorH *handler.FactorHandler,
+	workflowH *handler.WorkflowHandler,
+	signalH *handler.SignalHandler,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -90,6 +93,20 @@ func NewRouter(
 		sr.POST("", screenerH.Screen)
 		sr.GET("/movers", screenerH.TopMovers)
 		sr.GET("/overview", screenerH.MarketOverview)
+
+		// Factor routes
+		fc := v1.Group("/factor")
+		fc.POST("/compute", factorH.ComputeFactor)
+		fc.POST("/gp-mining", factorH.StartGPMining)
+
+		// Workflow routes
+		wc := v1.Group("/workflow")
+		wc.POST("/execute", workflowH.ExecuteWorkflow)
+		wc.GET("/node/:id", workflowH.GetNodeResult)
+
+		// Signal routes
+		sg := v1.Group("/signal")
+		sg.POST("/generate", signalH.Generate)
 	}
 
 	return r

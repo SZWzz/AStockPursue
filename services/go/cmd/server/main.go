@@ -15,7 +15,12 @@ import (
 	"github.com/astockpursue/go-core/internal/config"
 	"github.com/astockpursue/go-core/internal/db"
 	"github.com/astockpursue/go-core/internal/engine"
+	factorv1 "github.com/astockpursue/go-core/internal/gen/factor/v1"
+	signalv1 "github.com/astockpursue/go-core/internal/gen/signal/v1"
+	workflowv1 "github.com/astockpursue/go-core/internal/gen/workflow/v1"
 	"github.com/astockpursue/go-core/internal/market"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -90,8 +95,24 @@ func main() {
 	schedulerH := handler.NewSchedulerHandler(ds, factory, repo)
 	screenerH := handler.NewScreenerHandler(ds)
 
+	// gRPC connection to Python research layer
+	grpcConn, err := grpc.Dial("localhost:8902", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		log.Printf("gRPC dial warning: %v", err)
+	}
+	var (
+		factorH   *handler.FactorHandler
+		workflowH *handler.WorkflowHandler
+		signalH   *handler.SignalHandler
+	)
+	if grpcConn != nil {
+		factorH = handler.NewFactorHandler(factorv1.NewFactorServiceClient(grpcConn))
+		workflowH = handler.NewWorkflowHandler(workflowv1.NewWorkflowServiceClient(grpcConn))
+		signalH = handler.NewSignalHandler(signalv1.NewSignalServiceClient(grpcConn))
+	}
+
 	healthH := &handler.HealthHandler{}
-	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH)
+	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH, factorH, workflowH, signalH)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
