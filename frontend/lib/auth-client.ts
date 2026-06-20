@@ -1,14 +1,16 @@
 // frontend/lib/auth-client.ts
-// Stub for auth client — will be replaced with proper auth implementation
+'use client'
 
-/**
- * Sign out the current user.
- * Placeholder: clears client-side state and redirects to login.
- */
-export async function signOut(): Promise<void> {
-  // TODO: implement proper sign-out — clear tokens, invalidate session
-  // For now, redirect to login page
-  if (typeof window !== 'undefined') {
-    window.location.href = '/login'
+import { signIn as nextSignIn, signOut as nextSignOut, useSession } from 'next-auth/react'
+
+export function useAuth() {
+  const { data: session, status } = useSession()
+  return {
+    user: session?.user,
+    token: (session as any)?.accessToken as string | undefined,
+    isAuthenticated: status === 'authenticated',
+    isLoading: status === 'loading',
   }
 }
+
+export { nextSignIn as signIn, nextSignOut as signOut }
