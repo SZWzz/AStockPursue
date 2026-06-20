@@ -45,8 +45,10 @@ yfinance>=0.2.30
 akshare>=1.12.0
 ccxt>=4.0.0
 
-# Cache
-redis>=5.0.0
+# gRPC
+grpcio>=1.60.0
+grpcio-tools>=1.60.0
+protobuf>=4.25.0
 
 # REST API & SSE
 fastapi>=0.104.0
