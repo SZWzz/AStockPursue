@@ -83,11 +83,11 @@ dev = [
 version = {file = "VERSION"}
 
 [tool.setuptools]
-package-dir = {"" = "backend"}
+package-dir = {"" = "services/python"}
 py-modules = ["cli", "api_server", "mcp_server"]
 
 [tool.setuptools.packages.find]
-where = ["backend"]
+where = ["services/python"]
 include = ["src*", "backtest*", "papertrade*", "migrations*"]
 
 [tool.setuptools.package-data]
@@ -107,8 +107,8 @@ include = ["src*", "backtest*", "papertrade*", "migrations*"]
 "src.factors" = ["zoo/**/*.yaml", "zoo/**/*.md", "zoo/**/NOTICE"]
 
 [tool.pytest.ini_options]
-testpaths = ["backend/tests"]
-pythonpath = ["backend"]
+testpaths = ["services/python/tests"]
+pythonpath = ["services/python"]
 markers = [
     "unit: Unit tests (fast, no network)",
     "integration: Integration tests (may need network)",
@@ -118,7 +118,7 @@ markers = [
 [tool.ruff]
 target-version = "py311"
 line-length = 120
-src = ["backend"]
+src = ["services/python"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W"]
@@ -128,4 +128,4 @@ ignore = ["E501"]
 # Alpha zoo files import the full src.factors.base surface verbatim
 # to match research-paper formulas. F401 (unused-import) is noise here;
 # F841 (unused-local-variable) stays active to catch real formula bugs.
-"backend/src/factors/zoo/**/*.py" = ["F401"]
+"services/python/src/factors/zoo/**/*.py" = ["F401"]
