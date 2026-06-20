@@ -1,0 +1,24 @@
+syntax = "proto3";
+package astockpursue.data;
+option go_package = "github.com/astockpursue/go-core/internal/gen/data/v1;datav1";
+
+import "common.proto";
+
+// DataService bridges Python-only data sources (mootdx, tushare, akshare, futu)
+// to the Go core via gRPC. Each source is identified by name.
+service DataService {
+  rpc FetchBars(FetchBarsRequest) returns (FetchBarsResponse);
+}
+
+message FetchBarsRequest {
+  string source = 1;       // "mootdx", "tushare", "akshare", "futu"
+  string symbol = 2;       // raw symbol code
+  string start_date = 3;   // "2006-01-02"
+  string end_date = 4;     // "2006-01-02"
+  string frequency = 5;    // "1d", "1h", etc.
+}
+
+message FetchBarsResponse {
+  repeated common.Bar bars = 1;
+  string error = 2;
+}
