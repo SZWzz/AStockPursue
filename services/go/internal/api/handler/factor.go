@@ -21,9 +21,20 @@ func NewFactorHandler(client factorv1.FactorServiceClient) *FactorHandler {
 	return &FactorHandler{client: client}
 }
 
+func (h *FactorHandler) grpcUnavailable(c *gin.Context) {
+	c.JSON(http.StatusServiceUnavailable, gin.H{
+		"error":   "Python gRPC service is not running",
+		"message": "Start the Python research layer: cd services/python && python -m src.grpc.server",
+	})
+}
+
 // ComputeFactor evaluates a factor formula on the given symbols.
 // POST /api/v1/factor/compute
 func (h *FactorHandler) ComputeFactor(c *gin.Context) {
+	if h.client == nil {
+		h.grpcUnavailable(c)
+		return
+	}
 	var req struct {
 		Formula   string   `json:"formula" binding:"required"`
 		Symbols   []string `json:"symbols" binding:"required"`
@@ -61,6 +72,10 @@ func (h *FactorHandler) ComputeFactor(c *gin.Context) {
 // StartGPMining starts a GP evolution run and streams results via SSE.
 // POST /api/v1/factor/gp-mining
 func (h *FactorHandler) StartGPMining(c *gin.Context) {
+	if h.client == nil {
+		h.grpcUnavailable(c)
+		return
+	}
 	var req struct {
 		Pool           string `json:"pool"`
 		Generations    int32  `json:"generations"`

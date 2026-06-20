@@ -22,6 +22,13 @@ func NewSignalHandler(client signalv1.SignalServiceClient) *SignalHandler {
 // Generate calls Python SignalService.GenerateSignals and returns target weights.
 // POST /api/v1/signal/generate
 func (h *SignalHandler) Generate(c *gin.Context) {
+	if h.client == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"error":   "Python gRPC service is not running",
+			"message": "Start the Python research layer: cd services/python && python -m src.grpc.server",
+		})
+		return
+	}
 	var req struct {
 		StrategyName string            `json:"strategy_name"`
 		Symbols      []string          `json:"symbols"`

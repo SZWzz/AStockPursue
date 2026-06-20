@@ -1,0 +1,13 @@
+Failed to compile.
+
+./components/workflow/NodePanel.tsx:60:66
+Type error: Type 'unknown' is not assignable to type 'ReactNode'.
+
+[0m [90m 58 |[39m       [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
+ [90m 59 |[39m       [33m<[39m[33mdiv[39m className[33m=[39m[32m"text-[12px] text-[var(--foreground-muted)] mb-1"[39m[33m>[39m[33mType[39m[33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
+[31m[1m>[22m[39m[90m 60 |[39m       [33m<[39m[33mdiv[39m className[33m=[39m[32m"text-[13px] text-[var(--foreground)] mb-3"[39m[33m>[39m{selectedNode[33m.[39mdata[33m.[39mtype}[33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
+ [90m    |[39m                                                                  [31m[1m^[22m[39m
+ [90m 61 |[39m       [33m<[39m[33mdiv[39m className[33m=[39m[32m"text-[12px] text-[var(--foreground-muted)] mb-1"[39m[33m>[39m[33mLabel[39m[33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
+ [90m 62 |[39m       [33m<[39m[33mdiv[39m className[33m=[39m[32m"text-[13px] text-[var(--foreground)]"[39m[33m>[39m{selectedNode[33m.[39mdata[33m.[39mlabel}[33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
+ [90m 63 |[39m     [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m[0m
+Next.js build worker exited with code: 1 and signal: null

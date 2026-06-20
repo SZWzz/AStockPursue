@@ -47,6 +47,11 @@ export default function TradingPage() {
   }, [symbol])
 
   const bars = klineData?.bars || []
+  const latestBar = bars[bars.length - 1]
+  const latestPrice = latestBar?.close
+  const prevPrice = bars.length > 1 ? bars[bars.length - 2].close : latestPrice
+  const change = latestPrice && prevPrice ? latestPrice - prevPrice : 0
+  const changePct = prevPrice ? (change / prevPrice) * 100 : 0
 
   return (
     <SidebarLayout>
@@ -55,14 +60,14 @@ export default function TradingPage() {
           {t('nav.trading')}
         </h1>
 
-        {/* PriceTicker bar — new */}
+        {/* PriceTicker bar */}
         <PriceTicker
           symbol={symbol}
-          price={12.50}
-          change={0.32}
-          changePct={2.63}
-          high={12.65}
-          low={12.10}
+          price={latestPrice || 0}
+          change={change}
+          changePct={changePct}
+          high={latestBar?.high || 0}
+          low={latestBar?.low || 0}
         />
 
         {/* 12-column grid */}

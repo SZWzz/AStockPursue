@@ -35,12 +35,13 @@ export default function StrategyLabPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          strategy_name: 'StrategyLab',
+          strategy_name: `${config.symbol}_${config.startDate}_${config.endDate}`,
           symbol: config.symbol,
           start_date: config.startDate,
           end_date: config.endDate,
           frequency: 'daily',
           initial_capital: 100000,
+          code,
         }),
       })
       if (!res.ok) throw new Error('Backtest failed')

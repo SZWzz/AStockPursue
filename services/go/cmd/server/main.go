@@ -100,16 +100,18 @@ func main() {
 	if err != nil {
 		log.Printf("gRPC dial warning: %v", err)
 	}
-	var (
-		factorH   *handler.FactorHandler
-		workflowH *handler.WorkflowHandler
-		signalH   *handler.SignalHandler
-	)
+	// Always create gRPC proxy handlers — return 503 if Python gRPC is down
+	var factorClient factorv1.FactorServiceClient
+	var workflowClient workflowv1.WorkflowServiceClient
+	var signalClient signalv1.SignalServiceClient
 	if grpcConn != nil {
-		factorH = handler.NewFactorHandler(factorv1.NewFactorServiceClient(grpcConn))
-		workflowH = handler.NewWorkflowHandler(workflowv1.NewWorkflowServiceClient(grpcConn))
-		signalH = handler.NewSignalHandler(signalv1.NewSignalServiceClient(grpcConn))
+		factorClient = factorv1.NewFactorServiceClient(grpcConn)
+		workflowClient = workflowv1.NewWorkflowServiceClient(grpcConn)
+		signalClient = signalv1.NewSignalServiceClient(grpcConn)
 	}
+	factorH := handler.NewFactorHandler(factorClient)
+	workflowH := handler.NewWorkflowHandler(workflowClient)
+	signalH := handler.NewSignalHandler(signalClient)
 
 	healthH := &handler.HealthHandler{}
 	wsHub := api.NewWSHub()
@@ -117,8 +119,12 @@ func main() {
 
 	// Preload seed data + simulated ticker feed
 	go func() {
-		time.Sleep(3 * time.Second)
-		seedSymbols := []string{"000001.SZ", "600519.SH", "000300.SH", "600036.SH", "000858.SZ"}
+		time.Sleep(5 * time.Second)
+		seedSymbols := []string{
+			"000001.SZ", "600519.SH", "000300.SH", "600036.SH", "000858.SZ",
+			"600000.SH", "601318.SH", "000002.SZ", "601166.SH", "600276.SH",
+			"002415.SZ", "601012.SH",
+		}
 		end := time.Now()
 		start := end.AddDate(0, 0, -30)
 		loaded := 0

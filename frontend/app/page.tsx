@@ -10,12 +10,16 @@ import { EquityChart } from '@/components/financial/EquityChart'
 import { usePositions, useSystemStatus } from '@/hooks'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { IndexTickerBar } from '@/components/dashboard/IndexTickerBar'
+import useSWR from 'swr'
+
+const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 export default function DashboardPage() {
   const t = useTranslations()
   useWebSocket()
   const { data: posData } = usePositions()
   const { data: sysData } = useSystemStatus()
+  const { data: portfolio } = useSWR('/api/portfolio', fetcher)
 
   return (
     <SidebarLayout>
@@ -28,10 +32,27 @@ export default function DashboardPage() {
 
         {/* Hero KPI row — StatCallout for the main equity number */}
         <div className="grid grid-cols-4 gap-[var(--grid-gap)]">
-          <StatCallout label={t('portfolio.totalEquity')} value="$100,000.00" change="+2.34%" direction="up" />
-          <KpiCard label={t('portfolio.pnl')} value="+$2,340.00" direction="up" />
-          <KpiCard label={t('portfolio.available')} value="$85,000.00" />
-          <KpiCard label={t('portfolio.margin')} value="$15,000.00" change="15%" direction="neutral" />
+          <StatCallout
+            label={t('portfolio.totalEquity')}
+            value={portfolio?.total_value ? '$' + Number(portfolio.total_value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
+            change={portfolio?.total_value && portfolio?.cash ? ((portfolio.total_value - portfolio.cash) / portfolio.cash * 100).toFixed(2) + '%' : '--'}
+            direction={(portfolio?.total_value ?? 0) >= (portfolio?.cash ?? 0) ? 'up' : 'down'}
+          />
+          <KpiCard
+            label={t('portfolio.pnl')}
+            value={portfolio?.total_value && portfolio?.cash ? '$' + (portfolio.total_value - portfolio.cash).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
+            direction={((portfolio?.total_value ?? 0) - (portfolio?.cash ?? 0)) >= 0 ? 'up' : 'down'}
+          />
+          <KpiCard
+            label={t('portfolio.available')}
+            value={portfolio?.cash ? '$' + Number(portfolio.cash).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
+          />
+          <KpiCard
+            label={t('portfolio.margin')}
+            value={portfolio?.total_value && portfolio?.cash ? '$' + (portfolio.total_value - portfolio.cash).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
+            change={portfolio?.total_value && portfolio?.cash ? ((portfolio.total_value - portfolio.cash) / portfolio.total_value * 100).toFixed(1) + '%' : '--'}
+            direction="neutral"
+          />
         </div>
 
         {/* Equity Chart + Positions */}

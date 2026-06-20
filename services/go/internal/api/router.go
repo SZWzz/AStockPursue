@@ -97,25 +97,21 @@ func NewRouter(
 		sr.GET("/movers", screenerH.TopMovers)
 		sr.GET("/overview", screenerH.MarketOverview)
 
-		// Factor routes
-		if factorH != nil {
-			fc := v1.Group("/factor")
-			fc.POST("/compute", factorH.ComputeFactor)
-			fc.POST("/gp-mining", factorH.StartGPMining)
-		}
+		// Factor routes (returns 503 if Python gRPC is down)
+		fc := v1.Group("/factor")
+		fc.POST("/compute", factorH.ComputeFactor)
+		fc.POST("/gp-mining", factorH.StartGPMining)
 
 		// Workflow routes
-		if workflowH != nil {
-			wc := v1.Group("/workflow")
-			wc.POST("/execute", workflowH.ExecuteWorkflow)
-			wc.GET("/node/:id", workflowH.GetNodeResult)
-		}
+		wc := v1.Group("/workflow")
+		wc.GET("", workflowH.ListWorkflows)
+		wc.POST("", workflowH.SaveWorkflow)
+		wc.POST("/execute", workflowH.ExecuteWorkflow)
+		wc.GET("/node/:id", workflowH.GetNodeResult)
 
 		// Signal routes
-		if signalH != nil {
-			sg := v1.Group("/signal")
-			sg.POST("/generate", signalH.Generate)
-		}
+		sg := v1.Group("/signal")
+		sg.POST("/generate", signalH.Generate)
 	}
 
 	return r
