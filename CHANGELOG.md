@@ -2,6 +2,12 @@
 
 ## [2026.6.20] - 2026-06-20
 
+### Removed
+- [Python] Remove 28 API route files under `src/api/` — replaced by Go HTTP handlers (`services/go/internal/api/handler/`)
+- [Python] Remove `api_server.py` FastAPI entry point — replaced by Go HTTP server (port 8899)
+- [Python] Remove `papertrade/` package (6 files) — migrated to Go `papertrade.Engine` (state machine + repository + CRUD)
+- [Python] Remove 4 test files for deleted API routes (`test_security_auth_api`, `test_settings_api`, `test_upload_api`, `test_upload_security`)
+
 ### Added
 - [Frontend] Add 5 new financial components: StatCallout (hero numbers), StatusBadge (8 variants), PriceTicker (real-time bar), MarketRow (dense list), DividerSection (section header)
 - [Frontend] Add i18n keys for market, screener, and status labels (en + zh)

@@ -92,6 +92,7 @@ class StrategyNode(BaseNode):
     def _fetch_strategy_options() -> list[dict]:
         """Get list of {id, name} for saved strategies."""
         try:
+            # TODO(P6): migrate strategy repo access to Go gRPC StrategyService
             from src.api.strategy_lab_routes import _get_repo, _repo_kind
             repo = _get_repo()
             if _repo_kind == "pg":
@@ -147,6 +148,7 @@ class StrategyNode(BaseNode):
     def _load_saved_strategy(strategy_id: str) -> str | None:
         """Load strategy code from the strategy lab repository."""
         try:
+            # TODO(P6): migrate strategy repo access to Go gRPC StrategyService
             from src.api.strategy_lab_routes import _get_repo, _repo_kind
             repo = _get_repo()
             if _repo_kind == "pg":
