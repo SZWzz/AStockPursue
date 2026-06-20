@@ -23,6 +23,9 @@
 - [Frontend] Add CorrelationMatrix component — D3 heatmap with diverging color scale
 - [Frontend] Add ScreenerGrid component — sortable table for screened stock results
 - [Frontend] Add LogViewer component — scrollable log display with monospace formatting
+- [Frontend] Add trading panel page (app/trading/page.tsx) — real-time trading with SymbolSearch, OrderForm (3 cols), CandlestickChart (6 cols), OrderBook (3 cols), and PositionTable below
+- [Frontend] Add orders list page (app/trading/orders/page.tsx) — orders table with columns for order ID, symbol, side (color-coded), price, quantity, filled qty, status badge
+- [Frontend] Add positions page (app/trading/positions/page.tsx) — dedicated positions view wrapping PositionTable with live P&L via WebSocket
 
 ### Changed
 - [Frontend] Update next.config.ts with createNextIntlPlugin to enable next-intl server-side locale and message resolution
