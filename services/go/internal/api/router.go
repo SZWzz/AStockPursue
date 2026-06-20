@@ -15,6 +15,8 @@ func NewRouter(
 	portfolioH *handler.PortfolioHandler,
 	authH *handler.AuthHandler,
 	paperTradeH *handler.PaperTradingHandler,
+	settingsH *handler.SettingsHandler,
+	systemH *handler.SystemHandler,
 ) *gin.Engine {
 	r := gin.Default()
 
@@ -22,6 +24,10 @@ func NewRouter(
 	auth := r.Group("/api/v1/auth")
 	auth.POST("/register", authH.Register)
 	auth.POST("/login", authH.Login)
+
+	sys := r.Group("/api/v1/system")
+	sys.GET("/status", systemH.Status)
+	sys.GET("/ping", systemH.Ping)
 
 	r.GET("/health", health.Health)
 
@@ -57,6 +63,11 @@ func NewRouter(
 		pt.POST("/:id/start", paperTradeH.StartRun)
 		pt.POST("/:id/stop", paperTradeH.StopRun)
 		pt.DELETE("/:id", paperTradeH.DeleteRun)
+
+		st := v1.Group("/settings")
+		st.GET("", settingsH.Get)
+		st.PUT("", settingsH.Update)
+		st.DELETE("", settingsH.Reset)
 	}
 
 	return r
