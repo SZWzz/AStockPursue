@@ -5,90 +5,90 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ---- OLED Theme Tokens ---- */
+/* ---- Coinbase Institutional Theme Tokens ---- */
 :root {
-  /* Surface layers — shadcn + OLED */
-  --background: #020617;
-  --foreground: #F8FAFC;
-  --card: #0A0F1D;
-  --card-foreground: #F8FAFC;
-  --popover: #0F172A;
-  --popover-foreground: #F8FAFC;
-  --primary: #FB923C;
-  --primary-foreground: #020617;
-  --secondary: #0F172A;
-  --secondary-foreground: #F8FAFC;
-  --muted: #1A1E2F;
-  --muted-foreground: #94A3B8;
-  --accent: #1A1E2F;
-  --accent-foreground: #F8FAFC;
-  --destructive: #DC2626;
-  --destructive-foreground: #F8FAFC;
+  /* Surface layers — light canvas */
+  --background: #FFFFFF;
+  --foreground: #0A0B0D;
+  --card: #FFFFFF;
+  --card-foreground: #0A0B0D;
+  --popover: #FFFFFF;
+  --popover-foreground: #0A0B0D;
+  --primary: #0052FF;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEF0F3;
+  --secondary-foreground: #0A0B0D;
+  --muted: #F7F7F7;
+  --muted-foreground: #7C828A;
+  --accent: #EEF0F3;
+  --accent-foreground: #0A0B0D;
+  --destructive: #CF202F;
+  --destructive-foreground: #FFFFFF;
 
-  /* Borders */
-  --border: #272F42;
-  --border-subtle: #1E293B;
-  --border-default: #272F42;
-  --border-strong: #334155;
-  --input: #272F42;
-  --ring: #FB923C;
+  /* Borders — hairline-driven */
+  --border: #DEE1E6;
+  --border-subtle: #EEF0F3;
+  --border-default: #DEE1E6;
+  --border-strong: #A8ACB3;
+  --input: #DEE1E6;
+  --ring: #0052FF;
 
-  /* OLED surface aliases (preserved for existing code) */
-  --surface-1: #0A0F1D;
-  --surface-2: #0F172A;
-  --surface-3: #1A1E2F;
+  /* OLED surface aliases — remapped to light hierarchy */
+  --surface-1: #F7F7F7;
+  --surface-2: #EEF0F3;
+  --surface-3: #DEE1E6;
 
   /* Brand */
-  --primary-hover: #FBA86C;
-  --primary-muted: rgba(251, 146, 60, 0.12);
+  --primary-hover: #003ECC;
+  --primary-muted: rgba(0, 82, 255, 0.10);
 
-  /* Semantic */
-  --up: #22C55E;
-  --down: #EF4444;
-  --warning: #F59E0B;
-  --info: #3B82F6;
+  /* Semantic — Coinbase precise values */
+  --up: #05B169;
+  --down: #CF202F;
+  --warning: #F4B000;
+  --info: #0052FF;
 
   /* Text */
-  --foreground-secondary: #94A3B8;
-  --foreground-muted: #64748B;
+  --foreground-secondary: #5B616E;
+  --foreground-muted: #7C828A;
 
   /* Layout */
-  --sidebar-width: 220px;
-  --header-height: 48px;
-  --grid-gap: 8px;
-  --card-padding: 12px;
-  --page-padding: 12px;
+  --sidebar-width: 240px;
+  --header-height: 56px;
+  --grid-gap: 16px;
+  --card-padding: 24px;
+  --page-padding: 24px;
 
-  /* Radius */
-  --radius: 0.5rem;
+  /* Radius — tighter, Coinbase-like */
+  --radius: 0.375rem;
 
   /* Chart */
-  --chart-1: #FB923C;
-  --chart-2: #22C55E;
-  --chart-3: #3B82F6;
-  --chart-4: #F59E0B;
-  --chart-5: #EF4444;
+  --chart-1: #0052FF;
+  --chart-2: #05B169;
+  --chart-3: #F4B000;
+  --chart-4: #CF202F;
+  --chart-5: #7C828A;
 
   /* Sidebar */
-  --sidebar: #020617;
-  --sidebar-foreground: #F8FAFC;
-  --sidebar-primary: #FB923C;
-  --sidebar-primary-foreground: #020617;
-  --sidebar-accent: #0F172A;
-  --sidebar-accent-foreground: #F8FAFC;
-  --sidebar-border: #272F42;
-  --sidebar-ring: #FB923C;
+  --sidebar: #F7F7F7;
+  --sidebar-foreground: #0A0B0D;
+  --sidebar-primary: #0052FF;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EEF0F3;
+  --sidebar-accent-foreground: #0A0B0D;
+  --sidebar-border: #EEF0F3;
+  --sidebar-ring: #0052FF;
 
   /* Font */
-  --font-body: 'Fira Sans', system-ui, sans-serif;
-  --font-mono: 'Fira Code', monospace;
-  --font-sans: 'Fira Sans', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-/* zh locale — red up / green down */
+/* zh locale — red up / green down (A-share convention) */
 [lang="zh"] {
-  --up: #EF4444;
-  --down: #22C55E;
+  --up: #CF202F;
+  --down: #05B169;
 }
 
 /* Base reset */
@@ -96,7 +96,7 @@ html, body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-body);
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.5;
   margin: 0;
   padding: 0;
@@ -104,10 +104,10 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar — OLED minimal */
+/* Scrollbar — light minimal */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--background); }
-::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
 /* Tabular numbers for data cells */
@@ -157,33 +157,33 @@ html, body {
 }
 
 .dark {
-  --background: #020617;
-  --foreground: #F8FAFC;
-  --card: #0A0F1D;
-  --card-foreground: #F8FAFC;
-  --popover: #0F172A;
-  --popover-foreground: #F8FAFC;
-  --primary: #FB923C;
-  --primary-foreground: #020617;
-  --secondary: #0F172A;
-  --secondary-foreground: #F8FAFC;
-  --muted: #1A1E2F;
-  --muted-foreground: #94A3B8;
-  --accent: #1A1E2F;
-  --accent-foreground: #F8FAFC;
-  --destructive: #DC2626;
-  --destructive-foreground: #F8FAFC;
-  --border: #272F42;
-  --input: #272F42;
-  --ring: #FB923C;
-  --sidebar: #020617;
-  --sidebar-foreground: #F8FAFC;
-  --sidebar-primary: #FB923C;
-  --sidebar-primary-foreground: #020617;
-  --sidebar-accent: #0F172A;
-  --sidebar-accent-foreground: #F8FAFC;
-  --sidebar-border: #272F42;
-  --sidebar-ring: #FB923C;
+  --background: #FFFFFF;
+  --foreground: #0A0B0D;
+  --card: #FFFFFF;
+  --card-foreground: #0A0B0D;
+  --popover: #FFFFFF;
+  --popover-foreground: #0A0B0D;
+  --primary: #0052FF;
+  --primary-foreground: #FFFFFF;
+  --secondary: #EEF0F3;
+  --secondary-foreground: #0A0B0D;
+  --muted: #F7F7F7;
+  --muted-foreground: #7C828A;
+  --accent: #EEF0F3;
+  --accent-foreground: #0A0B0D;
+  --destructive: #CF202F;
+  --destructive-foreground: #FFFFFF;
+  --border: #DEE1E6;
+  --input: #DEE1E6;
+  --ring: #0052FF;
+  --sidebar: #F7F7F7;
+  --sidebar-foreground: #0A0B0D;
+  --sidebar-primary: #0052FF;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EEF0F3;
+  --sidebar-accent-foreground: #0A0B0D;
+  --sidebar-border: #EEF0F3;
+  --sidebar-ring: #0052FF;
 }
 
 @layer base {
