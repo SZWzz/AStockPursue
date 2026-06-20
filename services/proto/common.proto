@@ -1,0 +1,24 @@
+syntax = "proto3";
+package astockpursue.common;
+option go_package = "github.com/astockpursue/go-core/internal/gen/common/v1;commonv1";
+
+message Bar {
+  string symbol = 1;
+  double open = 2;  double high = 3;  double low = 4;  double close = 5;
+  int64 volume = 6;  int64 timestamp = 7;
+  string frequency = 8;
+}
+
+message Position {
+  string symbol = 1;
+  double size = 2;
+  double entry_price = 3;
+  double current_price = 4;
+  double pnl = 5;
+  string side = 6;
+}
+
+message Order {
+  string id = 1;  string symbol = 2;  string side = 3;  string type = 4;
+  double price = 5;  double quantity = 6;  string status = 7;
+}

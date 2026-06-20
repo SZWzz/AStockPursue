@@ -1,0 +1,20 @@
+syntax = "proto3";
+package astockpursue.llm;
+option go_package = "github.com/astockpursue/go-core/internal/gen/llm/v1;llmv1";
+
+service LLMService {
+  rpc Chat(ChatRequest) returns (ChatResponse);
+  rpc AgentDecide(AgentRequest) returns (AgentResponse);
+}
+
+message ChatRequest { string message = 1; }
+message ChatResponse { string reply = 1; }
+
+message AgentRequest {
+  string query = 1;
+  map<string, string> context = 2;
+}
+message AgentResponse {
+  string action = 1;
+  map<string, string> params = 2;
+}

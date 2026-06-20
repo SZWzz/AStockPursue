@@ -1,0 +1,29 @@
+syntax = "proto3";
+package astockpursue.workflow;
+option go_package = "github.com/astockpursue/go-core/internal/gen/workflow/v1;workflowv1";
+
+service WorkflowService {
+  rpc ExecuteWorkflow(WorkflowRequest) returns (WorkflowResponse);
+  rpc GetNodeResult(NodeQuery) returns (NodeResult);
+}
+
+message WorkflowRequest {
+  string workflow_id = 1;
+  map<string, string> params = 2;
+}
+
+message WorkflowResponse {
+  string status = 1;
+  string error = 2;
+}
+
+message NodeQuery {
+  string workflow_id = 1;
+  string node_id = 2;
+}
+
+message NodeResult {
+  string node_id = 1;
+  bytes output = 2;
+  string error = 3;
+}

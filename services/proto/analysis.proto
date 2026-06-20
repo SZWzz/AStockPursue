@@ -1,0 +1,41 @@
+syntax = "proto3";
+package astockpursue.analysis;
+option go_package = "github.com/astockpursue/go-core/internal/gen/analysis/v1;analysisv1";
+
+service AnalysisService {
+  rpc CalcAttribution(AttributionRequest) returns (AttributionResponse);
+  rpc CalcCorrelation(CorrelationRequest) returns (CorrelationResponse);
+  rpc StressTest(StressTestRequest) returns (StressTestResponse);
+}
+
+message AttributionRequest {
+  string portfolio_id = 1;
+  string start_date = 2;
+  string end_date = 3;
+}
+
+message AttributionResponse {
+  map<string, double> factors = 1;
+  string error = 2;
+}
+
+message CorrelationRequest {
+  repeated string symbols = 1;
+  string start_date = 2;
+  string end_date = 3;
+}
+
+message CorrelationResponse {
+  map<string, double> matrix = 1;
+  string error = 2;
+}
+
+message StressTestRequest {
+  string portfolio_id = 1;
+  repeated string scenarios = 2;
+}
+
+message StressTestResponse {
+  map<string, double> results = 1;
+  string error = 2;
+}

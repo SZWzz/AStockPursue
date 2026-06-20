@@ -1,4 +1,4 @@
-.PHONY: run test lint clean
+.PHONY: run test lint vet build gen-proto clean
 
 run:
 	go run ./cmd/server
@@ -14,6 +14,9 @@ vet:
 
 build:
 	go build -o bin/server ./cmd/server
+
+gen-proto:
+	cd ../proto && buf generate
 
 clean:
 	rm -rf bin/

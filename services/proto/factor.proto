@@ -1,0 +1,34 @@
+syntax = "proto3";
+package astockpursue.factor;
+option go_package = "github.com/astockpursue/go-core/internal/gen/factor/v1;factorv1";
+
+service FactorService {
+  rpc ComputeFactor(FactorRequest) returns (FactorResponse);
+  rpc StartGPMining(GPRequest) returns (stream GPResult);
+}
+
+message FactorRequest {
+  string formula = 1;
+  repeated string symbols = 2;
+  string start_date = 3;
+  string end_date = 4;
+}
+
+message FactorResponse {
+  map<string, double> values = 1;
+  string error = 2;
+}
+
+message GPRequest {
+  string pool = 1;
+  int32 generations = 2;
+  int32 population_size = 3;
+  string fitness_metric = 4;
+}
+
+message GPResult {
+  string formula = 1;
+  double ic = 2;
+  double sharpe = 3;
+  int32 generation = 4;
+}

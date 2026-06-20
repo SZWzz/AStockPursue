@@ -1,0 +1,21 @@
+syntax = "proto3";
+package astockpursue.signal;
+option go_package = "github.com/astockpursue/go-core/internal/gen/signal/v1;signalv1";
+
+import "common.proto";
+
+service SignalService {
+  rpc GenerateSignals(SignalRequest) returns (SignalResponse);
+}
+
+message SignalRequest {
+  string strategy_name = 1;
+  repeated common.Bar bars = 2;
+  string mode = 3;
+  map<string, string> params = 4;
+}
+
+message SignalResponse {
+  map<string, double> weights = 1;
+  string error = 2;
+}
