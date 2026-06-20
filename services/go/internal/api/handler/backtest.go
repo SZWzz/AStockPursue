@@ -1,42 +1,76 @@
 package handler
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/astockpursue/go-core/internal/engine"
-	"github.com/astockpursue/go-core/internal/market"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
-type BacktestRequest struct {
-	Symbols    []string `json:"symbols" binding:"required"`
-	StartDate  string   `json:"start_date" binding:"required"`
-	EndDate    string   `json:"end_date" binding:"required"`
-	Frequency  string   `json:"frequency" binding:"required"`
-	InitialCash float64 `json:"initial_cash" binding:"required"`
+type BacktestRepository interface {
+	Save(ctx context.Context, result *engine.BacktestResult) (string, error)
+	Get(ctx context.Context, id string) (*engine.BacktestResult, error)
+	List(ctx context.Context) ([]string, error)
 }
 
-type BacktestStore struct {
+type BacktestRequest struct {
+	Symbols     []string `json:"symbols" binding:"required"`
+	StartDate   string   `json:"start_date" binding:"required"`
+	EndDate     string   `json:"end_date" binding:"required"`
+	Frequency   string   `json:"frequency" binding:"required"`
+	InitialCash float64  `json:"initial_cash" binding:"required"`
+}
+
+type MemoryBacktestStore struct {
 	mu      sync.RWMutex
 	results map[string]*engine.BacktestResult
-	counter int
 }
 
-func NewBacktestStore() *BacktestStore {
-	return &BacktestStore{results: make(map[string]*engine.BacktestResult)}
+func NewBacktestStore() *MemoryBacktestStore {
+	return &MemoryBacktestStore{results: make(map[string]*engine.BacktestResult)}
+}
+
+func (s *MemoryBacktestStore) Save(ctx context.Context, result *engine.BacktestResult) (string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	id := uuid.New().String()
+	s.results[id] = result
+	return id, nil
+}
+
+func (s *MemoryBacktestStore) Get(ctx context.Context, id string) (*engine.BacktestResult, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	r, ok := s.results[id]
+	if !ok {
+		return nil, fmt.Errorf("backtest result not found: %s", id)
+	}
+	return r, nil
+}
+
+func (s *MemoryBacktestStore) List(ctx context.Context) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	ids := make([]string, 0, len(s.results))
+	for id := range s.results {
+		ids = append(ids, id)
+	}
+	return ids, nil
 }
 
 type BacktestHandler struct {
-	store   *BacktestStore
-	ds      *market.DataStore
+	repo    BacktestRepository
+	loader  engine.BarLoader
 	factory *engine.EngineFactory
 }
 
-func NewBacktestHandler(store *BacktestStore, ds *market.DataStore, factory *engine.EngineFactory) *BacktestHandler {
-	return &BacktestHandler{store: store, ds: ds, factory: factory}
+func NewBacktestHandler(repo BacktestRepository, loader engine.BarLoader, factory *engine.EngineFactory) *BacktestHandler {
+	return &BacktestHandler{repo: repo, loader: loader, factory: factory}
 }
 
 func (h *BacktestHandler) Run(c *gin.Context) {
@@ -58,7 +92,7 @@ func (h *BacktestHandler) Run(c *gin.Context) {
 	}
 
 	p := &engine.Pipeline{
-		Engine:   h.factory.ForSymbol(req.Symbols[0]),
+		Engine:    h.factory.ForSymbol(req.Symbols[0]),
 		Portfolio: &engine.Portfolio{
 			Cash:      req.InitialCash,
 			Equity:    req.InitialCash,
@@ -69,58 +103,36 @@ func (h *BacktestHandler) Run(c *gin.Context) {
 		LastBars: make(map[string]interface{}),
 	}
 
-	runner := engine.NewBacktestRunner(p, h.ds)
+	runner := engine.NewBacktestRunner(p, h.loader)
 	result, err := runner.Run(req.Symbols, start, end, req.Frequency)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
-	id := h.store.save(result)
+	id, err := h.repo.Save(c.Request.Context(), result)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"id": id, "result": result})
 }
 
 func (h *BacktestHandler) GetResult(c *gin.Context) {
 	id := c.Param("id")
-	result, ok := h.store.get(id)
-	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "backtest result not found"})
+	result, err := h.repo.Get(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"id": id, "result": result})
 }
 
 func (h *BacktestHandler) ListResults(c *gin.Context) {
-	ids := h.store.list()
-	c.JSON(http.StatusOK, gin.H{"ids": ids})
-}
-
-func (s *BacktestStore) save(result *engine.BacktestResult) string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.counter++
-	id := formatInt(s.counter)
-	s.results[id] = result
-	return id
-}
-
-func (s *BacktestStore) get(id string) (*engine.BacktestResult, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	r, ok := s.results[id]
-	return r, ok
-}
-
-func (s *BacktestStore) list() []string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	ids := make([]string, 0, len(s.results))
-	for id := range s.results {
-		ids = append(ids, id)
+	ids, err := h.repo.List(c.Request.Context())
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
-	return ids
-}
-
-func formatInt(n int) string {
-	return fmt.Sprintf("%d", n)
+	c.JSON(http.StatusOK, gin.H{"ids": ids})
 }

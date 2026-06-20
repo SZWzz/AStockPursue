@@ -31,6 +31,8 @@ type TradeRecord struct {
 }
 
 type BacktestResult struct {
+	Symbols       []string      `json:"symbols"`
+	Frequency     string        `json:"frequency"`
 	StartTime     time.Time     `json:"start_time"`
 	EndTime       time.Time     `json:"end_time"`
 	InitialCash   float64       `json:"initial_cash"`
@@ -129,6 +131,8 @@ func (br *BacktestRunner) Run(symbols []string, start, end time.Time, freq strin
 	result := br.calculateMetrics(initialCash, equityCurve)
 	result.StartTime = start
 	result.EndTime = end
+	result.Symbols = symbols
+	result.Frequency = freq
 	result.Trades = br.trades
 	return result, nil
 }
