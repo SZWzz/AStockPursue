@@ -7,6 +7,11 @@
 - [Frontend] Add frontend/lib/constants.ts with OLED color constants, API_BASE and WS_URL environment variables
 - [Frontend] Add frontend/lib/utils.ts with cn() class merger, format helpers (price, percent, volume, PnL, datetime), and colorForChange utility
 - [Frontend] Add frontend/lib/api-client.ts with apiFetch() wrapper and setApiToken() for JWT-authenticated HTTP calls to the Go backend
+- [Frontend] Add frontend/lib/navigation.ts with NavGroup/NavItem interfaces and sidebar navigation config (dashboard, trade, research, market, system sections)
+- [Frontend] Add frontend/lib/auth-client.ts with signOut() placeholder stub
+- [Frontend] Add Sidebar component (220px fixed sidebar with nav links, active state highlighting, logo, user footer)
+- [Frontend] Add Header component (48px fixed header with breadcrumb, notifications bell, user dropdown with logout)
+- [Frontend] Add SidebarLayout component (wraps Sidebar + Header + main content area)
 
 ### Removed
 - [Frontend] Remove stale Vite scaffold files (vite.config.ts, index.html, src/, public/) — only Next.js config remains after scaffold migration
