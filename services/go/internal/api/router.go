@@ -13,13 +13,20 @@ func NewRouter(
 	marketH *handler.MarketHandler,
 	brokerH *handler.BrokerHandler,
 	portfolioH *handler.PortfolioHandler,
+	authH *handler.AuthHandler,
 ) *gin.Engine {
 	r := gin.Default()
-	r.Use(middleware.Auth())
+
+	// Public routes (no auth required)
+	auth := r.Group("/api/v1/auth")
+	auth.POST("/register", authH.Register)
+	auth.POST("/login", authH.Login)
 
 	r.GET("/health", health.Health)
 
+	// Protected routes
 	v1 := r.Group("/api/v1")
+	v1.Use(middleware.Auth())
 	{
 		bt := v1.Group("/backtest")
 		bt.POST("", backtest.Run)

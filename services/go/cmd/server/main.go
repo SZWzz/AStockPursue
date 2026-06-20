@@ -82,9 +82,10 @@ func main() {
 	brokerH := handler.NewBrokerHandler(binanceBroker, okxBroker)
 
 	portfolioH := handler.NewPortfolioHandler(runner)
+	authH := handler.NewAuthHandler()
 
 	healthH := &handler.HealthHandler{}
-	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH)
+	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH)
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
