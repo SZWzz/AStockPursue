@@ -11,6 +11,12 @@
 - [Python] Remove `src/trading/engine.py` + `risk_pipeline.py` — migrated to Go `internal/engine/pipeline.go` + `risk.go`
 - [Python] Remove 4 test files for deleted trading modules (`test_backtest_integration`, `test_engine_robustness`, `test_risk_pipeline`, `test_trading_engine`)
 - [Python] Add TODO(P6) markers in consumer files (live_bridge, trading_nodes, thin_nodes, backtest_driver, strategy_nodes, backtest/engines/__init__) to track remaining Go migration work
+- [Python] Remove `src/optimize/` (6 files) — migrated to Go engines; all optimizers (bayesian, grid_search, walk_forward, evolution, random_search) replaced by Go implementations
+- [Python] Remove 11 test files for migrated engine/signal/live/runner modules — Go has equivalent test coverage (245 tests)
+
+### Fixed
+- [Go] Fix nil pointer panic in `NewPostgresBacktestStore` — add nil guard for timescale parameter
+- [Go] Fix nil context panic in `NewTimescaleDB` — add nil/empty guards before pgxpool.New
 
 ### Added
 - [Frontend] Add 5 new financial components: StatCallout (hero numbers), StatusBadge (8 variants), PriceTicker (real-time bar), MarketRow (dense list), DividerSection (section header)
