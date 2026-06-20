@@ -3,6 +3,7 @@
 ## [2026.6.20] - 2026-06-20
 
 ### Added
+- [gRPC] Add WorkflowService servicer with ExecuteWorkflow and GetNodeResult RPCs
 - [gRPC] Add AnalysisService servicer with CalcAttribution, CalcCorrelation, StressTest RPCs
 - [Frontend] Add PositionTable component — renders positions via usePositions() SWR hook with shadcn Table (loading/error/empty states, up/down color coding)
 - [Frontend] Add OrderForm component — order submission form using useOrderFormStore() Zustand store, POST to /api/trading/orders with toast feedback
