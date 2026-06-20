@@ -9,6 +9,7 @@ import { PositionTable } from '@/components/financial/PositionTable'
 import { EquityChart } from '@/components/financial/EquityChart'
 import { usePositions, useSystemStatus } from '@/hooks'
 import { useWebSocket } from '@/hooks/useWebSocket'
+import { IndexTickerBar } from '@/components/dashboard/IndexTickerBar'
 
 export default function DashboardPage() {
   const t = useTranslations()
@@ -22,6 +23,8 @@ export default function DashboardPage() {
         <h1 className="text-[32px] font-[400] tracking-[-0.4px] text-[var(--foreground)]">
           {t('nav.dashboard')}
         </h1>
+
+        <IndexTickerBar />
 
         {/* Hero KPI row — StatCallout for the main equity number */}
         <div className="grid grid-cols-4 gap-[var(--grid-gap)]">
