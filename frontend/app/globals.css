@@ -1,0 +1,78 @@
+/* frontend/app/globals.css */
+@import "tailwindcss";
+
+/* ---- OLED Theme Tokens ---- */
+:root {
+  /* Surface layers */
+  --background: #020617;
+  --surface-1: #0A0F1D;
+  --surface-2: #0F172A;
+  --surface-3: #1A1E2F;
+
+  /* Borders */
+  --border-subtle: #1E293B;
+  --border-default: #272F42;
+  --border-strong: #334155;
+
+  /* Brand */
+  --primary: #FB923C;
+  --primary-hover: #FBA86C;
+  --primary-muted: rgba(251, 146, 60, 0.12);
+
+  /* Semantic */
+  --up: #22C55E;
+  --down: #EF4444;
+  --warning: #F59E0B;
+  --info: #3B82F6;
+  --destructive: #DC2626;
+
+  /* Text */
+  --foreground: #F8FAFC;
+  --foreground-secondary: #94A3B8;
+  --foreground-muted: #64748B;
+
+  /* Layout */
+  --sidebar-width: 220px;
+  --header-height: 48px;
+  --grid-gap: 8px;
+  --card-padding: 12px;
+  --page-padding: 12px;
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Font */
+  --font-body: 'Fira Sans', system-ui, sans-serif;
+  --font-mono: 'Fira Code', monospace;
+}
+
+/* zh locale — red up / green down */
+[lang="zh"] {
+  --up: #EF4444;
+  --down: #22C55E;
+}
+
+/* Base reset */
+html, body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar — OLED minimal */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--background); }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* Tabular numbers for data cells */
+[data-tabular] { font-variant-numeric: tabular-nums; }

@@ -2,6 +2,10 @@
 
 ## [2026.6.20] - 2026-06-20
 
+### Added
+- [Frontend] Add OLED theme CSS variables (globals.css) with surface layers, borders, brand, semantic, text, layout, radius, and font tokens; scrollbar styling; zh locale red-up/green-down swap
+- [Frontend] Add frontend/lib/constants.ts with OLED color constants, API_BASE and WS_URL environment variables
+
 ### Removed
 - [Frontend] Remove stale Vite scaffold files (vite.config.ts, index.html, src/, public/) — only Next.js config remains after scaffold migration
 
