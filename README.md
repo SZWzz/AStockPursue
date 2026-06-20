@@ -100,11 +100,11 @@ Projects  ──▶  Workflow Canvas  ──▶  Execute & Analyze
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | React 19, TypeScript, @xyflow/react (canvas), Zustand (state), ECharts, Monaco Editor, Tailwind CSS |
-| **Backend** | Python 3.11+, FastAPI, asyncio, PostgreSQL, psycopg2 |
+| **Frontend** | Next.js 15, React 19, TypeScript, Zustand (state), Recharts + D3 (charts), CodeMirror 6 (code), Tailwind CSS 4, shadcn/ui |
+| **Backend** | Go (gin, gRPC), Python 3.11+ (FastAPI, asyncio, gRPC) |
 | **AI/ML** | PyTorch, scikit-learn, SnowNLP, pgvector, LangChain |
-| **Data** | pandas, NumPy, Parquet, DuckDB, PostgreSQL cache, Redis L0 cache |
-| **Infra** | Docker Compose, Nginx, Redis, SSE streaming, JWT auth, GitHub Actions CI/CD |
+| **Data** | PostgreSQL 16 + TimescaleDB, Redis 7, pandas, NumPy, Parquet |
+| **Infra** | Docker Compose, JWT auth, SSE streaming, GitHub Actions CI/CD |
 
 ## 🚀 Quick Start
 
@@ -121,11 +121,12 @@ python api_server.py --port 8899          # FastAPI server
 python mcp_server.py                      # MCP (stdio)
 
 # Frontend dev
-cd frontend && npm install && npx vite --port 5899
+cd frontend && npm run dev
 
 # Tests
-cd backend && python -m pytest tests/ -x -q
-cd frontend && npx tsc --noEmit && npx vitest run
+cd services/go && go test ./...
+cd services/python && python -m pytest tests/ -x -q
+cd frontend && npx vitest run
 ```
 
 ## 📁 Project Structure

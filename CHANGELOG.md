@@ -35,6 +35,8 @@
 
 ### Changed
 - [Frontend] Update next.config.ts with createNextIntlPlugin to enable next-intl server-side locale and message resolution
+- [Frontend] Update all doc paths from `services/frontend/` to `frontend/` (CLAUDE.md, README.md, README_zh.md)
+- [Frontend] Update docker-compose.yml frontend service: port mapping 5899:5899 for Next.js, env var to NEXT_PUBLIC_API_URL
 
 ### Fixed
 - [Frontend] Header.tsx: remove unsupported asChild prop from DropdownMenuTrigger (Base UI does not support Radix-style asChild)
@@ -45,6 +47,8 @@
 - [Frontend] Remove duplicate postcss.config.js (conflicted with postcss.config.mjs Tailwind v4 config)
 
 ### Added
+- [Frontend] Add Dockerfile for Next.js production build (node:22-alpine multi-stage, port 5899)
+- [Frontend] Add Vitest test infrastructure: vitest.config.ts with React plugin + jsdom + @/ alias, __tests__/setup.ts, 28 passing tests (utils + KpiCard)
 - [Engine] OptionsEngine: US equity options trading with Black-Scholes pricing, per-contract commission, contract multiplier (100), short margin, and long/short PnL
 - [Engine] FuturesBase: embeddable struct with shared futures contract calculations (RoundSize, CalcCommission, CalcMargin, CalcPnL, ApplySlippage, CanExecute)
 - [Engine] ChinaFuturesEngine: CFFEX/SHFE/DCE/ZCE/INE/GFEX with 16 contracts (IF, IC, IH, RB, CU, AU, I, JM, C, CF, SR, TA, SC, NR, SI, LC), percentage-based commission

@@ -117,7 +117,7 @@ export default function NewBacktestPage() {
 
             <div>
               <label className="block text-[13px] font-medium text-[var(--foreground)] mb-1.5">{t('market.daily')} / Hourly</label>
-              <Select value={frequency} onValueChange={(v) => setFrequency(v)}>
+              <Select value={frequency} onValueChange={(v) => setFrequency(v ?? 'daily')}>
                 <SelectTrigger className="w-full h-8 text-[13px] bg-[var(--surface-1)] border-[var(--border-default)]">
                   <SelectValue />
                 </SelectTrigger>

@@ -21,12 +21,12 @@ python mcp_server.py                      # MCP (stdio/SSE, port 8900)
 python -m src.grpc.server                 # gRPC server (port 8902)
 
 # Frontend dev
-cd services/frontend && npm run dev
+cd frontend && npm run dev
 
 # Tests
 cd services/go && go test ./...           # Go unit tests
 cd services/python && python -m pytest tests/ -x -q # Python tests
-cd services/frontend && npx vitest        # Frontend tests
+cd frontend && npx vitest                 # Frontend tests
 ```
 
 ## Architecture (Go + Python Hybrid)
@@ -158,7 +158,7 @@ Zustand stores: `agent.ts`, `auth.ts`, `paperTradingStore.ts`, `tradingStore.ts`
 
 i18n: `useI18n()` hook → `t.keyName`. Add keys to both `en` and `zh` in `lib/i18n.tsx`. Direction-specific colors use `text-up`/`text-down` (auto-swaps red/green for zh locale).
 
-Charts: ECharts via `CandlestickChart` / `EquityChart` components. Monaco Editor for code editing.
+Charts: Recharts + D3 via custom financial chart components. CodeMirror 6 for code editing.
 
 ### Skills System
 

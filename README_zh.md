@@ -100,11 +100,11 @@ AStockPursue 是一个 **n8n 风格的可视化工作流平台**，专为量化�
 
 | 层 | 技术 |
 |------|------|
-| **前端** | React 19, TypeScript, @xyflow/react（画布）, Zustand（状态）, ECharts, Monaco Editor, Tailwind CSS |
-| **后端** | Python 3.11+, FastAPI, asyncio, PostgreSQL, psycopg2 |
+| **前端** | Next.js 15, React 19, TypeScript, Zustand（状态）, Recharts + D3（图表）, CodeMirror 6（代码）, Tailwind CSS 4, shadcn/ui |
+| **后端** | Go（gin, gRPC）, Python 3.11+（FastAPI, asyncio, gRPC） |
 | **AI/ML** | PyTorch, scikit-learn, SnowNLP, pgvector, LangChain |
-| **数据** | pandas, NumPy, Parquet, DuckDB, PostgreSQL 缓存, Redis L0 缓存 |
-| **基础设施** | Docker Compose, Nginx, Redis, SSE 流式推送, JWT 认证, GitHub Actions CI/CD |
+| **数据** | PostgreSQL 16 + TimescaleDB, Redis 7, pandas, NumPy, Parquet |
+| **基础设施** | Docker Compose, JWT 认证, SSE 流式推送, GitHub Actions CI/CD |
 
 ## 🚀 快速开始
 
@@ -120,11 +120,12 @@ cp .env.example .env
 python api_server.py --port 8899          # FastAPI 服务器
 
 # 前端开发
-cd frontend && npm install && npx vite --port 5899
+cd frontend && npm run dev
 
 # 测试
-cd backend && python -m pytest tests/ -x -q
-cd frontend && npx tsc --noEmit && npx vitest run
+cd services/go && go test ./...
+cd services/python && python -m pytest tests/ -x -q
+cd frontend && npx vitest run
 ```
 
 ## 📁 项目结构
