@@ -18,6 +18,7 @@
 - [Market] GrpcDataLoader: bridges Python-only sources (mootdx) via gRPC DataService
 - [Python] DataService gRPC server wrapping mootdx (通达信 TCP protocol) for Go consumption
 - [Proto] data.proto: DataService.FetchBars for Python↔Go data bridge
+- [Python] DataService: mootdx(P2), tushare(P3), futu(P4), akshare(P11) — 4 sources available via gRPC
 - [Market] Cache interface and MemoryCache implementation with TTL support
 - [Market] DataStore 3-tier fallback: cache → TimescaleDB → local store → loader registry (8 loaders across 4 markets)
 - [Market] LocalStore: JSONL-based Tier 2 bar storage with timestamp dedup, exchange-organized directories
