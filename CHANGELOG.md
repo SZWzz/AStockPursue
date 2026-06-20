@@ -13,8 +13,13 @@
 - [Market] Sina loader (P1): real-time A-share quotes from hq.sinajs.cn, text format, no API key
 - [Market] Baidu loader (P6): historical A-share daily bars from Baidu Finance, JSON format, no API key
 - [Market] TwelveData loader (P7): historical A-share daily bars with optional API key, string-value JSON parsing
+- [Market] YFinance loader (P8): US/HK equities via Yahoo Finance v8 chart API, no API key
+- [Market] CoinGecko loader (P12): 1000+ cryptocurrencies via public API, no API key
+- [Market] GrpcDataLoader: bridges Python-only sources (mootdx) via gRPC DataService
+- [Python] DataService gRPC server wrapping mootdx (通达信 TCP protocol) for Go consumption
+- [Proto] data.proto: DataService.FetchBars for Python↔Go data bridge
 - [Market] Cache interface and MemoryCache implementation with TTL support
-- [Market] DataStore 3-tier fallback: cache → TimescaleDB → local store → loader registry (now 5 loaders in chain)
+- [Market] DataStore 3-tier fallback: cache → TimescaleDB → local store → loader registry (8 loaders across 4 markets)
 - [Market] LocalStore: JSONL-based Tier 2 bar storage with timestamp dedup, exchange-organized directories
 - [Engine] Core Engine interface with 6 methods (CanExecute, RoundSize, CalcCommission, ApplySlippage, CalcMargin, CalcPnL)
 - [Engine] Domain types: Order, Position, Portfolio with validation and PnL calculations
