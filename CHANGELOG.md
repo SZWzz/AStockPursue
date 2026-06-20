@@ -4,6 +4,7 @@
 
 ### Added
 - [Infra] Go core project scaffold with gin HTTP server and health endpoint
+- [Market] Cache interface and MemoryCache implementation with TTL support
 - [Infra] Protobuf definitions for 6 gRPC services (signal, factor, llm, analysis, workflow, common)
 - [Infra] Buf-based code generation pipeline
 - [Infra] Updated Docker Compose with go-core, python-research, frontend, postgres, redis services
