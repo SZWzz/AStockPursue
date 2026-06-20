@@ -21,10 +21,10 @@ export default function DashboardPage() {
         <h1 className="text-[20px] font-bold text-[var(--foreground)]">{t('nav.dashboard')}</h1>
 
         <div className="grid grid-cols-4 gap-[var(--grid-gap)]">
-          <KpiCard label={t('portfolio.totalEquity')} value="$100,000.00" sub="+2.34% today" trend="up" />
-          <KpiCard label={t('portfolio.pnl')} value="+$2,340.00" trend="up" />
+          <KpiCard label={t('portfolio.totalEquity')} value="$100,000.00" change="+2.34% today" direction="up" />
+          <KpiCard label={t('portfolio.pnl')} value="+$2,340.00" direction="up" />
           <KpiCard label={t('portfolio.available')} value="$85,000.00" />
-          <KpiCard label={t('portfolio.margin')} value="$15,000.00" sub="15%" />
+          <KpiCard label={t('portfolio.margin')} value="$15,000.00" change="15%" />
         </div>
 
         <div className="grid grid-cols-12 gap-[var(--grid-gap)]">

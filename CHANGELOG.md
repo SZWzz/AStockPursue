@@ -3,6 +3,12 @@
 ## [2026.6.20] - 2026-06-20
 
 ### Added
+- [Frontend] Add StatCallout component — large hero number (52px lg / 44px md), 300w/400w mono, transparent bg, arrow trend indicator
+
+### Changed
+- [Frontend] Redesign KpiCard — Coinbase style gray bg (#F7F7F7), 44px 400w mono number, arrow trend indicator; props migrated from sub/trend to change/direction
+
+### Added
 - [gRPC] Add shared DataService gRPC client (`src/grpc/data_client.py`) with `get_data_client()` singleton and `fetch_bars()` helper — unified data path for Python callers
 - [Portfolio] Add Sizer interface with EqualWeight, Kelly, and RiskParity implementations in Go portfolio sizing package
 - [API] Add factor.go, workflow.go, signal.go handlers proxying HTTP to Python gRPC (FactorService, WorkflowService, SignalService); register /api/v1/factor, /api/v1/workflow, /api/v1/signal routes in router.go; wire gRPC connection in main.go

@@ -66,17 +66,17 @@ export default function MarketOverviewPage() {
             <KpiCard
               label="Up"
               value={overview.up_count !== undefined ? String(overview.up_count) : '--'}
-              trend="up"
+              direction="up"
             />
             <KpiCard
               label="Down"
               value={overview.down_count !== undefined ? String(overview.down_count) : '--'}
-              trend="down"
+              direction="down"
             />
             <KpiCard
               label="Up %"
               value={overview.up_pct !== undefined ? formatPercent(overview.up_pct / 100) : '--'}
-              trend={overview.up_pct !== undefined && overview.up_pct >= 50 ? 'up' : 'down'}
+              direction={overview.up_pct !== undefined && overview.up_pct >= 50 ? 'up' : 'down'}
             />
           </div>
         )}

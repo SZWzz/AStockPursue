@@ -121,12 +121,12 @@ export default function SystemPage() {
               <KpiCard
                 label="CPU"
                 value={status.cpu !== undefined ? `${cpu.toFixed(1)}%` : '--'}
-                trend={cpu > 80 ? 'down' : cpu > 50 ? 'neutral' : 'up'}
+                direction={cpu > 80 ? 'down' : cpu > 50 ? 'neutral' : 'up'}
               />
               <KpiCard
                 label="Memory"
                 value={status.memory !== undefined ? `${memory.toFixed(1)}%` : '--'}
-                trend={memory > 80 ? 'down' : memory > 50 ? 'neutral' : 'up'}
+                direction={memory > 80 ? 'down' : memory > 50 ? 'neutral' : 'up'}
               />
               <KpiCard
                 label="Services Online"

@@ -86,17 +86,17 @@ export default function BacktestDetailPage() {
           <KpiCard
             label={t('backtest.totalReturn')}
             value={detail.total_return !== undefined ? formatPercent(detail.total_return) : '--'}
-            trend={detail.total_return !== undefined ? (detail.total_return >= 0 ? 'up' : 'down') : undefined}
+            direction={detail.total_return !== undefined ? (detail.total_return >= 0 ? 'up' : 'down') : undefined}
           />
           <KpiCard
             label={t('backtest.sharpeRatio')}
             value={detail.sharpe_ratio !== undefined ? detail.sharpe_ratio.toFixed(2) : '--'}
-            trend={detail.sharpe_ratio !== undefined ? (detail.sharpe_ratio >= 0 ? 'up' : 'down') : undefined}
+            direction={detail.sharpe_ratio !== undefined ? (detail.sharpe_ratio >= 0 ? 'up' : 'down') : undefined}
           />
           <KpiCard
             label={t('backtest.maxDrawdown')}
             value={detail.max_drawdown !== undefined ? formatPercent(detail.max_drawdown) : '--'}
-            trend="down"
+            direction="down"
           />
           <KpiCard
             label={t('backtest.winRate')}

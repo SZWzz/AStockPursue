@@ -9,33 +9,32 @@ describe('KpiCard', () => {
     expect(screen.getByText('+12.5%')).toBeInTheDocument()
   })
 
-  it('renders subtitle when provided', () => {
-    render(<KpiCard label="Sharpe" value="1.85" sub="Since inception" />)
+  it('renders change when provided', () => {
+    render(<KpiCard label="Sharpe" value="1.85" change="Since inception" />)
     expect(screen.getByText('Since inception')).toBeInTheDocument()
   })
 
-  it('does not render subtitle when omitted', () => {
+  it('does not render change when omitted', () => {
     const { container } = render(<KpiCard label="Max DD" value="-8.2%" />)
-    // The sub div should not exist
-    const subDivs = container.querySelectorAll('.text-\\[11px\\].text-\\[var\\(--foreground-secondary\\)\\]')
-    expect(subDivs.length).toBe(0)
+    const changeEl = container.querySelector('.flex.items-center.gap-1')
+    expect(changeEl).toBeNull()
   })
 
-  it('applies up trend color', () => {
-    const { container } = render(<KpiCard label="Return" value="+5%" trend="up" />)
-    const valueEl = screen.getByText('+5%')
-    expect(valueEl.className).toContain('text-[var(--up)]')
+  it('shows up arrow for up direction', () => {
+    render(<KpiCard label="Return" value="+5%" change="+5.0%" direction="up" />)
+    expect(screen.getByText('▲')).toBeInTheDocument()
+    expect(screen.getByText('+5.0%')).toBeInTheDocument()
   })
 
-  it('applies down trend color', () => {
-    const { container } = render(<KpiCard label="Return" value="-3%" trend="down" />)
-    const valueEl = screen.getByText('-3%')
-    expect(valueEl.className).toContain('text-[var(--down)]')
+  it('shows down arrow for down direction', () => {
+    render(<KpiCard label="Return" value="-3%" change="-3.0%" direction="down" />)
+    expect(screen.getByText('▼')).toBeInTheDocument()
+    expect(screen.getByText('-3.0%')).toBeInTheDocument()
   })
 
-  it('applies neutral color when no trend specified', () => {
-    const { container } = render(<KpiCard label="Trades" value="42" />)
-    const valueEl = screen.getByText('42')
-    expect(valueEl.className).toContain('text-[var(--foreground)]')
+  it('shows no arrow for neutral direction', () => {
+    const { container } = render(<KpiCard label="Trades" value="42" change="+0" direction="neutral" />)
+    const arrowEl = container.querySelector('.flex.items-center.gap-1 span:first-child')
+    expect(arrowEl?.textContent).toBe('')
   })
 })

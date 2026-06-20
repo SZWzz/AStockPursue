@@ -124,17 +124,17 @@ export default function PaperTradingDetailPage() {
           <KpiCard
             label={t('portfolio.totalEquity')}
             value={`$${(detail.equity ?? detail.initial_capital ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-            trend="up"
+            direction="up"
           />
           <KpiCard
             label={t('backtest.totalReturn')}
             value={detail.pnl_pct !== undefined ? formatPercent(detail.pnl_pct) : '--'}
-            trend={detail.pnl_pct !== undefined && detail.pnl_pct >= 0 ? 'up' : 'down'}
+            direction={detail.pnl_pct !== undefined && detail.pnl_pct >= 0 ? 'up' : 'down'}
           />
           <KpiCard
             label={t('backtest.maxDrawdown')}
             value={detail.max_drawdown !== undefined ? formatPercent(detail.max_drawdown) : '--'}
-            trend="down"
+            direction="down"
           />
           <KpiCard
             label={t('backtest.totalTrades')}
