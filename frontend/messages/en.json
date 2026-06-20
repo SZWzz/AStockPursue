@@ -14,6 +14,7 @@
     "market": "Market",
     "marketOverview": "Market Overview",
     "screener": "Screener",
+    "strategyLab": "Strategy Lab",
     "broker": "Broker",
     "system": "System",
     "settings": "Settings",
@@ -125,7 +126,15 @@
     "priceMin": "Price Min",
     "priceMax": "Price Max",
     "change": "Change",
-    "volume": "Volume"
+    "volume": "Volume",
+    "filter": "Filter",
+    "rank": "Rank",
+    "score": "Score",
+    "addCondition": "Add Condition"
+  },
+  "strategyLab": {
+    "runBacktest": "Run Backtest",
+    "code": "Strategy Code"
   },
   "status": {
     "running": "Running",

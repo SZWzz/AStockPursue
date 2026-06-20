@@ -1,7 +1,7 @@
 // frontend/lib/navigation.ts
 import { LayoutDashboard, TrendingUp, ListOrdered, Briefcase, FileText,
   FlaskConical, Workflow, Bot, LineChart, Search, Building2, Settings,
-  Activity, Clock, type LucideIcon } from 'lucide-react'
+  Activity, Clock, Code2, type LucideIcon } from 'lucide-react'
 
 export interface NavGroup {
   key: string
@@ -37,6 +37,7 @@ export const navGroups: NavGroup[] = [
       { label: 'factors', href: '/factors', icon: FlaskConical },
       { label: 'workflow', href: '/workflow', icon: Workflow },
       { label: 'agent', href: '/agent', icon: Bot },
+      { label: 'strategyLab', href: '/strategy-lab', icon: Code2 },
     ],
   },
   {

@@ -14,6 +14,7 @@
     "market": "市场",
     "marketOverview": "行情总览",
     "screener": "筛选器",
+    "strategyLab": "策略实验室",
     "broker": "券商管理",
     "system": "系统",
     "settings": "设置",
@@ -125,7 +126,15 @@
     "priceMin": "最低价",
     "priceMax": "最高价",
     "change": "涨跌幅",
-    "volume": "成交量"
+    "volume": "成交量",
+    "filter": "筛选",
+    "rank": "排名",
+    "score": "评分",
+    "addCondition": "添加条件"
+  },
+  "strategyLab": {
+    "runBacktest": "运行回测",
+    "code": "策略代码"
   },
   "status": {
     "running": "运行中",
