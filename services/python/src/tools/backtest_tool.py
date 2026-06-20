@@ -38,6 +38,10 @@ def run_backtest(run_dir: str) -> str:
     if "source" not in config:
         return json.dumps({"status": "error", "error": "config.json missing 'source' field (mootdx/eastmoney/tencent/baidu/tushare/yfinance/akshare/okx/ccxt/auto/...)"}, ensure_ascii=False)
 
+    # TODO(P5-task8): This imports the registry only to validate that the
+    # config source name is a known loader key.  The DataService gRPC does
+    # its own source validation server-side.  Once all callers use gRPC,
+    # this validation can be removed or replaced with a lightweight check.
     from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
     _ensure_registered()
     valid_sources = set(LOADER_REGISTRY.keys()) | {"auto"}

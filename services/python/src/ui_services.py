@@ -436,6 +436,10 @@ def reconstruct_price_series(run_dir: Path) -> List[Dict[str, Any]]:
         source = context.get("source", "tushare")
         # Dynamically resolve loader class from registry instead of
         # hardcoding if/elif branches (supports mootdx/eastmoney/baidu/…).
+        # TODO(P5-task8): Migrate to src.grpc.data_client.fetch_bars once
+        # the DataService supports bulk multi-symbol fetch with dynamic
+        # source resolution and returns a data_map (symbol→DataFrame).
+        # Currently fetch_bars() is per-symbol and returns flat dicts.
         from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
         _ensure_registered()
         loader_cls = LOADER_REGISTRY.get(source)

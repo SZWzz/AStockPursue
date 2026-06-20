@@ -287,6 +287,10 @@ class GPEvolution:
             # keeps ~3 months), walk the fallback chain to find a source
             # with better coverage.  Without this, the train panel ends up
             # empty and all individuals get fitness=0.
+            # TODO(P5-task8): This uses the loader registry for bulk multi-symbol
+            # fetch with fallback-chain walking and coverage checking —
+            # significantly more complex than a single fetch_bars() call.
+            # Migrate when DataService supports bulk fetch + fallback chains.
             from backtest.loaders.registry import (
                 FALLBACK_CHAINS, LOADER_REGISTRY, _ensure_registered,
             )

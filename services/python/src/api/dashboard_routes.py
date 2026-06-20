@@ -75,6 +75,10 @@ async def _fetch_market_overview() -> dict[str, Any] | None:
 async def _fetch_datasource_health() -> dict[str, Any] | None:
     """Data source availability snapshot."""
     try:
+        # TODO(P5-task8): This uses the loader registry for health checks
+        # (is_available()), not data fetching.  The DataService gRPC does
+        # not expose per-source health status yet.  When it does, switch to
+        # a gRPC-based health probe instead of importing the registry directly.
         from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
 
         _ensure_registered()

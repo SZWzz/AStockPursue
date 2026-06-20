@@ -1,4 +1,15 @@
-"""System routes: health, correlation, upload, watchlist, backtest-history, swarm, etc."""
+"""System routes: health, correlation, upload, watchlist, backtest-history, swarm, etc.
+
+TODO(P5-task8): The data-access paths in this module use direct loader
+imports rather than the shared gRPC DataService client:
+- ``_resolve_stock_name`` imports tencent helpers (_is_cn, _is_hk,
+  normalize_cn_code) for code normalization and real-time quotes — these
+  are helper functions, not bar-data fetches.
+- ``get_watchlist_prices`` uses ``backtest.data_store.get_data_store``
+  (the Go-aligned DataStore), which is the preferred path already.
+Neither usage fits the simple ``fetch_bars()`` replacement pattern, so
+this module is left as-is.
+"""
 
 from __future__ import annotations
 

@@ -1,4 +1,17 @@
-"""Stock symbol search / autocomplete API avec minute-line data."""
+"""Stock symbol search / autocomplete API avec minute-line data.
+
+TODO(P5-task8): The data-fetching paths in this module (OHLCV via
+backtest_bridge, minute-line/F10/finance via mootdx, Sina finance reports)
+use direct loader imports rather than the shared gRPC DataService client.
+- The OHLCV endpoint already uses ``src.lab.backtest_bridge.fetch_ohlcv``
+  which is the preferred path for bar data.
+- Minute-line, F10, and finance data are mootdx-specific features not yet
+  exposed by the DataService gRPC — leave as-is until those features are
+  added to the DataService proto.
+- The tencent quote helpers (_is_cn, _is_hk, normalize_cn_code) are used
+  for real-time quotes and code normalization; these are orthogonal to
+  historical bar fetching.
+"""
 
 from __future__ import annotations
 

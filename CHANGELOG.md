@@ -3,6 +3,7 @@
 ## [2026.6.20] - 2026-06-20
 
 ### Added
+- [gRPC] Add shared DataService gRPC client (`src/grpc/data_client.py`) with `get_data_client()` singleton and `fetch_bars()` helper — unified data path for Python callers
 - [Portfolio] Add Sizer interface with EqualWeight, Kelly, and RiskParity implementations in Go portfolio sizing package
 - [API] Add factor.go, workflow.go, signal.go handlers proxying HTTP to Python gRPC (FactorService, WorkflowService, SignalService); register /api/v1/factor, /api/v1/workflow, /api/v1/signal routes in router.go; wire gRPC connection in main.go
 - [gRPC] Add WorkflowService servicer with ExecuteWorkflow and GetNodeResult RPCs
@@ -38,6 +39,8 @@
 - [Frontend] Add positions page (app/trading/positions/page.tsx) — dedicated positions view wrapping PositionTable with live P&L via WebSocket
 
 ### Changed
+- [Swarm] Migrate `swarm/grounding.py` `fetch_grounding_data()` from direct `loaders.registry.resolve_loader` to shared gRPC `fetch_bars()` — swarm grounding now uses the same DataService path as the Go core
+- [Python] Add TODO(P5-task8) annotations to 7 data-loader call sites not yet migrated to gRPC (stock_routes, ui_services, system_routes, dashboard_routes, gp_engine, backtest_tool, trading_routes)
 - [Frontend] Update next.config.ts with createNextIntlPlugin to enable next-intl server-side locale and message resolution
 - [Frontend] Update all doc paths from `services/frontend/` to `frontend/` (CLAUDE.md, README.md, README_zh.md)
 - [Frontend] Update docker-compose.yml frontend service: port mapping 5899:5899 for Next.js, env var to NEXT_PUBLIC_API_URL

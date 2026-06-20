@@ -95,6 +95,32 @@ def max_grounding_symbols() -> int:
     return max(1, value)
 
 
+def _source_for_symbol(symbol: str) -> str:
+    """Map a suffixed symbol to the most appropriate DataService source name.
+
+    The DataService gRPC server supports ``"mootdx"``, ``"tushare"``,
+    ``"akshare"``, and ``"futu"``.  This helper picks the best free /
+    widely-available source for each market so the grounding prompt can
+    be built without requiring API tokens.
+
+    Args:
+        symbol: A suffixed symbol string (``600519.SH``, ``NVDA.US``, etc.).
+
+    Returns:
+        A source name accepted by :func:`src.grpc.data_client.fetch_bars`.
+    """
+    upper = symbol.upper()
+    if upper.endswith((".SH", ".SZ", ".BJ")):
+        return "mootdx"   # free, no token needed — best for A-shares
+    if upper.endswith(".HK"):
+        return "akshare"
+    if upper.endswith(".US"):
+        return "akshare"
+    if upper.endswith("-USDT"):
+        return "akshare"  # limited support; will return empty gracefully
+    return "akshare"
+
+
 def fetch_grounding_data(
     symbols: Iterable[str],
     *,
@@ -127,39 +153,43 @@ def fetch_grounding_data(
     start_str = start.isoformat()
     end_str = end.isoformat()
 
-    # Imported lazily so unit tests of the extraction / formatting layer
-    # don't have to drag in pandas + the loader graph just to import.
-    # ``resolve_loader`` expects a *market* key (``"us_equity"`` etc.), not a
-    # raw code; ``_detect_market`` is the function ``runner.py`` already uses
-    # to dispatch the same shapes we extract here, so reusing it keeps the
-    # routing identical to the rest of the codebase.
-    from backtest.loaders.registry import resolve_loader
-    from backtest.runner import _detect_market
+    # Data is fetched via the shared gRPC DataService client so that Python
+    # callers use the same data path as the Go core.  Per-symbol source
+    # routing is handled by ``_source_for_symbol``, which maps the suffixed
+    # symbol forms that ``extract_symbols_from_user_vars`` extracts onto the
+    # source names the DataService understands.
+    from datetime import datetime, timezone
+
+    from src.grpc.data_client import fetch_bars
 
     out: dict[str, list[dict]] = {}
     for code in symbols_list:
         try:
-            market = _detect_market(code)
-            loader = resolve_loader(market)  # already a ready-to-use instance
-            df_map = loader.fetch([code], start_str, end_str, interval="1D")
+            source = _source_for_symbol(code)
+            bars = fetch_bars(code, start_str, end_str, source=source)
         except Exception as exc:  # pragma: no cover — depends on network
             logger.warning(
                 "grounding: failed to fetch %s — %s", code, exc, exc_info=False
             )
             continue
-        df = df_map.get(code)
-        if df is None or df.empty:
+        if not bars:
             logger.info("grounding: no data returned for %s", code)
             continue
         rows: list[dict] = []
-        for ts, row in df.iterrows():
+        for bar in bars:
+            ts = bar.get("timestamp", 0)
+            if ts:
+                dt = datetime.fromtimestamp(ts / 1000, tz=timezone.utc)
+                trade_date = dt.isoformat()
+            else:
+                trade_date = ""
             rows.append({
-                "trade_date": getattr(ts, "isoformat", lambda: str(ts))(),
-                "open": float(row.get("open", 0.0)),
-                "high": float(row.get("high", 0.0)),
-                "low": float(row.get("low", 0.0)),
-                "close": float(row.get("close", 0.0)),
-                "volume": float(row.get("volume", 0.0)),
+                "trade_date": trade_date,
+                "open": float(bar.get("open", 0.0)),
+                "high": float(bar.get("high", 0.0)),
+                "low": float(bar.get("low", 0.0)),
+                "close": float(bar.get("close", 0.0)),
+                "volume": float(bar.get("volume", 0.0)),
             })
         if rows:
             out[code] = rows

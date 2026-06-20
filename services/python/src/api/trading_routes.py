@@ -1,6 +1,16 @@
 """Trading Dashboard REST API — OMS, broker, notify, optimize, indices, news.
 
 All multi-tenant endpoints isolate data per authenticated user_id.
+
+TODO(P5-task8): The data-access paths in this module use direct loader
+imports (FutuLoader for broker status, tencent helpers for index prices,
+NewsFetcher for news).  None of these are simple OHLCV fetches suitable
+for the DataService gRPC migration:
+- ``broker_status`` uses FutuLoader for connectivity checks, not bar data.
+- ``get_indices`` uses tencent real-time quote helpers, not historical bars.
+- ``get_news`` uses NewsFetcher (web search / Finnhub), not bar data.
+These should remain as-is until the DataService proto is extended with
+broker-status, real-time-quote, and news-fetch RPCs.
 """
 
 from __future__ import annotations

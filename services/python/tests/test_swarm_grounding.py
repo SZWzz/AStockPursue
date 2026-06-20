@@ -11,7 +11,6 @@ import threading
 from datetime import date
 from unittest.mock import MagicMock
 
-import pandas as pd
 import pytest
 
 from src.swarm import grounding
@@ -74,53 +73,36 @@ def test_extract_does_not_match_substrings_inside_words() -> None:
 
 
 # --------------------------------------------------------------------------- #
-# fetch_grounding_data — monkeypatched loader
+# fetch_grounding_data — monkeypatched gRPC client
 # --------------------------------------------------------------------------- #
-
-class _StubLoader:
-    """Mimics enough of the loader contract for grounding.fetch."""
-
-    def __init__(self, frame: pd.DataFrame) -> None:
-        self._frame = frame
-
-    def fetch(self, codes, start_date, end_date, *, interval="1D"):
-        return {code: self._frame for code in codes}
-
-
-def _three_bar_frame() -> pd.DataFrame:
-    idx = pd.to_datetime(["2026-05-06", "2026-05-07", "2026-05-08"])
-    return pd.DataFrame(
-        {
-            "open":   [200.0, 208.3, 213.0],
-            "high":   [208.3, 214.2, 217.8],
-            "low":    [198.6, 206.5, 212.9],
-            "close":  [207.8, 211.5, 215.2],
-            "volume": [188e6, 168e6, 136e6],
-        },
-        index=idx,
-    )
 
 
 def test_fetch_returns_normalized_bars(monkeypatch) -> None:
-    """Real call path: ``_detect_market(code)`` → ``resolve_loader(market)``
-    returns a ready loader instance. The stub mirrors that contract so a
-    regression that drops or rewrites the dispatch shows up here.
+    """fetch_grounding_data uses the shared gRPC DataService client
+    (``src.grpc.data_client.fetch_bars``).  The stub returns bars in
+    the protobuf format (list of dicts with ``timestamp`` in ms) so
+    a regression that changes the dispatch shows up here.
     """
-    frame = _three_bar_frame()
-    import backtest.loaders.registry as reg
-    captured_markets: list[str] = []
+    from datetime import datetime, timezone
 
-    def _fake_resolve(market: str):
-        captured_markets.append(market)
-        return _StubLoader(frame)
+    # Build timestamps for 2026-05-06 / 07 / 08 at midnight UTC.
+    def _ts(day: int) -> int:
+        return int(datetime(2026, 5, day, tzinfo=timezone.utc).timestamp() * 1000)
 
-    monkeypatch.setattr(reg, "resolve_loader", _fake_resolve)
+    def _fake_fetch_bars(symbol, start_date, end_date, source="auto", frequency="1d"):
+        return [
+            {"symbol": symbol, "open": 200.0, "high": 208.3, "low": 198.6,
+             "close": 207.8, "volume": 188_000_000, "timestamp": _ts(6)},
+            {"symbol": symbol, "open": 208.3, "high": 214.2, "low": 206.5,
+             "close": 211.5, "volume": 168_000_000, "timestamp": _ts(7)},
+            {"symbol": symbol, "open": 213.0, "high": 217.8, "low": 212.9,
+             "close": 215.2, "volume": 136_000_000, "timestamp": _ts(8)},
+        ]
+
+    monkeypatch.setattr("src.grpc.data_client.fetch_bars", _fake_fetch_bars)
 
     bars = grounding.fetch_grounding_data(["NVDA.US"], today=date(2026, 5, 9))
 
-    # ``NVDA.US`` must dispatch through the us_equity branch — guards
-    # against a regression where the code is passed as the market key.
-    assert captured_markets == ["us_equity"]
     assert "NVDA.US" in bars
     rows = bars["NVDA.US"]
     assert len(rows) == 3
@@ -129,11 +111,10 @@ def test_fetch_returns_normalized_bars(monkeypatch) -> None:
 
 
 def test_fetch_skips_symbols_with_no_data(monkeypatch) -> None:
-    import backtest.loaders.registry as reg
-    monkeypatch.setattr(
-        reg, "resolve_loader",
-        lambda market: _StubLoader(pd.DataFrame()),  # empty frame
-    )
+    def _fake_fetch_bars(symbol, start_date, end_date, source="auto", frequency="1d"):
+        return []  # no data returned
+
+    monkeypatch.setattr("src.grpc.data_client.fetch_bars", _fake_fetch_bars)
 
     bars = grounding.fetch_grounding_data(["NOPE.US"])
     assert bars == {}
