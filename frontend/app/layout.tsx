@@ -16,11 +16,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const messages = await getMessages()
 
   return (
-    <html lang={locale} className="dark">
+    <html lang={locale}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Fira+Sans:wght@400;600;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
       </head>
       <body className="bg-[var(--background)] text-[var(--foreground)] antialiased">
         <SessionProvider>
@@ -31,10 +31,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 position="bottom-right"
                 toastOptions={{
                   style: {
-                    background: 'var(--surface-3)',
-                    color: 'var(--foreground)',
-                    border: '1px solid var(--border-default)',
-                    fontSize: '13px',
+                    background: '#FFFFFF',
+                    color: '#0A0B0D',
+                    border: '1px solid #DEE1E6',
+                    fontSize: '14px',
+                    fontFamily: 'Inter, system-ui, sans-serif',
                   },
                 }}
               />
