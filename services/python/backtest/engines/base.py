@@ -8,7 +8,6 @@ market rule enforcement → metrics → artifacts.
 
 from __future__ import annotations
 
-import importlib
 import json
 import logging
 import re as _re
@@ -150,24 +149,16 @@ def _align(
 
 
 def _load_optimizer(config: Dict[str, Any]) -> Optional[Callable]:
-    """Dynamically load an optimizer function from config.
-
-    Args:
-        config: Backtest configuration.
-
-    Returns:
-        Optimizer callable, or None.
-    """
-    opt_name = config.get("optimizer")
-    if not opt_name:
-        return None
-    opt_params = config.get("optimizer_params") or {}
-    try:
-        mod = importlib.import_module(f"backtest.optimizers.{opt_name}")
-        return lambda ret, pos, dates: mod.optimize(ret, pos, dates, **opt_params)
-    except (ImportError, AttributeError) as e:
-        logger.warning("Failed to load optimizer '%s': %s, falling back to equal weight", opt_name, e)
-        return None
+    """Load optimizer. Go engine handles optimization natively."""
+    opt_name = (
+        config.get("optimizer", "equal_volatility")
+        if isinstance(config, dict)
+        else getattr(config, "optimizer", "equal_volatility")
+    )
+    # TODO(P5): optimizer migration — Go engines now handle optimization.
+    # The Python optimizers directory has been removed.
+    logger.warning("Optimizers migrated to Go. Skipping optimizer '%s'", opt_name)
+    return lambda ret, pos, dates: pos  # passthrough
 
 
 def _normalise_fundamental_fields(config: Dict[str, Any]) -> dict[str, list[str]]:
