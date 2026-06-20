@@ -25,16 +25,18 @@ func main() {
 	localStore := market.NewLocalStore(cfg.DataDir + "/bars")
 	ds := market.NewDataStore(nil, cache).WithLocalStore(localStore)
 
+	// Backtest repository: try PostgreSQL, fall back to in-memory
 	var repo handler.BacktestRepository
 	timescaleDB, err := db.NewTimescaleDB(context.Background(), cfg.DatabaseURL)
 	if err != nil {
 		log.Printf("DB unavailable, using in-memory backtest store: %v", err)
 		repo = handler.NewBacktestStore()
+	} else if err := timescaleDB.InitSchema(context.Background()); err != nil {
+		log.Printf("init schema failed, using in-memory backtest store: %v", err)
+		timescaleDB.Close()
+		repo = handler.NewBacktestStore()
 	} else {
 		defer timescaleDB.Close()
-		if err := timescaleDB.InitSchema(context.Background()); err != nil {
-			log.Fatalf("init schema: %v", err)
-		}
 		repo = db.NewPostgresBacktestStore(timescaleDB)
 		log.Print("DB connected, using PostgreSQL backtest store")
 	}
