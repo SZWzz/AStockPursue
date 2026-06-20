@@ -11,7 +11,15 @@ const ROUTE_CHANNELS: Record<string, { channel: string; symbols?: string[] }[]> 
   '/trading': [{ channel: 'ticker' }, { channel: 'orders' }, { channel: 'positions' }],
   '/trading/orders': [{ channel: 'orders' }],
   '/trading/positions': [{ channel: 'positions' }],
+  '/paper-trading': [{ channel: 'positions' }, { channel: 'orders' }],
   '/system': [{ channel: 'system' }],
+}
+
+function matchRoute(pathname: string) {
+  if (ROUTE_CHANNELS[pathname]) return ROUTE_CHANNELS[pathname]
+  // Dynamic routes: /paper-trading/[id]
+  if (pathname.startsWith('/paper-trading/')) return ROUTE_CHANNELS['/paper-trading'] || []
+  return []
 }
 
 export function useWebSocket() {
@@ -21,7 +29,7 @@ export function useWebSocket() {
   useEffect(() => {
     if (!isAuthenticated || !token) return
     wsClient.connect(token)
-    const channels = ROUTE_CHANNELS[pathname] || []
+    const channels = matchRoute(pathname)
     channels.forEach(({ channel, symbols }) => wsClient.subscribe(channel, symbols || []))
     return () => {
       channels.forEach(({ channel, symbols }) => wsClient.unsubscribe(channel, symbols || []))

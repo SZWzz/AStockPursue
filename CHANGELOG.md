@@ -5,6 +5,9 @@
 ### Added
 - [Frontend] Add PositionTable component — renders positions via usePositions() SWR hook with shadcn Table (loading/error/empty states, up/down color coding)
 - [Frontend] Add OrderForm component — order submission form using useOrderFormStore() Zustand store, POST to /api/trading/orders with toast feedback
+- [Frontend] Add paper trading list page (app/paper-trading/page.tsx) — table with Name, Strategy, Status badge, PnL (color-coded), Created date; "New" button creates account via POST /api/papertrading; each row navigates to /paper-trading/[id]
+- [Frontend] Add paper trading detail page (app/paper-trading/[id]/page.tsx) — KPI cards (Equity, Return, Drawdown, Trades), EquityChart (8 cols) + TradeTimeline (4 cols), Start/Stop buttons; uses useSWR to fetch /api/papertrading/:id
+- [Frontend] Update useWebSocket hook with matchRoute() for dynamic paper-trading/[id] routes, add /paper-trading channel subscriptions (positions + orders)
 - [Frontend] Add BFF API proxy routes for all 12 Go endpoints (trading, backtest, market, broker, portfolio, papertrading, settings, system, analysis, scheduler, screener, factors) — each route forwards JWT-authenticated requests from `/api/<resource>` to `/api/v1/<resource>` on the Go backend
 - [Frontend] Add 5 Zustand stores: uiStore (sidebar collapse, persisted), themeStore (layout preset + fontSize, persisted), orderFormStore (order form draft state), screenerStore (conditions + sort), wsStore (WebSocket connection state + subscriptions Map)
 - [Frontend] Add OLED theme CSS variables (globals.css) with surface layers, borders, brand, semantic, text, layout, radius, and font tokens; scrollbar styling; zh locale red-up/green-down swap
