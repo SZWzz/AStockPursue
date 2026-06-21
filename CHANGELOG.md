@@ -3,6 +3,7 @@
 ## [2026.6.21] - 2026-06-21
 
 ### Added
+- [API] Add Research, ML, and Notification HTTP API handlers -- `handler/research.go` (ResearchHandler with Analyze/History dispatching to 4 services), `handler/ml.go` (MLHandler with ListModels/CreateModel/GetModel/ArchiveModel), `handler/notifications.go` (NotificationHandler with List/Send/MarkRead); routes registered under JWT-protected v1 group in `router.go`; services wired in `main.go` with in-memory SQLite for ML/notify and nil-DB mock fallback for research
 - [Notify] Create notification system in `services/go/internal/notify/` -- `Notifier` interface, `Manager` with async event loop (buffer 256), SQLite persistence, `NotifyLevel` (info/warning/error), and `GetHistory`/`MarkRead` API (P8)
 - [Notify] Add `TelegramNotifier` -- env-based config (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`), HTML-formatted messages via `api.telegram.org/bot{token}/sendMessage`, graceful skip when unconfigured (P8)
 - [Agent] Create `AgentLoop` in `services/go/internal/agent/loop.go` -- capability-first execution loop with `MatchThreshold = 0.3`, LLM fallback, and `AgentResult` struct

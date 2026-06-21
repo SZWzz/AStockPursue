@@ -12,6 +12,7 @@ require (
 	golang.org/x/crypto v0.50.0
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
+	modernc.org/sqlite v1.52.0
 )
 
 require (
@@ -57,5 +58,4 @@ require (
 	modernc.org/libc v1.72.3 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
-	modernc.org/sqlite v1.52.0 // indirect
 )

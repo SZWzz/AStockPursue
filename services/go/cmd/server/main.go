@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -19,6 +20,10 @@ import (
 	signalv1 "github.com/astockpursue/go-core/internal/gen/signal/v1"
 	workflowv1 "github.com/astockpursue/go-core/internal/gen/workflow/v1"
 	"github.com/astockpursue/go-core/internal/market"
+	"github.com/astockpursue/go-core/internal/ml"
+	"github.com/astockpursue/go-core/internal/notify"
+	"github.com/astockpursue/go-core/internal/research"
+	_ "modernc.org/sqlite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -113,9 +118,37 @@ func main() {
 	workflowH := handler.NewWorkflowHandler(workflowClient)
 	signalH := handler.NewSignalHandler(signalClient)
 
+	// ── Research services (in-memory only, no DB persistence) ──────────
+	researchServices := map[string]research.Service{
+		"financials":  research.NewFinancialsService(nil, nil),
+		"geopolitics": research.NewGeopoliticsService(nil, nil),
+		"northbound":  research.NewNorthboundService(nil, nil),
+		"news":        research.NewNewsService(nil, nil),
+	}
+	researchH := handler.NewResearchHandler(researchServices)
+
+	// ── ML model registry (in-memory SQLite) ───────────────────────────
+	mlDB, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		log.Fatalf("ml sqlite: %v", err)
+	}
+	mlRegistry := ml.NewModelRegistry(mlDB)
+	if err := mlRegistry.Init(); err != nil {
+		log.Fatalf("ml init: %v", err)
+	}
+	mlH := handler.NewMLHandler(mlRegistry)
+
+	// ── Notification manager (in-memory SQLite) ────────────────────────
+	notifDB, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		log.Fatalf("notify sqlite: %v", err)
+	}
+	notifManager := notify.NewManager(notifDB)
+	notifH := handler.NewNotificationHandler(notifManager)
+
 	healthH := &handler.HealthHandler{}
 	wsHub := api.NewWSHub()
-	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH, factorH, workflowH, signalH, wsHub)
+	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH, factorH, workflowH, signalH, researchH, mlH, notifH, wsHub)
 
 	// Preload seed data + simulated ticker feed
 	go func() {

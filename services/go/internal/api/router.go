@@ -23,6 +23,9 @@ func NewRouter(
 	factorH *handler.FactorHandler,
 	workflowH *handler.WorkflowHandler,
 	signalH *handler.SignalHandler,
+	researchH *handler.ResearchHandler,
+	mlH *handler.MLHandler,
+	notifH *handler.NotificationHandler,
 	wsHub *WSHub,
 ) *gin.Engine {
 	r := gin.Default()
@@ -112,6 +115,24 @@ func NewRouter(
 		// Signal routes
 		sg := v1.Group("/signal")
 		sg.POST("/generate", signalH.Generate)
+
+		// Research routes
+		rsch := v1.Group("/research")
+		rsch.GET("/:type", researchH.Analyze)
+		rsch.GET("/:type/:symbol/history", researchH.History)
+
+		// ML model routes
+		mlg := v1.Group("/ml")
+		mlg.GET("/models", mlH.ListModels)
+		mlg.POST("/models", mlH.CreateModel)
+		mlg.GET("/models/:id", mlH.GetModel)
+		mlg.POST("/models/:id/archive", mlH.ArchiveModel)
+
+		// Notification routes
+		ng := v1.Group("/notifications")
+		ng.GET("", notifH.List)
+		ng.POST("", notifH.Send)
+		ng.POST("/:id/read", notifH.MarkRead)
 	}
 
 	return r
