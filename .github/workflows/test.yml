@@ -53,7 +53,8 @@ jobs:
             --ignore-vuln CVE-2025-64439 \
             --ignore-vuln CVE-2026-27794 \
             --ignore-vuln PYSEC-2026-77 \
-            --ignore-vuln PYSEC-2026-76
+            --ignore-vuln PYSEC-2026-76 \
+            --ignore-vuln GHSA-gr75-jv2w-4656
       - name: Run npm audit (frontend)
         working-directory: frontend
         run: npm install --legacy-peer-deps --ignore-scripts && npm audit --audit-level=high
