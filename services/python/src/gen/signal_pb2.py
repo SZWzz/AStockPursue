@@ -20,6 +20,7 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
+from . import common_pb2 as common__pb2  # noqa: F401 — registers common.proto in descriptor pool
 
 
 
