@@ -7,10 +7,10 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-# TODO(P5): migrate to Go gRPC equivalents:
-#   - engines → EngineService (not yet exposed)
-#   - risk → RiskService (not yet exposed)
-#   - brokers → BrokerService (not yet exposed)
+# TODO(P5): migrate remaining to Go equivalents:
+#   - engines → Go EngineService (not yet exposed)
+#   - risk → Go RiskService (not yet exposed)
+# Broker checks migrated: _check_broker → go_http.broker_list(), _check_balance → go_http.broker_account()
 
 logger = logging.getLogger(__name__)
 
@@ -127,10 +127,12 @@ class LiveBridge:
 
     def _check_broker(self, user_id: int) -> bool:
         try:
-            # TODO(P6): migrate broker ops to Go gRPC BrokerService
-            from src.trading.brokers.futu_broker import FutuBroker
-            broker = FutuBroker(user_id=user_id)
-            return broker.is_connected()
+            from src.go_http import broker_list
+            resp = broker_list()
+            if "error" in resp:
+                return False
+            brokers = resp.get("brokers", [])
+            return any(b.get("name") == "futu" for b in brokers)
         except Exception:
             return False
 
@@ -164,13 +166,16 @@ class LiveBridge:
 
     def _check_balance(self, user_id: int) -> tuple[bool, str]:
         try:
-            # TODO(P6): migrate broker ops to Go gRPC BrokerService
-            from src.trading.brokers.futu_broker import FutuBroker
-
-            broker = FutuBroker(user_id=user_id)
-            account = broker.get_account()
-            if account and account.get("total_assets", 0) > 10000:
-                return True, f"Balance: ¥{account['total_assets']:,.0f}"
+            from src.go_http import broker_account
+            resp = broker_account()
+            if "error" in resp:
+                return False, f"Broker API error: {resp['error']}"
+            for broker_name, data in resp.items():
+                if isinstance(data, dict) and "balance" in data:
+                    b = data["balance"]
+                    total = float(b.get("total", 0))
+                    if total > 10000:
+                        return True, f"Balance: ¥{total:,.0f}"
             return False, "Minimum ¥10,000 required for live trading"
-        except Exception:
-            return False, "Could not check balance"
+        except Exception as e:
+            return False, f"Could not check balance: {e}"

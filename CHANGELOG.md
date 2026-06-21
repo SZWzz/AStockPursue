@@ -1,5 +1,10 @@
 # 更新日志
 
+## [2026.6.21] - 2026-06-21
+
+### Fixed
+- [Python] Replace deleted FutuBroker imports in live_bridge.py with go_http calls — `_check_broker` uses `go_http.broker_list()`, `_check_balance` uses `go_http.broker_account()`
+
 ## [2026.6.20] - 2026-06-20
 
 ### Removed
