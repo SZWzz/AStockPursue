@@ -65,11 +65,12 @@ func NewBacktestRunner(pipeline *Pipeline, loader BarLoader) *BacktestRunner {
 
 func (br *BacktestRunner) Run(symbols []string, start, end time.Time, freq string) (*BacktestResult, error) {
 	br.pipeline.Portfolio = &Portfolio{
-		Cash:      br.pipeline.Portfolio.Cash,
-		Equity:    br.pipeline.Portfolio.Equity,
-		Positions: make(map[string]*Position),
+		Cash:          br.pipeline.Portfolio.Cash,
+		Equity:        br.pipeline.Portfolio.Equity,
+		InitialEquity: br.pipeline.Portfolio.InitialEquity,
+		Positions:     make(map[string]*Position),
 	}
-	br.pipeline.LastBars = make(map[string]interface{})
+	br.pipeline.LastBars = make(map[string]*Bar)
 	br.trades = nil
 
 	symbolBars := make(map[string][]*commonv1.Bar)
@@ -127,7 +128,7 @@ func (br *BacktestRunner) Run(symbols []string, start, end time.Time, freq strin
 		equityCurve = append(equityCurve, eq)
 	}
 
-	result := br.calculateMetrics(initialCash, equityCurve)
+	result := br.calculateMetrics(initialCash, equityCurve, freq)
 	result.StartTime = start
 	result.EndTime = end
 	result.Symbols = symbols
@@ -215,7 +216,7 @@ func copyPositions(src map[string]*Position) map[string]*Position {
 	return dst
 }
 
-func (br *BacktestRunner) calculateMetrics(initialCash float64, curve []EquityPoint) *BacktestResult {
+func (br *BacktestRunner) calculateMetrics(initialCash float64, curve []EquityPoint, freq string) *BacktestResult {
 	r := &BacktestResult{
 		InitialCash: initialCash,
 		EquityCurve: curve,
@@ -235,7 +236,7 @@ func (br *BacktestRunner) calculateMetrics(initialCash float64, curve []EquityPo
 	if len(returns) > 0 {
 		mean, std := meanStd(returns)
 		if std > 0 {
-			r.SharpeRatio = mean / std * math.Sqrt(252)
+			r.SharpeRatio = mean / std * math.Sqrt(periodsPerYear(freq))
 		}
 	}
 
@@ -289,4 +290,29 @@ func meanStd(values []float64) (mean, std float64) {
 	}
 	std = math.Sqrt(std / float64(len(values)-1))
 	return mean, std
+}
+
+// periodsPerYear returns the approximate number of trading periods per year
+// for a given bar frequency, used to annualize Sharpe ratio.
+func periodsPerYear(freq string) float64 {
+	switch freq {
+	case "1m":
+		return 252 * 240
+	case "5m":
+		return 252 * 48
+	case "15m":
+		return 252 * 16
+	case "30m":
+		return 252 * 8
+	case "1h":
+		return 252 * 6.5
+	case "4h":
+		return 252 * 1.625
+	case "1d":
+		return 252
+	case "1w":
+		return 52
+	default:
+		return 252
+	}
 }

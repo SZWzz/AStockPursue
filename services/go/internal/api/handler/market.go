@@ -55,6 +55,7 @@ func (h *MarketHandler) GetBars(c *gin.Context) {
 }
 
 // ListSymbols returns commonly-used symbols grouped by market.
+// TODO: query symbols from DB/data provider when available
 // GET /api/v1/market/symbols
 func (h *MarketHandler) ListSymbols(c *gin.Context) {
 	symbols := map[string][]string{

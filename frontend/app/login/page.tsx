@@ -26,7 +26,7 @@ export default function LoginPage() {
     })
     setLoading(false)
     if (result?.error) {
-      setError('Invalid credentials')
+      setError(t('auth.invalidCredentials'))
     } else {
       router.push('/')
     }

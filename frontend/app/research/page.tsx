@@ -14,7 +14,6 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { cn } from '@/lib/utils'
 import { Search, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
-const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 // --------------- helpers ---------------
 
@@ -33,10 +32,10 @@ function sentimentVariant(score: number): 'success' | 'warning' | 'destructive' 
   return 'secondary'
 }
 
-function sentimentLabel(score: number): string {
-  if (score > 0.3) return '↑ Positive'
-  if (score < -0.3) return '↓ Negative'
-  return '→ Neutral'
+function sentimentLabel(score: number, t: (key: string) => string): string {
+  if (score > 0.3) return '↑ ' + t('research.positive')
+  if (score < -0.3) return '↓ ' + t('research.negative')
+  return '→ ' + t('research.neutral')
 }
 
 function formatNumber(n: number | undefined | null, decimals = 2): string {
@@ -55,11 +54,14 @@ function FinancialsTab({ t }: { t: (key: string) => string }) {
   const [symbol, setSymbol] = useState('600519')
   const [query, setQuery] = useState('')
   const { data, error, isLoading } = useSWR(
-    query ? `/api/research/financials?symbol=${query}` : null,
-    fetcher
+    query ? `/api/research/financials?symbol=${query}` : null
   )
 
-  const handleFetch = () => { setQuery(symbol) }
+  // RS3: empty symbol check
+  const handleFetch = () => {
+    if (!symbol || !symbol.trim()) return
+    setQuery(symbol.trim())
+  }
 
   return (
     <div className="space-y-4">
@@ -103,11 +105,14 @@ function GeopoliticsTab({ t }: { t: (key: string) => string }) {
   const [symbol, setSymbol] = useState('SH000001')
   const [query, setQuery] = useState('')
   const { data, error, isLoading } = useSWR(
-    query ? `/api/research/geopolitics?symbol=${query}` : null,
-    fetcher
+    query ? `/api/research/geopolitics?symbol=${query}` : null
   )
 
-  const handleFetch = () => { setQuery(symbol) }
+  // RS3: empty symbol check
+  const handleFetch = () => {
+    if (!symbol || !symbol.trim()) return
+    setQuery(symbol.trim())
+  }
 
   return (
     <div className="space-y-4">
@@ -170,11 +175,14 @@ function NorthboundTab({ t }: { t: (key: string) => string }) {
   const [symbol, setSymbol] = useState('SH000001')
   const [query, setQuery] = useState('')
   const { data, error, isLoading } = useSWR(
-    query ? `/api/research/northbound?symbol=${query}` : null,
-    fetcher
+    query ? `/api/research/northbound?symbol=${query}` : null
   )
 
-  const handleFetch = () => { setQuery(symbol) }
+  // RS3: empty symbol check
+  const handleFetch = () => {
+    if (!symbol || !symbol.trim()) return
+    setQuery(symbol.trim())
+  }
 
   return (
     <div className="space-y-4">
@@ -258,22 +266,41 @@ function NorthboundTab({ t }: { t: (key: string) => string }) {
 function NewsTab({ t }: { t: (key: string) => string }) {
   const [symbol, setSymbol] = useState('600519')
   const [query, setQuery] = useState('')
+  // RS2: date range filter
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
   const { data, error, isLoading } = useSWR(
-    query ? `/api/research/news?symbol=${query}` : null,
-    fetcher
+    query ? `/api/research/news?symbol=${query}${startDate ? '&start_date=' + startDate : ''}${endDate ? '&end_date=' + endDate : ''}` : null
   )
 
-  const handleFetch = () => { setQuery(symbol) }
+  // RS3: empty symbol check
+  const handleFetch = () => {
+    if (!symbol || !symbol.trim()) return
+    setQuery(symbol.trim())
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="space-y-4">
+      <div className="flex gap-2 flex-wrap">
         <Input
           placeholder={t('research.symbolPlaceholder')}
           value={symbol}
           onChange={(e) => setSymbol(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleFetch()}
           className="max-w-[200px]"
+        />
+        {/* RS2: date range inputs */}
+        <Input
+          type="date"
+          value={startDate}
+          onChange={(e) => setStartDate(e.target.value)}
+          className="max-w-[160px]"
+        />
+        <Input
+          type="date"
+          value={endDate}
+          onChange={(e) => setEndDate(e.target.value)}
+          className="max-w-[160px]"
         />
         <Button onClick={handleFetch} disabled={isLoading}>
           <Search className="w-4 h-4 mr-2" />
@@ -290,7 +317,7 @@ function NewsTab({ t }: { t: (key: string) => string }) {
             <div className="flex items-center gap-3 p-4 rounded-[6px] bg-[var(--surface-1)]">
               <span className="text-sm font-semibold">{t('research.overallSentiment')}:</span>
               <Badge variant={sentimentVariant(data.overall_sentiment)}>
-                {sentimentLabel(data.overall_sentiment)} ({formatNumber(data.overall_sentiment)})
+                {sentimentLabel(data.overall_sentiment, t)} ({formatNumber(data.overall_sentiment)})
               </Badge>
             </div>
           )}

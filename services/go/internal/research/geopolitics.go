@@ -2,6 +2,7 @@ package research
 import (
 	"context"
 	"fmt"
+	"log"
 	"math/rand"
 	"sort"
 	"strconv"
@@ -138,7 +139,7 @@ func (s *GeopoliticsService) Analyze(ctx context.Context, symbol string, params 
 	if s.repo != nil {
 		for _, topic := range predefinedTopics {
 			a := result[topic.ID]
-			_ = s.repo.Save(&DataPoint{
+			if err := s.repo.Save(&DataPoint{
 				Symbol:   "",
 				Category: "geopolitics",
 				Key:      topic.ID,
@@ -152,7 +153,9 @@ func (s *GeopoliticsService) Analyze(ctx context.Context, symbol string, params 
 					"title":       topic.Title,
 					"title_cn":    topic.TitleCN,
 				},
-			})
+			}); err != nil {
+				log.Printf("[research/geopolitics] save error: %v", err)
+			}
 		}
 	}
 	return s.buildResponse(result), nil

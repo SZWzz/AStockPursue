@@ -1,6 +1,7 @@
 // frontend/app/backtest/page.tsx — Backtest list (Coinbase theme)
 'use client'
 
+import { useState, useMemo } from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
@@ -8,6 +9,7 @@ import { useBacktests } from '@/hooks'
 import { cn, formatPercent, formatDateTime } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { SkeletonTable } from '@/components/ui/SkeletonTable'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 
 interface BacktestSummary {
@@ -27,7 +29,40 @@ export default function BacktestListPage() {
   const router = useRouter()
   const { data, isLoading, error } = useBacktests()
 
+  const [searchQuery, setSearchQuery] = useState('')
+  const [startDateFilter, setStartDateFilter] = useState('')
+  const [endDateFilter, setEndDateFilter] = useState('')
+
   const backtests: BacktestSummary[] = data?.backtests || data?.data || data || []
+
+  // BL1: Filter backtests by name/strategy and date range
+  const filteredBacktests = useMemo(() => {
+    return backtests.filter((bt) => {
+      const matchesSearch =
+        !searchQuery ||
+        bt.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        bt.strategy?.toLowerCase().includes(searchQuery.toLowerCase())
+
+      let matchesStartDate = true
+      let matchesEndDate = true
+
+      if (startDateFilter) {
+        const btStart = typeof bt.start_date === 'number'
+          ? new Date(bt.start_date * 1000)
+          : new Date(bt.start_date)
+        matchesStartDate = btStart >= new Date(startDateFilter)
+      }
+
+      if (endDateFilter) {
+        const btEnd = typeof bt.end_date === 'number'
+          ? new Date(bt.end_date * 1000)
+          : new Date(bt.end_date)
+        matchesEndDate = btEnd <= new Date(endDateFilter)
+      }
+
+      return matchesSearch && matchesStartDate && matchesEndDate
+    })
+  }, [backtests, searchQuery, startDateFilter, endDateFilter])
 
   return (
     <SidebarLayout>
@@ -40,10 +75,47 @@ export default function BacktestListPage() {
           </Button>
         </div>
 
+        {/* BL1: Search and date filter */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t('backtest.searchByName')}
+            className="h-9 rounded-[6px] border border-[var(--border)] px-3 text-[13px] w-56 bg-white placeholder:text-[var(--foreground-muted)]"
+          />
+          <span className="text-[12px] text-[var(--foreground-muted)]">{t('backtest.filterByDate')}:</span>
+          <input
+            type="date"
+            value={startDateFilter}
+            onChange={(e) => setStartDateFilter(e.target.value)}
+            className="h-9 rounded-[6px] border border-[var(--border)] px-2 text-[12px] bg-white"
+          />
+          <span className="text-[12px] text-[var(--foreground-muted)]">{t('common.to')}</span>
+          <input
+            type="date"
+            value={endDateFilter}
+            onChange={(e) => setEndDateFilter(e.target.value)}
+            className="h-9 rounded-[6px] border border-[var(--border)] px-2 text-[12px] bg-white"
+          />
+          {(searchQuery || startDateFilter || endDateFilter) && (
+            <button
+              onClick={() => {
+                setSearchQuery('')
+                setStartDateFilter('')
+                setEndDateFilter('')
+              }}
+              className="text-[12px] text-[var(--foreground-secondary)] hover:text-[var(--foreground)]"
+            >
+              {t('common.clearFilters')}
+            </button>
+          )}
+        </div>
+
         {/* Content */}
         <div className="bg-white border border-[var(--border)] rounded-[6px] overflow-hidden">
           {isLoading ? (
-            <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">{t('common.loading')}</div>
+            <SkeletonTable rows={5} cols={8} />
           ) : error ? (
             <div className="text-[13px] text-[var(--down)] text-center py-12">
               {t('common.error')}
@@ -51,7 +123,7 @@ export default function BacktestListPage() {
                 {t('common.retry')}
               </button>
             </div>
-          ) : !backtests.length ? (
+          ) : !filteredBacktests.length ? (
             <EmptyState
               title={t('common.noData')}
               description={t('backtest.emptyHint') || '还没有回测记录，去创建一个吧'}
@@ -61,10 +133,11 @@ export default function BacktestListPage() {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead>{t('trading.symbol')}</TableHead>
+                  <TableHead>{t('backtest.name')}</TableHead>
                   <TableHead>{t('backtest.strategy')}</TableHead>
                   <TableHead>{t('backtest.startDate')}</TableHead>
                   <TableHead>{t('backtest.endDate')}</TableHead>
+                  <TableHead className="text-right">{t('backtest.status')}</TableHead>
                   <TableHead className="text-right">{t('backtest.totalReturn')}</TableHead>
                   <TableHead className="text-right">{t('backtest.sharpeRatio')}</TableHead>
                   <TableHead className="text-right">{t('backtest.maxDrawdown')}</TableHead>
@@ -72,7 +145,7 @@ export default function BacktestListPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {backtests.map((bt) => (
+                {filteredBacktests.map((bt) => (
                   <TableRow
                     key={bt.id}
                     onClick={() => router.push(`/backtest/${bt.id}`)}
@@ -82,6 +155,7 @@ export default function BacktestListPage() {
                     <TableCell className="text-[var(--foreground-secondary)]">{bt.strategy || '--'}</TableCell>
                     <TableCell className="font-mono text-[var(--foreground-muted)]">{formatDateTime(bt.start_date)}</TableCell>
                     <TableCell className="font-mono text-[var(--foreground-muted)]">{formatDateTime(bt.end_date)}</TableCell>
+                    <TableCell className="text-right text-[var(--foreground-muted)]">{t('status.filled')}</TableCell>
                     <TableCell className={cn('font-mono tabular-nums text-right', bt.total_return !== undefined ? (bt.total_return >= 0 ? 'text-[var(--up)]' : 'text-[var(--down)]') : 'text-[var(--foreground-secondary)]')}>
                       {bt.total_return !== undefined ? (
                         <span>

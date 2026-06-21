@@ -1,13 +1,21 @@
 // frontend/app/broker/page.tsx — Broker accounts
 'use client'
 
-import useSWR from 'swr'
+import { useState } from 'react'
+import useSWR, { mutate } from 'swr'
 import { useTranslations } from 'next-intl'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { Card } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { cn, formatPrice } from '@/lib/utils'
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+import { RefreshCw, Plug, PlugZap, Settings } from 'lucide-react'
 
 interface BrokerAccount {
   broker_id: string
@@ -28,15 +36,24 @@ interface BrokerListItem {
 export default function BrokerPage() {
   const t = useTranslations()
 
-  const { data: listData, isLoading: listLoading, error: listError } = useSWR(
-    '/api/broker/list',
-    fetcher
+  const { data: listData, isLoading: listLoading, error: listError, mutate: mutateList } = useSWR(
+    '/api/broker/list'
   )
 
-  const { data: accountData, isLoading: accountLoading, error: accountError } = useSWR(
-    '/api/broker/account',
-    fetcher
+  const { data: accountData, isLoading: accountLoading, error: accountError, mutate: mutateAccount } = useSWR(
+    '/api/broker/account'
   )
+
+  // BR2: Credential dialog state
+  const [credDialogOpen, setCredDialogOpen] = useState(false)
+  const [credBrokerId, setCredBrokerId] = useState('')
+  const [credBrokerName, setCredBrokerName] = useState('')
+  const [apiKey, setApiKey] = useState('')
+  const [apiSecret, setApiSecret] = useState('')
+  const [savingCreds, setSavingCreds] = useState(false)
+
+  // BR3: Refresh state
+  const [refreshing, setRefreshing] = useState(false)
 
   const brokerList: BrokerListItem[] = listData?.data || listData?.brokers || listData || []
   const account: BrokerAccount | null = accountData?.data || accountData || null
@@ -44,11 +61,82 @@ export default function BrokerPage() {
   const isLoading = listLoading || accountLoading
   const hasError = listError && accountError
 
+  // BR3: Manual refresh
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await Promise.all([mutateList(), mutateAccount()])
+    } finally {
+      setRefreshing(false)
+    }
+  }
+
+  // BR1: Connect/Disconnect toggle
+  const handleToggleBroker = async (brokerId: string, enabled: boolean) => {
+    try {
+      const endpoint = enabled ? `/api/broker/disconnect` : `/api/broker/connect`
+      await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ broker_id: brokerId }),
+      })
+      mutateList()
+      mutateAccount()
+    } catch (e) {
+      console.error(`Failed to toggle broker ${brokerId}`, e)
+    }
+  }
+
+  // BR2: Save credentials
+  const handleSaveCredentials = async () => {
+    setSavingCreds(true)
+    try {
+      await fetch('/api/broker/credentials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          broker_id: credBrokerId,
+          api_key: apiKey,
+          api_secret: apiSecret,
+        }),
+      })
+      setCredDialogOpen(false)
+      setApiKey('')
+      setApiSecret('')
+      mutateList()
+    } catch (e) {
+      console.error('Failed to save credentials', e)
+    } finally {
+      setSavingCreds(false)
+    }
+  }
+
+  // BR2: Open credentials dialog
+  const openCredDialog = (broker: BrokerListItem) => {
+    setCredBrokerId(broker.broker_id)
+    setCredBrokerName(broker.name)
+    setApiKey('')
+    setApiSecret('')
+    setCredDialogOpen(true)
+  }
+
   return (
     <SidebarLayout>
       <div className="space-y-3">
-        {/* Header */}
-        <h1 className="text-[20px] font-semibold text-[var(--foreground)]">{t('nav.broker')}</h1>
+        {/* Header with refresh button */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-[20px] font-semibold text-[var(--foreground)]">{t('nav.broker')}</h1>
+          {/* BR3: Refresh button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={refreshing}
+          >
+            <RefreshCw className={cn('w-4 h-4 mr-2', refreshing && 'animate-spin')} />
+            {t('common.refresh')}
+          </Button>
+        </div>
 
         {/* Loading state */}
         {isLoading && (
@@ -64,7 +152,7 @@ export default function BrokerPage() {
               {t('common.error')}
               <button
                 className="ml-2 underline text-[var(--foreground-secondary)]"
-                onClick={() => window.location.reload()}
+                onClick={handleRefresh}
               >
                 {t('common.retry')}
               </button>
@@ -99,10 +187,10 @@ export default function BrokerPage() {
                       <p className="text-[12px] text-[var(--foreground-muted)] mt-1">
                         {broker.broker_id}
                         {isConnected && (
-                          <span className="ml-2 text-[11px] text-[var(--up)]">Connected</span>
+                          <span className="ml-2 text-[11px] text-[var(--up)]">{t('broker.connected')}</span>
                         )}
                         {!isConnected && (
-                          <span className="ml-2 text-[11px] text-[var(--foreground-muted)]">Disabled</span>
+                          <span className="ml-2 text-[11px] text-[var(--foreground-muted)]">{t('broker.disconnected')}</span>
                         )}
                       </p>
                     </div>
@@ -121,17 +209,47 @@ export default function BrokerPage() {
                     )}
                   </div>
 
+                  {/* BR1 + BR2: Action buttons */}
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className={cn(
+                        'text-[11px] h-7 px-2',
+                        isConnected
+                          ? 'border-[var(--down)]/30 text-[var(--down)] hover:bg-[var(--down)]/10'
+                          : 'border-[var(--up)]/30 text-[var(--up)] hover:bg-[var(--up)]/10'
+                      )}
+                      onClick={() => handleToggleBroker(broker.broker_id, isConnected)}
+                    >
+                      {isConnected ? (
+                        <><PlugZap className="w-3 h-3 mr-1" />{t('common.disconnect')}</>
+                      ) : (
+                        <><Plug className="w-3 h-3 mr-1" />{t('common.connect')}</>
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-[11px] h-7 px-2"
+                      onClick={() => openCredDialog(broker)}
+                    >
+                      <Settings className="w-3 h-3 mr-1" />
+                      {t('common.edit')}
+                    </Button>
+                  </div>
+
                   {/* Account details row */}
                   {account && account.broker_id === broker.broker_id && (
                     <div className="mt-3 pt-3 border-t border-[var(--border-subtle)] grid grid-cols-3 gap-2">
                       <div>
-                        <div className="text-[11px] text-[var(--foreground-muted)]">Account</div>
+                        <div className="text-[11px] text-[var(--foreground-muted)]">{t('broker.account')}</div>
                         <div className="text-[12px] font-mono text-[var(--foreground-secondary)]">
                           {account.account_id || account.broker_id}
                         </div>
                       </div>
                       <div>
-                        <div className="text-[11px] text-[var(--foreground-muted)]">Balance</div>
+                        <div className="text-[11px] text-[var(--foreground-muted)]">{t('broker.balance')}</div>
                         <div className="text-[12px] font-mono text-[var(--foreground)]">
                           {account.balance !== undefined
                             ? formatPrice(account.balance)
@@ -158,6 +276,49 @@ export default function BrokerPage() {
             <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">{t('common.noData')}</div>
           </Card>
         )}
+
+        {/* BR2: Credentials Dialog */}
+        <Dialog open={credDialogOpen} onOpenChange={setCredDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>{credBrokerName} - {t('common.edit')}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[12px] font-medium text-[var(--foreground-secondary)] mb-1">
+                  {t('broker.apiKey')}
+                </label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-[var(--surface-2)] border border-[var(--border-default)] text-[var(--foreground)] text-[13px] rounded-[var(--radius-sm)] px-3 py-1.5 placeholder:text-[var(--foreground-muted)] focus:outline-none focus:border-[var(--primary)]"
+                />
+              </div>
+              <div>
+                <label className="block text-[12px] font-medium text-[var(--foreground-secondary)] mb-1">
+                  {t('broker.apiSecret')}
+                </label>
+                <input
+                  type="password"
+                  value={apiSecret}
+                  onChange={(e) => setApiSecret(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-[var(--surface-2)] border border-[var(--border-default)] text-[var(--foreground)] text-[13px] rounded-[var(--radius-sm)] px-3 py-1.5 placeholder:text-[var(--foreground-muted)] focus:outline-none focus:border-[var(--primary)]"
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCredDialogOpen(false)}>
+                {t('common.cancel')}
+              </Button>
+              <Button onClick={handleSaveCredentials} disabled={savingCreds}>
+                {savingCreds ? t('common.loading') : t('broker.saveCredentials')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </SidebarLayout>
   )

@@ -5,11 +5,13 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"os"
 	"sync"
 	"time"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -43,7 +45,7 @@ func (m *ConnManager) Connect(ctx context.Context) error {
 	defer cancel()
 
 	conn, err := grpc.NewClient(m.addr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		m.dialOpts()...,
 	)
 	if err != nil {
 		return fmt.Errorf("grpc dial %s: %w", m.addr, err)
@@ -167,4 +169,12 @@ func (m *ConnManager) GetConn() *grpc.ClientConn {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.conn
+}
+
+func (m *ConnManager) dialOpts() []grpc.DialOption {
+	if os.Getenv("GRPC_TLS_ENABLED") == "true" {
+		creds := credentials.NewClientTLSFromCert(nil, "")
+		return []grpc.DialOption{grpc.WithTransportCredentials(creds)}
+	}
+	return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 }

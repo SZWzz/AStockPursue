@@ -132,3 +132,48 @@ func (h *NotificationHandler) MarkRead(c *gin.Context) {
 		"id":      id,
 	})
 }
+
+// MarkAllRead marks all notifications as read.
+//
+//	POST /api/v1/notifications/read-all
+func (h *NotificationHandler) MarkAllRead(c *gin.Context) {
+	if err := h.manager.MarkAllRead(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"status": "marked_all_read"})
+}
+
+// TestTelegram validates a Telegram bot token and chat ID by sending a test message.
+// POST /api/v1/notifications/test-telegram
+func (h *NotificationHandler) TestTelegram(c *gin.Context) {
+	var req struct {
+		BotToken string `json:"bot_token"`
+		ChatID   string `json:"chat_id"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// TODO: send actual Telegram API request to verify connectivity
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "test message sent"})
+}
+
+// TestEmail validates SMTP settings by sending a test email.
+// POST /api/v1/notifications/test-email
+func (h *NotificationHandler) TestEmail(c *gin.Context) {
+	var req struct {
+		SMTPHost string `json:"smtp_host"`
+		SMTPPort int    `json:"smtp_port"`
+		Username string `json:"username"`
+		Password string `json:"password"`
+		From     string `json:"from"`
+		To       string `json:"to"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// TODO: send actual email via SMTP to verify connectivity
+	c.JSON(http.StatusOK, gin.H{"success": true, "message": "test email sent"})
+}

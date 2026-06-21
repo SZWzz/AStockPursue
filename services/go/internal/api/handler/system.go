@@ -8,6 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Version is set at build time via -ldflags:
+//
+//	go build -ldflags "-X github.com/astockpursue/go-core/internal/api/handler.Version=$(cat VERSION)"
+var Version = "0.1.0"
+
 // SystemHandler provides server status and diagnostics.
 type SystemHandler struct {
 	startTime time.Time
@@ -25,7 +30,7 @@ func (h *SystemHandler) Status(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"status":    "ok",
-		"version":   "0.1.0",
+		"version":   Version,
 		"go_version": runtime.Version(),
 		"uptime_seconds": int(time.Since(h.startTime).Seconds()),
 		"goroutines": runtime.NumGoroutine(),

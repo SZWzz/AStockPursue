@@ -9,16 +9,18 @@ import (
 
 	factorv1 "github.com/astockpursue/go-core/internal/gen/factor/v1"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // FactorHandler proxies factor computation and GP mining to Python FactorService via gRPC.
 type FactorHandler struct {
 	client factorv1.FactorServiceClient
+	db     *pgxpool.Pool
 }
 
 // NewFactorHandler creates a new FactorHandler.
-func NewFactorHandler(client factorv1.FactorServiceClient) *FactorHandler {
-	return &FactorHandler{client: client}
+func NewFactorHandler(client factorv1.FactorServiceClient, db *pgxpool.Pool) *FactorHandler {
+	return &FactorHandler{client: client, db: db}
 }
 
 func (h *FactorHandler) grpcUnavailable(c *gin.Context) {
@@ -26,6 +28,55 @@ func (h *FactorHandler) grpcUnavailable(c *gin.Context) {
 		"error":   "Python gRPC service is not running",
 		"message": "Start the Python research layer: cd services/python && python -m src.grpc.server",
 	})
+}
+
+// ListFactors returns available factors. Tries gRPC first, falls back to PostgreSQL,
+// then falls back to hardcoded list.
+// GET /api/v1/factor
+func (h *FactorHandler) ListFactors(c *gin.Context) {
+	// Try gRPC first — use ComputeFactor with a no-op formula as health check
+	// TODO: add ListFactors to the factor proto when Python service supports it
+	if h.client != nil {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+		defer cancel()
+		// Quick health check via ComputeFactor
+		_, err := h.client.ComputeFactor(ctx, &factorv1.FactorRequest{
+			Formula: "1", Symbols: []string{"000001"}, StartDate: "2026-01-01", EndDate: "2026-01-02",
+		})
+		if err == nil {
+			// gRPC is alive; ideally we'd call ListFactors here
+			// For now, fall through to DB to get factor names
+		}
+	}
+
+	// Try PostgreSQL
+	if h.db != nil {
+		rows, err := h.db.Query(c.Request.Context(),
+			`SELECT DISTINCT factor_name FROM factor_results ORDER BY factor_name`)
+		if err == nil {
+			defer rows.Close()
+			factors := make([]map[string]interface{}, 0)
+			for rows.Next() {
+				var name string
+				if err := rows.Scan(&name); err == nil {
+					factors = append(factors, map[string]interface{}{
+						"name": name, "status": "production",
+					})
+				}
+			}
+			if len(factors) > 0 {
+				c.JSON(http.StatusOK, gin.H{"factors": factors, "source": "db"})
+				return
+			}
+		}
+	}
+
+	// Fallback to hardcoded list
+	factors := []map[string]interface{}{
+		{"name": "momentum_20", "formula": "close / close_20 - 1", "ic": 0.035, "sharpe": 1.2, "status": "production"},
+		{"name": "volatility_20", "formula": "std(returns, 20)", "ic": 0.028, "sharpe": 0.9, "status": "production"},
+	}
+	c.JSON(http.StatusOK, gin.H{"factors": factors, "source": "fallback"})
 }
 
 // ComputeFactor evaluates a factor formula on the given symbols.

@@ -35,7 +35,15 @@
     "noData": "No Data",
     "confirm": "Confirm",
     "confirmDelete": "Confirm delete?",
-    "logout": "Logout"
+    "logout": "Logout",
+    "createOrder": "Create Order",
+    "clear": "Clear",
+    "start": "Start",
+    "pause": "Pause",
+    "clearFilters": "Clear Filters",
+    "filter": "Filter",
+    "to": "to",
+    "actions": "Actions"
   },
   "auth": {
     "login": "Login",
@@ -64,7 +72,16 @@
     "filledQty": "Filled",
     "open": "Open",
     "filled": "Filled",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "allStatuses": "All Statuses",
+    "showing": "Showing",
+    "of": "of",
+    "orderCancelled": "Order cancelled"
+  },
+  "papertrading": {
+    "name": "Account Name",
+    "initialCapital": "Initial Capital",
+    "strategyName": "Strategy Name"
   },
   "portfolio": {
     "symbol": "Symbol",
@@ -91,7 +108,12 @@
     "winRate": "Win Rate",
     "totalTrades": "Total Trades",
     "equityCurve": "Equity Curve",
-    "tradeLog": "Trade Log"
+    "tradeLog": "Trade Log",
+    "name": "Name",
+    "status": "Status",
+    "searchByName": "Search by name/strategy",
+    "filterByDate": "Filter by date",
+    "emptyHint": "No backtest records yet, create one"
   },
   "analysis": {
     "correlation": "Correlation",
@@ -185,5 +207,55 @@
     "info": "Info",
     "warning": "Warning",
     "error": "Error"
+  },
+  "system": {
+    "uptime": "Uptime",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "servicesOnline": "Services Online",
+    "resources": "Resources",
+    "services": "Services",
+    "recentLogs": "Recent Logs",
+    "online": "Online",
+    "offline": "Offline"
+  },
+  "scheduler": {
+    "jobName": "Job Name",
+    "jobType": "Job Type",
+    "cronExpression": "Cron Expression",
+    "lastRun": "Last Run",
+    "nextRun": "Next Run",
+    "duration": "Duration",
+    "createJob": "Create Job",
+    "jobNamePlaceholder": "Enter job name",
+    "cronPlaceholder": "e.g. 0 9 * * 1-5",
+    "config": "Config (JSON)",
+    "configPlaceholder": "{}"
+  },
+  "factors": {
+    "name": "Name",
+    "formula": "Formula",
+    "ic": "IC",
+    "sharpe": "Sharpe"
+  },
+  "signals": {
+    "title": "Trading Signals",
+    "noSignals": "No signals yet",
+    "type": "Type",
+    "direction": "Direction",
+    "strength": "Strength",
+    "timestamp": "Time",
+    "source": "Source",
+    "status": "Status",
+    "acknowledge": "Acknowledge",
+    "dismiss": "Dismiss",
+    "createOrder": "Create Order",
+    "new": "New",
+    "acknowledged": "Acknowledged",
+    "acted": "Acted",
+    "expired": "Expired"
+  },
+  "status": {
+    "filled": "Completed"
   }
 }

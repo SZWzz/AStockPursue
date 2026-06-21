@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"fmt"
+	"log"
 	"math"
 )
 
@@ -62,7 +63,9 @@ func (e *Evaluator) Evaluate(ctx context.Context, modelID string, symbols []stri
 		"ic":           math.Round(ic*10000) / 10000,
 		"ir":           math.Round(ir*10000) / 10000,
 	}
-	_ = e.updateMetrics(ctx, modelID, metrics)
+	if err := e.updateMetrics(ctx, modelID, metrics); err != nil {
+		log.Printf("[ml/evaluator] update metrics error: %v", err)
+	}
 
 	return &EvalResult{
 		ModelID:     modelID,

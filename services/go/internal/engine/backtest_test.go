@@ -32,7 +32,7 @@ func TestBacktestRunnerSingleSymbol(t *testing.T) {
 	p := &Pipeline{
 		Engine: defaultMockEngine(), Signal: signal, Risk: risk,
 		Portfolio: &Portfolio{Cash: 100000, Equity: 100000, Positions: make(map[string]*Position)},
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	br := NewBacktestRunner(p, loader)
@@ -59,7 +59,7 @@ func TestBacktestRunnerMetrics(t *testing.T) {
 	p := &Pipeline{
 		Engine: defaultMockEngine(), Signal: signal, Risk: risk,
 		Portfolio: &Portfolio{Cash: 100000, Equity: 100000, Positions: make(map[string]*Position)},
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	br := NewBacktestRunner(p, loader)
@@ -86,7 +86,7 @@ func TestBacktestRunnerNoSignal(t *testing.T) {
 	p := &Pipeline{
 		Engine: defaultMockEngine(), Signal: signal, Risk: risk,
 		Portfolio: &Portfolio{Cash: 100000, Equity: 100000, Positions: make(map[string]*Position)},
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	br := NewBacktestRunner(p, loader)
@@ -115,7 +115,7 @@ func TestBacktestRunnerMultipleSymbols(t *testing.T) {
 	p := &Pipeline{
 		Engine: defaultMockEngine(), Signal: signal, Risk: risk,
 		Portfolio: &Portfolio{Cash: 100000, Equity: 100000, Positions: make(map[string]*Position)},
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	br := NewBacktestRunner(p, loader)
@@ -131,7 +131,7 @@ func TestBacktestRunnerEmptyBars(t *testing.T) {
 	p := &Pipeline{
 		Engine: defaultMockEngine(), Signal: signal, Risk: risk,
 		Portfolio: &Portfolio{Cash: 100000, Equity: 100000, Positions: make(map[string]*Position)},
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 	br := NewBacktestRunner(p, loader)
 	_, err := br.Run([]string{"000001"}, time.Now(), time.Now(), "1d")

@@ -33,7 +33,7 @@ func TestBacktestHandlerRun(t *testing.T) {
 		},
 	}
 	factory := engine.NewEngineFactory()
-	h := NewBacktestHandler(store, loader, factory)
+	h := NewBacktestHandler(store, loader, factory, nil)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
@@ -59,7 +59,7 @@ func TestBacktestHandlerGetResult(t *testing.T) {
 	store := NewBacktestStore()
 	loader := &mockBarLoader{bars: make(map[string][]*commonv1.Bar)}
 	factory := engine.NewEngineFactory()
-	h := NewBacktestHandler(store, loader, factory)
+	h := NewBacktestHandler(store, loader, factory, nil)
 
 	result := &engine.BacktestResult{
 		InitialCash: 100000, FinalEquity: 110000, TotalReturn: 0.1,
@@ -87,7 +87,7 @@ func TestBacktestHandlerGetNotFound(t *testing.T) {
 	store := NewBacktestStore()
 	loader := &mockBarLoader{bars: make(map[string][]*commonv1.Bar)}
 	factory := engine.NewEngineFactory()
-	h := NewBacktestHandler(store, loader, factory)
+	h := NewBacktestHandler(store, loader, factory, nil)
 
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)

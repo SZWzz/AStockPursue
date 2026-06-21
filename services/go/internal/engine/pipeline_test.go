@@ -28,7 +28,7 @@ type MockSignalGenerator struct {
 	err     error
 }
 
-func (m *MockSignalGenerator) Generate(bars []interface{}, ts time.Time) (map[string]float64, error) {
+func (m *MockSignalGenerator) Generate(bars map[string]*Bar, ts time.Time) (map[string]float64, error) {
 	return m.weights, m.err
 }
 
@@ -39,7 +39,7 @@ type mockSignalAdapter struct {
 	err    error
 }
 
-func (m *mockSignalAdapter) Generate(bars []interface{}, ts time.Time) (map[string]float64, error) {
+func (m *mockSignalAdapter) Generate(bars map[string]*Bar, ts time.Time) (map[string]float64, error) {
 	m.called = true
 	return m.weight, m.err
 }
@@ -100,7 +100,7 @@ func TestPipelinePortfolioRollbackOnSignalFailure(t *testing.T) {
 		Signal:    signal,
 		Risk:      risk,
 		OM:        om,
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	bar := &Bar{Symbol: "000001.SZ", Open: 10, High: 11, Low: 9, Close: 10.5, Volume: 1000000}
@@ -132,7 +132,7 @@ func TestPipelineProcessOrdersNoSignal(t *testing.T) {
 		Signal:    nil, // no signal configured
 		Risk:      risk,
 		OM:        om,
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	bar := &Bar{Symbol: "000001.SZ", Open: 10, High: 11, Low: 9, Close: 10.5, Volume: 1000000}
@@ -164,7 +164,7 @@ func TestPipelineProcessOrdersWithWeights(t *testing.T) {
 		Signal:    signal,
 		Risk:      risk,
 		OM:        om,
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	bar := &Bar{Symbol: "000001.SZ", Open: 10, High: 11, Low: 9, Close: 10, Volume: 1000000}
@@ -210,7 +210,7 @@ func TestPipelineProcessOrdersWithSellSignal(t *testing.T) {
 		Signal:    signal,
 		Risk:      risk,
 		OM:        om,
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	bar := &Bar{Symbol: "000001.SZ", Open: 10, High: 11, Low: 9, Close: 10, Volume: 1000000}
@@ -223,21 +223,24 @@ func TestPipelineProcessOrdersWithSellSignal(t *testing.T) {
 	}
 }
 
-func TestPipelineOnBarWrongType(t *testing.T) {
+func TestPipelineOnBarNil(t *testing.T) {
 	pipeline := &Pipeline{
 		Engine:    &MockEngine{},
 		Portfolio: &Portfolio{Cash: 100000, Equity: 100000, Positions: make(map[string]*Position)},
 		Risk:      NewRiskManager(RiskConfig{}),
 		OM:        NewOrderManager(),
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
-	// Passing a non-*Bar should not panic
-	pipeline.OnBar("not a bar", time.Now())
+	// Passing nil *Bar should not panic (defensive)
+	func() {
+		defer func() { recover() }()
+		pipeline.OnBar(nil, time.Now())
+	}()
 
 	// Should not crash
 	if pipeline.Portfolio.Cash != 100000 {
-		t.Error("portfolio should not change on invalid type")
+		t.Error("portfolio should not change on nil bar")
 	}
 }
 
@@ -259,7 +262,7 @@ func TestPipelineRiskExitOrders(t *testing.T) {
 		Signal:    nil, // no signal, only risk exits
 		Risk:      risk,
 		OM:        om,
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	// Price drops below 5% stop loss (10 * 0.95 = 9.5)
@@ -301,7 +304,7 @@ func TestPipelineBlockNewSignals(t *testing.T) {
 		Signal:    signal,
 		Risk:      risk,
 		OM:        om,
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	bar := &Bar{Symbol: "000001.SZ", Open: 9, High: 9.5, Low: 9, Close: 9, Volume: 1000000}
@@ -338,7 +341,7 @@ func TestPipelineEmptyWeights(t *testing.T) {
 		Signal:    signal,
 		Risk:      risk,
 		OM:        om,
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	bar := &Bar{Symbol: "000001.SZ", Open: 10, High: 11, Low: 9, Close: 10.5, Volume: 1000000}
@@ -373,7 +376,7 @@ func TestPipelineEquityTracking(t *testing.T) {
 		Signal:    signal,
 		Risk:      risk,
 		OM:        om,
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	bar := &Bar{Symbol: "000001.SZ", Open: 10, High: 11, Low: 9, Close: 10, Volume: 1000000}
@@ -412,7 +415,7 @@ func TestPipelineRollbackPreservesRiskExits(t *testing.T) {
 		Signal:    signal,
 		Risk:      risk,
 		OM:        om,
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*Bar),
 	}
 
 	bar := &Bar{Symbol: "000001.SZ", Open: 9, High: 9.5, Low: 9, Close: 9.4, Volume: 1000000}

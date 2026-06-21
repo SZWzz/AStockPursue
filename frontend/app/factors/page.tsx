@@ -1,13 +1,14 @@
 // frontend/app/factors/page.tsx — Factor list
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { Card } from '@/components/ui/card'
 import { useFactors } from '@/hooks'
 import { cn } from '@/lib/utils'
+import { SkeletonTable } from '@/components/ui/SkeletonTable'
 
 interface Factor {
   id: string
@@ -32,8 +33,18 @@ export default function FactorsPage() {
   const t = useTranslations()
   const router = useRouter()
   const [search, setSearch] = useState('')
+  // FL3: Debounced search value
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
-  const { data, isLoading, error } = useFactors(search ? { search } : undefined)
+  // FL3: 300ms debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const { data, isLoading, error } = useFactors(debouncedSearch ? { search: debouncedSearch } : undefined)
 
   const factors: Factor[] = data?.data || data?.factors || data || []
 
@@ -49,7 +60,8 @@ export default function FactorsPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search factors by name or formula..."
+            // FL1: i18n search placeholder
+            placeholder={t('common.search')}
             className="flex-1 bg-[var(--surface-2)] border border-[var(--border-default)] text-[var(--foreground)] text-[13px] rounded-[var(--radius-sm)] px-3 py-1.5 placeholder:text-[var(--foreground-muted)] focus:outline-none focus:border-[var(--primary)]"
           />
         </div>
@@ -57,7 +69,7 @@ export default function FactorsPage() {
         {/* Content */}
         <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-0 overflow-hidden">
           {isLoading ? (
-            <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">{t('common.loading')}</div>
+            <SkeletonTable rows={4} cols={5} />
           ) : error ? (
             <div className="text-[13px] text-[var(--down)] text-center py-12">
               {t('common.error')}
@@ -75,10 +87,11 @@ export default function FactorsPage() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-[var(--border-default)] text-[11px] text-[var(--foreground-muted)] uppercase tracking-wider">
-                    <th className="text-left py-2.5 px-4 font-medium">Name</th>
-                    <th className="text-left py-2.5 px-4 font-medium">Formula</th>
-                    <th className="text-right py-2.5 px-4 font-medium">IC</th>
-                    <th className="text-right py-2.5 px-4 font-medium">Sharpe</th>
+                    {/* FL2: i18n column headers */}
+                    <th className="text-left py-2.5 px-4 font-medium">{t('factors.name')}</th>
+                    <th className="text-left py-2.5 px-4 font-medium">{t('factors.formula')}</th>
+                    <th className="text-right py-2.5 px-4 font-medium">{t('factors.ic')}</th>
+                    <th className="text-right py-2.5 px-4 font-medium">{t('factors.sharpe')}</th>
                     <th className="text-left py-2.5 px-4 font-medium">{t('trading.status')}</th>
                   </tr>
                 </thead>

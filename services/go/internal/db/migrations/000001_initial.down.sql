@@ -1,0 +1,6 @@
+DROP INDEX IF EXISTS idx_trades_run_id;
+DROP TABLE IF EXISTS trades;
+DROP TABLE IF EXISTS equity_curves;
+DROP TABLE IF EXISTS backtest_runs;
+DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS bars;

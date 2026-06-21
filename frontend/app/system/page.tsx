@@ -33,7 +33,7 @@ function formatUptime(seconds: number): string {
   return `${m}m`
 }
 
-function ServiceDot({ name, status }: { name: string; status?: string }) {
+function ServiceDot({ name, status, labels }: { name: string; status?: string; labels: { online: string; offline: string } }) {
   const isUp = status === 'up' || status === 'healthy' || status === 'ok' || status === 'running'
   return (
     <div className="flex items-center gap-2">
@@ -48,7 +48,7 @@ function ServiceDot({ name, status }: { name: string; status?: string }) {
         'text-[11px] font-medium',
         isUp ? 'text-[var(--up)]' : 'text-[var(--down)]'
       )}>
-        {isUp ? 'online' : 'offline'}
+        {isUp ? labels.online : labels.offline}
       </span>
     </div>
   )
@@ -115,21 +115,21 @@ export default function SystemPage() {
             {/* KPI Cards */}
             <div className="grid grid-cols-4 gap-[var(--grid-gap)]">
               <KpiCard
-                label="Uptime"
+                label={t('system.uptime')}
                 value={status.uptime !== undefined ? formatUptime(status.uptime) : '--'}
               />
               <KpiCard
-                label="CPU"
+                label={t('system.cpu')}
                 value={status.cpu !== undefined ? `${cpu.toFixed(1)}%` : '--'}
                 direction={cpu > 80 ? 'down' : cpu > 50 ? 'neutral' : 'up'}
               />
               <KpiCard
-                label="Memory"
+                label={t('system.memory')}
                 value={status.memory !== undefined ? `${memory.toFixed(1)}%` : '--'}
                 direction={memory > 80 ? 'down' : memory > 50 ? 'neutral' : 'up'}
               />
               <KpiCard
-                label="Services Online"
+                label={t('system.servicesOnline')}
                 value={`${serviceNames.filter(([, s]) => s === 'up' || s === 'healthy' || s === 'ok' || s === 'running').length}/${serviceNames.length}`}
               />
             </div>
@@ -138,12 +138,12 @@ export default function SystemPage() {
             <div className="grid grid-cols-2 gap-[var(--grid-gap)]">
               {/* CPU / Memory progress bars */}
               <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
-                <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-3">Resources</h2>
+                <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-3">{t('system.resources')}</h2>
                 <div className="space-y-3">
                   {/* CPU bar */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[12px] text-[var(--foreground-secondary)]">CPU</span>
+                      <span className="text-[12px] text-[var(--foreground-secondary)]">{t('system.cpu')}</span>
                       <span className="text-[12px] font-mono text-[var(--foreground-muted)]">{cpu.toFixed(1)}%</span>
                     </div>
                     <div className="w-full h-2 bg-[var(--surface-1)] rounded-full overflow-hidden">
@@ -159,7 +159,7 @@ export default function SystemPage() {
                   {/* Memory bar */}
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[12px] text-[var(--foreground-secondary)]">Memory</span>
+                      <span className="text-[12px] text-[var(--foreground-secondary)]">{t('system.memory')}</span>
                       <span className="text-[12px] font-mono text-[var(--foreground-muted)]">{memory.toFixed(1)}%</span>
                     </div>
                     <div className="w-full h-2 bg-[var(--surface-1)] rounded-full overflow-hidden">
@@ -177,10 +177,10 @@ export default function SystemPage() {
 
               {/* Service Status */}
               <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
-                <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-3">Services</h2>
+                <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-3">{t('system.services')}</h2>
                 <div className="space-y-2.5">
                   {serviceNames.map(([name, statusVal]) => (
-                    <ServiceDot key={name} name={name} status={statusVal} />
+                    <ServiceDot key={name} name={name} status={statusVal} labels={{ online: t('system.online'), offline: t('system.offline') }} />
                   ))}
                 </div>
               </Card>
@@ -188,7 +188,7 @@ export default function SystemPage() {
 
             {/* Recent Logs */}
             <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
-              <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">Recent Logs</h2>
+              <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">{t('system.recentLogs')}</h2>
               <LogViewer logs={logs} />
             </Card>
           </>

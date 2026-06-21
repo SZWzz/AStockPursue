@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -69,45 +70,55 @@ func (s *NewsService) Analyze(ctx context.Context, symbol string, params map[str
 
 	// Persist to cache
 	if s.repo != nil {
-		_ = s.repo.Save(&DataPoint{
+		if err := s.repo.Save(&DataPoint{
 			Symbol:   symbol,
 			Category: "news",
 			Key:      "overall_sentiment",
 			Value:    mock["overall_sentiment"].(float64),
 			Date:     time.Now(),
-		})
-		_ = s.repo.Save(&DataPoint{
+		}); err != nil {
+			log.Printf("[research/news] save error: %v", err)
+		}
+		if err := s.repo.Save(&DataPoint{
 			Symbol:   symbol,
 			Category: "news",
 			Key:      "sentiment_change",
 			Value:    mock["sentiment_change"].(float64),
 			Date:     time.Now(),
-		})
-		_ = s.repo.Save(&DataPoint{
+		}); err != nil {
+			log.Printf("[research/news] save error: %v", err)
+		}
+		if err := s.repo.Save(&DataPoint{
 			Symbol:   symbol,
 			Category: "news",
 			Key:      "source_count",
 			Value:    float64(mock["source_count"].(int)),
 			Date:     time.Now(),
-		})
+		}); err != nil {
+			log.Printf("[research/news] save error: %v", err)
+		}
 
 		articles, _ := json.Marshal(mock["recent_articles"])
-		_ = s.repo.Save(&DataPoint{
+		if err := s.repo.Save(&DataPoint{
 			Symbol:   symbol,
 			Category: "news",
 			Key:      "recent_articles",
 			Date:     time.Now(),
 			Metadata: map[string]string{"data": string(articles)},
-		})
+		}); err != nil {
+			log.Printf("[research/news] save error: %v", err)
+		}
 
 		topics, _ := json.Marshal(mock["key_topics"])
-		_ = s.repo.Save(&DataPoint{
+		if err := s.repo.Save(&DataPoint{
 			Symbol:   symbol,
 			Category: "news",
 			Key:      "key_topics",
 			Date:     time.Now(),
 			Metadata: map[string]string{"data": string(topics)},
-		})
+		}); err != nil {
+			log.Printf("[research/news] save error: %v", err)
+		}
 	}
 
 	return mock, nil

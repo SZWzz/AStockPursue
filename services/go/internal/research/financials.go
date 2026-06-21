@@ -2,6 +2,7 @@ package research
 
 import (
 	"context"
+	"log"
 	"time"
 )
 
@@ -39,13 +40,15 @@ func (s *FinancialsService) Analyze(ctx context.Context, symbol string, params m
 	mock := s.mockFinancials(symbol)
 	if s.repo != nil {
 		for k, v := range mock {
-			_ = s.repo.Save(&DataPoint{
+			if err := s.repo.Save(&DataPoint{
 				Symbol:   symbol,
 				Category: "financials",
 				Key:      k,
 				Value:    v,
 				Date:     time.Now(),
-			})
+			}); err != nil {
+				log.Printf("[research/financials] save error: %v", err)
+			}
 		}
 	}
 	result := make(map[string]any)

@@ -13,7 +13,7 @@ func TestEngineCreateRun(t *testing.T) {
 	cache := market.NewMemoryCache(5*time.Minute, 100)
 	ds := market.NewDataStore(nil, cache)
 	factory := engine.NewEngineFactory()
-	e := NewEngine(ds, factory)
+	e := NewEngine(ds, factory, nil)
 
 	run, err := e.Create("test-run", []string{"000001.SZ"}, "1d", 100000)
 	assert.NoError(t, err)
@@ -29,7 +29,7 @@ func TestEngineStateTransitions(t *testing.T) {
 	cache := market.NewMemoryCache(5*time.Minute, 100)
 	ds := market.NewDataStore(nil, cache)
 	factory := engine.NewEngineFactory()
-	e := NewEngine(ds, factory)
+	e := NewEngine(ds, factory, nil)
 
 	run, err := e.Create("test", []string{"000001.SZ"}, "1d", 100000)
 	assert.NoError(t, err)
@@ -49,7 +49,7 @@ func TestEngineListAndGet(t *testing.T) {
 	cache := market.NewMemoryCache(5*time.Minute, 100)
 	ds := market.NewDataStore(nil, cache)
 	factory := engine.NewEngineFactory()
-	e := NewEngine(ds, factory)
+	e := NewEngine(ds, factory, nil)
 
 	_, err := e.Create("run1", []string{"000001.SZ"}, "1d", 100000)
 	assert.NoError(t, err)
@@ -68,7 +68,7 @@ func TestEngineDelete(t *testing.T) {
 	cache := market.NewMemoryCache(5*time.Minute, 100)
 	ds := market.NewDataStore(nil, cache)
 	factory := engine.NewEngineFactory()
-	e := NewEngine(ds, factory)
+	e := NewEngine(ds, factory, nil)
 
 	run, err := e.Create("test", []string{"000001.SZ"}, "1d", 100000)
 	assert.NoError(t, err)
@@ -82,7 +82,7 @@ func TestInvalidTransitions(t *testing.T) {
 	cache := market.NewMemoryCache(5*time.Minute, 100)
 	ds := market.NewDataStore(nil, cache)
 	factory := engine.NewEngineFactory()
-	e := NewEngine(ds, factory)
+	e := NewEngine(ds, factory, nil)
 
 	run, err := e.Create("test", []string{"000001.SZ"}, "1d", 100000)
 	assert.NoError(t, err)
@@ -108,7 +108,7 @@ func TestDefaultValues(t *testing.T) {
 	cache := market.NewMemoryCache(5*time.Minute, 100)
 	ds := market.NewDataStore(nil, cache)
 	factory := engine.NewEngineFactory()
-	e := NewEngine(ds, factory)
+	e := NewEngine(ds, factory, nil)
 
 	// Empty frequency → defaults to "1d"
 	run, err := e.Create("test", []string{"000001.SZ"}, "", 0)

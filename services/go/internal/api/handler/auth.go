@@ -1,26 +1,34 @@
 package handler
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"os"
 	"sync"
 	"time"
 
+	"github.com/astockpursue/go-core/internal/log"
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/pbkdf2"
 )
 
-// JWT secret key (in production, use env var or config)
-var jwtSecret = []byte("astockpursue-jwt-secret-change-in-production")
+// JWT secret key — reads from JWT_SECRET env, with dev fallback.
+// If unset and not in dev mode, the first handler call will fatal.
+var jwtSecret []byte
+var pkgLogger = log.New()
 
 func init() {
-	// Allow override via env
-	if s := ""; s != "" {
+	if s := os.Getenv("JWT_SECRET"); s != "" {
 		jwtSecret = []byte(s)
+	} else if os.Getenv("GO_ENV") == "development" {
+		jwtSecret = []byte("astockpursue-dev-secret-not-for-production")
 	}
 }
 
@@ -29,17 +37,115 @@ type userRecord struct {
 	Password string // PBKDF2 hashed
 }
 
-// AuthHandler provides registration and login endpoints.
-type AuthHandler struct {
-	mu    sync.RWMutex
-	users map[string]*userRecord
+// RateLimiter is a simple in-memory rate limiter.
+type RateLimiter struct {
+	mu       sync.Mutex
+	attempts map[string][]time.Time
+	window   time.Duration
+	max      int
 }
 
-func NewAuthHandler() *AuthHandler {
+// NewRateLimiter creates a rate limiter with the given window and max attempts.
+func NewRateLimiter(window time.Duration, max int) *RateLimiter {
+	return &RateLimiter{
+		attempts: make(map[string][]time.Time),
+		window:   window,
+		max:      max,
+	}
+}
+
+// Allow returns true if the key is within limits, false if rate limit exceeded.
+func (rl *RateLimiter) Allow(key string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	now := time.Now()
+	cutoff := now.Add(-rl.window)
+
+	// Filter to keep only attempts within the window
+	filtered := rl.attempts[key][:0]
+	for _, t := range rl.attempts[key] {
+		if t.After(cutoff) {
+			filtered = append(filtered, t)
+		}
+	}
+	rl.attempts[key] = filtered
+
+	if len(filtered) >= rl.max {
+		return false
+	}
+
+	rl.attempts[key] = append(rl.attempts[key], now)
+	return true
+}
+
+// User represents a user persisted in the database.
+type User struct {
+	Username     string
+	PasswordHash string
+	Salt         string
+}
+
+// UserRepository abstracts persistent user storage.
+type UserRepository interface {
+	FindByUsername(ctx context.Context, username string) (*User, error)
+	Save(ctx context.Context, user *User) error
+}
+
+// pgUserRepository implements UserRepository backed by PostgreSQL.
+type pgUserRepository struct {
+	db *pgxpool.Pool
+}
+
+// NewUserRepository creates a PostgreSQL-backed UserRepository.
+func NewUserRepository(db *pgxpool.Pool) UserRepository {
+	if db == nil {
+		return nil
+	}
+	return &pgUserRepository{db: db}
+}
+
+func (r *pgUserRepository) FindByUsername(ctx context.Context, username string) (*User, error) {
+	var u User
+	err := r.db.QueryRow(ctx,
+		"SELECT username, password_hash, salt FROM users WHERE username = $1", username,
+	).Scan(&u.Username, &u.PasswordHash, &u.Salt)
+	if err == pgx.ErrNoRows {
+		return nil, nil
+	}
+	return &u, err
+}
+
+func (r *pgUserRepository) Save(ctx context.Context, user *User) error {
+	_, err := r.db.Exec(ctx,
+		"INSERT INTO users (username, password_hash, salt) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
+		user.Username, user.PasswordHash, user.Salt,
+	)
+	return err
+}
+
+// AuthHandler provides registration and login endpoints.
+// Uses a PostgreSQL-backed UserRepository when available; falls back to in-memory.
+type AuthHandler struct {
+	mu         sync.RWMutex
+	users      map[string]*userRecord
+	userRepo   UserRepository
+	logger     *log.Logger
+	regLimiter *RateLimiter // 5 attempts per minute per IP
+	loginLimiter *RateLimiter // 5 attempts per minute per username
+}
+
+// NewAuthHandler creates an AuthHandler with an optional UserRepository.
+// When userRepo is nil, in-memory storage is used as fallback.
+func NewAuthHandler(userRepo UserRepository) *AuthHandler {
 	return &AuthHandler{
 		users: map[string]*userRecord{
 			"admin": {Username: "admin", Password: hashPassword("admin123")},
 		},
+		userRepo:     userRepo,
+		logger:       log.New(),
+		regLimiter:   NewRateLimiter(time.Minute, 5),
+		loginLimiter: NewRateLimiter(time.Minute, 5),
 	}
 }
 
@@ -55,6 +161,48 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	// Rate limit: 5 attempts per minute per IP
+	clientIP := c.ClientIP()
+	if !h.regLimiter.Allow(clientIP) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many registration attempts, try again later"})
+		return
+	}
+
+	// Try PG-backed repository first
+	if h.userRepo != nil {
+		existing, err := h.userRepo.FindByUsername(c.Request.Context(), req.Username)
+		if err != nil {
+			h.logger.Error("auth: FindByUsername error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+			return
+		}
+		if existing != nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "username already exists"})
+			return
+		}
+		salt := make([]byte, 16)
+		_, _ = rand.Read(salt)
+		hash := pbkdf2.Key([]byte(req.Password), salt, 100000, 32, sha256.New)
+		user := &User{
+			Username:     req.Username,
+			PasswordHash: hex.EncodeToString(hash),
+			Salt:         hex.EncodeToString(salt),
+		}
+		if err := h.userRepo.Save(c.Request.Context(), user); err != nil {
+			h.logger.Error("auth: Save error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to persist user"})
+			return
+		}
+		token, err := generateToken(req.Username)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+			return
+		}
+		c.JSON(http.StatusCreated, gin.H{"token": token, "username": req.Username})
+		return
+	}
+
+	// Fallback to in-memory
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -89,6 +237,41 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// Rate limit: 5 attempts per minute per username
+	if !h.loginLimiter.Allow(req.Username) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many login attempts, try again later"})
+		return
+	}
+
+	// Try PG-backed repository first
+	if h.userRepo != nil {
+		user, err := h.userRepo.FindByUsername(c.Request.Context(), req.Username)
+		if err != nil {
+			h.logger.Error("auth: FindByUsername error: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+			return
+		}
+		if user == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+			return
+		}
+		salt, _ := hex.DecodeString(user.Salt)
+		expectedHash, _ := hex.DecodeString(user.PasswordHash)
+		actualHash := pbkdf2.Key([]byte(req.Password), salt, 100000, 32, sha256.New)
+		if hex.EncodeToString(actualHash) != hex.EncodeToString(expectedHash) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
+			return
+		}
+		token, err := generateToken(req.Username)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"token": token, "username": req.Username})
+		return
+	}
+
+	// Fallback to in-memory
 	h.mu.RLock()
 	user, exists := h.users[req.Username]
 	h.mu.RUnlock()
@@ -128,6 +311,10 @@ func verifyPassword(password, stored string) bool {
 }
 
 func generateToken(username string) (string, error) {
+	if len(jwtSecret) == 0 {
+		pkgLogger.Error("JWT_SECRET environment variable is required")
+		return "", fmt.Errorf("JWT_SECRET environment variable is required")
+	}
 	claims := jwt.MapClaims{
 		"sub": username,
 		"iat": time.Now().Unix(),
@@ -139,6 +326,10 @@ func generateToken(username string) (string, error) {
 
 // ValidateToken parses and validates a JWT token string.
 func ValidateToken(tokenStr string) (string, error) {
+	if len(jwtSecret) == 0 {
+		pkgLogger.Error("JWT_SECRET environment variable is required")
+		return "", fmt.Errorf("JWT_SECRET environment variable is required")
+	}
 	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
 		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])

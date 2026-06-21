@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -24,12 +25,25 @@ import (
 	"github.com/astockpursue/go-core/internal/ml"
 	"github.com/astockpursue/go-core/internal/notify"
 	"github.com/astockpursue/go-core/internal/research"
+	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "modernc.org/sqlite"
 )
 
-func main() {
-	cfg := config.Load()
+// Server holds all runtime dependencies for the AStockPursue backend.
+type Server struct {
+	cfg       *config.Config
+	router    *gin.Engine
+	srv       *http.Server
+	db        *pgxpool.Pool
+	grpcConn  *grpcpkg.ConnManager
+	wsHub     *api.WSHub
+	shutdowns []func()
+}
+
+// NewServer initializes all components. Returns the server ready to Start.
+func NewServer(cfg *config.Config) (*Server, error) {
+	s := &Server{cfg: cfg}
 
 	factory := engine.NewEngineFactory()
 	cache := market.NewMemoryCache(5*time.Minute, 10000)
@@ -42,44 +56,58 @@ func main() {
 	if err != nil {
 		log.Printf("DB unavailable, using in-memory backtest store: %v", err)
 		repo = handler.NewBacktestStore()
+	} else if err := db.RunMigrations(cfg.DatabaseURL); err != nil {
+		log.Printf("migrations failed, using in-memory backtest store: %v", err)
+		timescaleDB.Close()
+		timescaleDB = nil
+		repo = handler.NewBacktestStore()
 	} else if err := timescaleDB.InitSchema(context.Background()); err != nil {
 		log.Printf("init schema failed, using in-memory backtest store: %v", err)
 		timescaleDB.Close()
 		timescaleDB = nil
 		repo = handler.NewBacktestStore()
 	} else {
-		defer timescaleDB.Close()
-		repo = db.NewPostgresBacktestStore(timescaleDB)
+		s.shutdowns = append(s.shutdowns, func() { timescaleDB.Close() })
+		repo = db.NewPGBacktestStore(timescaleDB.Pool())
 		log.Print("DB connected, using PostgreSQL backtest store")
 	}
 
-	btHandler := handler.NewBacktestHandler(repo, ds, factory)
+	// Extract dbPool early for all handlers
+	var dbPool *pgxpool.Pool
+	if timescaleDB != nil {
+		dbPool = timescaleDB.Pool()
+	}
+
+	btHandler := handler.NewBacktestHandler(repo, ds, factory, nil)
 
 	// gRPC connection to Python research layer
-	connMgr := grpcpkg.NewConnManager("localhost:8902", 30*time.Second)
-	if err := connMgr.Connect(context.Background()); err != nil {
+	s.grpcConn = grpcpkg.NewConnManager("localhost:8902", 30*time.Second)
+	if err := s.grpcConn.Connect(context.Background()); err != nil {
 		log.Printf("gRPC: python research layer unavailable, retrying in background...")
 	}
-	go connMgr.StartHealthCheck(context.Background())
+	go s.grpcConn.StartHealthCheck(context.Background())
+
+	signalAdapter := engine.NewSignalAdapterFromConnMgr(s.grpcConn, 10*time.Second)
+	btHandler = handler.NewBacktestHandler(repo, ds, factory, signalAdapter)
 
 	pipeline := &engine.Pipeline{
 		Engine:    factory.ForSymbol("000001"),
 		Portfolio: &engine.Portfolio{
-			Cash:      100000,
-			Equity:    100000,
-			Positions: make(map[string]*engine.Position),
+			Cash:          100000,
+			Equity:        100000,
+			InitialEquity: 100000,
+			Positions:     make(map[string]*engine.Position),
 		},
-		Signal:   engine.NewSignalAdapterFromConnMgr(connMgr, 10*time.Second),
+		Signal:   signalAdapter,
 		Risk:     engine.NewRiskManager(engine.RiskConfig{}),
 		OM:       engine.NewOrderManager(),
-		LastBars: make(map[string]interface{}),
+		LastBars: make(map[string]*engine.Bar),
 	}
 	runner := engine.NewLiveTradingRunner(pipeline, 1*time.Minute)
 	trHandler := handler.NewTradingHandler(runner)
 
 	marketH := handler.NewMarketHandler(ds)
 
-	// Try to connect brokers (optional — API keys from env)
 	var binanceBroker, okxBroker broker.Broker
 	if key := os.Getenv("BINANCE_API_KEY"); key != "" {
 		if b, err := broker.New("binance", broker.BrokerConfig{
@@ -98,30 +126,28 @@ func main() {
 			log.Print("OKX broker connected")
 		}
 	}
-	brokerH := handler.NewBrokerHandler(binanceBroker, okxBroker)
+	brokerH := handler.NewBrokerHandler(binanceBroker, okxBroker, dbPool)
 
 	portfolioH := handler.NewPortfolioHandler(runner)
-	authH := handler.NewAuthHandler()
-	paperTradeH := handler.NewPaperTradingHandler(ds, factory)
-	settingsH := handler.NewSettingsHandler()
+	paperTradeH := handler.NewPaperTradingHandler(ds, factory, dbPool)
+	settingsH := handler.NewSettingsHandler(dbPool)
 	systemH := handler.NewSystemHandler()
-	analysisH := handler.NewAnalysisHandler(ds)
-	schedulerH := handler.NewSchedulerHandler(ds, factory, repo)
+	analysisH := handler.NewAnalysisHandler(ds).WithTradingRunner(runner)
+	schedulerH := handler.NewSchedulerHandler(ds, factory, repo, dbPool)
 	screenerH := handler.NewScreenerHandler(ds)
 
 	var factorClient factorv1.FactorServiceClient
 	var workflowClient workflowv1.WorkflowServiceClient
 	var signalClient signalv1.SignalServiceClient
-	if conn := connMgr.GetConn(); conn != nil {
+	if conn := s.grpcConn.GetConn(); conn != nil {
 		factorClient = factorv1.NewFactorServiceClient(conn)
 		workflowClient = workflowv1.NewWorkflowServiceClient(conn)
 		signalClient = signalv1.NewSignalServiceClient(conn)
 	}
-	factorH := handler.NewFactorHandler(factorClient)
-	workflowH := handler.NewWorkflowHandler(workflowClient)
-	signalH := handler.NewSignalHandler(signalClient)
+	factorH := handler.NewFactorHandler(factorClient, dbPool)
+	workflowH := handler.NewWorkflowHandler(workflowClient, dbPool)
+	signalH := handler.NewSignalHandler(signalClient, dbPool)
 
-	// ── Research services (in-memory only, no DB persistence) ──────────
 	researchServices := map[string]research.Service{
 		"financials":  research.NewFinancialsService(nil, nil),
 		"geopolitics": research.NewGeopoliticsService(nil, nil),
@@ -130,8 +156,6 @@ func main() {
 	}
 	researchH := handler.NewResearchHandler(researchServices)
 
-	// ── ML model registry + Notification manager ───────────────────────
-	// Use PostgreSQL when available; fall back to in-memory SQLite.
 	var mlDB, notifDB *sql.DB
 	if timescaleDB != nil {
 		mlDB = timescaleDB.DB()
@@ -141,35 +165,33 @@ func main() {
 		var err error
 		mlDB, err = sql.Open("sqlite", ":memory:")
 		if err != nil {
-			log.Fatalf("ml sqlite: %v", err)
+			return nil, fmt.Errorf("ml sqlite: %w", err)
 		}
 		notifDB, err = sql.Open("sqlite", ":memory:")
 		if err != nil {
-			log.Fatalf("notify sqlite: %v", err)
+			return nil, fmt.Errorf("notify sqlite: %w", err)
 		}
 		log.Print("ML and Notifications using in-memory SQLite (DB unavailable)")
 	}
 	mlRegistry := ml.NewModelRegistry(mlDB)
 	if err := mlRegistry.Init(); err != nil {
-		log.Fatalf("ml init: %v", err)
+		return nil, fmt.Errorf("ml init: %w", err)
 	}
 	mlH := handler.NewMLHandler(mlRegistry)
 
 	notifManager := notify.NewManager(notifDB)
 	notifH := handler.NewNotificationHandler(notifManager)
 
-	var dbPool *pgxpool.Pool
-	if timescaleDB != nil {
-		dbPool = timescaleDB.Pool()
-	}
-	healthH := handler.NewHealthHandler(dbPool, connMgr, nil)
-	wsHub := api.NewWSHub()
-	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH, factorH, workflowH, signalH, researchH, mlH, notifH, wsHub)
+	s.db = dbPool
 
-	// Preload seed data + simulated ticker feed
-	bgCtx, bgCancel := context.WithCancel(context.Background())
-	defer bgCancel()
+	userRepo := handler.NewUserRepository(dbPool)
+	authH := handler.NewAuthHandler(userRepo)
 
+	healthH := handler.NewHealthHandler(dbPool, s.grpcConn, nil)
+	s.wsHub = api.NewWSHub()
+	s.router = api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH, factorH, workflowH, signalH, researchH, mlH, notifH, s.wsHub)
+
+	// Preload seed data in background
 	go func() {
 		select {
 		case <-time.After(5 * time.Second):
@@ -183,37 +205,46 @@ func main() {
 				}
 			}
 			log.Printf("seed data: %d/%d symbols preloaded", loaded, len(seedSymbols))
-		case <-bgCtx.Done():
-			return
 		}
 	}()
 
-	go func() {
-		prices := map[string]float64{"000001.SZ": 12.50, "600519.SH": 1680.00, "000300.SH": 3850.00}
-		ticker := time.NewTicker(3 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				for sym, price := range prices {
-					change := (float64(time.Now().UnixNano()%200) - 100) / 10000
-					prices[sym] = price * (1 + change)
-					wsHub.TickerFeed(sym, prices[sym], change)
+	return s, nil
+}
+
+// Start runs the server and optional dev-mode ticker feed.
+func (s *Server) Start() error {
+	bgCtx, bgCancel := context.WithCancel(context.Background())
+	s.shutdowns = append(s.shutdowns, bgCancel)
+
+	// Mock ticker feed (development only)
+	if s.cfg.DevMode {
+		go func() {
+			prices := map[string]float64{"000001.SZ": 12.50, "600519.SH": 1680.00, "000300.SH": 3850.00}
+			ticker := time.NewTicker(3 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ticker.C:
+					for sym, price := range prices {
+						change := (float64(time.Now().UnixNano()%200) - 100) / 10000
+						prices[sym] = price * (1 + change)
+						s.wsHub.TickerFeed(sym, prices[sym], change)
+					}
+				case <-bgCtx.Done():
+					return
 				}
-			case <-bgCtx.Done():
-				return
 			}
-		}
-	}()
+		}()
+	}
 
-	srv := &http.Server{
-		Addr:    ":" + cfg.Port,
-		Handler: r,
+	s.srv = &http.Server{
+		Addr:    ":" + s.cfg.Port,
+		Handler: s.router,
 	}
 
 	go func() {
-		log.Printf("Starting go-core on :%s", cfg.Port)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Printf("Starting go-core on :%s", s.cfg.Port)
+		if err := s.srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("listen: %v", err)
 		}
 	}()
@@ -223,9 +254,35 @@ func main() {
 	<-quit
 	log.Println("shutting down server...")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	return s.Shutdown(context.Background())
+}
+
+// Shutdown gracefully stops the server.
+func (s *Server) Shutdown(ctx context.Context) error {
+	shutdownCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("server forced to shutdown: %v", err)
+	if s.srv != nil {
+		if err := s.srv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("server forced to shutdown: %v", err)
+		}
 	}
+	for i := len(s.shutdowns) - 1; i >= 0; i-- {
+		s.shutdowns[i]()
+	}
+	return nil
+}
+
+func main() {
+	cfg := config.Load()
+
+	srv, err := NewServer(cfg)
+	if err != nil {
+		log.Fatalf("failed to create server: %v", err)
+	}
+
+	if err := srv.Start(); err != nil {
+		log.Fatalf("server error: %v", err)
+	}
+
+	log.Println("server stopped")
 }

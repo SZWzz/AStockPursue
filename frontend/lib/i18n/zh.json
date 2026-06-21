@@ -35,7 +35,15 @@
     "noData": "暂无数据",
     "confirm": "确认",
     "confirmDelete": "确认删除？",
-    "logout": "退出登录"
+    "logout": "退出登录",
+    "createOrder": "创建订单",
+    "clear": "清除",
+    "start": "启动",
+    "pause": "暂停",
+    "clearFilters": "清除筛选",
+    "filter": "筛选",
+    "to": "至",
+    "actions": "操作"
   },
   "auth": {
     "login": "登录",
@@ -64,7 +72,16 @@
     "filledQty": "已成交",
     "open": "待成交",
     "filled": "已成交",
-    "cancelled": "已取消"
+    "cancelled": "已取消",
+    "allStatuses": "全部状态",
+    "showing": "显示",
+    "of": "/",
+    "orderCancelled": "订单已取消"
+  },
+  "papertrading": {
+    "name": "账户名称",
+    "initialCapital": "初始资金",
+    "strategyName": "策略名称"
   },
   "portfolio": {
     "symbol": "代码",
@@ -91,7 +108,12 @@
     "winRate": "胜率",
     "totalTrades": "总交易",
     "equityCurve": "权益曲线",
-    "tradeLog": "交易记录"
+    "tradeLog": "交易记录",
+    "name": "名称",
+    "status": "状态",
+    "searchByName": "按名称/策略搜索",
+    "filterByDate": "按日期筛选",
+    "emptyHint": "还没有回测记录，去创建一个吧"
   },
   "analysis": {
     "correlation": "相关性分析",
@@ -185,5 +207,55 @@
     "info": "信息",
     "warning": "警告",
     "error": "错误"
+  },
+  "system": {
+    "uptime": "运行时间",
+    "cpu": "CPU",
+    "memory": "内存",
+    "servicesOnline": "在线服务",
+    "resources": "资源",
+    "services": "服务",
+    "recentLogs": "最近日志",
+    "online": "在线",
+    "offline": "离线"
+  },
+  "scheduler": {
+    "jobName": "任务名称",
+    "jobType": "任务类型",
+    "cronExpression": "Cron 表达式",
+    "lastRun": "上次运行",
+    "nextRun": "下次运行",
+    "duration": "耗时",
+    "createJob": "创建任务",
+    "jobNamePlaceholder": "请输入任务名称",
+    "cronPlaceholder": "例如 0 9 * * 1-5",
+    "config": "配置 (JSON)",
+    "configPlaceholder": "{}"
+  },
+  "factors": {
+    "name": "名称",
+    "formula": "公式",
+    "ic": "IC",
+    "sharpe": "夏普"
+  },
+  "signals": {
+    "title": "交易信号",
+    "noSignals": "暂无信号",
+    "type": "类型",
+    "direction": "方向",
+    "strength": "强度",
+    "timestamp": "时间",
+    "source": "来源",
+    "status": "状态",
+    "acknowledge": "确认",
+    "dismiss": "忽略",
+    "createOrder": "创建订单",
+    "new": "新建",
+    "acknowledged": "已确认",
+    "acted": "已执行",
+    "expired": "已过期"
+  },
+  "status": {
+    "filled": "已完成"
   }
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"time"
@@ -108,29 +109,39 @@ func (s *NewsRealService) Analyze(ctx context.Context, symbol string, params map
 
 	// 4. Persist to cache
 	if s.repo != nil {
-		_ = s.repo.Save(&DataPoint{
+		if err := s.repo.Save(&DataPoint{
 			Symbol: symbol, Category: "news", Key: "overall_sentiment",
 			Value: overallSentiment, Date: time.Now(),
-		})
-		_ = s.repo.Save(&DataPoint{
+		}); err != nil {
+			log.Printf("[research/news_real] save error: %v", err)
+		}
+		if err := s.repo.Save(&DataPoint{
 			Symbol: symbol, Category: "news", Key: "sentiment_change",
 			Value: 0.0, Date: time.Now(),
-		})
-		_ = s.repo.Save(&DataPoint{
+		}); err != nil {
+			log.Printf("[research/news_real] save error: %v", err)
+		}
+		if err := s.repo.Save(&DataPoint{
 			Symbol: symbol, Category: "news", Key: "source_count",
 			Value: float64(len(sourceSet)), Date: time.Now(),
-		})
+		}); err != nil {
+			log.Printf("[research/news_real] save error: %v", err)
+		}
 		if articlesJSON, err := json.Marshal(articles); err == nil {
-			_ = s.repo.Save(&DataPoint{
+			if err := s.repo.Save(&DataPoint{
 				Symbol: symbol, Category: "news", Key: "recent_articles",
 				Date: time.Now(), Metadata: map[string]string{"data": string(articlesJSON)},
-			})
+			}); err != nil {
+				log.Printf("[research/news_real] save error: %v", err)
+			}
 		}
 		if topicsJSON, err := json.Marshal(keyTopics); err == nil {
-			_ = s.repo.Save(&DataPoint{
+			if err := s.repo.Save(&DataPoint{
 				Symbol: symbol, Category: "news", Key: "key_topics",
 				Date: time.Now(), Metadata: map[string]string{"data": string(topicsJSON)},
-			})
+			}); err != nil {
+				log.Printf("[research/news_real] save error: %v", err)
+			}
 		}
 	}
 

@@ -1,7 +1,7 @@
 // frontend/app/screener/page.tsx — Stock screener
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { ScreenerGrid } from '@/components/financial/ScreenerGrid'
@@ -17,6 +17,8 @@ interface ScreenerRow {
   price: number
   change_pct: number
   volume: number
+  score?: number
+  rank?: number
 }
 
 const SORT_FIELDS = [
@@ -25,32 +27,64 @@ const SORT_FIELDS = [
   { key: 'price', labelKey: 'trading.price' },
 ]
 
+// SR1: Extended filter field options
+const FIELD_OPTIONS = [
+  { value: 'price', labelKey: 'screener.price' },
+  { value: 'change', labelKey: 'screener.change' },
+  { value: 'volume', labelKey: 'screener.volume' },
+  { value: 'pe', labelKey: 'screener.pe' },
+  { value: 'market_cap', labelKey: 'screener.marketCap' },
+  { value: 'dividend_yield', labelKey: 'screener.dividendYield' },
+  { value: 'beta', labelKey: 'screener.beta' },
+  { value: 'sector', labelKey: 'screener.sector' },
+]
+
 export default function ScreenerPage() {
   const t = useTranslations()
   const { trigger, data, isMutating, error } = useScreener()
   const {
-    mode, setMode,
-    conditions, addCondition, updateCondition, removeCondition,
-    sortField, sortDir, setSort,
-    presets, savePreset, loadPreset,
+    mode,
+    setMode,
+    conditions,
+    addCondition,
+    updateCondition,
+    removeCondition,
+    toggleLogic,
+    clearConditions,
+    sortField,
+    sortDir,
+    setSort,
+    presets,
+    savePreset,
+    loadPreset,
+    loadLocalPresets,
   } = useScreenerStore()
 
   const [presetName, setPresetName] = useState('')
 
+  // SR5: Load presets from localStorage on mount
+  useEffect(() => {
+    loadLocalPresets()
+  }, [loadLocalPresets])
+
   const handleRun = () => {
     const params: Record<string, any> = {}
+    const logicGroups: string[] = []
     conditions.forEach((c) => {
       if (c.field && c.value) {
         params[`${c.field}_${c.operator}`] = Number(c.value)
+        if (c.logic) logicGroups.push(c.logic)
       }
     })
+    if (logicGroups.length > 0) params.logic = logicGroups
     if (sortField) params.sort_by = sortField
     if (sortDir) params.sort_order = sortDir
+    if (mode !== 'filter') params.mode = mode
     trigger(params)
   }
 
   const handleReset = () => {
-    conditions.length = 0
+    clearConditions()
   }
 
   const handleSavePreset = () => {
@@ -83,40 +117,72 @@ export default function ScreenerPage() {
                     : 'bg-[var(--surface-1)] text-[var(--foreground-secondary)] hover:text-[var(--foreground)]'
                 )}
               >
-                {m === 'filter' ? 'Filter' : m === 'rank' ? 'Rank' : 'Score'}
+                {t(`screener.${m}`)}
               </button>
             ))}
           </div>
 
           {/* Conditions */}
           {conditions.map((cond, i) => (
-            <div key={i} className="flex gap-2 items-center mb-2">
-              <select value={cond.field} onChange={(e) => updateCondition(i, { field: e.target.value })}
-                className="h-9 rounded-[6px] border border-[var(--border)] px-2 text-[13px] bg-white">
-                <option value="price">Price</option>
-                <option value="change">Change %</option>
-                <option value="volume">Volume</option>
-                <option value="pe">P/E</option>
-              </select>
-              <select value={cond.operator} onChange={(e) => updateCondition(i, { operator: e.target.value })}
-                className="h-9 rounded-[6px] border border-[var(--border)] px-2 text-[13px] bg-white">
-                <option value=">">&gt;</option>
-                <option value="<">&lt;</option>
-                <option value=">=">&gt;=</option>
-                <option value="<=">&lt;=</option>
-              </select>
-              <input value={cond.value} onChange={(e) => updateCondition(i, { value: e.target.value })}
-                className="h-9 rounded-[6px] border border-[var(--border)] px-2 text-[13px] w-24 bg-white" />
-              <button onClick={() => removeCondition(i)}
-                className="text-[var(--destructive)] text-[12px]">✕</button>
+            <div key={i}>
+              {/* SR2: AND/OR toggle between conditions */}
+              {i > 0 && (
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    onClick={() => toggleLogic(i)}
+                    className={cn(
+                      'text-[11px] font-medium px-2 py-0.5 rounded-[var(--radius-sm)] border transition-colors',
+                      cond.logic === 'OR'
+                        ? 'bg-[var(--up)]/10 border-[var(--up)] text-[var(--up)]'
+                        : 'bg-[var(--primary)]/10 border-[var(--primary)] text-[var(--primary)]'
+                    )}
+                    title={cond.logic === 'OR' ? t('screener.or') : t('screener.and')}
+                  >
+                    {cond.logic === 'OR' ? t('screener.or') : t('screener.and')}
+                  </button>
+                </div>
+              )}
+
+              <div className="flex gap-2 items-center mb-2">
+                <select
+                  value={cond.field}
+                  onChange={(e) => updateCondition(i, { field: e.target.value })}
+                  className="h-9 rounded-[6px] border border-[var(--border)] px-2 text-[13px] bg-white"
+                >
+                  {FIELD_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {t(opt.labelKey)}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={cond.operator}
+                  onChange={(e) => updateCondition(i, { operator: e.target.value })}
+                  className="h-9 rounded-[6px] border border-[var(--border)] px-2 text-[13px] bg-white"
+                >
+                  <option value=">">&gt;</option>
+                  <option value="<">&lt;</option>
+                  <option value=">=">&gt;=</option>
+                  <option value="<=">&lt;=</option>
+                </select>
+                <input
+                  value={cond.value}
+                  onChange={(e) => updateCondition(i, { value: e.target.value })}
+                  className="h-9 rounded-[6px] border border-[var(--border)] px-2 text-[13px] w-24 bg-white"
+                />
+                <button onClick={() => removeCondition(i)} className="text-[var(--destructive)] text-[12px]">
+                  ✕
+                </button>
+              </div>
             </div>
           ))}
-          <button onClick={addCondition}
-            className="text-[12px] text-[var(--primary)] hover:underline mb-4">+ Add Condition</button>
+          <button onClick={addCondition} className="text-[12px] text-[var(--primary)] hover:underline mb-4">
+            + {t('screener.addCondition')}
+          </button>
 
           {/* Sort selector row */}
           <div className="flex items-center gap-3 mb-3">
-            <span className="text-[12px] text-[var(--foreground-muted)]">Sort by:</span>
+            <span className="text-[12px] text-[var(--foreground-muted)]">{t('screener.sortBy')}</span>
             {SORT_FIELDS.map((field) => (
               <button
                 key={field.key}
@@ -148,20 +214,27 @@ export default function ScreenerPage() {
               type="text"
               value={presetName}
               onChange={(e) => setPresetName(e.target.value)}
-              placeholder="Preset name"
+              placeholder={t('screener.presetName')}
               className="h-8 rounded-[6px] border border-[var(--border)] px-2 text-[13px] w-40 bg-white"
             />
-            <button onClick={handleSavePreset}
-              className="text-[12px] text-[var(--primary)] hover:underline">Save Preset</button>
+            <button onClick={handleSavePreset} className="text-[12px] text-[var(--primary)] hover:underline">
+              {t('screener.savePreset')}
+            </button>
             {presets.length > 0 && (
               <select
-                onChange={(e) => { if (e.target.value) loadPreset(e.target.value) }}
+                onChange={(e) => {
+                  if (e.target.value) loadPreset(e.target.value)
+                }}
                 className="h-8 rounded-[6px] border border-[var(--border)] px-2 text-[13px] bg-white"
                 defaultValue=""
               >
-                <option value="" disabled>Load preset...</option>
+                <option value="" disabled>
+                  {t('screener.loadPreset')}
+                </option>
                 {presets.map((p) => (
-                  <option key={p.name} value={p.name}>{p.name}</option>
+                  <option key={p.name} value={p.name}>
+                    {p.name}
+                  </option>
                 ))}
               </select>
             )}
@@ -180,7 +253,7 @@ export default function ScreenerPage() {
               onClick={handleReset}
               className="text-[13px] text-[var(--foreground-secondary)] px-3 py-1.5 rounded-[var(--radius-sm)] hover:text-[var(--foreground)] transition-colors"
             >
-              Reset
+              {t('common.reset')}
             </button>
           </div>
         </Card>
@@ -211,9 +284,9 @@ export default function ScreenerPage() {
         {results.length > 0 && !isMutating && !error && (
           <Card className="p-[var(--card-padding)]">
             <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">
-              Results ({results.length})
+              {t('screener.results')} ({results.length})
             </h2>
-            <ScreenerGrid data={results} />
+            <ScreenerGrid data={results} mode={mode} />
           </Card>
         )}
 
@@ -221,7 +294,7 @@ export default function ScreenerPage() {
         {!data && !isMutating && !error && (
           <Card className="p-0 overflow-hidden">
             <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">
-              Set filters and click Search to find stocks
+              {t('screener.emptyHint')}
             </div>
           </Card>
         )}
@@ -229,7 +302,9 @@ export default function ScreenerPage() {
         {/* No results after search */}
         {data && !isMutating && !error && !results.length && (
           <Card className="p-0 overflow-hidden">
-            <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">{t('common.noData')}</div>
+            <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">
+              {t('common.noData')}
+            </div>
           </Card>
         )}
       </div>

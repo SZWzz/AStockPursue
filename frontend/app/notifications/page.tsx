@@ -1,16 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
 import useSWR, { mutate } from 'swr'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { useWebSocket } from '@/hooks/useWebSocket'
+import { wsClient } from '@/lib/ws'
 import { cn } from '@/lib/utils'
-import { Bell, Info, AlertTriangle, AlertCircle, Send, Check } from 'lucide-react'
-
-const fetcher = (url: string) => fetch(url).then(r => r.json())
+import { Bell, Info, AlertTriangle, AlertCircle, Send, Check, CheckCheck } from 'lucide-react'
 
 // --------------- helpers ---------------
 
@@ -28,17 +28,23 @@ function levelBadgeVariant(level: string): 'destructive' | 'warning' | 'default'
   return 'default'
 }
 
-function formatTime(d: string | undefined): string {
-  if (!d) return '--'
-  const date = new Date(d)
-  const now = new Date()
-  const diffMs = now.getTime() - date.getTime()
-  const diffMin = Math.floor(diffMs / 60000)
-  if (diffMin < 1) return 'Just now'
-  if (diffMin < 60) return `${diffMin}m ago`
-  const diffHr = Math.floor(diffMin / 60)
-  if (diffHr < 24) return `${diffHr}h ago`
-  return date.toLocaleDateString()
+// NT2: Use i18n keys for relative time
+function useFormatTime() {
+  const t = useTranslations()
+
+  return useCallback((d: string | undefined): string => {
+    if (!d) return '--'
+    const date = new Date(d)
+    if (isNaN(date.getTime())) return '--'
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMin = Math.floor(diffMs / 60000)
+    if (diffMin < 1) return t('notifications.justNow')
+    if (diffMin < 60) return t('notifications.minutesAgo').replace('{n}', String(diffMin))
+    const diffHr = Math.floor(diffMin / 60)
+    if (diffHr < 24) return t('notifications.hoursAgo').replace('{n}', String(diffHr))
+    return date.toLocaleDateString()
+  }, [t])
 }
 
 // --------------- Page ---------------
@@ -47,8 +53,20 @@ export default function NotificationsPage() {
   const t = useTranslations()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
+  const [markingAll, setMarkingAll] = useState(false)
+  const formatTime = useFormatTime()
 
-  const { data, error, isLoading } = useSWR('/api/notifications?limit=50', fetcher)
+  // NT3: Subscribe to WS for real-time notifications
+  useWebSocket()
+
+  useEffect(() => {
+    const unsub = wsClient.on('notifications', () => {
+      mutate('/api/notifications?limit=50')
+    })
+    return () => { unsub() }
+  }, [])
+
+  const { data, error, isLoading } = useSWR('/api/notifications?limit=50')
 
   const notifications: any[] = data?.notifications || data || []
   const unreadCount = notifications.filter((n: any) => !n.read_at).length
@@ -60,6 +78,24 @@ export default function NotificationsPage() {
       mutate('/api/notifications?limit=50')
     } catch {
       // error handled by SWR
+    }
+  }
+
+  // NT1: Mark all read
+  const handleMarkAllRead = async () => {
+    setMarkingAll(true)
+    try {
+      await fetch('/api/notifications/read-all', { method: 'POST' })
+      mutate('/api/notifications?limit=50')
+    } catch {
+      // Fallback: mark each unread one individually
+      const unreadIds = notifications.filter((n: any) => !n.read_at).map((n: any) => n.id)
+      for (const id of unreadIds) {
+        try { await fetch(`/api/notifications/${id}/read`, { method: 'POST' }) } catch {}
+      }
+      mutate('/api/notifications?limit=50')
+    } finally {
+      setMarkingAll(false)
     }
   }
 
@@ -97,10 +133,19 @@ export default function NotificationsPage() {
               </Badge>
             )}
           </div>
-          <Button onClick={handleSendTest} disabled={sending} variant="outline" size="sm">
-            <Send className="w-4 h-4 mr-2" />
-            {t('notifications.sendTest')}
-          </Button>
+          {/* NT1: Mark All Read + Send Test buttons */}
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Button onClick={handleMarkAllRead} disabled={markingAll} variant="outline" size="sm">
+                <CheckCheck className="w-4 h-4 mr-2" />
+                {t('notifications.markAllRead')}
+              </Button>
+            )}
+            <Button onClick={handleSendTest} disabled={sending} variant="outline" size="sm">
+              <Send className="w-4 h-4 mr-2" />
+              {t('notifications.sendTest')}
+            </Button>
+          </div>
         </div>
 
         {/* Loading / Error */}
@@ -163,6 +208,7 @@ export default function NotificationsPage() {
                           )}
 
                           <div className="flex items-center gap-3 mt-1.5">
+                            {/* NT2: i18n relative time */}
                             <span className="text-xs text-[var(--muted-foreground)]">
                               {formatTime(n.created_at)}
                             </span>

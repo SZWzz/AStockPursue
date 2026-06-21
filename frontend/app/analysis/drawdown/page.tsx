@@ -8,6 +8,7 @@ import { useAnalysis } from '@/hooks'
 import { DrawdownChart } from '@/components/financial/DrawdownChart'
 import { DividerSection } from '@/components/financial/DividerSection'
 import { Card } from '@/components/ui/card'
+import { formatPercent } from '@/lib/utils'
 
 export default function DrawdownPage() {
   const t = useTranslations()
@@ -79,7 +80,7 @@ export default function DrawdownPage() {
               disabled={isMutating || !symbol.trim()}
               className="bg-[var(--primary)] text-white text-[13px] font-medium px-4 py-1.5 rounded-[var(--radius-sm)] hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isMutating ? t('common.loading') : 'Run'}
+              {isMutating ? t('common.loading') : t('analysis.runStressTest')}
             </button>
           </div>
         </Card>
@@ -110,6 +111,41 @@ export default function DrawdownPage() {
           <DividerSection title={t('analysis.drawdown')} />
           <Card className="p-[var(--card-padding)]">
             <DrawdownChart data={Array.isArray(result) ? result : result.data || []} />
+          </Card>
+
+          {/* AD1: Drawdown stats table */}
+          <Card className="p-[var(--card-padding)]">
+            <h3 className="text-[14px] font-semibold text-[var(--foreground)] mb-3">
+              {t('analysis.drawdown')} {t('ml.metrics')}
+            </h3>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[var(--border-default)] text-[11px] text-[var(--foreground-muted)] uppercase tracking-wider">
+                  <th className="text-left py-2.5 px-4 font-medium">{t('backtest.maxDrawdown')}</th>
+                  <th className="text-left py-2.5 px-4 font-medium">{t('analysis.avgDrawdown')}</th>
+                  <th className="text-left py-2.5 px-4 font-medium">{t('analysis.worstPeriod')}</th>
+                  <th className="text-left py-2.5 px-4 font-medium">{t('analysis.ddDuration')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-[var(--border-subtle)]">
+                  <td className="py-2.5 px-4 text-[13px] font-mono tabular-nums text-[var(--down)]">
+                    {result.max_drawdown !== undefined ? formatPercent(result.max_drawdown) : '--'}
+                  </td>
+                  <td className="py-2.5 px-4 text-[13px] font-mono tabular-nums text-[var(--foreground)]">
+                    {result.avg_drawdown !== undefined ? formatPercent(result.avg_drawdown) : '--'}
+                  </td>
+                  <td className="py-2.5 px-4 text-[13px] text-[var(--foreground)]">
+                    {result.worst_period_start && result.worst_period_end
+                      ? `${result.worst_period_start} ~ ${result.worst_period_end}`
+                      : '--'}
+                  </td>
+                  <td className="py-2.5 px-4 text-[13px] font-mono tabular-nums text-[var(--foreground)]">
+                    {result.dd_duration != null ? `${result.dd_duration}` : '--'}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </Card>
           </>
         )}

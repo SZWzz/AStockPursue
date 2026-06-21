@@ -10,7 +10,6 @@ import { CodeMirror } from '@/components/financial/CodeMirror'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
 
 interface FactorDetail {
   id: string
@@ -38,9 +37,9 @@ const STATUS_COLORS: Record<string, string> = {
 }
 
 // Simple inline IC chart using SVG — avoids recharts dependency for simple line
-function ICChart({ data }: { data: { date: string; value: number }[] }) {
+function ICChart({ data, title }: { data: { date: string; value: number }[]; title: string }) {
   if (!data.length) {
-    return <div className="text-[12px] text-[var(--foreground-muted)] text-center py-8">No IC history available</div>
+    return <div className="text-[12px] text-[var(--foreground-muted)] text-center py-8">{title}: No data available</div>
   }
 
   const width = 600
@@ -88,7 +87,7 @@ export default function FactorDetailPage() {
   const params = useParams()
   const id = params?.id as string
 
-  const { data, isLoading, error } = useSWR(id ? `/api/factors/${id}` : null, fetcher)
+  const { data, isLoading, error } = useSWR(id ? `/api/factors/${id}` : null)
 
   const detail: FactorDetail | null = data?.data || data || null
 
@@ -115,6 +114,16 @@ export default function FactorDetailPage() {
 
   const icData = detail.ic_history || []
 
+  // FD4: Normalize decimal vs percentage display
+  // IC/IR → 3 decimal places
+  // Max DD → percentage format (e.g. "15.3%")
+  // Turnover → percentage format
+  const formatIC = (v: number | undefined): string =>
+    v !== undefined ? v.toFixed(3) : '--'
+
+  const formatPct = (v: number | undefined): string =>
+    v !== undefined ? (v * 100).toFixed(1) + '%' : '--'
+
   return (
     <SidebarLayout>
       <div className="space-y-3">
@@ -134,27 +143,27 @@ export default function FactorDetailPage() {
           </span>
         </div>
 
-        {/* KPI Cards */}
+        {/* FD1: i18n KPI labels + FD4: normalized formatting */}
         <div className="grid grid-cols-5 gap-[var(--grid-gap)]">
-          <KpiCard label="IC" value={detail.ic !== undefined ? detail.ic.toFixed(4) : '--'} />
-          <KpiCard label="IR" value={detail.ir !== undefined ? detail.ir.toFixed(2) : '--'} />
-          <KpiCard label="Sharpe" value={detail.sharpe !== undefined ? detail.sharpe.toFixed(2) : '--'} />
-          <KpiCard label="Max DD" value={detail.max_drawdown !== undefined ? (detail.max_drawdown * 100).toFixed(1) + '%' : '--'} />
-          <KpiCard label="Turnover" value={detail.turnover !== undefined ? (detail.turnover * 100).toFixed(1) + '%' : '--'} />
+          <KpiCard label={t('factors.ic')} value={formatIC(detail.ic)} />
+          <KpiCard label={t('factors.ir')} value={formatIC(detail.ir)} />
+          <KpiCard label={t('factors.sharpe')} value={detail.sharpe !== undefined ? detail.sharpe.toFixed(2) : '--'} />
+          <KpiCard label={t('factors.maxDrawdown')} value={formatPct(detail.max_drawdown)} />
+          <KpiCard label={t('factors.turnover')} value={formatPct(detail.turnover)} />
         </div>
 
-        {/* Formula display */}
+        {/* FD2: i18n section title */}
         <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
-          <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">Formula</h2>
+          <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">{t('factors.formula')}</h2>
           <div className="border border-[var(--border-default)] rounded-[var(--radius-sm)] overflow-hidden" style={{ height: 200 }}>
             <CodeMirror value={detail.formula || ''} readOnly={true} language="python" />
           </div>
         </Card>
 
-        {/* IC Chart */}
+        {/* FD3: i18n IC chart label */}
         <Card className="bg-[var(--surface-2)] border-[var(--border-default)] p-[var(--card-padding)]">
-          <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">IC History</h2>
-          <ICChart data={icData} />
+          <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">{t('factors.icHistory')}</h2>
+          <ICChart data={icData} title={t('factors.icHistory')} />
         </Card>
       </div>
     </SidebarLayout>

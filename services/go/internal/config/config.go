@@ -11,6 +11,7 @@ type Config struct {
 	RedisURL    string
 	GrpcPort    string
 	DataDir     string
+	DevMode     bool
 	SeedSymbols []string
 }
 
@@ -29,6 +30,7 @@ func Load() *Config {
 		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379/0"),
 		GrpcPort:    getEnv("GRPC_PORT", "8901"),
 		DataDir:     getEnv("DATA_DIR", "./data"),
+		DevMode:     getEnv("GO_ENV", "") == "development",
 		SeedSymbols: seedSymbols,
 	}
 }

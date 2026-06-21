@@ -4,7 +4,7 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
-import { useAnalysis } from '@/hooks'
+import { useAnalysis, usePositions } from '@/hooks'
 import { DividerSection } from '@/components/financial/DividerSection'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -19,8 +19,18 @@ const SCENARIOS = [
 export default function StressTestPage() {
   const t = useTranslations()
   const { trigger, data, isMutating, error } = useAnalysis()
+  const { data: posData } = usePositions()
   const [scenario, setScenario] = useState('market_crash')
   const [customPct, setCustomPct] = useState('')
+  const [selectedSymbols, setSelectedSymbols] = useState<string[]>([])
+
+  const positions: any[] = posData?.positions || posData?.data?.positions || []
+
+  const toggleSymbol = (sym: string) => {
+    setSelectedSymbols((prev) =>
+      prev.includes(sym) ? prev.filter((s) => s !== sym) : [...prev, sym]
+    )
+  }
 
   const handleRun = () => {
     if (scenario === 'custom' && !customPct) return
@@ -29,6 +39,7 @@ export default function StressTestPage() {
       params: {
         scenario,
         ...(scenario === 'custom' ? { custom_pct: parseFloat(customPct) } : {}),
+        ...(selectedSymbols.length > 0 ? { symbols: selectedSymbols } : {}),
       },
     })
   }
@@ -73,6 +84,28 @@ export default function StressTestPage() {
                   placeholder="-20"
                   className="w-full bg-[var(--surface-1)] border border-[var(--border-default)] text-[var(--foreground)] text-[13px] rounded-[var(--radius-sm)] px-3 py-2 placeholder:text-[var(--foreground-muted)] focus:outline-none focus:border-[var(--primary)]"
                 />
+              </div>
+            )}
+
+            {/* AS1-AS3: Portfolio subset checkboxes */}
+            {positions.length > 0 && (
+              <div>
+                <label className="block text-[13px] font-medium text-[var(--foreground)] mb-1.5">
+                  {t('analysis.selectPositions')}
+                </label>
+                <div className="space-y-1 max-h-32 overflow-y-auto border border-[var(--border-default)] rounded-[var(--radius-sm)] p-2">
+                  {positions.map((p: any) => (
+                    <label key={p.symbol} className="flex items-center gap-2 text-[13px] text-[var(--foreground)] cursor-pointer py-0.5">
+                      <input
+                        type="checkbox"
+                        checked={selectedSymbols.includes(p.symbol)}
+                        onChange={() => toggleSymbol(p.symbol)}
+                        className="rounded"
+                      />
+                      {p.symbol}
+                    </label>
+                  ))}
+                </div>
               </div>
             )}
 

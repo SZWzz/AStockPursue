@@ -36,9 +36,11 @@ export function OrderForm() {
     <div className="bg-white border border-[var(--border)] rounded-[6px] p-5">
       <div className="text-[14px] font-semibold text-[var(--foreground)] mb-4">{t('trading.submit')}</div>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="flex mb-2">
+        <div className="flex mb-2" role="radiogroup" aria-label="Order side">
           <button
             type="button"
+            role="radio"
+            aria-checked={side === 'buy'}
             className="flex-1 h-10 rounded-l-[6px] text-[14px] font-semibold data-[active=true]:bg-[var(--up)] data-[active=true]:text-white data-[active=false]:bg-[var(--surface-1)] data-[active=false]:text-[var(--foreground-secondary)]"
             data-active={side === 'buy'}
             onClick={() => setSide('buy')}
@@ -47,6 +49,8 @@ export function OrderForm() {
           </button>
           <button
             type="button"
+            role="radio"
+            aria-checked={side === 'sell'}
             className="flex-1 h-10 rounded-r-[6px] text-[14px] font-semibold data-[active=true]:bg-[var(--down)] data-[active=true]:text-white data-[active=false]:bg-[var(--surface-1)] data-[active=false]:text-[var(--foreground-secondary)]"
             data-active={side === 'sell'}
             onClick={() => setSide('sell')}

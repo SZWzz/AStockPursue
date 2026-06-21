@@ -3,12 +3,12 @@ package handler
 import (
 	"context"
 	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/astockpursue/go-core/internal/engine"
+	"github.com/astockpursue/go-core/internal/log"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -65,13 +65,21 @@ func (s *MemoryBacktestStore) List(ctx context.Context) ([]string, error) {
 }
 
 type BacktestHandler struct {
-	repo    BacktestRepository
-	loader  engine.BarLoader
-	factory *engine.EngineFactory
+	repo          BacktestRepository
+	loader        engine.BarLoader
+	factory       *engine.EngineFactory
+	signalAdapter engine.SignalGenerator
+	logger        *log.Logger
 }
 
-func NewBacktestHandler(repo BacktestRepository, loader engine.BarLoader, factory *engine.EngineFactory) *BacktestHandler {
-	return &BacktestHandler{repo: repo, loader: loader, factory: factory}
+func NewBacktestHandler(repo BacktestRepository, loader engine.BarLoader, factory *engine.EngineFactory, signalAdapter engine.SignalGenerator) *BacktestHandler {
+	return &BacktestHandler{
+		repo:          repo,
+		loader:        loader,
+		factory:       factory,
+		signalAdapter: signalAdapter,
+		logger:        log.New(),
+	}
 }
 
 func (h *BacktestHandler) Run(c *gin.Context) {
@@ -109,16 +117,24 @@ func (h *BacktestHandler) Run(c *gin.Context) {
 		return
 	}
 
+	signal := h.signalAdapter
+	var warnings []string
+	if signal == nil {
+		signal = engine.NewNoopSignalAdapter()
+		warnings = append(warnings, "signal adapter unavailable (gRPC down), using noop — all signals will be zero")
+	}
+
 	p := &engine.Pipeline{
 		Engine:    h.factory.ForSymbol(req.Symbols[0]),
 		Portfolio: &engine.Portfolio{
-			Cash:      req.InitialCash,
-			Equity:    req.InitialCash,
-			Positions: make(map[string]*engine.Position),
+			Cash:          req.InitialCash,
+			Equity:        req.InitialCash,
+			InitialEquity: req.InitialCash,
+			Positions:     make(map[string]*engine.Position),
 		},
-		Signal:   engine.NewNoopSignalAdapter(),
+		Signal:   signal,
 		Risk:     engine.NewRiskManager(engine.RiskConfig{}),
-		LastBars: make(map[string]interface{}),
+		LastBars: make(map[string]*engine.Bar),
 	}
 
 	runner := engine.NewBacktestRunner(p, h.loader)
@@ -133,14 +149,18 @@ func (h *BacktestHandler) Run(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"id": id, "result": result})
+	response := gin.H{"id": id, "result": result}
+	if len(warnings) > 0 {
+		response["warnings"] = warnings
+	}
+	c.JSON(http.StatusOK, response)
 }
 
 func (h *BacktestHandler) GetResult(c *gin.Context) {
 	id := c.Param("id")
 	result, err := h.repo.Get(c.Request.Context(), id)
 	if err != nil {
-		log.Printf("backtest get error: %v", err)
+		h.logger.Error("backtest get error: %v", err)
 		c.JSON(http.StatusNotFound, gin.H{"error": "backtest result not found"})
 		return
 	}

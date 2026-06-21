@@ -16,17 +16,15 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import useSWR from 'swr'
 
-const fetcher = (url: string) => fetch(url).then(r => r.json())
-
 export default function DashboardPage() {
   const t = useTranslations()
   useWebSocket()
   const { data: posData } = usePositions()
   const { data: sysData } = useSystemStatus()
-  const { data: portfolio } = useSWR('/api/portfolio', fetcher)
-  const { data: northbound } = useSWR('/api/research/northbound?symbol=SH000001', fetcher)
-  const { data: geopolitics } = useSWR('/api/research/geopolitics?symbol=SH000001', fetcher)
-  const { data: newsData } = useSWR('/api/research/news?symbol=600519', fetcher)
+  const { data: portfolio } = useSWR('/api/portfolio')
+  const { data: northbound } = useSWR('/api/research/northbound?symbol=SH000001')
+  const { data: geopolitics } = useSWR('/api/research/geopolitics?symbol=SH000001')
+  const { data: newsData } = useSWR('/api/research/news?symbol=600519')
 
   if (!portfolio && !posData) {
     return (
@@ -48,27 +46,31 @@ export default function DashboardPage() {
 
         <IndexTickerBar />
 
-        {/* Hero KPI row — StatCallout for the main equity number */}
-        <div className="grid grid-cols-4 gap-[var(--grid-gap)]">
+        {/* Hero KPI row — portfolio health at a glance */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-[var(--grid-gap)]">
           <StatCallout
             label={t('portfolio.totalEquity')}
-            value={portfolio?.total_value ? '$' + Number(portfolio.total_value).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
+            value={portfolio?.total_value ? '¥' + Number(portfolio.total_value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
             change={portfolio?.total_value && portfolio?.cash ? ((portfolio.total_value - portfolio.cash) / portfolio.cash * 100).toFixed(2) + '%' : '--'}
             direction={(portfolio?.total_value ?? 0) >= (portfolio?.cash ?? 0) ? 'up' : 'down'}
           />
           <KpiCard
-            label={t('portfolio.pnl')}
-            value={portfolio?.total_value && portfolio?.cash ? '$' + (portfolio.total_value - portfolio.cash).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
+            label={t('portfolio.totalPnl') || t('portfolio.pnl')}
+            value={portfolio?.total_value && portfolio?.cash ? '¥' + (portfolio.total_value - portfolio.cash).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
             direction={((portfolio?.total_value ?? 0) - (portfolio?.cash ?? 0)) >= 0 ? 'up' : 'down'}
           />
           <KpiCard
             label={t('portfolio.available')}
-            value={portfolio?.cash ? '$' + Number(portfolio.cash).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
+            value={portfolio?.cash ? '¥' + Number(portfolio.cash).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
           />
           <KpiCard
-            label={t('portfolio.margin')}
-            value={portfolio?.total_value && portfolio?.cash ? '$' + (portfolio.total_value - portfolio.cash).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
-            change={portfolio?.total_value && portfolio?.cash ? ((portfolio.total_value - portfolio.cash) / portfolio.total_value * 100).toFixed(1) + '%' : '--'}
+            label={t('portfolio.positionCount') || t('nav.positions')}
+            value={portfolio?.position_count != null ? String(portfolio.position_count) : '--'}
+            direction="neutral"
+          />
+          <KpiCard
+            label={t('portfolio.exposure') || t('portfolio.margin')}
+            value={portfolio?.total_value && portfolio?.cash ? ((portfolio.total_value - portfolio.cash) / portfolio.total_value * 100).toFixed(1) + '%' : '--'}
             direction="neutral"
           />
         </div>
@@ -193,11 +195,30 @@ export default function DashboardPage() {
           <div className="col-span-8">
             <div className="bg-white border border-[var(--border)] rounded-[6px] p-[var(--card-padding)]">
               <h2 className="text-[18px] font-semibold text-[var(--foreground)] mb-4">{t('backtest.equityCurve')}</h2>
-              <EquityChart data={[
-                { time: '9:30', equity: 100000 },
-                { time: '10:00', equity: 100500 },
-                { time: '10:30', equity: 102340 }
-              ]} />
+              {(() => {
+                // Prefer equity_curve from API; fall back to building a simple
+                // two-point curve from portfolio snapshot (initial → current).
+                const curve = portfolio?.equity_curve
+                if (curve && curve.length) {
+                  return <EquityChart data={curve} />
+                }
+                const initial = portfolio?.equity
+                const current = portfolio?.total_value
+                if (initial != null && current != null) {
+                  return (
+                    <div>
+                      <EquityChart data={[
+                        { time: t('backtest.startDate'), equity: initial },
+                        { time: t('common.today') || 'Today', equity: current },
+                      ]} />
+                      <p className="text-[10px] text-[var(--muted-foreground)] mt-2 text-center">
+                        {t('dashboard.equityCurveHint') || 'Historical equity curve requires time-series tracking. Showing initial → current snapshot.'}
+                      </p>
+                    </div>
+                  )
+                }
+                return <EquityChart data={[]} />
+              })()}
             </div>
           </div>
           <div className="col-span-4">

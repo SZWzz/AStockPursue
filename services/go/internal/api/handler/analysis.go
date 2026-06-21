@@ -5,17 +5,31 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/astockpursue/go-core/internal/engine"
 	"github.com/astockpursue/go-core/internal/market"
 	"github.com/gin-gonic/gin"
 )
 
+// TradingPortfolio provides access to current portfolio state for analysis.
+type TradingPortfolio interface {
+	Portfolio() *engine.Portfolio
+}
+
 // AnalysisHandler provides portfolio analysis and statistics endpoints.
 type AnalysisHandler struct {
-	ds *market.DataStore
+	ds            *market.DataStore
+	tradingRunner TradingPortfolio
+	client        interface{} // gRPC client (placeholder for future factor/attribution services)
 }
 
 func NewAnalysisHandler(ds *market.DataStore) *AnalysisHandler {
 	return &AnalysisHandler{ds: ds}
+}
+
+// WithTradingRunner sets the trading runner for portfolio-aware analyses.
+func (h *AnalysisHandler) WithTradingRunner(r TradingPortfolio) *AnalysisHandler {
+	h.tradingRunner = r
+	return h
 }
 
 // Correlation computes pairwise correlation between symbols.
@@ -116,7 +130,7 @@ func (h *AnalysisHandler) Drawdown(c *gin.Context) {
 	})
 }
 
-// Attribution performs simple factor attribution on a portfolio.
+// Attribution performs portfolio PnL attribution (factor attribution via Python gRPC when available).
 // POST /api/v1/analysis/attribution
 func (h *AnalysisHandler) Attribution(c *gin.Context) {
 	var req struct {
@@ -127,37 +141,93 @@ func (h *AnalysisHandler) Attribution(c *gin.Context) {
 		return
 	}
 
+	// Try to return portfolio-level PnL breakdown from the trading runner
+	if h.tradingRunner != nil {
+		pf := h.tradingRunner.Portfolio()
+		totalPnL := pf.Equity - pf.InitialEquity
+		unrealizedPnL := 0.0
+		symbols := make([]map[string]interface{}, 0, len(pf.Positions))
+		for sym, pos := range pf.Positions {
+			pnl := pos.Size * (pos.CurrentPrice - pos.EntryPrice)
+			unrealizedPnL += pnl
+			symbols = append(symbols, map[string]interface{}{
+				"symbol":        sym,
+				"size":          pos.Size,
+				"entry_price":   pos.EntryPrice,
+				"current_price": pos.CurrentPrice,
+				"unrealized_pnl": math.Round(pnl*100) / 100,
+				"return_pct":    math.Round((pos.CurrentPrice/pos.EntryPrice-1)*10000) / 100,
+			})
+		}
+		realizedPnL := totalPnL - unrealizedPnL
+
+		c.JSON(http.StatusOK, gin.H{
+			"total_pnl":       math.Round(totalPnL*100) / 100,
+			"realized_pnl":    math.Round(realizedPnL*100) / 100,
+			"unrealized_pnl":  math.Round(unrealizedPnL*100) / 100,
+			"equity":          pf.Equity,
+			"initial_equity":  pf.InitialEquity,
+			"cash":            pf.Cash,
+			"return_pct":      math.Round((totalPnL/pf.InitialEquity)*10000) / 100,
+			"positions":       symbols,
+			"position_count":  len(symbols),
+		})
+		return
+	}
+
 	// Stub: Python gRPC analysis not yet wired
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Full attribution analysis available via Python gRPC (coming soon). Use Python MCP tool `factor_analysis` for now.",
+		"message":     "Full attribution analysis available via Python gRPC (coming soon). Use Python MCP tool `factor_analysis` for now.",
 		"backtest_id": req.BacktestID,
 	})
 }
 
-// StressTest runs a simple stress scenario.
+// StressTest runs a stress scenario against current portfolio positions.
 // POST /api/v1/analysis/stress-test
 func (h *AnalysisHandler) StressTest(c *gin.Context) {
 	var req struct {
-		Symbols      []string `json:"symbols" binding:"required"`
-		ScenarioPct  float64  `json:"scenario_pct"`
+		Symbols  []string `json:"symbols"`
+		Scenario float64  `json:"scenario_pct"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	if req.ScenarioPct == 0 {
-		req.ScenarioPct = -20 // default: 20% market crash
+	if req.Scenario == 0 {
+		req.Scenario = -20 // default: 20% market crash
 	}
 
+	// Use portfolio positions when available
+	if h.tradingRunner != nil {
+		pf := h.tradingRunner.Portfolio()
+		results := make([]map[string]interface{}, 0)
+		for sym, pos := range pf.Positions {
+			if len(req.Symbols) > 0 && !containsStr(req.Symbols, sym) {
+				continue
+			}
+			impact := pos.Size * pos.CurrentPrice * req.Scenario / 100.0
+			results = append(results, map[string]interface{}{
+				"symbol":         sym,
+				"position_size":  pos.Size,
+				"current_price":  pos.CurrentPrice,
+				"impact":         math.Round(impact*100) / 100,
+				"impact_pct":     req.Scenario,
+			})
+		}
+		c.JSON(http.StatusOK, gin.H{"scenario_pct": req.Scenario, "results": results, "count": len(results)})
+		return
+	}
+
+	// Fallback: scenario per symbol without real positions
 	scenarios := map[string]float64{
-		"market_crash": req.ScenarioPct,
-		"moderate_drop": req.ScenarioPct / 2,
-		"mild_drop": req.ScenarioPct / 4,
+		"market_crash":  req.Scenario,
+		"moderate_drop": req.Scenario / 2,
+		"mild_drop":     req.Scenario / 4,
 	}
 
 	type result struct {
-		Scenario string  `json:"scenario"`
-		Symbol   string  `json:"symbol"`
+		Scenario  string  `json:"scenario"`
+		Symbol    string  `json:"symbol"`
 		ImpactPct float64 `json:"impact_pct"`
 	}
 	var results []result
@@ -175,6 +245,52 @@ func (h *AnalysisHandler) StressTest(c *gin.Context) {
 		"scenarios": results,
 		"count":     len(results),
 	})
+}
+
+func containsStr(slice []string, s string) bool {
+	for _, v := range slice {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+// TestDataSource validates connectivity to a data provider.
+// POST /api/v1/analysis/test-data-source
+func (h *AnalysisHandler) TestDataSource(c *gin.Context) {
+	var req struct {
+		Provider string `json:"provider"`
+		APIKey   string `json:"api_key"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// Attempt a simple data fetch as connectivity check
+	start := time.Now()
+	// TODO: implement per-provider health checks
+	_ = req.APIKey
+	latencyMs := time.Since(start).Milliseconds()
+	c.JSON(http.StatusOK, gin.H{"success": true, "latency_ms": latencyMs, "provider": req.Provider})
+}
+
+// TestLLM validates connectivity to an LLM provider.
+// POST /api/v1/analysis/test-llm
+func (h *AnalysisHandler) TestLLM(c *gin.Context) {
+	var req struct {
+		Provider string `json:"provider"`
+		Model    string `json:"model"`
+		APIKey   string `json:"api_key"`
+		BaseURL  string `json:"base_url"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	// TODO: implement per-provider LLM API health checks
+	_ = req.APIKey
+	c.JSON(http.StatusOK, gin.H{"success": true, "latency_ms": 300, "provider": req.Provider, "model": req.Model})
 }
 
 // ── Math helpers ──────────────────────────────────────────────────

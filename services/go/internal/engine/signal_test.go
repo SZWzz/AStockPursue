@@ -35,7 +35,7 @@ func TestSignalAdapterConnMgrNilConnection(t *testing.T) {
 	// ConnManager with nil connection should return error
 	mgr := new(grpcpkg.ConnManager)
 	adapter := NewSignalAdapterFromConnMgr(mgr, 100*time.Millisecond)
-	bars := []interface{}{&Bar{Symbol: "000001.SZ", Open: 10, High: 11, Low: 9, Close: 10.5, Volume: 1000000}}
+	bars := map[string]*Bar{"000001.SZ": {Symbol: "000001.SZ", Open: 10, High: 11, Low: 9, Close: 10.5, Volume: 1000000}}
 	sig, err := adapter.Generate(bars, time.Now())
 	if err == nil {
 		t.Error("expected error when ConnManager has no active connection")
@@ -48,7 +48,7 @@ func TestSignalAdapterConnMgrNilConnection(t *testing.T) {
 func TestSignalAdapterTimeout(t *testing.T) {
 	// Use non-routable address with short timeout to force timeout
 	adapter := NewSignalAdapter("127.0.0.1:19999", 50*time.Millisecond)
-	bars := []interface{}{&Bar{Symbol: "000001.SZ", Open: 10, High: 11, Low: 9, Close: 10.5, Volume: 1000000}}
+	bars := map[string]*Bar{"000001.SZ": {Symbol: "000001.SZ", Open: 10, High: 11, Low: 9, Close: 10.5, Volume: 1000000}}
 	sig, err := adapter.Generate(bars, time.Now())
 	if err == nil {
 		t.Error("expected timeout error for unreachable gRPC server")

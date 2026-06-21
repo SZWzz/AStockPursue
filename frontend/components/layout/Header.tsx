@@ -3,10 +3,11 @@
 
 import { usePathname } from 'next/navigation'
 import { useTranslations } from 'next-intl'
-import { LogOut, Bell } from 'lucide-react'
+import { LogOut, Bell, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { signOut } from '@/lib/auth-client'
+import { useUIStore } from '@/stores'
 
 function breadcrumbSegments(pathname: string): string[] {
   return pathname.split('/').filter(Boolean)
@@ -16,26 +17,37 @@ export function Header() {
   const pathname = usePathname()
   const t = useTranslations()
   const segments = breadcrumbSegments(pathname)
+  const toggleSidebar = useUIStore((s) => s.toggleSidebar)
 
   return (
     <header
-      className="fixed top-0 right-0 flex items-center justify-between px-6 bg-[var(--background)] border-b border-[var(--border-subtle)] z-30"
-      style={{ height: 'var(--header-height)', left: 'var(--sidebar-width)' }}
+      className="fixed top-0 right-0 flex items-center justify-between px-6 bg-[var(--background)] border-b border-[var(--border-subtle)] z-30 left-0 lg:left-[var(--sidebar-width)]"
+      style={{ height: 'var(--header-height)' }}
     >
-      {/* Breadcrumb */}
-      <div className="flex items-center gap-1 text-[14px] text-[var(--foreground-secondary)]">
-        {segments.length === 0 ? (
-          <span className="text-[var(--foreground)]">{t('nav.dashboard')}</span>
-        ) : (
-          segments.map((seg, i) => (
-            <span key={i} className="flex items-center gap-1">
-              {i > 0 && <span className="text-[var(--foreground-muted)]">/</span>}
-              <span className={i === segments.length - 1 ? 'text-[var(--foreground)]' : ''}>
-                {seg}
+      {/* Left side: hamburger + breadcrumb */}
+      <div className="flex items-center">
+        <button
+          className="lg:hidden mr-3 p-1 rounded hover:bg-[var(--surface-1)]"
+          onClick={toggleSidebar}
+          aria-label="Toggle menu"
+        >
+          <Menu className="w-5 h-5 text-[var(--foreground)]" />
+        </button>
+
+        <nav className="flex items-center gap-1 text-[14px] text-[var(--foreground-secondary)]" aria-label="Breadcrumb">
+          {segments.length === 0 ? (
+            <span className="text-[var(--foreground)]">{t('nav.dashboard')}</span>
+          ) : (
+            segments.map((seg, i) => (
+              <span key={i} className="flex items-center gap-1">
+                {i > 0 && <span className="text-[var(--foreground-muted)]">/</span>}
+                <span className={i === segments.length - 1 ? 'text-[var(--foreground)]' : ''} {...(i === segments.length - 1 ? { 'aria-current': 'location' as const } : {})}>
+                  {seg}
+                </span>
               </span>
-            </span>
-          ))
-        )}
+            ))
+          )}
+        </nav>
       </div>
 
       {/* Right actions */}

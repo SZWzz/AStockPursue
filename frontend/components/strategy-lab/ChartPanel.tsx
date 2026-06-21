@@ -6,13 +6,14 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 interface ChartPanelProps {
   equityData: { time: string; equity: number }[]
   title?: string
+  emptyHint?: string
 }
 
-export function ChartPanel({ equityData, title = 'Equity Curve' }: ChartPanelProps) {
+export function ChartPanel({ equityData, title = 'Equity Curve', emptyHint = 'Run a backtest to see results' }: ChartPanelProps) {
   if (!equityData.length) {
     return (
       <div className="bg-white border border-[var(--border)] rounded-[6px] p-6 flex items-center justify-center h-[300px]">
-        <span className="text-[14px] text-[var(--foreground-muted)]">Run a backtest to see results</span>
+        <span className="text-[14px] text-[var(--foreground-muted)]">{emptyHint}</span>
       </div>
     )
   }

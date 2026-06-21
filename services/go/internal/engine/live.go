@@ -129,6 +129,11 @@ func (l *LiveTradingRunner) Start() error {
 	l.status = TradingRunning
 	l.stopCh = make(chan struct{})
 
+	// Ensure InitialEquity is set for day loss limit tracking
+	if l.pipeline.Portfolio.InitialEquity == 0 {
+		l.pipeline.Portfolio.InitialEquity = l.pipeline.Portfolio.Equity
+	}
+
 	if l.feed != nil {
 		return l.startFeed()
 	}
@@ -198,6 +203,22 @@ func (l *LiveTradingRunner) Orders() []TrackedOrder {
 	result := make([]TrackedOrder, len(l.orders))
 	copy(result, l.orders)
 	return result
+}
+
+// CancelOrder finds an order by ID and sets its status to "cancelled".
+func (l *LiveTradingRunner) CancelOrder(orderID string) error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for i, o := range l.orders {
+		if o.OrderID == orderID {
+			if o.Status == "filled" || o.Status == "cancelled" {
+				return fmt.Errorf("order already %s", o.Status)
+			}
+			l.orders[i].Status = "cancelled"
+			return nil
+		}
+	}
+	return fmt.Errorf("order not found: %s", orderID)
 }
 
 func (l *LiveTradingRunner) SyncPositions(ctx context.Context) error {

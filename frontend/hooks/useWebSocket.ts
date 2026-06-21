@@ -13,6 +13,7 @@ const ROUTE_CHANNELS: Record<string, { channel: string; symbols?: string[] }[]> 
   '/trading/positions': [{ channel: 'positions' }],
   '/paper-trading': [{ channel: 'positions' }, { channel: 'orders' }],
   '/system': [{ channel: 'system' }],
+  '/notifications': [{ channel: 'notifications' }],
 }
 
 function matchRoute(pathname: string) {

@@ -21,7 +21,18 @@ func NewPostgresBacktestStore(timescale *TimescaleDB) *PostgresBacktestStore {
 	return &PostgresBacktestStore{pool: timescale.pool}
 }
 
+// NewPGBacktestStore creates a PostgresBacktestStore directly from a pgxpool.Pool.
+func NewPGBacktestStore(pool *pgxpool.Pool) *PostgresBacktestStore {
+	if pool == nil {
+		return &PostgresBacktestStore{}
+	}
+	return &PostgresBacktestStore{pool: pool}
+}
+
 func (s *PostgresBacktestStore) Save(ctx context.Context, result *engine.BacktestResult) (string, error) {
+	if s.pool == nil {
+		return "", fmt.Errorf("database not available")
+	}
 	id := uuid.New().String()
 
 	_, err := s.pool.Exec(ctx, s.buildInsertRunSQL(),
@@ -85,6 +96,9 @@ func (s *PostgresBacktestStore) insertTrades(ctx context.Context, runID string, 
 }
 
 func (s *PostgresBacktestStore) Get(ctx context.Context, id string) (*engine.BacktestResult, error) {
+	if s.pool == nil {
+		return nil, fmt.Errorf("database not available")
+	}
 	result := &engine.BacktestResult{}
 
 	row := s.pool.QueryRow(ctx, s.buildGetRunSQL(), id)
@@ -134,6 +148,9 @@ func (s *PostgresBacktestStore) Get(ctx context.Context, id string) (*engine.Bac
 }
 
 func (s *PostgresBacktestStore) List(ctx context.Context) ([]string, error) {
+	if s.pool == nil {
+		return nil, fmt.Errorf("database not available")
+	}
 	rows, err := s.pool.Query(ctx, s.buildListRunsSQL())
 	if err != nil {
 		return nil, fmt.Errorf("list backtest runs: %w", err)

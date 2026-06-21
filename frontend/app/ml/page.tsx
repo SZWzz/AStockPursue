@@ -3,10 +3,12 @@
 import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import useSWR, { mutate } from 'swr'
+import { toast } from 'sonner'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
@@ -26,9 +28,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
-import { Plus, Archive, ChevronDown, ChevronRight } from 'lucide-react'
+import { Plus, Archive, ChevronDown, ChevronRight, Play, GitCompare } from 'lucide-react'
 
-const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 // --------------- helpers ---------------
 
@@ -142,6 +143,117 @@ function CreateModelDialog({
   )
 }
 
+// --------------- Archive Confirm Dialog ---------------
+
+function ArchiveConfirmDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+  t,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: () => void
+  t: (key: string) => string
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('ml.archive')}</DialogTitle>
+          <DialogDescription>{t('ml.archiveConfirm')}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
+          <Button variant="destructive" onClick={() => { onConfirm(); onOpenChange(false) }}>{t('common.confirm')}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// --------------- Comparison Dialog ---------------
+
+function ComparisonDialog({
+  open,
+  onOpenChange,
+  selectedIds,
+  models,
+  t,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  selectedIds: string[]
+  models: any[]
+  t: (key: string) => string
+}) {
+  const selectedModels = models.filter((m) => selectedIds.includes(m.id))
+
+  if (selectedModels.length < 2) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('ml.comparison')}</DialogTitle>
+            <DialogDescription>{t('ml.selectModels')}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
+  // collect all metric keys
+  const metricKeys = new Set<string>()
+  selectedModels.forEach((m) => {
+    if (m.metrics) Object.keys(m.metrics).forEach((k) => metricKeys.add(k))
+  })
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-[720px]">
+        <DialogHeader>
+          <DialogTitle>{t('ml.comparison')}</DialogTitle>
+          <DialogDescription>{selectedModels.length} {t('ml.selectModels').toLowerCase()}</DialogDescription>
+        </DialogHeader>
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('ml.metrics')}</TableHead>
+                {selectedModels.map((m) => (
+                  <TableHead key={m.id} className="text-center">{m.name}</TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from(metricKeys).map((key) => (
+                <TableRow key={key}>
+                  <TableCell className="font-medium text-xs">{key}</TableCell>
+                  {selectedModels.map((m) => (
+                    <TableCell key={m.id} className="text-center font-mono text-xs">
+                      {m.metrics?.[key] != null
+                        ? typeof m.metrics[key] === 'number'
+                          ? Number(m.metrics[key]).toFixed(4)
+                          : String(m.metrics[key])
+                        : '--'}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        <DialogFooter>
+          <Button onClick={() => onOpenChange(false)}>{t('common.cancel')}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // --------------- Page ---------------
 
 export default function MLModelsPage() {
@@ -151,6 +263,17 @@ export default function MLModelsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
+  // ML3: archive dialog state
+  const [archiveTargetId, setArchiveTargetId] = useState<string | null>(null)
+  const [archiveDialogOpen, setArchiveDialogOpen] = useState(false)
+
+  // ML1: training state per model
+  const [trainingIds, setTrainingIds] = useState<Set<string>>(new Set())
+
+  // ML2: comparison state
+  const [selectedModelIds, setSelectedModelIds] = useState<Set<string>>(new Set())
+  const [compareDialogOpen, setCompareDialogOpen] = useState(false)
+
   // Build query params
   const params = new URLSearchParams()
   if (category) params.set('category', category)
@@ -158,17 +281,63 @@ export default function MLModelsPage() {
   const qs = params.toString()
   const url = `/api/ml/models${qs ? '?' + qs : ''}`
 
-  const { data, error, isLoading } = useSWR(url, fetcher)
+  const { data, error, isLoading } = useSWR(url)
 
   const models: any[] = data?.models || data || []
 
-  const handleArchive = async (id: string) => {
-    if (!confirm(t('ml.archiveConfirm'))) return
+  // ML3: archive via dialog
+  const openArchiveDialog = (id: string) => {
+    setArchiveTargetId(id)
+    setArchiveDialogOpen(true)
+  }
+
+  const handleArchiveConfirm = async () => {
+    if (!archiveTargetId) return
     try {
-      await fetch(`/api/ml/models/${id}/archive`, { method: 'POST' })
+      await fetch(`/api/ml/models/${archiveTargetId}/archive`, { method: 'POST' })
       mutate(url)
     } catch (e) {
       // error handled by SWR
+    } finally {
+      setArchiveTargetId(null)
+    }
+  }
+
+  // ML1: train model
+  const handleTrain = async (id: string) => {
+    setTrainingIds((prev) => new Set(prev).add(id))
+    try {
+      const res = await fetch(`/api/v1/ml/models/${id}/train`, { method: 'POST' })
+      if (!res.ok) throw new Error('Train failed')
+      toast.success(t('ml.trainingStarted'))
+      mutate(url)
+    } catch {
+      toast.error(t('common.error'))
+    } finally {
+      setTrainingIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }
+
+  // ML2: toggle model selection
+  const toggleModelSelection = (id: string) => {
+    setSelectedModelIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  // ML2: toggle all/none
+  const toggleAllSelection = () => {
+    if (selectedModelIds.size === models.length) {
+      setSelectedModelIds(new Set())
+    } else {
+      setSelectedModelIds(new Set(models.map((m: any) => m.id)))
     }
   }
 
@@ -179,10 +348,22 @@ export default function MLModelsPage() {
           <h1 className="text-[32px] font-[400] tracking-[-0.4px] text-[var(--foreground)]">
             {t('ml.title')}
           </h1>
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            {t('ml.createModel')}
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* ML2: Compare Selected button */}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={selectedModelIds.size < 2}
+              onClick={() => setCompareDialogOpen(true)}
+            >
+              <GitCompare className="w-4 h-4 mr-2" />
+              {t('ml.compareSelected')} ({selectedModelIds.size})
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              {t('ml.createModel')}
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -229,12 +410,20 @@ export default function MLModelsPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-[30px]">
+                      {/* ML2: select all checkbox */}
+                      <Checkbox
+                        checked={selectedModelIds.size === models.length && models.length > 0}
+                        onCheckedChange={toggleAllSelection}
+                      />
+                    </TableHead>
                     <TableHead className="w-[30px]"></TableHead>
                     <TableHead>{t('ml.name')}</TableHead>
                     <TableHead>{t('ml.modelType')}</TableHead>
                     <TableHead>{t('ml.category')}</TableHead>
                     <TableHead>{t('ml.status')}</TableHead>
                     <TableHead>{t('ml.createdAt')}</TableHead>
+                    <TableHead className="w-[140px]">{t('common.save')}</TableHead>
                     <TableHead className="w-[80px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -246,6 +435,13 @@ export default function MLModelsPage() {
                         className="cursor-pointer"
                         onClick={() => setExpandedId(expandedId === m.id ? null : m.id)}
                       >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          {/* ML2: per-row checkbox */}
+                          <Checkbox
+                            checked={selectedModelIds.has(m.id)}
+                            onCheckedChange={() => toggleModelSelection(m.id)}
+                          />
+                        </TableCell>
                         <TableCell>
                           {expandedId === m.id ? (
                             <ChevronDown className="w-4 h-4" />
@@ -266,12 +462,26 @@ export default function MLModelsPage() {
                         <TableCell className="text-xs text-[var(--muted-foreground)]">
                           {formatDate(m.created_at)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
+                          {/* ML1: Train button */}
+                          {m.status !== 'archived' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleTrain(m.id)}
+                              disabled={trainingIds.has(m.id) || m.status === 'training'}
+                            >
+                              <Play className={cn('w-3 h-3 mr-1', trainingIds.has(m.id) && 'animate-spin')} />
+                              {t('ml.train')}
+                            </Button>
+                          )}
+                        </TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           {m.status !== 'archived' && (
                             <Button
                               variant="ghost"
                               size="icon-sm"
-                              onClick={(e) => { e.stopPropagation(); handleArchive(m.id) }}
+                              onClick={() => openArchiveDialog(m.id)}
                               title={t('ml.archive')}
                             >
                               <Archive className="w-4 h-4" />
@@ -282,7 +492,7 @@ export default function MLModelsPage() {
                       {/* Expanded detail row */}
                       {expandedId === m.id && (
                         <TableRow key={`${m.id}-detail`}>
-                          <TableCell colSpan={7} className="bg-[var(--surface-1)]">
+                          <TableCell colSpan={9} className="bg-[var(--surface-1)]">
                             <div className="grid grid-cols-2 gap-4 py-2">
                               {/* Hyperparams */}
                               <div>
@@ -334,6 +544,23 @@ export default function MLModelsPage() {
       </div>
 
       <CreateModelDialog open={createOpen} onOpenChange={setCreateOpen} t={t} />
+
+      {/* ML3: Archive Dialog */}
+      <ArchiveConfirmDialog
+        open={archiveDialogOpen}
+        onOpenChange={setArchiveDialogOpen}
+        onConfirm={handleArchiveConfirm}
+        t={t}
+      />
+
+      {/* ML2: Comparison Dialog */}
+      <ComparisonDialog
+        open={compareDialogOpen}
+        onOpenChange={setCompareDialogOpen}
+        selectedIds={Array.from(selectedModelIds)}
+        models={models}
+        t={t}
+      />
     </SidebarLayout>
   )
 }

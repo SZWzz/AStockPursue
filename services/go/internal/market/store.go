@@ -3,6 +3,7 @@ package market
 import (
 	"context"
 	"fmt"
+	"log"
 	"time"
 
 	commonv1 "github.com/astockpursue/go-core/internal/gen/common/v1"
@@ -60,7 +61,9 @@ func (ds *DataStore) GetBars(symbol string, start, end time.Time, freq string) (
 			ds.cache.SetBars(cacheKey, bars)
 			// Persist to local store for future use
 			if ds.localStore != nil {
-				_ = ds.localStore.SaveBars(symbol, freq, bars)
+				if err := ds.localStore.SaveBars(symbol, freq, bars); err != nil {
+					log.Printf("[market/store] save bars error: %v", err)
+				}
 			}
 			return bars, nil
 		}

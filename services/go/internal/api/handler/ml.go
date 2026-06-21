@@ -195,3 +195,36 @@ func (h *MLHandler) ArchiveModel(c *gin.Context) {
 		"id":      id,
 	})
 }
+
+// TrainModel starts training for the specified model.
+//
+//	POST /api/v1/ml/models/:id/train
+func (h *MLHandler) TrainModel(c *gin.Context) {
+	id := c.Param("id")
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	defer cancel()
+
+	model, err := h.registry.Get(ctx, id)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if model == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "model not found"})
+		return
+	}
+
+	// Set status to training (in-memory for now).
+	model.Status = ml.ModelStatus("training")
+
+	// Launch training in background
+	go func(m *ml.MLModel) {
+		// Simulate training with a sleep. In production, this calls Python gRPC.
+		time.Sleep(2 * time.Second)
+		m.Status = ml.ModelStatus("ready")
+		// TODO: Train the model with actual data later
+	}(model)
+
+	c.JSON(http.StatusOK, gin.H{"status": "training_started", "id": id})
+}

@@ -9,10 +9,10 @@ import { StatCallout } from '@/components/financial/StatCallout'
 import { EquityChart } from '@/components/financial/EquityChart'
 import { TradeTimeline } from '@/components/financial/TradeTimeline'
 import { useWebSocket } from '@/hooks/useWebSocket'
+import { useOrders } from '@/hooks'
 import { formatPercent, formatDateTime } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json())
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 
 interface TradeItem {
   id: string
@@ -48,13 +48,18 @@ export default function PaperTradingDetailPage() {
 
   useWebSocket()
 
-  const { data, isLoading, error } = useSWR(id ? `/api/papertrading/${id}` : null, fetcher)
+  const { data, isLoading, error, mutate } = useSWR(id ? `/api/papertrading/${id}` : null)
+
+  // PD3: Order history
+  const { data: ordersData } = useOrders()
+  const orders: any[] = ordersData?.orders || ordersData?.data || ordersData || []
 
   const detail: PaperDetail | null = data?.data || data || null
 
   const handleStart = async () => {
     try {
       await fetch(`/api/papertrading/${id}/start`, { method: 'POST' })
+      mutate() // PD4: auto-refresh
     } catch (e) {
       console.error('Failed to start paper trading', e)
     }
@@ -63,6 +68,7 @@ export default function PaperTradingDetailPage() {
   const handleStop = async () => {
     try {
       await fetch(`/api/papertrading/${id}/stop`, { method: 'POST' })
+      mutate() // PD4: auto-refresh
     } catch (e) {
       console.error('Failed to stop paper trading', e)
     }
@@ -103,12 +109,12 @@ export default function PaperTradingDetailPage() {
           <div className="flex items-center gap-2">
             {detail.status !== 'running' && (
               <Button onClick={handleStart} variant="default">
-                Start
+                {t('common.start')}
               </Button>
             )}
             {detail.status === 'running' && (
               <Button onClick={handleStop} variant="outline">
-                Stop
+                {t('common.stop')}
               </Button>
             )}
           </div>
@@ -150,6 +156,37 @@ export default function PaperTradingDetailPage() {
               <TradeTimeline trades={detail.trades || []} />
             </div>
           </div>
+        </div>
+
+        {/* PD3: Order History */}
+        <div className="bg-white border border-[var(--border)] rounded-[6px] p-[var(--card-padding)]">
+          <h2 className="text-[18px] font-semibold mb-4 text-[var(--foreground)]">{t('nav.orders')}</h2>
+          {orders.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('trading.symbol')}</TableHead>
+                  <TableHead>{t('trading.side')}</TableHead>
+                  <TableHead className="text-right">{t('trading.price')}</TableHead>
+                  <TableHead className="text-right">{t('trading.quantity')}</TableHead>
+                  <TableHead>{t('trading.status')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {orders.map((o: any, i: number) => (
+                  <TableRow key={o.id || i}>
+                    <TableCell className="font-medium">{o.symbol || '--'}</TableCell>
+                    <TableCell>{o.side || '--'}</TableCell>
+                    <TableCell className="font-mono tabular-nums text-right">{o.price != null ? o.price.toFixed(2) : '--'}</TableCell>
+                    <TableCell className="font-mono tabular-nums text-right">{o.quantity ?? '--'}</TableCell>
+                    <TableCell>{o.status || '--'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <div className="text-[13px] text-[var(--foreground-muted)] text-center py-6">{t('common.noData')}</div>
+          )}
         </div>
       </div>
     </SidebarLayout>

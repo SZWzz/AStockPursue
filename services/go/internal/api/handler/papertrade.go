@@ -7,6 +7,7 @@ import (
 	"github.com/astockpursue/go-core/internal/market"
 	"github.com/astockpursue/go-core/internal/papertrade"
 	"github.com/gin-gonic/gin"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // PaperTradingHandler manages paper trading run endpoints.
@@ -15,9 +16,9 @@ type PaperTradingHandler struct {
 }
 
 // NewPaperTradingHandler creates a new PaperTradingHandler.
-func NewPaperTradingHandler(ds *market.DataStore, factory *engine.EngineFactory) *PaperTradingHandler {
+func NewPaperTradingHandler(ds *market.DataStore, factory *engine.EngineFactory, db *pgxpool.Pool) *PaperTradingHandler {
 	return &PaperTradingHandler{
-		engine: papertrade.NewEngine(ds, factory),
+		engine: papertrade.NewEngine(ds, factory, db),
 	}
 }
 

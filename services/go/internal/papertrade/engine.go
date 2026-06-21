@@ -6,8 +6,10 @@ import (
 	"time"
 
 	"github.com/astockpursue/go-core/internal/engine"
+	"github.com/astockpursue/go-core/internal/log"
 	"github.com/astockpursue/go-core/internal/market"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Run represents a paper trading session.
@@ -29,15 +31,23 @@ type Engine struct {
 	ds      *market.DataStore
 	factory *engine.EngineFactory
 	repo    Repository
+	db      *pgxpool.Pool
+	logger  *log.Logger
 }
 
 // NewEngine creates a new paper trading engine.
-func NewEngine(ds *market.DataStore, factory *engine.EngineFactory) *Engine {
+func NewEngine(ds *market.DataStore, factory *engine.EngineFactory, db *pgxpool.Pool) *Engine {
+	repo := Repository(NewMemoryRepository())
+	if db != nil {
+		repo = NewPGRunRepository(db)
+	}
 	return &Engine{
 		runs:    make(map[string]*Run),
 		ds:      ds,
 		factory: factory,
-		repo:    NewMemoryRepository(),
+		repo:    repo,
+		db:      db,
+		logger:  log.New(),
 	}
 }
 
@@ -61,7 +71,7 @@ func (e *Engine) Create(name string, symbols []string, freq string, initialCash 
 		Portfolio: &engine.Portfolio{Cash: initialCash, Equity: initialCash, Positions: make(map[string]*engine.Position)},
 		Signal:    engine.NewSignalAdapter("localhost:8902", 10*time.Second),
 		Risk:      engine.NewRiskManager(engine.RiskConfig{}),
-		LastBars:  make(map[string]interface{}),
+		LastBars:  make(map[string]*engine.Bar),
 	}
 
 	runner := engine.NewLiveTradingRunner(pipeline, 1*time.Minute)
@@ -83,7 +93,9 @@ func (e *Engine) Create(name string, symbols []string, freq string, initialCash 
 	e.mu.Unlock()
 
 	if e.repo != nil {
-		_ = e.repo.Save(run)
+		if err := e.repo.Save(run); err != nil {
+			e.logger.Error("papertrade: save run error: %v", err)
+		}
 	}
 
 	return run, nil
@@ -129,11 +141,13 @@ func (e *Engine) Delete(id string) error {
 		return fmt.Errorf("papertrade: run %s not found", id)
 	}
 	if run.Status == StatusRunning {
-		_ = run.Runner.Stop()
+		_ = run.Runner.Stop() // best-effort stop, ignore error; repo cleanup is handled below
 	}
 	delete(e.runs, id)
 	if e.repo != nil {
-		_ = e.repo.Delete(id)
+		if err := e.repo.Delete(id); err != nil {
+			e.logger.Error("papertrade: delete run error: %v", err)
+		}
 	}
 	return nil
 }

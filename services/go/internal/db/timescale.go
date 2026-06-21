@@ -3,14 +3,38 @@ package db
 import (
 	"context"
 	"database/sql"
+	"embed"
 	"fmt"
 	"time"
 
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	"github.com/golang-migrate/migrate/v4/source/iofs"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	commonv1 "github.com/astockpursue/go-core/internal/gen/common/v1"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
+
+// RunMigrations executes all pending database migrations from the embedded SQL files.
+// connString should be a PostgreSQL connection string, e.g. "postgres://user:pass@localhost:5432/db?sslmode=disable".
+func RunMigrations(connString string) error {
+	d, err := iofs.New(migrationsFS, "migrations")
+	if err != nil {
+		return fmt.Errorf("migrations iofs: %w", err)
+	}
+	m, err := migrate.NewWithSourceInstance("iofs", d, connString)
+	if err != nil {
+		return fmt.Errorf("migrations init: %w", err)
+	}
+	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+		return fmt.Errorf("migrations up: %w", err)
+	}
+	return nil
+}
 
 type TimescaleDB struct {
 	pool *pgxpool.Pool
@@ -53,6 +77,12 @@ func (db *TimescaleDB) InitSchema(ctx context.Context) error {
 		db.buildBacktestRunsSQL(),
 		db.buildEquityCurvesSQL(),
 		db.buildTradesSQL(),
+		db.buildSignalsTableSQL(),
+		db.buildWorkflowsTableSQL(),
+		db.buildScheduledJobsTableSQL(),
+		db.buildUserSettingsTableSQL(),
+		db.buildPaperTradingRunsTableSQL(),
+		db.buildFactorResultsTableSQL(),
 	}
 	for _, s := range statements {
 		if _, err := db.pool.Exec(ctx, s); err != nil {
@@ -176,6 +206,9 @@ type BarQuery struct {
 }
 
 func (db *TimescaleDB) QueryBars(ctx context.Context, q BarQuery) ([]*commonv1.Bar, error) {
+	if db.pool == nil {
+		return nil, fmt.Errorf("database not available")
+	}
 	query := `SELECT symbol, timestamp, open, high, low, close, volume, frequency
 FROM bars WHERE symbol = $1 AND timestamp >= $2 AND timestamp <= $3 AND frequency = $4
 ORDER BY timestamp ASC`
@@ -200,4 +233,88 @@ ORDER BY timestamp ASC`
 		bars = append(bars, bar)
 	}
 	return bars, nil
+}
+
+func (db *TimescaleDB) buildSignalsTableSQL() string {
+	return `
+CREATE TABLE IF NOT EXISTS signals (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER DEFAULT 1,
+    type VARCHAR(32) NOT NULL,
+    symbol VARCHAR(32) NOT NULL,
+    direction VARCHAR(8) DEFAULT 'buy',
+    strength DOUBLE PRECISION DEFAULT 0,
+    source VARCHAR(64) DEFAULT '',
+    status VARCHAR(16) DEFAULT 'new',
+    created_at TIMESTAMPTZ DEFAULT now()
+);`
+}
+
+func (db *TimescaleDB) buildWorkflowsTableSQL() string {
+	return `
+CREATE TABLE IF NOT EXISTS workflows (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER DEFAULT 1,
+    name VARCHAR(128) NOT NULL,
+    nodes JSONB DEFAULT '[]',
+    edges JSONB DEFAULT '[]',
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ DEFAULT now()
+);`
+}
+
+func (db *TimescaleDB) buildScheduledJobsTableSQL() string {
+	return `
+CREATE TABLE IF NOT EXISTS scheduled_jobs (
+    id SERIAL PRIMARY KEY,
+    user_id INTEGER DEFAULT 1,
+    name VARCHAR(128) NOT NULL,
+    job_type VARCHAR(32) DEFAULT 'backtest',
+    cron_expr VARCHAR(64) NOT NULL,
+    config JSONB DEFAULT '{}',
+    status VARCHAR(16) DEFAULT 'pending',
+    last_run TIMESTAMPTZ,
+    next_run TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT now()
+);`
+}
+
+func (db *TimescaleDB) buildUserSettingsTableSQL() string {
+	return `
+CREATE TABLE IF NOT EXISTS user_settings (
+    user_id INTEGER PRIMARY KEY DEFAULT 1,
+    settings JSONB NOT NULL DEFAULT '{}',
+    updated_at TIMESTAMPTZ DEFAULT now()
+);`
+}
+
+func (db *TimescaleDB) buildPaperTradingRunsTableSQL() string {
+	return `
+CREATE TABLE IF NOT EXISTS paper_trading_runs (
+    id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(128),
+    strategy VARCHAR(64),
+    status VARCHAR(16),
+    initial_capital DOUBLE PRECISION,
+    equity DOUBLE PRECISION,
+    pnl DOUBLE PRECISION,
+    pnl_pct DOUBLE PRECISION,
+    config JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ DEFAULT now()
+);`
+}
+
+func (db *TimescaleDB) buildFactorResultsTableSQL() string {
+	return `
+CREATE TABLE IF NOT EXISTS factor_results (
+    id SERIAL PRIMARY KEY,
+    factor_name VARCHAR(128) NOT NULL,
+    symbol VARCHAR(32),
+    value DOUBLE PRECISION,
+    ic DOUBLE PRECISION,
+    sharpe DOUBLE PRECISION,
+    status VARCHAR(32) DEFAULT 'production',
+    computed_at TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_factor_results_name ON factor_results(factor_name);`
 }

@@ -1,7 +1,7 @@
 // frontend/app/trading/page.tsx — Real-time trading panel
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { useTranslations } from 'next-intl'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { PriceTicker } from '@/components/financial/PriceTicker'
@@ -9,24 +9,57 @@ import { OrderForm } from '@/components/financial/OrderForm'
 import { CandlestickChart } from '@/components/financial/CandlestickChart'
 import { OrderBook } from '@/components/financial/OrderBook'
 import { PositionTable } from '@/components/financial/PositionTable'
-import { useKlines } from '@/hooks'
+import { useKlines, useSettings } from '@/hooks'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { useOrderFormStore } from '@/stores'
 import { wsClient } from '@/lib/ws'
+import { cn } from '@/lib/utils'
+import { Search, ChevronDown } from 'lucide-react'
 
 interface Level {
   price: number
   quantity: number
 }
 
+// Flattened symbol list from /api/v1/market/symbols grouped by market
+const SYMBOL_CATALOG: { market: string; symbols: string[] }[] = [
+  { market: 'A-Share',  symbols: ['000001.SZ', '000858.SZ', '300750.SZ', '600000.SH', '600519.SH', '601318.SH'] },
+  { market: 'US',       symbols: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA'] },
+  { market: 'HK',       symbols: ['0700.HK', '9988.HK', '0941.HK', '2318.HK'] },
+  { market: 'Crypto',   symbols: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT'] },
+]
+
+// Flatten all symbols for searching
+const ALL_SYMBOLS = SYMBOL_CATALOG.flatMap(g => g.symbols)
+
 export default function TradingPage() {
   const t = useTranslations()
   useWebSocket()
 
   const [symbol, setSymbol] = useState('000001.SZ')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const [orderBook, setOrderBook] = useState<{ bids: Level[]; asks: Level[] }>({ bids: [], asks: [] })
   const { data: klineData } = useKlines(symbol, 'daily')
   const setOrderFormSymbol = useOrderFormStore((s) => s.setSymbol)
+  const { data: settingsData } = useSettings()
+
+  // T3: Use user's default_symbols from settings as initial symbol if available
+  const defaultSymbol = useMemo(() => {
+    const ds = (settingsData as any)?.default_symbols ||
+              (settingsData as any)?.general?.default_symbols
+    if (Array.isArray(ds) && ds.length) return ds[0]
+    return '000001.SZ'
+  }, [settingsData])
+
+  // Set default symbol from settings on mount
+  useEffect(() => {
+    if (settingsData) {
+      setSymbol(defaultSymbol)
+    }
+  }, [defaultSymbol])
 
   // Sync selected symbol into the OrderForm zustand store
   useEffect(() => {
@@ -46,6 +79,21 @@ export default function TradingPage() {
     return unsub
   }, [symbol])
 
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setSearchOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const filteredSymbols = searchQuery
+    ? ALL_SYMBOLS.filter(s => s.toUpperCase().includes(searchQuery.toUpperCase()))
+    : ALL_SYMBOLS
+
   const bars = klineData?.bars || []
   const latestBar = bars[bars.length - 1]
   const latestPrice = latestBar?.close
@@ -56,9 +104,67 @@ export default function TradingPage() {
   return (
     <SidebarLayout>
       <div className="space-y-4">
-        <h1 className="text-[32px] font-[400] tracking-[-0.4px] text-[var(--foreground)]">
-          {t('nav.trading')}
-        </h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-[32px] font-[400] tracking-[-0.4px] text-[var(--foreground)]">
+            {t('nav.trading')}
+          </h1>
+
+          {/* T1: Symbol search autocomplete */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => { setSearchOpen(!searchOpen); setTimeout(() => searchInputRef.current?.focus(), 50) }}
+              className="flex items-center gap-2 h-9 px-3 bg-white border border-[var(--border)] rounded-[6px] text-[13px] font-mono font-medium text-[var(--foreground)] hover:border-[var(--foreground-muted)] transition-colors"
+            >
+              <Search className="w-3.5 h-3.5 text-[var(--foreground-muted)]" />
+              <span>{symbol}</span>
+              <ChevronDown className="w-3.5 h-3.5 text-[var(--foreground-muted)]" />
+            </button>
+
+            {searchOpen && (
+              <div className="absolute right-0 top-full mt-1 w-64 bg-white border border-[var(--border)] rounded-[6px] shadow-lg z-50 overflow-hidden">
+                <div className="p-2 border-b border-[var(--border)]">
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={t('common.search') || 'Search symbol...'}
+                    className="w-full h-8 px-2 text-[12px] bg-[var(--surface-1)] border border-[var(--border)] rounded-[4px] outline-none focus:border-[var(--primary)]"
+                  />
+                </div>
+                <div className="max-h-64 overflow-y-auto">
+                  {SYMBOL_CATALOG.map((group) => {
+                    const items = searchQuery
+                      ? group.symbols.filter(s => s.toUpperCase().includes(searchQuery.toUpperCase()))
+                      : group.symbols
+                    if (!items.length) return null
+                    return (
+                      <div key={group.market}>
+                        <div className="px-3 py-1.5 text-[10px] font-semibold text-[var(--foreground-muted)] uppercase">
+                          {group.market}
+                        </div>
+                        {items.map((s) => (
+                          <button
+                            key={s}
+                            type="button"
+                            onClick={() => { setSymbol(s); setSearchOpen(false); setSearchQuery('') }}
+                            className={cn(
+                              'w-full text-left px-3 py-1.5 text-[12px] font-mono hover:bg-[var(--surface-1)] transition-colors',
+                              s === symbol && 'bg-[var(--surface-2)] text-[var(--primary)] font-semibold'
+                            )}
+                          >
+                            {s}
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* PriceTicker bar */}
         <PriceTicker
@@ -71,7 +177,7 @@ export default function TradingPage() {
         />
 
         {/* 12-column grid */}
-        <div className="grid grid-cols-12 gap-[var(--grid-gap)]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-[var(--grid-gap)]">
           <div className="col-span-3">
             <OrderForm />
           </div>

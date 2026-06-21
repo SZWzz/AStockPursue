@@ -166,6 +166,18 @@ func (m *Manager) MarkRead(id string) error {
 	return nil
 }
 
+// MarkAllRead sets the is_read flag to true for all notifications.
+func (m *Manager) MarkAllRead() error {
+	if m.db == nil {
+		return fmt.Errorf("database not available")
+	}
+	_, err := m.db.Exec(`UPDATE notifications SET is_read = 1`)
+	if err != nil {
+		return fmt.Errorf("mark all read: %w", err)
+	}
+	return nil
+}
+
 // Close gracefully shuts down the event-processing goroutine.
 func (m *Manager) Close() {
 	close(m.stopCh)

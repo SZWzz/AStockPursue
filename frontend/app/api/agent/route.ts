@@ -1,33 +1,7 @@
-// frontend/app/api/agent/route.ts — BFF proxy to Go backend
-import { NextRequest, NextResponse } from 'next/server'
-import { auth } from '@/lib/auth'
-import { API_BASE } from '@/lib/constants'
+import { NextRequest } from 'next/server'
+import { bffProxy } from '@/lib/bff-proxy'
 
-export async function GET(req: NextRequest)    { return proxy(req, 'GET') }
-export async function POST(req: NextRequest)   { return proxy(req, 'POST') }
-export async function PUT(req: NextRequest)    { return proxy(req, 'PUT') }
-export async function DELETE(req: NextRequest) { return proxy(req, 'DELETE') }
-
-async function proxy(req: NextRequest, method: string) {
-  const session = await auth()
-  const token = (session as any)?.accessToken
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const path = req.nextUrl.pathname.replace('/api/', '/api/v1/')
-  const url = `${API_BASE}${path}${req.nextUrl.search}`
-
-  const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
-  if (method !== 'GET' && method !== 'DELETE') {
-    headers['Content-Type'] = 'application/json'
-  }
-
-  const body = method === 'GET' || method === 'DELETE' ? undefined : await req.text()
-
-  const res = await fetch(url, { method, headers, body: body || undefined })
-  const data = await res.text()
-
-  return new NextResponse(data, {
-    status: res.status,
-    headers: { 'Content-Type': res.headers.get('Content-Type') || 'application/json' },
-  })
-}
+export async function GET(req: NextRequest)    { return bffProxy(req, 'GET') }
+export async function POST(req: NextRequest)   { return bffProxy(req, 'POST') }
+export async function PUT(req: NextRequest)    { return bffProxy(req, 'PUT') }
+export async function DELETE(req: NextRequest) { return bffProxy(req, 'DELETE') }

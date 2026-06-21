@@ -36,7 +36,7 @@ func TestBacktestEndToEnd(t *testing.T) {
 		},
 		Signal:   engine.NewNoopSignalAdapter(),
 		Risk:     engine.NewRiskManager(engine.RiskConfig{}),
-		LastBars: make(map[string]interface{}),
+		LastBars: make(map[string]*engine.Bar),
 	}
 
 	// 4. Run backtest
@@ -74,7 +74,7 @@ func TestBacktestEndToEndWithSignal(t *testing.T) {
 		},
 		Signal:   &fullAllocSignal{},
 		Risk:     engine.NewRiskManager(engine.RiskConfig{}),
-		LastBars: make(map[string]interface{}),
+		LastBars: make(map[string]*engine.Bar),
 	}
 
 	runner := engine.NewBacktestRunner(p, ds)
@@ -91,11 +91,12 @@ func TestBacktestEndToEndWithSignal(t *testing.T) {
 // fullAllocSignal generates 100% allocation to the first available symbol.
 type fullAllocSignal struct{}
 
-func (f *fullAllocSignal) Generate(bars []interface{}, ts time.Time) (map[string]float64, error) {
-	for _, b := range bars {
-		if bar, ok := b.(*engine.Bar); ok && bar.Symbol != "" {
-			return map[string]float64{bar.Symbol: 1.0}, nil
+func (f *fullAllocSignal) Generate(bars map[string]*engine.Bar, ts time.Time) (map[string]float64, error) {
+	for sym, bar := range bars {
+		if sym != "" {
+			return map[string]float64{sym: 1.0}, nil
 		}
+		_ = bar
 	}
 	return nil, nil
 }

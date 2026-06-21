@@ -56,6 +56,8 @@ func NewRouter(
 		tr.POST("/stop", trading.Stop)
 		tr.GET("/status", trading.Status)
 		tr.GET("/orders", trading.ListOrders)
+		tr.POST("/orders", trading.PlaceOrder)
+		tr.DELETE("/orders/:id", trading.CancelOrder)
 
 		mk := v1.Group("/market")
 		mk.GET("/bars", marketH.GetBars)
@@ -65,6 +67,9 @@ func NewRouter(
 		br.GET("/account", brokerH.GetAccount)
 		br.GET("/positions", brokerH.GetPositions)
 		br.GET("/list", brokerH.GetBrokers)
+		br.POST("/connect", brokerH.Connect)
+		br.POST("/disconnect", brokerH.Disconnect)
+		br.POST("/credentials", brokerH.SaveCredentials)
 
 		v1.GET("/portfolio", portfolioH.GetStatus)
 
@@ -86,6 +91,8 @@ func NewRouter(
 		an.GET("/drawdown", analysisH.Drawdown)
 		an.POST("/attribution", analysisH.Attribution)
 		an.POST("/stress-test", analysisH.StressTest)
+		an.POST("/test-data-source", analysisH.TestDataSource)
+		an.POST("/test-llm", analysisH.TestLLM)
 
 		sc := v1.Group("/scheduler")
 		sc.POST("", schedulerH.CreateJob)
@@ -101,7 +108,8 @@ func NewRouter(
 		sr.GET("/overview", screenerH.MarketOverview)
 
 		// Factor routes (returns 503 if Python gRPC is down)
-		fc := v1.Group("/factor")
+		fc := v1.Group("/factors")
+		fc.GET("", factorH.ListFactors)
 		fc.POST("/compute", factorH.ComputeFactor)
 		fc.POST("/gp-mining", factorH.StartGPMining)
 
@@ -113,8 +121,11 @@ func NewRouter(
 		wc.GET("/node/:id", workflowH.GetNodeResult)
 
 		// Signal routes
-		sg := v1.Group("/signal")
+		sg := v1.Group("/signals")
+		sg.GET("", signalH.ListSignals)
 		sg.POST("/generate", signalH.Generate)
+		sg.PUT("/:id/ack", signalH.AcknowledgeSignal)
+		sg.PUT("/:id/dismiss", signalH.DismissSignal)
 
 		// Research routes
 		rsch := v1.Group("/research")
@@ -127,12 +138,16 @@ func NewRouter(
 		mlg.POST("/models", mlH.CreateModel)
 		mlg.GET("/models/:id", mlH.GetModel)
 		mlg.POST("/models/:id/archive", mlH.ArchiveModel)
+		mlg.POST("/models/:id/train", mlH.TrainModel)
 
 		// Notification routes
 		ng := v1.Group("/notifications")
 		ng.GET("", notifH.List)
 		ng.POST("", notifH.Send)
 		ng.POST("/:id/read", notifH.MarkRead)
+		ng.POST("/read-all", notifH.MarkAllRead)
+		ng.POST("/test-telegram", notifH.TestTelegram)
+		ng.POST("/test-email", notifH.TestEmail)
 	}
 
 	return r

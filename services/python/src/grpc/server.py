@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 from concurrent import futures
 
 import grpc
@@ -166,8 +167,21 @@ def serve(port: int = 8902, max_workers: int = 10) -> grpc.Server:
     workflow_servicer = WorkflowServiceServicer()
     workflow_pb2_grpc.add_WorkflowServiceServicer_to_server(workflow_servicer, server)
 
-    server.add_insecure_port(f"[::]:{port}")
-    logger.info("gRPC server (SignalService + DataService + FactorService + LLMService + AnalysisService + WorkflowService) listening on port %d", port)
+    _cert = os.environ.get("GRPC_CERT_PATH", "certs/server.crt")
+    _key = os.environ.get("GRPC_KEY_PATH", "certs/server.key")
+    if os.path.exists(_cert) and os.path.exists(_key):
+        with open(_key, "rb") as f:
+            private_key = f.read()
+        with open(_cert, "rb") as f:
+            certificate_chain = f.read()
+        credentials = grpc.ssl_server_credentials([(private_key, certificate_chain)])
+        server.add_secure_port(f"[::]:{port}", credentials)
+        logger.info("gRPC server listening on port %d (TLS enabled)", port)
+    else:
+        server.add_insecure_port(f"[::]:{port}")
+        logger.info("gRPC server listening on port %d (insecure — TLS certs not found)", port)
+
+    logger.info("gRPC services: SignalService + DataService + FactorService + LLMService + AnalysisService + WorkflowService")
 
     return server, signal_servicer, data_servicer, factor_servicer, llm_servicer, analysis_servicer, workflow_servicer
 
