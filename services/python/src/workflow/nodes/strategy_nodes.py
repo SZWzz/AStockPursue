@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import logging
-import tempfile
+
 import textwrap
-from pathlib import Path
+
 from typing import Any, Dict, List
 
 import pandas as pd
@@ -90,17 +90,14 @@ class StrategyNode(BaseNode):
 
     @staticmethod
     def _fetch_strategy_options() -> list[dict]:
-        """Get list of {id, name} for saved strategies."""
+        """Get list of {id, name} for saved strategies from Go backtest store."""
         try:
-            # TODO(P6): migrate strategy repo access to Go gRPC StrategyService
-            from src.api.strategy_lab_routes import _get_repo, _repo_kind
-            repo = _get_repo()
-            if _repo_kind == "pg":
-                items = repo.list_strategies()
-                return [{"id": i["id"], "name": i["name"]} for i in items]
-            else:
-                items = repo.list()
-                return [{"id": i.id, "name": i.name} for i in items]
+            from src.go_http import _request
+            resp = _request("GET", "/api/v1/backtest")
+            results = resp.get("results", [])
+            if isinstance(results, list):
+                return [{"id": r, "name": r} for r in results]
+            return []
         except Exception:
             return []
 
@@ -146,17 +143,14 @@ class StrategyNode(BaseNode):
 
     @staticmethod
     def _load_saved_strategy(strategy_id: str) -> str | None:
-        """Load strategy code from the strategy lab repository."""
+        """Load strategy code from Go backtest store."""
         try:
-            # TODO(P6): migrate strategy repo access to Go gRPC StrategyService
-            from src.api.strategy_lab_routes import _get_repo, _repo_kind
-            repo = _get_repo()
-            if _repo_kind == "pg":
-                info = repo.get_strategy(strategy_id)
-                return info.get("code", "") if info else None
-            else:
-                item = repo.get(strategy_id)
-                return item.code if item else None
+            from src.go_http import _request
+            resp = _request("GET", f"/api/v1/backtest/{strategy_id}")
+            if "error" in resp:
+                return None
+            # Return the strategy code if stored in backtest result
+            return resp.get("code") or resp.get("strategy_code")
         except Exception:
             return None
 
@@ -251,86 +245,48 @@ class BacktestNode(BaseNode):
         start_date = config.get("start_date", "2024-01-01")
         end_date = config.get("end_date", "2025-12-31")
 
-        bt_config = {
-            "codes": codes,
-            "initial_capital": initial_capital,
-            "interval": interval,
-            "engine": market,
-            "slippage": slippage_bps,
+        # Bars-per-year estimate for annualization
+        _BARS_PER_YEAR = {"1D": 250, "1H": 1625, "4H": 400, "1W": 52}
+        bars_per_year = _BARS_PER_YEAR.get(interval, 250)
+
+        # Run backtest via Go API
+        bt_req = {
+            "symbols": codes,
             "start_date": start_date,
             "end_date": end_date,
+            "frequency": interval.lower(),
+            "initial_cash": initial_capital,
         }
-        loader = InMemoryLoader(ohlcv)
-
-        # Use _create_market_engine with minimal config (matches old _mk_engine behavior)
-        from backtest.runner import _create_market_engine
-        from backtest.metrics import calc_bars_per_year
-
-        _MARKET_TO_SOURCE = {
-            "equity_cn": "tushare",
-            "equity_us": "yfinance",
-            "equity_hk": "yfinance",
-            "crypto": "okx",
-        }
-        source = _MARKET_TO_SOURCE.get(market, "tushare")
-        market_engine = _create_market_engine(source, {"initial_capital": initial_capital}, codes)
-        bars_per_year = calc_bars_per_year(interval, source=source)
 
         try:
-            from src.trading.backtest_driver import BacktestDriver
-            driver = BacktestDriver()
-            with tempfile.TemporaryDirectory() as td:
-                metrics = driver.run(
-                    config=bt_config, loader=loader, signal_engine=sig_engine,
-                    run_dir=Path(td), market_engine=market_engine,
-                    bars_per_year=bars_per_year,
-                )
+            from src.go_http import run_backtest
+            metrics = run_backtest(bt_req)
         except Exception as e:
-            logger.exception("Backtest failed")
+            logger.exception("Backtest via Go API failed")
             return {"backtest_result": {"error": str(e)}}
 
-        summary = {k: round(metrics.get(k, 0), 4) for k in ["total_return", "annual_return", "sharpe", "max_drawdown", "win_rate"]}
-        summary["trade_count"] = metrics.get("trade_count", 0)
-        logger.info("Backtest: sharpe=%.2f", summary["sharpe"])
+        summary = {
+            "total_return": round(metrics.get("total_return", 0), 4),
+            "annual_return": round(metrics.get("total_return", 0) * (bars_per_year / max(1, len(codes) * 250)), 4),
+            "sharpe": round(metrics.get("sharpe_ratio", 0), 4),
+            "max_drawdown": round(metrics.get("max_drawdown", 0), 4),
+            "win_rate": round(metrics.get("win_rate", 0), 4),
+            "trade_count": metrics.get("total_trades", 0),
+        }
 
-        # Build equity curve from engine snapshots
+        # Build equity curve from Go backtest response
         equity_curve = []
-        if hasattr(driver, 'last_engine') and driver.last_engine is not None:
-            try:
-                snapshots = driver.last_engine.equity_snapshots
-                if snapshots:
-                    equity_curve = [
-                        {"time": str(s.timestamp), "equity": round(float(s.equity), 2)}
-                        for s in snapshots
-                    ]
-            except Exception:
-                logger.warning("Failed to extract equity snapshots from engine")
+        for pt in metrics.get("equity_curve", []):
+            if isinstance(pt, dict):
+                equity_curve.append({
+                    "time": str(pt.get("timestamp", "")),
+                    "equity": round(float(pt.get("equity", 0)), 2),
+                })
 
-        # Extract trade records (entry + exit pairs with PnL)
-        trades_list = []
-        if hasattr(driver, 'last_engine') and driver.last_engine:
-            for t in driver.last_engine.trades:
-                try:
-                    # Entry record
-                    trades_list.append({
-                        "time": str(t.entry_time) if hasattr(t, 'entry_time') else '',
-                        "code": t.symbol if hasattr(t, 'symbol') else '',
-                        "side": "BUY" if (getattr(t, 'direction', 0) > 0 or getattr(t, 'size', 0) > 0) else "SELL",
-                        "price": float(t.entry_price) if hasattr(t, 'entry_price') else 0,
-                        "reason": "signal",
-                    })
-                    # Exit record
-                    if hasattr(t, 'exit_time') and t.exit_time is not None:
-                        trades_list.append({
-                            "time": str(t.exit_time),
-                            "code": t.symbol if hasattr(t, 'symbol') else '',
-                            "side": "SELL" if getattr(t, 'direction', 0) > 0 else "BUY",
-                            "price": float(t.exit_price) if hasattr(t, 'exit_price') else 0,
-                            "reason": getattr(t, 'exit_reason', ''),
-                            "pnl": float(t.pnl) if hasattr(t, 'pnl') else 0,
-                        })
-                except Exception as exc:
-                    logger.debug("Failed to extract trade record: %s", exc)
+        # Trade records — Go backtest returns trades array if available
+        trades_list = metrics.get("trades", [])
+        if not isinstance(trades_list, list):
+            trades_list = []
 
         return {
             "backtest_result": {
