@@ -21,7 +21,6 @@ jobs:
         uses: golangci/golangci-lint-action@v4
         with:
           working-directory: services/go
-          install-mode: goinstall
       - name: Vet
         run: go vet ./...
       - name: Test
