@@ -78,8 +78,6 @@ func NewServer(cfg *config.Config) (*Server, error) {
 		dbPool = timescaleDB.Pool()
 	}
 
-	btHandler := handler.NewBacktestHandler(repo, ds, factory, nil)
-
 	// gRPC connection to Python research layer
 	s.grpcConn = grpcpkg.NewConnManager("localhost:8902", 30*time.Second)
 	if err := s.grpcConn.Connect(context.Background()); err != nil {
@@ -88,7 +86,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	go s.grpcConn.StartHealthCheck(context.Background())
 
 	signalAdapter := engine.NewSignalAdapterFromConnMgr(s.grpcConn, 10*time.Second)
-	btHandler = handler.NewBacktestHandler(repo, ds, factory, signalAdapter)
+	btHandler := handler.NewBacktestHandler(repo, ds, factory, signalAdapter)
 
 	pipeline := &engine.Pipeline{
 		Engine:    factory.ForSymbol("000001"),
@@ -193,19 +191,17 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 	// Preload seed data in background
 	go func() {
-		select {
-		case <-time.After(5 * time.Second):
-			seedSymbols := cfg.SeedSymbols
-			end := time.Now()
-			start := end.AddDate(0, 0, -30)
-			loaded := 0
-			for _, sym := range seedSymbols {
-				if _, err := ds.GetBars(sym, start, end, "daily"); err == nil {
-					loaded++
-				}
+		<-time.After(5 * time.Second)
+		seedSymbols := cfg.SeedSymbols
+		end := time.Now()
+		start := end.AddDate(0, 0, -30)
+		loaded := 0
+		for _, sym := range seedSymbols {
+			if _, err := ds.GetBars(sym, start, end, "daily"); err == nil {
+				loaded++
 			}
-			log.Printf("seed data: %d/%d symbols preloaded", loaded, len(seedSymbols))
 		}
+		log.Printf("seed data: %d/%d symbols preloaded", loaded, len(seedSymbols))
 	}()
 
 	return s, nil

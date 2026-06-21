@@ -19,7 +19,6 @@ type TradingPortfolio interface {
 type AnalysisHandler struct {
 	ds            *market.DataStore
 	tradingRunner TradingPortfolio
-	client        interface{} // gRPC client (placeholder for future factor/attribution services)
 }
 
 func NewAnalysisHandler(ds *market.DataStore) *AnalysisHandler {

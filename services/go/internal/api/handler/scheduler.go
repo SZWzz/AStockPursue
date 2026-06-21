@@ -288,8 +288,10 @@ func (h *SchedulerHandler) StartJob(c *gin.Context) {
 	h.mu.Unlock()
 
 	// Update status in PG
-	h.db.Exec(c.Request.Context(),
-		`UPDATE scheduled_jobs SET status = $1 WHERE id = $2`, "running", id)
+	if _, err := h.db.Exec(c.Request.Context(),
+		`UPDATE scheduled_jobs SET status = $1 WHERE id = $2`, "running", id); err != nil {
+		h.logger.Error("scheduler: update status to running: %v", err)
+	}
 
 	go h.runLoop(rt)
 
@@ -315,8 +317,10 @@ func (h *SchedulerHandler) PauseJob(c *gin.Context) {
 	h.mu.Unlock()
 
 	if h.db != nil {
-		h.db.Exec(c.Request.Context(),
-			`UPDATE scheduled_jobs SET status = $1 WHERE id = $2`, "paused", id)
+		if _, err := h.db.Exec(c.Request.Context(),
+			`UPDATE scheduled_jobs SET status = $1 WHERE id = $2`, "paused", id); err != nil {
+			h.logger.Error("scheduler: update status to paused: %v", err)
+		}
 	}
 
 	if !ok {
@@ -389,8 +393,10 @@ func (h *SchedulerHandler) runOnce(job *ScheduledJob) {
 
 	now := time.Now()
 	if h.db != nil {
-		h.db.Exec(context.Background(),
-			`UPDATE scheduled_jobs SET last_run = $1 WHERE id = $2`, now, job.ID)
+		if _, err := h.db.Exec(context.Background(),
+			`UPDATE scheduled_jobs SET last_run = $1 WHERE id = $2`, now, job.ID); err != nil {
+			h.logger.Error("scheduler: update last_run: %v", err)
+		}
 	}
 	if h.repo != nil {
 		if _, err := h.repo.Save(context.Background(), result); err != nil {
@@ -436,8 +442,10 @@ func (h *SchedulerHandler) executeRun(rt *jobRuntime) {
 	job.LastRun = &now
 
 	if h.db != nil {
-		h.db.Exec(context.Background(),
-			`UPDATE scheduled_jobs SET last_run = $1 WHERE id = $2`, now, job.ID)
+		if _, err := h.db.Exec(context.Background(),
+			`UPDATE scheduled_jobs SET last_run = $1 WHERE id = $2`, now, job.ID); err != nil {
+			h.logger.Error("scheduler: update last_run: %v", err)
+		}
 	}
 	if rt.store != nil {
 		if _, err := rt.store.Save(context.Background(), result); err != nil {
