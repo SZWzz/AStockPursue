@@ -19,6 +19,7 @@ type Pipeline struct {
 	Portfolio   *Portfolio
 	Signal      SignalAdapter
 	Risk        RiskPipeline
+	OM          *OrderManager
 	LastBars    map[string]interface{}
 	EquityCache float64
 }
@@ -147,6 +148,30 @@ func (p *Pipeline) executeOrder(order *Order, bar interface{}) {
 	if p.Engine != nil {
 		order.Price = p.Engine.ApplySlippage(order, bar)
 	}
+
+	// Create order via OrderManager (if available)
+	if p.OM != nil {
+		omOrder := p.OM.Create(order.Symbol, order.Side, order.Type, order.Quantity, order.Price)
+		if err := p.OM.Submit(omOrder.ID); err != nil {
+			log.Printf("OMS: submit failed for %s: %v", omOrder.ID, err)
+			order.Status = OrderRejected
+			return
+		}
+		// For backtest mode: immediately fill at current price (behavior unchanged)
+		if err := p.OM.Fill(omOrder.ID, omOrder.Quantity, order.Price); err != nil {
+			log.Printf("OMS: fill failed for %s: %v", omOrder.ID, err)
+			order.Status = OrderRejected
+			return
+		}
+	}
+
+	order.Status = OrderFilled
+
+	// Apply to portfolio (existing logic)
+	p.applyOrderToPortfolio(order)
+}
+
+func (p *Pipeline) applyOrderToPortfolio(order *Order) {
 	cost := order.Quantity * order.Price
 	commission := p.Engine.CalcCommission(order)
 	if order.Side == Buy {
@@ -170,7 +195,6 @@ func (p *Pipeline) executeOrder(order *Order, bar interface{}) {
 			delete(p.Portfolio.Positions, order.Symbol)
 		}
 	}
-	order.Status = OrderFilled
 }
 
 func (p *Pipeline) recordEquity(bar interface{}) {

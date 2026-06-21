@@ -62,6 +62,7 @@ func main() {
 		},
 		Signal:   engine.NewSignalAdapter("localhost:8902", 10*time.Second),
 		Risk:     engine.NewRiskManager(engine.RiskConfig{}),
+		OM:       engine.NewOrderManager(),
 		LastBars: make(map[string]interface{}),
 	}
 	runner := engine.NewLiveTradingRunner(pipeline, 1*time.Minute)

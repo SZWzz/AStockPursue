@@ -22,22 +22,28 @@ const (
 type OrderStatus string
 
 const (
-	OrderPending   OrderStatus = "pending"
-	OrderFilled    OrderStatus = "filled"
-	OrderCancelled OrderStatus = "cancelled"
-	OrderRejected  OrderStatus = "rejected"
+	OrderPending          OrderStatus = "pending"
+	OrderSubmitted        OrderStatus = "submitted"
+	OrderPartiallyFilled  OrderStatus = "partially_filled"
+	OrderFilled           OrderStatus = "filled"
+	OrderCancelled        OrderStatus = "cancelled"
+	OrderRejected         OrderStatus = "rejected"
 )
 
 type Order struct {
-	ID        string      `json:"id"`
-	Symbol    string      `json:"symbol"`
-	Side      OrderSide   `json:"side"`
-	Type      OrderType   `json:"type"`
-	Price     float64     `json:"price,omitempty"`
-	Quantity  float64     `json:"quantity"`
-	Filled    float64     `json:"filled"`
-	Status    OrderStatus `json:"status"`
-	CreatedAt time.Time   `json:"created_at"`
+	ID           string      `json:"id"`
+	Symbol       string      `json:"symbol"`
+	Side         OrderSide   `json:"side"`
+	Type         OrderType   `json:"type"`
+	Price        float64     `json:"price,omitempty"`
+	LimitPrice   float64     `json:"limit_price,omitempty"`
+	Quantity     float64     `json:"quantity"`
+	Filled       float64     `json:"filled"`
+	FillPrice    float64     `json:"fill_price,omitempty"`
+	Status       OrderStatus `json:"status"`
+	RejectReason string      `json:"reject_reason,omitempty"`
+	CreatedAt    time.Time   `json:"created_at"`
+	UpdatedAt    time.Time   `json:"updated_at"`
 }
 
 func (o *Order) Validate() error {
