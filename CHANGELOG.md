@@ -16,6 +16,8 @@
 - [Workflow] Add `DefaultRegistry` to `services/go/internal/workflow/registry.go` -- package-level singleton for node self-registration via init()
 - [Workflow] Create 7 Research workflow nodes in `services/go/internal/workflow/nodes/research.go` -- financials (FinancialsService.Analyze), geopolitics (GeopoliticsService.Analyze), northbound (NorthboundService.Analyze), news (NewsService.Analyze), sentiment (NewsService.Analyze sentiment-subset), analyst_estimates (mock placeholder), insider_trades (mock placeholder); all self-register via init() (P9 Batch 1)
 - [Workflow] Add tests in `services/go/internal/workflow/nodes/research_test.go` -- TestFinancialsNodeType, TestGeopoliticsNodeType, TestResearchNodes (P9 Batch 1)
+- [Workflow] Create 8 Signal + Indicator workflow nodes in `services/go/internal/workflow/nodes/signals.go` -- cross_over (golden/death cross detection), cross_signal (element-wise cross signal array), entry_signal (AND/OR boolean conditions with configurable confidence), bollinger (Bollinger Bands with upper/middle/lower/bandwidth/pct_b), sma (Simple Moving Average), ema (Exponential Moving Average), std_dev (rolling standard deviation), delta (absolute and percentage change); signal nodes in category "signal", indicator nodes in category "indicator"; all self-register via init() with RegisterWithCategory (P9 Batch 2)
+- [Workflow] Add TestSignalNodesRegistered in `services/go/internal/workflow/nodes/signals_test.go` -- verifies all 8 types registered with correct NodeType, Category, ID, InputPorts, OutputPorts, and Validate (P9 Batch 2)
 
 ### Changed
 - [Python] Migrate 22 TODO(P6) markers to Go REST API — workflow nodes (trading, thin, strategy), live_bridge, gp_engine now call Go HTTP endpoints instead of deleted Python modules
