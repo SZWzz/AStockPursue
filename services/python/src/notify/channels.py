@@ -7,7 +7,6 @@ Add new channels by implementing ``def send(alert: Alert, config: dict) -> bool`
 
 from __future__ import annotations
 
-import json
 import logging
 import smtplib
 from email.mime.text import MIMEText

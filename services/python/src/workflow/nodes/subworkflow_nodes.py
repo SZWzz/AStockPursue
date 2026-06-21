@@ -14,7 +14,7 @@ from typing import Any
 
 from src.workflow.node_base import BaseNode
 from src.workflow.node_registry import register_node
-from src.workflow.schema import NodePort, PortType, WorkflowNodeData, WorkflowEdge
+from src.workflow.schema import PortType, WorkflowNodeData, WorkflowEdge
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +148,7 @@ class SubWorkflowNode(BaseNode):
                         nodes = [WorkflowNodeData.from_dict(n) for n in (row[0] or [])]
                         edges = [WorkflowEdge.from_dict(e) for e in (row[1] or [])]
                         return nodes, edges
-        except Exception as e:
+        except Exception:
             logger.exception("SubWorkflow: failed to load workflow %s from DB", workflow_id)
         return [], []
 
@@ -160,7 +160,7 @@ class SubWorkflowNode(BaseNode):
             nodes = [WorkflowNodeData.from_dict(n) for n in data.get("nodes", [])]
             edges = [WorkflowEdge.from_dict(e) for e in data.get("edges", [])]
             return nodes, edges
-        except (json.JSONDecodeError, KeyError, TypeError) as e:
+        except (json.JSONDecodeError, KeyError, TypeError):
             logger.exception("SubWorkflow: failed to parse inline workflow JSON")
         return [], []
 

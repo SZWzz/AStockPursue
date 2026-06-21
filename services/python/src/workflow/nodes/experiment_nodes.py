@@ -13,11 +13,10 @@ RankSelectNode: Top-N selection from scored candidates
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
 
 from src.workflow.node_base import BaseNode
 from src.workflow.node_registry import register_node
-from src.workflow.schema import NodePort, PortType
+from src.workflow.schema import PortType
 
 logger = logging.getLogger(__name__)
 

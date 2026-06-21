@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from src.agent.tools import BaseTool
-from src.factors.mining.expression_tree import ExpressionTree, MAX_COMPLEXITY
+from src.factors.mining.expression_tree import MAX_COMPLEXITY
 from src.factors.mining.factor_kb import FactorKnowledgeBase, FactorStatus, get_kb
 from src.factors.mining.safety_validator import (
     ASTWhitelistValidator,

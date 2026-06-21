@@ -8,7 +8,7 @@ Used by:
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Dict, List
 
 import numpy as np
 import pandas as pd

@@ -21,7 +21,7 @@ import pandas as pd
 
 from src.workflow.node_base import BaseNode
 from src.workflow.node_registry import register_node
-from src.workflow.schema import NodePort, PortType
+from src.workflow.schema import PortType
 
 logger = logging.getLogger(__name__)
 
@@ -369,7 +369,6 @@ class ExportNode(BaseNode):
         if data is None:
             return {"export_result": {"error": "No data to export"}}
 
-        import os
         import tempfile
         from pathlib import Path
 

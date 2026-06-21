@@ -8,7 +8,6 @@ import pytest
 
 from src.memory.persistent import (
     MAX_ENTRY_CHARS,
-    MemoryEntry,
     PersistentMemory,
     _coerce_str,
     _sanitize_body,

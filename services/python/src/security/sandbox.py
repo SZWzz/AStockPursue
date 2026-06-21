@@ -18,7 +18,7 @@ import sys
 import threading
 import traceback
 from contextlib import contextmanager
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,6 @@ serialization layer needed since workflow execution is single-process.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 import uuid

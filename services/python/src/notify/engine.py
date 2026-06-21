@@ -10,9 +10,7 @@ Config stored per-user in ``vt_users.notify_config`` JSONB column.
 
 from __future__ import annotations
 
-import json
 import logging
-from typing import Any
 
 from src.notify.channels import Alert, send_alert
 
@@ -99,7 +97,7 @@ def alert_take_profit(symbol: str, entry_price: float, exit_price: float, pnl_pc
 
 def alert_daily_loss(limit_pct: float, current_loss_pct: float) -> Alert:
     return Alert(
-        title=f"每日亏损限额触发",
+        title="每日亏损限额触发",
         body=f"亏损 {current_loss_pct:.2%} 已达限额 {limit_pct:.2%}，暂停新开仓",
         level="critical",
         source="risk",
@@ -109,7 +107,7 @@ def alert_daily_loss(limit_pct: float, current_loss_pct: float) -> Alert:
 
 def alert_drawdown(current_dd_pct: float, max_dd_pct: float) -> Alert:
     return Alert(
-        title=f"回撤告警",
+        title="回撤告警",
         body=f"当前回撤 {current_dd_pct:.2%}（上限 {max_dd_pct:.2%}）",
         level="critical",
         source="risk",

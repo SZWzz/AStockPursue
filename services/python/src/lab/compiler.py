@@ -212,12 +212,12 @@ def _build_indicators(rules: list[dict]) -> str:
             p = params.get("period", 14)
             key = f"rsi_{p}"
             if key not in calculated:
-                lines.append(f"delta = df['close'].diff()")
-                lines.append(f"gain = delta.where(delta > 0, 0.0)")
-                lines.append(f"loss = (-delta).where(delta < 0, 0.0)")
+                lines.append("delta = df['close'].diff()")
+                lines.append("gain = delta.where(delta > 0, 0.0)")
+                lines.append("loss = (-delta).where(delta < 0, 0.0)")
                 lines.append(f"avg_gain = gain.rolling(window={p}, min_periods={p}).mean()")
                 lines.append(f"avg_loss = loss.rolling(window={p}, min_periods={p}).mean()")
-                lines.append(f"rs = avg_gain / avg_loss.replace(0, np.nan)")
+                lines.append("rs = avg_gain / avg_loss.replace(0, np.nan)")
                 lines.append(f"df['{key}'] = 100.0 - (100.0 / (1.0 + rs))")
                 calculated.add(key)
 
@@ -252,7 +252,7 @@ def _build_indicators(rules: list[dict]) -> str:
             if key not in calculated:
                 lines.append(f"lo_min = df['low'].rolling({p}, min_periods={p}).min()")
                 lines.append(f"hi_max = df['high'].rolling({p}, min_periods={p}).max()")
-                lines.append(f"rsv = ((df['close'] - lo_min) / (hi_max - lo_min).replace(0, np.nan)) * 100")
+                lines.append("rsv = ((df['close'] - lo_min) / (hi_max - lo_min).replace(0, np.nan)) * 100")
                 lines.append(f"df['{key}_k'] = rsv.ewm(span={sig}, adjust=False, min_periods={sig}).mean()")
                 lines.append(f"df['{key}_d'] = df['{key}_k'].ewm(span={sig}, adjust=False, min_periods={sig}).mean()")
                 lines.append(f"df['{key}_j'] = 3 * df['{key}_k'] - 2 * df['{key}_d']")
@@ -263,21 +263,21 @@ def _build_indicators(rules: list[dict]) -> str:
             m = params.get("multiplier", 3.0)
             key = f"st_{p}_{m}"
             if key not in calculated:
-                lines.append(f"cl = df['close']; hi = df['high']; lo = df['low']")
-                lines.append(f"tr = pd.concat([hi - lo, (hi - cl.shift(1)).abs(), (lo - cl.shift(1)).abs()], axis=1).max(axis=1)")
+                lines.append("cl = df['close']; hi = df['high']; lo = df['low']")
+                lines.append("tr = pd.concat([hi - lo, (hi - cl.shift(1)).abs(), (lo - cl.shift(1)).abs()], axis=1).max(axis=1)")
                 lines.append(f"atr = tr.ewm(alpha=1.0/{p}, adjust=False, min_periods={p}).mean()")
-                lines.append(f"hl2 = (hi + lo) / 2")
+                lines.append("hl2 = (hi + lo) / 2")
                 lines.append(f"b_upper = hl2 + {m} * atr")
                 lines.append(f"b_lower = hl2 - {m} * atr")
-                lines.append(f"st_trend = pd.Series(0.0, index=df.index)")
-                lines.append(f"st_trend.iloc[0] = 1.0")
-                lines.append(f"for i in range(1, len(df)):")
-                lines.append(f"    if cl.iloc[i] > b_upper.iloc[i-1] if not pd.isna(b_upper.iloc[i-1]) else False:")
-                lines.append(f"        st_trend.iloc[i] = 1.0")
-                lines.append(f"    elif cl.iloc[i] < b_lower.iloc[i-1] if not pd.isna(b_lower.iloc[i-1]) else False:")
-                lines.append(f"        st_trend.iloc[i] = -1.0")
-                lines.append(f"    else:")
-                lines.append(f"        st_trend.iloc[i] = st_trend.iloc[i-1]")
+                lines.append("st_trend = pd.Series(0.0, index=df.index)")
+                lines.append("st_trend.iloc[0] = 1.0")
+                lines.append("for i in range(1, len(df)):")
+                lines.append("    if cl.iloc[i] > b_upper.iloc[i-1] if not pd.isna(b_upper.iloc[i-1]) else False:")
+                lines.append("        st_trend.iloc[i] = 1.0")
+                lines.append("    elif cl.iloc[i] < b_lower.iloc[i-1] if not pd.isna(b_lower.iloc[i-1]) else False:")
+                lines.append("        st_trend.iloc[i] = -1.0")
+                lines.append("    else:")
+                lines.append("        st_trend.iloc[i] = st_trend.iloc[i-1]")
                 calculated.add(key)
 
     return "\n".join(lines)
@@ -373,7 +373,7 @@ def _build_plots(rules: list[dict]) -> str:
             plot_lines.append(f'        {{"name": "BB Upper", "data": df["bb_{p}_{d}_upper"].tolist(), "color": "#FF9800", "overlay": True}},')
             plot_lines.append(f'        {{"name": "BB Lower", "data": df["bb_{p}_{d}_lower"].tolist(), "color": "#FF9800", "overlay": True}},')
         elif ind == "supertrend":
-            plot_lines.append(f'        {{"name": "SuperTrend", "data": st_trend.tolist(), "color": "#4CAF50", "overlay": False}},')
+            plot_lines.append('        {"name": "SuperTrend", "data": st_trend.tolist(), "color": "#4CAF50", "overlay": False},')
         elif ind == "kdj":
             p = params.get("period", 9)
             sig = params.get("signal_period", 3)

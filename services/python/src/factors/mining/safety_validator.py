@@ -14,7 +14,6 @@ from __future__ import annotations
 import logging
 import signal  # noqa: F401 — kept for any legacy callers; evaluate_with_guard now uses threading
 import threading
-import time
 from typing import Any
 
 import numpy as np

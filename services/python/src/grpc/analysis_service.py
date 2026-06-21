@@ -89,7 +89,6 @@ class AnalysisServiceServicer(analysis_pb2_grpc.AnalysisServiceServicer):
             )
 
         try:
-            import numpy as np
             import pandas as pd
             from datetime import datetime
 

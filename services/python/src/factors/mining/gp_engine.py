@@ -13,8 +13,6 @@ Orchestrates the evolution of alpha factor expressions through:
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 import queue
 import random
@@ -605,7 +603,6 @@ class GPEvolution:
         Returns list of (train_idx, oos_idx) tuples, where train_idx is the
         index slice used for fitting and oos_idx for evaluation (held-out).
         """
-        import numpy as np
         n_windows = max(1, self.config.walk_forward_windows)
 
         if self._train_returns is None or self._train_returns.empty:

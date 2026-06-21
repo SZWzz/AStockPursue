@@ -34,11 +34,9 @@ import numpy as np
 
 from src.factors.mining.expression_tree import (
     ExpressionTree,
-    ExpressionNode,
     FEATURE_IDS,
     MAX_COMPLEXITY,
     OPERATOR_REGISTRY,
-    get_allowed_operators,
 )
 
 logger = logging.getLogger(__name__)
@@ -207,11 +205,11 @@ def build_population_context(
 def format_context_for_llm(ctx: PopulationContext) -> str:
     """Format the population context as a readable string for the LLM prompt."""
     lines = [
-        f"## GP Run State",
+        "## GP Run State",
         f"Generation: {ctx.generation}/{ctx.total_generations}",
         f"Best Fitness: {ctx.best_fitness:.6f} | Mean: {ctx.mean_fitness:.6f} | Std: {ctx.std_fitness:.6f}",
         f"Population Diversity: {ctx.diversity:.4f}",
-        f"",
+        "",
         f"## Elite Individuals (Top {len(ctx.elite_formulas)})",
     ]
     for i, (f, c) in enumerate(zip(ctx.elite_formulas, ctx.elite_complexities)):

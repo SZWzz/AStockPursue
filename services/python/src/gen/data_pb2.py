@@ -22,7 +22,6 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from . import common_pb2 as common__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\ndata.proto\x12\x11\x61stockpursue.data\x1a\x0c\x63ommon.proto\"k\n\x10\x46\x65tchBarsRequest\x12\x0e\n\x06source\x18\x01 \x01(\t\x12\x0e\n\x06symbol\x18\x02 \x01(\t\x12\x12\n\nstart_date\x18\x03 \x01(\t\x12\x10\n\x08\x65nd_date\x18\x04 \x01(\t\x12\x11\n\tfrequency\x18\x05 \x01(\t\"J\n\x11\x46\x65tchBarsResponse\x12&\n\x04\x62\x61rs\x18\x01 \x03(\x0b\x32\x18.astockpursue.common.Bar\x12\r\n\x05\x65rror\x18\x02 \x01(\t2e\n\x0b\x44\x61taService\x12V\n\tFetchBars\x12#.astockpursue.data.FetchBarsRequest\x1a$.astockpursue.data.FetchBarsResponseB=Z;github.com/astockpursue/go-core/internal/gen/data/v1;datav1b\x06proto3')

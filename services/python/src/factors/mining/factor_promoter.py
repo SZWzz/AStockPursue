@@ -11,10 +11,7 @@ import logging
 import textwrap
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
 
-import numpy as np
-import pandas as pd
 
 from src.factors.mining.expression_tree import ExpressionTree
 from src.factors.mining.gp_engine import GPIndividual

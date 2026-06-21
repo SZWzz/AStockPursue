@@ -1,6 +1,5 @@
 """Tests for port-type compatibility."""
 
-import pytest
 from src.workflow.schema import is_compatible, PortType as PT
 
 

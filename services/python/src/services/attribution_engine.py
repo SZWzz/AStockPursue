@@ -10,7 +10,7 @@ PostgreSQL (trade/equity data).
 from __future__ import annotations
 
 import logging
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 import numpy as np
 import pandas as pd

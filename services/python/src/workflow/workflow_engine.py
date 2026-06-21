@@ -20,7 +20,7 @@ import pandas as pd
 
 from src.workflow.node_registry import get_node_registry
 from src.workflow.schema import (
-    NodeRunResult, NodeStatus, RunStatus, WorkflowEdge, WorkflowNodeData,
+    NodeRunResult, NodeStatus, WorkflowEdge, WorkflowNodeData,
 )
 
 logger = logging.getLogger(__name__)

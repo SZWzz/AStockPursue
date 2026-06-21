@@ -6,7 +6,7 @@ Wraps OptionsPricingEngine for use in workflow pipelines.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import List
 
 from src.workflow.node_base import BaseNode
 from src.workflow.node_registry import register_node
@@ -109,7 +109,6 @@ class OptionsNode(BaseNode):
 
         except ImportError:
             # Fallback: manual Black-Scholes
-            import numpy as np
             from math import exp, log, sqrt
             from scipy.stats import norm
 

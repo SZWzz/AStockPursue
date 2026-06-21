@@ -10,7 +10,6 @@ from typing import Optional
 
 import requests
 import pandas as pd
-from datetime import datetime
 
 BASE_URL = "https://www.okx.com/api/v5"  # see _constants.OKX_API_BASE
 

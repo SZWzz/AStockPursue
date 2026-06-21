@@ -9,7 +9,6 @@ Note: OKX API base URL is hardcoded here for example self-containment.
 
 from typing import Dict
 
-import numpy as np
 import pandas as pd
 
 

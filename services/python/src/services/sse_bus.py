@@ -15,7 +15,6 @@ import json
 import logging
 import queue
 import threading
-import time
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator
 
@@ -104,7 +103,7 @@ class SSEBus:
         if self._pg_available is not None:
             return self._pg_available
         try:
-            import asyncpg  # type: ignore[import-untyped]
+            import asyncpg  # noqa: F401 — availability check
             self._pg_available = True
         except ImportError:
             logger.debug("asyncpg not installed — SSE falls back to in-memory queues")
@@ -173,7 +172,6 @@ class SSEBus:
         if self._check_pg():
             conn = None
             try:
-                import asyncpg
                 conn = await self._get_pg_conn()
                 if conn is not None:
                     await conn.execute(

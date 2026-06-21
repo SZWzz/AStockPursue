@@ -8,14 +8,13 @@ assignment, rebalancing frequency, and stateful position holding.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List
+from typing import Dict, List
 
-import numpy as np
 import pandas as pd
 
 from src.workflow.node_base import BaseNode
 from src.workflow.node_registry import register_node
-from src.workflow.schema import NodePort, PortType
+from src.workflow.schema import PortType
 from src.workflow.nodes._utils import to_factor_df as _to_factor_df
 
 logger = logging.getLogger(__name__)

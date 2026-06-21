@@ -25,7 +25,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 import numpy as np
-import pandas as pd
 
 from src.factors.mining.expression_tree import ExpressionTree
 
@@ -701,7 +700,6 @@ class FactorKnowledgeBase:
         Args:
             path: Filesystem path for the output JSON file.
         """
-        import json
         data = {
             "user_id": self._user_id,
             "entries": self.to_dicts(),
@@ -725,7 +723,6 @@ class FactorKnowledgeBase:
         Returns:
             A fully populated ``FactorKnowledgeBase`` instance.
         """
-        import json
         kb = cls(user_id=user_id)
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)

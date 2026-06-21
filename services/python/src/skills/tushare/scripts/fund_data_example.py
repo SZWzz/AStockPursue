@@ -5,7 +5,6 @@
 """
 
 import tushare as ts
-import pandas as pd
 import os
 
 # 读取环境变量中的token, 或者读取本地记录的token
@@ -62,22 +61,22 @@ def main():
     主函数
     """
     print("===== tushare 基金数据获取示例 =====")
-    
+
     # 获取基金列表
     fund_list = get_fund_list()
-    
+
     if fund_list is not None:
         # 获取第一只基金的代码
         ts_code = fund_list['ts_code'].iloc[0]
         print(f"\n使用基金代码：{ts_code}")
-        
+
         # 获取基金净值数据（最近30天）
         import datetime
         end_date = datetime.datetime.now().strftime('%Y%m%d')
         start_date = (datetime.datetime.now() - datetime.timedelta(days=30)).strftime('%Y%m%d')
         print(f"\n获取基金净值数据：{start_date} 至 {end_date}")
         get_fund_nav(ts_code, start_date, end_date)
-    
+
     # 获取基金经理数据
     print("\n获取基金经理数据：")
     get_fund_manager()

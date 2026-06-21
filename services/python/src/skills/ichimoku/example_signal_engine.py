@@ -7,7 +7,7 @@ Note: OKX API base URL is hardcoded here for example self-containment.
       Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
-from typing import Dict, Optional
+from typing import Dict
 
 import pandas as pd
 

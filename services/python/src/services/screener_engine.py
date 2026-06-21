@@ -238,7 +238,7 @@ class ScreenerEngine:
                 except concurrent.futures.TimeoutError:
                     logger.warning("Screener data loading timed out for %d symbols after 30s", len(universe))
                     return {}, "error"
-                except Exception as exc:
+                except Exception:
                     raise  # re-raise for the outer except handler
 
             if data_map:

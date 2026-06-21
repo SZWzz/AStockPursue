@@ -1,3 +1,4 @@
+# ruff: noqa: F601 — repeated dict keys are data dedup (last write wins)
 """Stock-to-sector mapping for attribution calculations.
 
 Provides Shenwan (申万) industry classifications for A-share stocks.
@@ -12,7 +13,6 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

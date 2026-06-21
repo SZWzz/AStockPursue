@@ -1,5 +1,4 @@
 """Tests for LLMService gRPC servicer."""
-import pytest
 from src.gen import llm_pb2
 from src.grpc.llm_service import LLMServiceServicer
 

@@ -24,7 +24,6 @@ tampered with and the HMAC sidecar is only an integrity check, not authenticity.
 
 from __future__ import annotations
 
-import hashlib
 import html
 import json
 import logging

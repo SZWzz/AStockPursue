@@ -1,6 +1,5 @@
 """Tests for workflow schema models."""
 
-import pytest
 from src.workflow.schema import (
     NodePort, PortDirection, PortType, NodeDefinition,
     WorkflowEdge, WorkflowNodeData, WorkflowRun, NodeRunResult,

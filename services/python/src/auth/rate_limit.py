@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 import os
 import time
-from collections import defaultdict
 from typing import Dict, List
 
 from fastapi import HTTPException, Request

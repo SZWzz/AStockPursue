@@ -676,7 +676,6 @@ The factor will appear in the Factor Mining > Candidates tab."""
 
     def execute(self, **kwargs: Any) -> str:
         import uuid
-        from datetime import datetime, timezone
 
         name = kwargs.get("name", "unnamed")
         formula = kwargs.get("formula", "")

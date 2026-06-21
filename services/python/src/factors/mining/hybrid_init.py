@@ -20,8 +20,6 @@ import logging
 import random
 from typing import Any
 
-import numpy as np
-import pandas as pd
 
 from src.factors.mining.expression_tree import (
     ExpressionNode,
@@ -29,7 +27,6 @@ from src.factors.mining.expression_tree import (
     FEATURE_IDS,
     MAX_COMPLEXITY,
     MAX_DEPTH,
-    OPERATOR_REGISTRY,
 )
 
 logger = logging.getLogger(__name__)

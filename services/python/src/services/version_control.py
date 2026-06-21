@@ -5,7 +5,6 @@ from __future__ import annotations
 import difflib
 import logging
 import uuid
-from datetime import datetime, timezone
 from typing import Any
 
 logger = logging.getLogger(__name__)

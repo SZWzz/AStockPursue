@@ -14,7 +14,6 @@ from src.tools.skill_writer_tool import (
     DeleteSkillTool,
     SkillFileTool,
     _sanitize_skill_name,
-    USER_SKILLS_DIR,
 )
 
 

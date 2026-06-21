@@ -3,7 +3,6 @@
 import logging
 from datetime import datetime
 
-import grpc
 import pandas as pd
 
 from src.gen import data_pb2, data_pb2_grpc, common_pb2

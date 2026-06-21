@@ -8,7 +8,6 @@ and strategy optimisation.
 from __future__ import annotations
 
 import asyncio
-import copy
 import itertools
 import logging
 from dataclasses import dataclass, field
@@ -21,7 +20,6 @@ from src.workflow.schema import (
     WorkflowEdge,
     WorkflowModel,
     WorkflowNodeData,
-    WorkflowRun,
 )
 from src.workflow.workflow_engine import WorkflowEngine
 

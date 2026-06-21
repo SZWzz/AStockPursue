@@ -8,9 +8,8 @@ Note: OKX API base URL is hardcoded here for example self-containment.
       Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
-import numpy as np
 import pandas as pd
 
 

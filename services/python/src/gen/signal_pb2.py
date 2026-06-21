@@ -22,7 +22,6 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
-from . import common_pb2 as common__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x0csignal.proto\x12\x13\x61stockpursue.signal\x1a\x0c\x63ommon.proto\"\xcb\x01\n\rSignalRequest\x12\x15\n\rstrategy_name\x18\x01 \x01(\t\x12&\n\x04\x62\x61rs\x18\x02 \x03(\x0b\x32\x18.astockpursue.common.Bar\x12\x0c\n\x04mode\x18\x03 \x01(\t\x12>\n\x06params\x18\x04 \x03(\x0b\x32..astockpursue.signal.SignalRequest.ParamsEntry\x1a-\n\x0bParamsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\x92\x01\n\x0eSignalResponse\x12\x41\n\x07weights\x18\x01 \x03(\x0b\x32\x30.astockpursue.signal.SignalResponse.WeightsEntry\x12\r\n\x05\x65rror\x18\x02 \x01(\t\x1a.\n\x0cWeightsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01:\x02\x38\x01\x32k\n\rSignalService\x12Z\n\x0fGenerateSignals\x12\".astockpursue.signal.SignalRequest\x1a#.astockpursue.signal.SignalResponseBAZ?github.com/astockpursue/go-core/internal/gen/signal/v1;signalv1b\x06proto3')

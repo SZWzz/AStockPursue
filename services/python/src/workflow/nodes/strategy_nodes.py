@@ -6,13 +6,13 @@ import logging
 
 import textwrap
 
-from typing import Any, Dict, List
+from typing import Dict
 
 import pandas as pd
 
 from src.workflow.node_base import BaseNode
 from src.workflow.node_registry import register_node
-from src.workflow.schema import NodePort, PortType
+from src.workflow.schema import PortType
 
 logger = logging.getLogger(__name__)
 

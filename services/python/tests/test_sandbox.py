@@ -6,7 +6,6 @@ import pytest
 
 from src.security.sandbox import (
     SAFE_IMPORT_MODULES,
-    SandboxTimeoutError,
     build_safe_builtins,
     safe_exec_code,
     safe_exec_isolated,

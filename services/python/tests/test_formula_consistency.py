@@ -5,9 +5,6 @@ All derived forms (formula string, hash, SignalEngine code, dict) must be
 deterministically generated from the tree and round-trip correctly.
 """
 
-import hashlib
-import json
-import textwrap
 
 import numpy as np
 import pandas as pd
@@ -16,13 +13,9 @@ import pytest
 from src.factors.mining.expression_tree import (
     ExpressionNode,
     ExpressionTree,
-    FEATURE_IDS,
     MAX_COMPLEXITY,
     OPERATOR_REGISTRY,
     OPERATOR_TIERS,
-    _compile_node_to_code,
-    _compile_to_signalengine,
-    _normalize_node,
     get_allowed_operators,
 )
 from src.factors.mining.factor_kb import (
@@ -36,14 +29,9 @@ from src.factors.mining.hybrid_init import (
 )
 from src.factors.mining.enhanced_fitness import (
     composite_fitness,
-    estimate_daily_turnover,
-    estimate_annual_turnover,
     a_share_cost_penalty,
-    orthogonality_penalty,
-    a_share_specific_penalty,
     complexity_discount,
     apply_fdr_correction,
-    A_SHARE_ROUNDTRIP_COST_BPS,
 )
 
 

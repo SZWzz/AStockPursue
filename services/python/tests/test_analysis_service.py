@@ -1,5 +1,4 @@
 """Tests for AnalysisService gRPC servicer."""
-import pytest
 from src.gen import analysis_pb2
 from src.grpc.analysis_service import AnalysisServiceServicer
 

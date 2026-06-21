@@ -26,7 +26,6 @@ import pandas as pd
 
 from src.factors.mining.expression_tree import ExpressionTree
 from src.factors.mining.fitness import (
-    compute_forward_returns,
     ic_fitness,
     rank_ic_fitness,
 )

@@ -1,7 +1,6 @@
 """Tests for StrategyScorer — multi-factor strategy scoring."""
 
-import pytest
-from src.services.strategy_scorer import StrategyScorer, ScoreResult, DEFAULT_WEIGHTS
+from src.services.strategy_scorer import StrategyScorer, ScoreResult
 
 
 class TestStrategyScorer:

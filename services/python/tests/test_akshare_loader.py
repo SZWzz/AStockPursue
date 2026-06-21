@@ -17,11 +17,8 @@ import pytest
 
 from backtest.loaders.akshare_loader import (
     DataLoader,
-    _is_a_share,
     _is_etf_listed,
     _is_forex,
-    _is_hk,
-    _is_us,
 )
 
 

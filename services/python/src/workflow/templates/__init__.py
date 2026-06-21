@@ -8,8 +8,8 @@ Pipeline presets (presets.py) are complete end-to-end DAG definitions that
 return full WorkflowModel instances with all nodes and edges wired.
 """
 
-from .registry import TEMPLATES, match_template, load_template
-from .presets import (
+from .registry import TEMPLATES, match_template, load_template  # noqa: F401 — public API re-exports
+from .presets import (  # noqa: F401 — public API re-exports
     PRESET_META,
     PRESET_FACTORIES,
     list_presets,

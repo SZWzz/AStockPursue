@@ -8,11 +8,10 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any
 
 from src.db.pool import get_connection
 from src.lab.params import IndicatorParamsParser, StrategyConfigParser
-from src.lab.storage.repository import IndicatorInfo, _extract_meta_from_code
+from src.lab.storage.repository import _extract_meta_from_code
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +109,7 @@ class PgIndicatorRepository:
             return {"id": indicator_id, "name": name, "description": description,
                     "param_count": len(params), "strategy_config": strategy,
                     "created_at": now, "updated_at": now}
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to save indicator")
             raise
 

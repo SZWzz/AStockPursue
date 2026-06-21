@@ -1,5 +1,4 @@
 """Tests for WorkflowService gRPC servicer."""
-import pytest
 from src.gen import workflow_pb2
 from src.grpc.workflow_service import WorkflowServiceServicer
 

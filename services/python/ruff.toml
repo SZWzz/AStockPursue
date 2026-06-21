@@ -1,0 +1,19 @@
+# Exclude third-party / auto-generated alpha formulas from linting
+exclude = [
+    "src/factors/zoo/",
+]
+
+[lint]
+ignore = [
+    # Pre-existing code patterns (not from refactoring)
+    "E402",   # Module-level import not at top (lazy imports, import guards)
+    "E702",   # Multiple statements on one line (semicolons in test fixtures)
+    "F821",   # Undefined name (lazy logger / Any in un-import-guarded code)
+    "F841",   # Unused variable (test assertions that check for no-crash)
+    "W291",   # Trailing whitespace
+    "E741",   # Ambiguous variable name (math formula vars like 'l')
+]
+
+[format]
+quote-style = "double"
+indent-style = "space"

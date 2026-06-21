@@ -218,7 +218,7 @@ for i, level in enumerate(grid_levels):
     df["buy"] = df["buy"] | ((df["close"] <= level) & (df["close"].shift(1) > level))
     if i > 0:
         df["sell"] = df["sell"] | ((df["close"] >= level) & (df["close"].shift(1) < level))'''
-    plots = f'{{"name": "Grid Upper", "data": [upper_price] * len(df), "color": "#F44336", "overlay": True}}, {{"name": "Grid Lower", "data": [lower_price] * len(df), "color": "#4CAF50", "overlay": True}}'
+    plots = '{"name": "Grid Upper", "data": [upper_price] * len(df), "color": "#F44336", "overlay": True}, {"name": "Grid Lower", "data": [lower_price] * len(df), "color": "#4CAF50", "overlay": True}'
     return _build_indicator_code(
         "Grid Trading", f"Grid trading: {grid_count} grids between {lower_price}-{upper_price}",
         logic, plots, "", ""
@@ -275,7 +275,7 @@ low_break = (df["close"] < prev_l) & (df["volume"] > avg_vol * volume_multiplier
 
 df["buy"] = high_break.fillna(False)
 df["sell"] = low_break.fillna(False)'''
-    plots = f'{{"name": "Lookback High", "data": highest.tolist(), "color": "#F44336", "overlay": True}}, {{"name": "Lookback Low", "data": lowest.tolist(), "color": "#4CAF50", "overlay": True}}'
+    plots = '{"name": "Lookback High", "data": highest.tolist(), "color": "#F44336", "overlay": True}, {"name": "Lookback Low", "data": lowest.tolist(), "color": "#4CAF50", "overlay": True}'
     return _build_indicator_code(
         "Volume Breakout", f"Breakout: {lookback}-bar high with {vol_mult}× volume",
         logic, plots, "", ""
@@ -296,7 +296,7 @@ upper = mid + bb_std * std
 lower = mid - bb_std * std
 df["buy"] = (df["close"] <= lower).fillna(False)
 df["sell"] = (df["close"] >= upper).fillna(False)'''
-    plots = f'{{"name": "Mid", "data": mid.tolist(), "color": "#2196F3", "overlay": True}}, {{"name": "Upper", "data": upper.tolist(), "color": "#FF9800", "overlay": True}}, {{"name": "Lower", "data": lower.tolist(), "color": "#FF9800", "overlay": True}}'
+    plots = '{"name": "Mid", "data": mid.tolist(), "color": "#2196F3", "overlay": True}, {"name": "Upper", "data": upper.tolist(), "color": "#FF9800", "overlay": True}, {"name": "Lower", "data": lower.tolist(), "color": "#FF9800", "overlay": True}'
     return _build_indicator_code(
         "BB Mean Reversion", f"Bollinger mean reversion: period={period}, std={std_dev}",
         logic, plots, "", ""
@@ -330,7 +330,7 @@ exit_break = df["close"] < lowest_exit.shift(1)
 
 df["buy"] = entry_break.fillna(False)
 df["sell"] = exit_break.fillna(False)'''
-    plots = f'{{"name": "Entry High", "data": highest_entry.tolist(), "color": "#F44336", "overlay": True}}, {{"name": "Exit Low", "data": lowest_exit.tolist(), "color": "#4CAF50", "overlay": True}}, {{"name": "ATR", "data": atr.tolist(), "color": "#9C27B0", "overlay": False}}'
+    plots = '{"name": "Entry High", "data": highest_entry.tolist(), "color": "#F44336", "overlay": True}, {"name": "Exit Low", "data": lowest_exit.tolist(), "color": "#4CAF50", "overlay": True}, {"name": "ATR", "data": atr.tolist(), "color": "#9C27B0", "overlay": False}'
     return _build_indicator_code(
         "Turtle Trading", f"Turtle: entry={entry_period}, exit={exit_period}, ATR={atr_period}",
         logic, plots, "", ""
@@ -359,7 +359,7 @@ if "close_a" in df.columns and "close_b" in df.columns:
 else:
     df["buy"] = False
     df["sell"] = False'''
-    plots = f'{{"name": "Z-Score", "data": zscore.tolist(), "color": "#9C27B0", "overlay": False}}, {{"name": "Entry+", "data": [entry_zscore] * len(df), "color": "#F44336", "overlay": False}}, {{"name": "Entry-", "data": [-entry_zscore] * len(df), "color": "#4CAF50", "overlay": False}}'
+    plots = '{"name": "Z-Score", "data": zscore.tolist(), "color": "#9C27B0", "overlay": False}, {"name": "Entry+", "data": [entry_zscore] * len(df), "color": "#F44336", "overlay": False}, {"name": "Entry-", "data": [-entry_zscore] * len(df), "color": "#4CAF50", "overlay": False}'
     return _build_indicator_code(
         "Pairs Trading", f"Pairs: lookback={lookback}, entry z={entry_z}, exit z={exit_z}",
         logic, plots, "", ""
@@ -385,7 +385,7 @@ else:
     momentum = df["close"].pct_change(momentum_period)
     df["buy"] = (momentum > 0) & (momentum.shift(1) <= 0)
     df["sell"] = (momentum < 0) & (momentum.shift(1) >= 0)'''
-    plots = f'{{"name": "Momentum", "data": momentum.tolist() if "symbol" not in df.columns else df.get("mom_score", pd.Series(0, index=df.index)).tolist(), "color": "#2196F3", "overlay": False}}'
+    plots = '{"name": "Momentum", "data": momentum.tolist() if "symbol" not in df.columns else df.get("mom_score", pd.Series(0, index=df.index)).tolist(), "color": "#2196F3", "overlay": False}'
     return _build_indicator_code(
         "Momentum Rotation", f"Momentum rotation: {momentum_period}-period, hold top {hold_count}",
         logic, plots, "", ""

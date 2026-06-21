@@ -15,10 +15,8 @@ from pydantic import BaseModel, Field
 from src.factors.mining.gp_engine import (
     GPEvolution,
     GPEvolutionConfig,
-    GPIndividual,
-    GPRunResult,
 )
-from src.factors.mining.llm_miner import FactorCandidate, LLMFactorMiner
+from src.factors.mining.llm_miner import LLMFactorMiner
 
 logger = logging.getLogger(__name__)
 

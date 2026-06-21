@@ -9,7 +9,7 @@ import logging
 from typing import Literal
 
 import numpy as np
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from scipy import stats as sp_stats
 
 logger = logging.getLogger(__name__)

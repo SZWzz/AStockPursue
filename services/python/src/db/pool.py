@@ -80,9 +80,9 @@ def init_pool() -> None:
             return
 
         try:
-            import psycopg2
+            import psycopg2  # noqa: F401 — availability check
             from psycopg2 import pool as pg_pool
-            from psycopg2 import sql
+            import psycopg2.sql  # noqa: F401 — availability check
         except ImportError:
             raise RuntimeError(
                 "psycopg2-binary is required for PostgreSQL. "
@@ -200,7 +200,7 @@ def _ensure_admin_user() -> None:
             print(f"\n{'='*60}")
             print(f"  Admin user: {admin_user}")
             print(f"  Password:   {admin_pass}")
-            print(f"  Set ADMIN_PASSWORD in .env to change.")
+            print("  Set ADMIN_PASSWORD in .env to change.")
             print(f"{'='*60}\n")
 
         with get_connection() as conn:

@@ -16,7 +16,6 @@ import logging
 import os
 import tempfile
 import re
-import shutil
 import subprocess
 import uuid
 from dataclasses import dataclass, field

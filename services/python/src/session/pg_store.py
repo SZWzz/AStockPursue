@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
 
 from src.db.pool import get_connection
 from src.session.models import Attempt, AttemptStatus, Message, Session, SessionStatus
@@ -38,7 +37,7 @@ class PgSessionStore:
                             session.updated_at,
                         ),
                     )
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to create session %s", session.session_id)
             raise
         return session
@@ -65,7 +64,7 @@ class PgSessionStore:
                         updated_at=str(row[5]) if row[5] else "",
                         last_attempt_id=row[6] or None,
                     )
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to get session %s", session_id)
             return None
 
@@ -83,7 +82,7 @@ class PgSessionStore:
                             session.session_id,
                         ),
                     )
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to update session %s", session.session_id)
             raise
     def delete_session(self, session_id: str) -> bool:
@@ -92,7 +91,7 @@ class PgSessionStore:
                 with conn.cursor() as cur:
                     cur.execute("DELETE FROM vt_sessions WHERE id = %s", (session_id,))
                     return cur.rowcount > 0
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to delete session %s", session_id)
             return False
 
@@ -115,7 +114,7 @@ class PgSessionStore:
                         )
                         for r in cur.fetchall()
                     ]
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to list sessions")
             return []
 
@@ -138,7 +137,7 @@ class PgSessionStore:
                             message.created_at,
                         ),
                     )
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to append message %s", message.message_id)
             raise
     def get_messages(self, session_id: str, limit: int = 100) -> list[Message]:
@@ -160,7 +159,7 @@ class PgSessionStore:
                         )
                         for r in cur.fetchall()
                     ]
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to get messages for session %s", session_id)
             return []
 
@@ -188,7 +187,7 @@ class PgSessionStore:
                             attempt.completed_at,
                         ),
                     )
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to create attempt %s", attempt.attempt_id)
             raise
         return attempt
@@ -214,7 +213,7 @@ class PgSessionStore:
                         error=r[9], created_at=str(r[10]) if r[10] else "",
                         completed_at=str(r[11]) if r[11] else None,
                     )
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to get attempt %s", attempt_id)
             return None
 
@@ -236,7 +235,7 @@ class PgSessionStore:
                             attempt.attempt_id,
                         ),
                     )
-        except Exception as e:
+        except Exception:
             logger.exception("Failed to update attempt %s", attempt.attempt_id)
             raise
     # ── Search ─────────────────────────────────────────────────────────────
@@ -262,6 +261,6 @@ class PgSessionStore:
                         )
                         for r in cur.fetchall()
                     ]
-        except Exception as e:
+        except Exception:
             logger.exception("Search failed for query: %s", query)
             return []
