@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	commonv1 "github.com/astockpursue/go-core/internal/gen/common/v1"
@@ -99,7 +98,6 @@ type northboundSectorItem struct {
 type NorthboundAdapter struct {
 	client  *http.Client
 	baseURL string
-	mu      sync.RWMutex
 }
 
 // NewNorthboundAdapter creates a new NorthboundAdapter pointed at EastMoney's

@@ -46,7 +46,7 @@ func (r *Repo) Get(symbol, category, key string) (*DataPoint, error) {
 	if time.Since(dp.Date) > cacheTTL {
 		return nil, nil // expired
 	}
-	json.Unmarshal([]byte(metaJSON), &dp.Metadata)
+	_ = json.Unmarshal([]byte(metaJSON), &dp.Metadata)
 	return dp, nil
 }
 
@@ -78,7 +78,7 @@ func (r *Repo) GetCategory(symbol, category string) ([]DataPoint, error) {
 			continue
 		}
 		dp.Date = time.Unix(fetchedAt, 0)
-		json.Unmarshal([]byte(metaJSON), &dp.Metadata)
+		_ = json.Unmarshal([]byte(metaJSON), &dp.Metadata)
 		if time.Since(dp.Date) <= cacheTTL {
 			result = append(result, dp)
 		}

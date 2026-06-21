@@ -39,7 +39,7 @@ func (s *FinancialsService) Analyze(ctx context.Context, symbol string, params m
 	mock := s.mockFinancials(symbol)
 	if s.repo != nil {
 		for k, v := range mock {
-			s.repo.Save(&DataPoint{
+			_ = s.repo.Save(&DataPoint{
 				Symbol:   symbol,
 				Category: "financials",
 				Key:      k,

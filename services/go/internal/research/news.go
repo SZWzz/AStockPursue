@@ -69,21 +69,21 @@ func (s *NewsService) Analyze(ctx context.Context, symbol string, params map[str
 
 	// Persist to cache
 	if s.repo != nil {
-		s.repo.Save(&DataPoint{
+		_ = s.repo.Save(&DataPoint{
 			Symbol:   symbol,
 			Category: "news",
 			Key:      "overall_sentiment",
 			Value:    mock["overall_sentiment"].(float64),
 			Date:     time.Now(),
 		})
-		s.repo.Save(&DataPoint{
+		_ = s.repo.Save(&DataPoint{
 			Symbol:   symbol,
 			Category: "news",
 			Key:      "sentiment_change",
 			Value:    mock["sentiment_change"].(float64),
 			Date:     time.Now(),
 		})
-		s.repo.Save(&DataPoint{
+		_ = s.repo.Save(&DataPoint{
 			Symbol:   symbol,
 			Category: "news",
 			Key:      "source_count",
@@ -92,7 +92,7 @@ func (s *NewsService) Analyze(ctx context.Context, symbol string, params map[str
 		})
 
 		articles, _ := json.Marshal(mock["recent_articles"])
-		s.repo.Save(&DataPoint{
+		_ = s.repo.Save(&DataPoint{
 			Symbol:   symbol,
 			Category: "news",
 			Key:      "recent_articles",
@@ -101,7 +101,7 @@ func (s *NewsService) Analyze(ctx context.Context, symbol string, params map[str
 		})
 
 		topics, _ := json.Marshal(mock["key_topics"])
-		s.repo.Save(&DataPoint{
+		_ = s.repo.Save(&DataPoint{
 			Symbol:   symbol,
 			Category: "news",
 			Key:      "key_topics",

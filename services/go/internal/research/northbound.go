@@ -62,7 +62,7 @@ func (s *NorthboundService) Analyze(ctx context.Context, symbol string, params m
 		metricKeys := []string{"net_inflow_daily", "net_inflow_weekly", "net_inflow_monthly", "cumulative_net_buy"}
 		for _, k := range metricKeys {
 			v, _ := mock[k].(float64)
-			s.repo.Save(&DataPoint{
+			_ = s.repo.Save(&DataPoint{
 				Symbol:   symbol,
 				Category: "northbound",
 				Key:      k,
@@ -73,7 +73,7 @@ func (s *NorthboundService) Analyze(ctx context.Context, symbol string, params m
 		// Store top10 stocks as JSON in metadata
 		if top10, ok := mock["top10_active_stocks"]; ok {
 			top10JSON, _ := json.Marshal(top10)
-			s.repo.Save(&DataPoint{
+			_ = s.repo.Save(&DataPoint{
 				Symbol:   symbol,
 				Category: "northbound",
 				Key:      "top10_active_stocks",
@@ -84,7 +84,7 @@ func (s *NorthboundService) Analyze(ctx context.Context, symbol string, params m
 		// Store sector distribution as JSON in metadata
 		if sectors, ok := mock["sector_distribution"]; ok {
 			sectorsJSON, _ := json.Marshal(sectors)
-			s.repo.Save(&DataPoint{
+			_ = s.repo.Save(&DataPoint{
 				Symbol:   symbol,
 				Category: "northbound",
 				Key:      "sector_distribution",

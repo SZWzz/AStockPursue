@@ -1,5 +1,4 @@
 package research
-
 import (
 	"context"
 	"fmt"
@@ -8,7 +7,6 @@ import (
 	"strconv"
 	"time"
 )
-
 // GeopoliticsTopic defines a geopolitical risk topic tracked via GDELT.
 type GeopoliticsTopic struct {
 	ID               string   `json:"id"`
@@ -17,7 +15,6 @@ type GeopoliticsTopic struct {
 	GDELTQuery       string   `json:"gdelt_query"`
 	AssociatedAssets []string `json:"associated_assets"`
 }
-
 // predefinedTopics are the 10 pre-configured geopolitical risk topics for GDELT tracking.
 // Each includes Chinese and English names, a GDELT search query string, and associated
 // assets likely affected by changes in that topic's risk profile.
@@ -93,7 +90,6 @@ var predefinedTopics = []GeopoliticsTopic{
 		AssociatedAssets: []string{"601318.SH", "600036.SH", "601398.SH"},
 	},
 }
-
 // GeopoliticsService provides geopolitical risk analysis for 10 pre-configured
 // GDELT-tracked topics. It uses a cache-first strategy with mock fallback;
 // real GDELT API integration is deferred to P6.
@@ -102,7 +98,6 @@ type GeopoliticsService struct {
 	adapter interface{} // *GDELTAdapter or nil (P6)
 	repo    *Repo
 }
-
 // NewGeopoliticsService creates a new GeopoliticsService. The adapter parameter
 // is reserved for future GDELT API integration and may be nil.
 func NewGeopoliticsService(repo *Repo, adapter interface{}) *GeopoliticsService {
@@ -112,10 +107,8 @@ func NewGeopoliticsService(repo *Repo, adapter interface{}) *GeopoliticsService 
 		adapter: adapter,
 	}
 }
-
 // Name returns the service identifier.
 func (s *GeopoliticsService) Name() string { return s.name }
-
 // Analyze returns risk assessments for all 10 pre-configured topics.
 //
 // The returned map contains:
@@ -135,20 +128,17 @@ func (s *GeopoliticsService) Analyze(ctx context.Context, symbol string, params 
 			return s.cachedResult(cached), nil
 		}
 	}
-
 	// 2. Adapter — deferred to Phase 6 (GDELT real API integration)
 	if s.adapter != nil {
 		// Future: call adapter.FetchGeopolitics(ctx)
 	}
-
 	// 3. Mock fallback
 	result := s.mockAssessments()
-
 	// Persist mock data to cache
 	if s.repo != nil {
 		for _, topic := range predefinedTopics {
 			a := result[topic.ID]
-			s.repo.Save(&DataPoint{
+			_ = s.repo.Save(&DataPoint{
 				Symbol:   "",
 				Category: "geopolitics",
 				Key:      topic.ID,
@@ -165,22 +155,17 @@ func (s *GeopoliticsService) Analyze(ctx context.Context, symbol string, params 
 			})
 		}
 	}
-
 	return s.buildResponse(result), nil
 }
-
 // History returns cached DataPoints for geopolitics assessments.
 func (s *GeopoliticsService) History(ctx context.Context, symbol string, days int) ([]DataPoint, error) {
 	return s.repo.GetCategory("", "geopolitics")
 }
-
 // IsAvailable always returns true because the mock fallback is always ready.
 func (s *GeopoliticsService) IsAvailable(ctx context.Context) bool {
 	return true
 }
-
 // ---------- private helpers ----------
-
 // assessment holds the computed risk values for a single topic.
 type assessment struct {
 	RiskLevel  string  // "high", "medium", "low"
@@ -189,14 +174,12 @@ type assessment struct {
 	VolChange  float64
 	RiskScore  float64 // composite 0-10 used for caching
 }
-
 // mockAssessments generates deterministic pseudo-random assessments for all topics.
 // It uses the topic ID as a seed so results are stable for the same topic.
 func (s *GeopoliticsService) mockAssessments() map[string]assessment {
 	assessments := make(map[string]assessment, len(predefinedTopics))
 	for i, topic := range predefinedTopics {
 		rng := rand.New(rand.NewSource(int64(i + 1)))
-
 		tone := rng.Float64()*20 - 10                                    // -10 to +10
 		toneChange := rng.Float64()*6 - 3                                 // -3 to +3
 		volChange := rng.Float64()*20 - 10                                // -10% to +10%
@@ -207,7 +190,6 @@ func (s *GeopoliticsService) mockAssessments() map[string]assessment {
 		if riskScore > 10 {
 			riskScore = 10
 		}
-
 		var riskLevel string
 		switch {
 		case riskScore >= 6:
@@ -217,7 +199,6 @@ func (s *GeopoliticsService) mockAssessments() map[string]assessment {
 		default:
 			riskLevel = "low"
 		}
-
 		assessments[topic.ID] = assessment{
 			RiskLevel:  riskLevel,
 			Tone:       tone,
@@ -228,7 +209,6 @@ func (s *GeopoliticsService) mockAssessments() map[string]assessment {
 	}
 	return assessments
 }
-
 // buildResponse converts the internal assessment map into the public API format.
 func (s *GeopoliticsService) buildResponse(assessments map[string]assessment) map[string]any {
 	var topics []map[string]any
@@ -254,7 +234,6 @@ func (s *GeopoliticsService) buildResponse(assessments map[string]assessment) ma
 		"updated_at": time.Now().Format(time.RFC3339),
 	}
 }
-
 // cachedResult reconstructs the API response from cached DataPoints.
 func (s *GeopoliticsService) cachedResult(dps []DataPoint) map[string]any {
 	topicsByID := make(map[string]map[string]any)
@@ -276,7 +255,6 @@ func (s *GeopoliticsService) cachedResult(dps []DataPoint) map[string]any {
 			tone, _ := strconv.ParseFloat(meta["tone"], 64)
 			toneChange, _ := strconv.ParseFloat(meta["tone_change"], 64)
 			volChange, _ := strconv.ParseFloat(meta["vol_change"], 64)
-
 			entry = map[string]any{
 				"topic_id":          topicID,
 				"title":             meta["title"],
@@ -301,8 +279,4 @@ func (s *GeopoliticsService) cachedResult(dps []DataPoint) map[string]any {
 		"updated_at": time.Now().Format(time.RFC3339),
 	}
 }
-
 // dataPointsToResult is an alias of cachedResult for consistent naming.
-func (s *GeopoliticsService) dataPointsToResult(dps []DataPoint) map[string]any {
-	return s.cachedResult(dps)
-}
