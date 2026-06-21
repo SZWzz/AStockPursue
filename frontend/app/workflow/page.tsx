@@ -5,6 +5,7 @@ import { useTranslations } from 'next-intl'
 import { useRouter } from 'next/navigation'
 import useSWR from 'swr'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { Card } from '@/components/ui/card'
 import { cn, formatDateTime } from '@/lib/utils'
 
@@ -95,7 +96,10 @@ export default function WorkflowPage() {
               </button>
             </div>
           ) : !workflows.length ? (
-            <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">{t('common.noData')}</div>
+            <EmptyState
+              title={t('common.noData')}
+              description={t('workflow.emptyHint') || '还没有工作流，创建一个开始吧'}
+            />
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">

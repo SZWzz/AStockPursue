@@ -7,6 +7,7 @@ import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { useBacktests } from '@/hooks'
 import { cn, formatPercent, formatDateTime } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 
 interface BacktestSummary {
@@ -51,7 +52,11 @@ export default function BacktestListPage() {
               </button>
             </div>
           ) : !backtests.length ? (
-            <div className="text-[13px] text-[var(--foreground-muted)] text-center py-12">{t('common.noData')}</div>
+            <EmptyState
+              title={t('common.noData')}
+              description={t('backtest.emptyHint') || '还没有回测记录，去创建一个吧'}
+              action={{ label: t('backtest.new'), href: '/backtest/new' }}
+            />
           ) : (
             <Table>
               <TableHeader>

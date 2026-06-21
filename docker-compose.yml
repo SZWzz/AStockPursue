@@ -41,6 +41,8 @@ services:
       - ./runs:/app/runs
       - ./services/python/src:/app/src
 
+  # Frontend runs separately for dev. To include it, use:
+  #   docker compose --profile frontend up -d
   frontend:
     build:
       context: frontend

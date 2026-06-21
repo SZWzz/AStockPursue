@@ -11,6 +11,7 @@ import { usePositions, useSystemStatus } from '@/hooks'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { IndexTickerBar } from '@/components/dashboard/IndexTickerBar'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { EmptyState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import useSWR from 'swr'
@@ -26,6 +27,17 @@ export default function DashboardPage() {
   const { data: northbound } = useSWR('/api/research/northbound?symbol=SH000001', fetcher)
   const { data: geopolitics } = useSWR('/api/research/geopolitics?symbol=SH000001', fetcher)
   const { data: newsData } = useSWR('/api/research/news?symbol=600519', fetcher)
+
+  if (!portfolio && !posData) {
+    return (
+      <SidebarLayout>
+        <EmptyState
+          title={t('common.noData')}
+          description={t('dashboard.emptyHint') || '还没有记录，连接后端服务以获取数据'}
+        />
+      </SidebarLayout>
+    )
+  }
 
   return (
     <SidebarLayout>
