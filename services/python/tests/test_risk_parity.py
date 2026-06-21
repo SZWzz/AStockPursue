@@ -15,6 +15,8 @@ try:
 except ImportError:
     RiskParityOptimizer = None  # type: ignore[assignment]
 
+pytestmark = pytest.mark.skipif(RiskParityOptimizer is None, reason="RiskParityOptimizer migrated to Go")
+
 
 @pytest.mark.skipif(RiskParityOptimizer is None, reason="RiskParityOptimizer migrated to Go")
 class TestRiskParityCalcWeights:
@@ -74,6 +76,7 @@ class TestRiskParityCalcWeights:
         assert len(w) == 0
 
 
+@pytest.mark.skipif(RiskParityOptimizer is None, reason="RiskParityOptimizer migrated to Go")
 class TestRiskParityOptimize:
     """Integration test for the module-level optimize function."""
 
