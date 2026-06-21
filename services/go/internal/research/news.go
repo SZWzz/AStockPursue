@@ -198,19 +198,6 @@ func (s *NewsService) mockNews(symbol string) map[string]any {
 	}
 
 	// Compute overall sentiment as average of article sentiments
-	var sumSentiment float64
-	for _, a := range articles {
-		sumSentiment += a["sentiment"].(float64)
-	}
-	avgSentiment := sumSentiment / float64(len(articles))
-
-	// Clamp to [-1, 1]
-	if avgSentiment > 1 {
-		avgSentiment = 1
-	} else if avgSentiment < -1 {
-		avgSentiment = -1
-	}
-
 	keyTopics := []string{
 		"北向资金",
 		"业绩预增",
