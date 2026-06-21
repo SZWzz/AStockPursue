@@ -3,6 +3,8 @@
 ## [2026.6.21] - 2026-06-21
 
 ### Added
+- [Notify] Create notification system in `services/go/internal/notify/` -- `Notifier` interface, `Manager` with async event loop (buffer 256), SQLite persistence, `NotifyLevel` (info/warning/error), and `GetHistory`/`MarkRead` API (P8)
+- [Notify] Add `TelegramNotifier` -- env-based config (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`), HTML-formatted messages via `api.telegram.org/bot{token}/sendMessage`, graceful skip when unconfigured (P8)
 - [Agent] Create `AgentLoop` in `services/go/internal/agent/loop.go` -- capability-first execution loop with `MatchThreshold = 0.3`, LLM fallback, and `AgentResult` struct
 - [Market] Create `Adapter` interface in `services/go/internal/market/adapter.go` -- unified 5-method interface with context support, `FetchRequest` struct, and `Markets()`/`RequiresAuth()` methods
 - [Research] Create `GeopoliticsService` in `services/go/internal/research/geopolitics.go` -- 10 pre-configured GDELT topics (US-China Trade, Taiwan Strait, South China Sea, Russia-Ukraine, Middle East, Energy Security, Semiconductor Supply Chain, Rare Earth, Global Inflation, Emerging Market Debt) with cache-first mock risk assessment, per-topic risk_level/tone/tone_change/vol_change, and `IsAvailable()` always true (P4.4)
