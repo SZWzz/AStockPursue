@@ -209,7 +209,7 @@ Any modification that touches engine logic, financial calculations, or data pipe
 
 **Before every commit and push, verify that the project version matches the current date.**  The version is defined in three places and must be kept in sync:
 
-1. `frontend/src/components/layout/Layout.tsx` — `APP_VERSION` (format: `vYYYY.M.D`)
+1. `frontend/components/layout/Sidebar.tsx` — `APP_VERSION` (format: `vYYYY.M.D`)
 2. `README.md` — version badge in the top badge strip
 3. `README_zh.md` — version badge in the top badge strip
 
