@@ -39,7 +39,7 @@ func NewRouter(
 	sys.GET("/status", systemH.Status)
 	sys.GET("/ping", systemH.Ping)
 
-	r.GET("/health", health.Health)
+	r.GET("/health", health.FullCheck)
 	r.GET("/ws", func(c *gin.Context) { wsHub.HandleWebSocket(c.Writer, c.Request) })
 
 	// Protected routes

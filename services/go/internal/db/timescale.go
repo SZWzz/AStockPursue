@@ -28,6 +28,11 @@ func NewTimescaleDB(ctx context.Context, connString string) (*TimescaleDB, error
 	return &TimescaleDB{pool: pool}, nil
 }
 
+// Pool returns the underlying pgxpool.Pool for health checks.
+func (db *TimescaleDB) Pool() *pgxpool.Pool {
+	return db.pool
+}
+
 func (db *TimescaleDB) Close() {
 	if db.pool != nil {
 		db.pool.Close()

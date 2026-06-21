@@ -24,6 +24,7 @@ import (
 	"github.com/astockpursue/go-core/internal/ml"
 	"github.com/astockpursue/go-core/internal/notify"
 	"github.com/astockpursue/go-core/internal/research"
+	"github.com/jackc/pgx/v5/pgxpool"
 	_ "modernc.org/sqlite"
 )
 
@@ -147,7 +148,11 @@ func main() {
 	notifManager := notify.NewManager(notifDB)
 	notifH := handler.NewNotificationHandler(notifManager)
 
-	healthH := &handler.HealthHandler{}
+	var dbPool *pgxpool.Pool
+	if timescaleDB != nil {
+		dbPool = timescaleDB.Pool()
+	}
+	healthH := handler.NewHealthHandler(dbPool, connMgr, nil)
 	wsHub := api.NewWSHub()
 	r := api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH, factorH, workflowH, signalH, researchH, mlH, notifH, wsHub)
 
