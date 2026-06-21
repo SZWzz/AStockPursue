@@ -1,4 +1,24 @@
 <p align="center">
+  <a href="https://github.com/astockpursue/AStockPursue">
+    <img src="docs/assets/logo.png" alt="AStockPursue Logo" width="160">
+  </a>
+</p>
+
+<h1 align="center">AStockPursue</h1>
+
+<p align="center">
+  <strong>AI-Powered Quantitative Research & Trading Workflow Platform</strong>
+</p>
+
+<p align="center">
+  Go core for high-performance execution · Python layer for AI research · gRPC bridge keeping the boundary clean
+</p>
+
+<p align="center">
+  <a href="README_zh.md">中文文档</a> · <a href="CHANGELOG.md">Changelog</a> · <a href="docs/">Docs</a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Go-1.22+-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go">
   <img src="https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
   <img src="https://img.shields.io/badge/Next.js-15-000000?style=for-the-badge&logo=nextdotjs&logoColor=white" alt="Next.js">
@@ -15,80 +35,92 @@
   <img src="https://img.shields.io/badge/Version-v2026.6.21-blueviolet?style=flat-square" alt="Version">
 </p>
 
-<h1 align="center">🚀 AStockPursue</h1>
-<p align="center"><strong>AI-Powered Quantitative Research Workflow Platform</strong></p>
-<p align="center">
-  <sub>Go + Python hybrid microservices — high-performance trading engine meets AI research layer</sub>
-  <br>
-  <sub><a href="README_zh.md">中文文档</a> · <a href="CHANGELOG.md">Changelog</a></sub>
-</p>
-
 ---
 
 > **Disclaimer**: This software is for **research and educational purposes only**. It does not constitute investment advice. The authors assume no responsibility for any trading losses. **Past performance does not guarantee future results.**
 
+## Why AStockPursue?
+
+AStockPursue brings together a **high-performance Go trading engine** and a **Python AI/research layer** into one cohesive workflow platform. You can screen factors, build strategies in natural language, run backtests, and iterate on alpha ideas—without switching contexts.
+
+| What you get | How it helps |
+|---|---|
+| ⚡ **Unified bar-by-bar pipeline** | Same engine for backtest and live trading, no logic drift |
+| 🧠 **Natural language → strategy** | "Build a momentum strategy for CSI 300" generates a full `SignalEngine` and backtests it |
+| 🧬 **450+ alpha factors + GP mining** | alpha101, gtja191, qlib158, plus an evolutionary factor discovery engine |
+| 🎛️ **Visual workflow canvas** | 58 typed nodes across 10 categories, Kahn-scheduled concurrent execution |
+| 🔌 **Multi-broker gateways** | Futu, Binance, OKX with a self-registration pattern |
+| 🌍 **8 market engines** | A-share, US/HK equity, crypto perps, forex, China/global futures, options, composite |
+
 ## Architecture
 
-AStockPursue uses a **Go + Python hybrid microservice architecture** connected via gRPC:
-
 ```
-Frontend (Next.js, port 5899)
-    │  REST JSON
-Go Core Services (port 8899)
-    ├─ HTTP API (gin) — trading, backtest, auth, market
-    ├─ Trading Engine — on_bar() pipeline, 8 engine types
-    ├─ Market Data — loaders, 3-tier store, WebSocket feed
-    ├─ Broker Gateways — Binance, Futu, OKX
-    ├─ Portfolio/Risk — sizing, margin, stop-loss
-    └─ gRPC Client ────────┐
-    │  gRPC + Protobuf      │
-Python Research Layer (port 8900/8902)
-    ├─ MCP Server — 22 tools, 89 skills, swarm presets
-    ├─ Factor Mining — GP evolution, 452 alpha zoo
-    ├─ AI Agent — LLM agent, langgraph loop, memory
-    ├─ Analysis — attribution, sentiment, correlation
-    ├─ Workflow Engine — 25 node types, visual pipeline
-    └─ gRPC Server — factor, signal, LLM, analysis, workflow, data
-    │  SQL + Pub/Sub
-Data Layer
-    PostgreSQL 16 + TimescaleDB + Redis 7
+┌─────────────────────────────────────────────────────────────┐
+│  Frontend (Next.js 15) — port 5899                         │
+│  REST / SSE / WebSocket                                     │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────┐
+│  Go Core Services — port 8899                                 │
+│  ├─ HTTP API (gin) — trading, backtest, auth, market          │
+│  ├─ Trading Engine — on_bar() pipeline, 8 engine types        │
+│  ├─ Market Data — 8 A-share loaders, 3-tier store, WebSocket  │
+│  ├─ Broker Gateways — Futu · Binance · OKX                    │
+│  ├─ Portfolio / Risk — sizing, margin, stop-loss, OMS        │
+│  └─ gRPC Client ──────────────────┐                           │
+└─────────────────────────────────┼─────────────────────────────┘
+                                  │ gRPC + Protobuf
+┌─────────────────────────────────▼─────────────────────────────┐
+│  Python Research Layer — ports 8900 / 8902                    │
+│  ├─ MCP Server — 22 tools, 89 skills, swarm presets           │
+│  ├─ Factor Mining — GP evolution, 450+ alpha zoo              │
+│  ├─ AI Agent — ReAct loop, memory, 11 LLM providers           │
+│  ├─ Analysis — attribution, sentiment, correlation          │
+│  ├─ Workflow Engine — 25 node types, visual pipeline          │
+│  └─ gRPC Server — factor, signal, LLM, analysis, workflow   │
+└─────────────────────────────────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────┐
+│  Data Layer                                               │
+│  PostgreSQL 16 · TimescaleDB · Redis 7                    │
+└───────────────────────────────────────────────────────────┘
 ```
 
-**Design philosophy**: Go handles performance-critical trading execution and market data pipelines. Python powers the AI/research layer (factor mining, LLM agents, workflow orchestration). Communication via gRPC keeps the boundary clean.
+**Design philosophy**: Go handles everything latency-sensitive—execution, market data, and risk. Python owns the research-heavy work—factor mining, LLM agents, and workflow orchestration. gRPC keeps the boundary explicit and testable.
 
 ## Key Features
 
-### Trading Engine (Go)
-- **Unified bar-by-bar pipeline** — same engine for backtest and live trading
+### 🚀 Trading Engine (Go)
+- **Single pipeline for backtest & live** — one `OnBar()` loop, zero code duplication
 - **8 market engines** — China A-share (T+1, price limits), US/HK equity, crypto perpetuals, forex, China futures, global futures, options, composite
-- **Risk pipeline** — stop-loss, trailing-stop, take-profit, max daily loss, position size limits
-- **Multi-broker** — Futu (A/HK/US stocks), Binance + OKX (crypto) with self-registration pattern
-- **Paper trading** — state machine (created→running→paused→stopped→error), in-memory repository
-- **Market data** — 8 A-share loaders + gRPC bridge, 3-tier store (cache → TimescaleDB → loader fallback), WebSocket feed
+- **Risk pipeline** — stop-loss, trailing-stop, take-profit, daily loss limit, position count, OMS state machine
+- **Multi-broker** — Futu (A/HK/US stocks), Binance + OKX (crypto) with a pluggable gateway pattern
+- **Paper trading** — state machine (`created → running → paused → stopped → error`), in-memory repository
+- **Market data** — multi-source loaders, 3-tier store (`cache → TimescaleDB → loader fallback`), WebSocket feed
 
-### AI Agent (89 Skills)
-- **Natural language → strategy code** — "Build a momentum strategy for CSI 300" generates and backtests a complete SignalEngine
-- **ReAct loop** — full tool access across 89 skill packs covering A-shares, crypto, options, macro, risk, factor analysis
+### 🧠 AI Agent (89 Skills)
+- **Natural language → strategy code** — describe an idea, get a backtested `SignalEngine`
+- **ReAct loop** — 89 skill packs covering A-shares, crypto, options, macro, risk, factor analysis
 - **11 LLM providers** — OpenAI · Anthropic · DeepSeek · Gemini · Moonshot · Zhipu · Grok · Ollama · MiniMax · Qwen · OpenRouter
 
-### Alpha Factory
+### 🧬 Alpha Factory
 - **450+ pre-built factors** — alpha101 (101), gtja191 (191), qlib158 (158), academic, mined
-- **GP evolution engine** — genetic programming with composite fitness (IC × complexity × orthogonality), FDR correction, walk-forward validation
+- **GP evolution engine** — genetic programming with composite fitness (`IC × complexity × orthogonality`), FDR correction, walk-forward validation
 - **LLM factor mining** — extract alpha formulas from research papers, debate candidates, hybrid GP+LLM pipeline
 
-### Visual Workflow Engine
+### 🎛️ Visual Workflow Engine
 - **58 typed nodes** across 10 categories — drag-and-drop canvas with real-time type validation
 - **Concurrent execution** — Kahn's algorithm + asyncio parallel scheduling
-- **Runtime snapshots** — every run captures full DAG state; always reproducible
+- **Runtime snapshots** — every run captures the full DAG state; always reproducible
 
-### Research Tools
-- **Smart Screener** — multi-condition stock filtering with Alpha Zoo factor integration
+### 📊 Research Tools
+- **Smart Screener** — multi-condition stock filtering with Alpha Zoo integration
 - **Performance Attribution** — Brinson, factor, and sector decomposition
-- **Strategy Comparison** — statistical tests (paired t, bootstrap, White's reality check)
-- **News Sentiment** — multi-source aggregation, Chinese NLP scoring
+- **Strategy Comparison** — paired t-test, bootstrap, White's reality check
+- **News Sentiment** — multi-source aggregation with Chinese NLP scoring
 - **Market Regime Detection** — rule-based classification with strategy family recommendations
 
-### Platform
+### 🛡️ Platform
 - **Multi-user isolation** — JWT auth, per-user data and broker credentials
 - **Scheduled tasks** — cron-based auto-backtest, data health checks, watchlist alerts
 - **Strategy marketplace** — publish, browse, install, and rate community strategies
@@ -97,7 +129,7 @@ Data Layer
 ## Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
+|---|---|
 | **Frontend** | Next.js 15, React 19, TypeScript, Zustand, Recharts + D3, CodeMirror 6, Tailwind CSS 4, shadcn/ui |
 | **Go Core** | Go 1.22+, gin, pgx, rueidis, gRPC client |
 | **Python Research** | Python 3.11+, gRPC server, PyTorch, scikit-learn, SnowNLP, pgvector, LangChain |
@@ -106,27 +138,35 @@ Data Layer
 
 ## Quick Start
 
+### Full deploy
 ```bash
-# Full deploy
 docker compose up -d --build              # Go core (8899) + Python (8900/8902)
-docker compose --profile pg up -d --build # also auto-deploy PostgreSQL
+docker compose --profile pg up -d --build # also deploy PostgreSQL
 docker compose --profile frontend up -d   # frontend dev server (5899)
+```
 
-# Go core dev
-cd services/go && go run ./cmd/server     # HTTP API + gRPC client
+### Go core development
+```bash
+cd services/go && go run ./cmd/server   # HTTP API + gRPC client
+```
 
-# Python research layer dev
+### Python research layer development
+```bash
 cd services/python && pip install -r requirements.txt
 python mcp_server.py                      # MCP (stdio/SSE, port 8900)
 python -m src.grpc.server                 # gRPC server (port 8902)
+```
 
-# Frontend dev
+### Frontend development
+```bash
 cd frontend && npm run dev
+```
 
-# Tests
-cd services/go && go test ./...           # Go unit tests
-cd services/python && python -m pytest tests/ -x -q # Python tests
-cd frontend && npx vitest                 # Frontend tests
+### Tests
+```bash
+cd services/go && go test ./...                      # Go unit tests
+cd services/python && python -m pytest tests/ -x -q  # Python tests
+cd frontend && npx vitest                            # Frontend tests
 ```
 
 ## Project Structure
@@ -138,10 +178,10 @@ astockpursue/
 │   │   ├── cmd/server/             #   entry point (gin HTTP + gRPC client)
 │   │   ├── internal/
 │   │   │   ├── api/handler/        #   REST handlers (16 endpoints)
-│   │   │   ├── engine/             #   trading engine (8 types + pipeline + risk)
+│   │   │   ├── engine/             #   trading engine (8 types + pipeline + risk + OMS)
 │   │   │   ├── market/             #   loaders, store, feed
-│   │   │   ├── broker/             #   Binance, OKX, Futu gateways
-│   │   │   ├── portfolio/          #   sizing (EqualWeight/Kelly/RiskParity) + margin
+│   │   │   ├── broker/             #   Futu, Binance, OKX gateways
+│   │   │   ├── portfolio/          #   sizing (EqualWeight / Kelly / RiskParity) + margin
 │   │   │   ├── papertrade/         #   paper trading engine
 │   │   │   └── db/                 #   PostgreSQL + TimescaleDB + Redis
 │   │   └── Dockerfile
@@ -149,7 +189,7 @@ astockpursue/
 │   │   ├── mcp_server.py           #   MCP server (stdio/SSE)
 │   │   ├── src/
 │   │   │   ├── grpc/               #   gRPC servicers (6 services)
-│   │   │   ├── factors/            #   Alpha Zoo + GP mining engine
+│   │   │   ├── factors/            #   Alpha Zoo + GP evolution engine
 │   │   │   ├── agent/              #   ReAct agent loop
 │   │   │   ├── skills/             #   89 skill packs
 │   │   │   ├── workflow/           #   visual workflow engine
