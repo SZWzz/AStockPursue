@@ -13,6 +13,9 @@
 - [ML] Create `ModelRegistry` + `Evaluator` in `services/go/internal/ml/` -- SQLite-backed model persistence with CRUD operations, category/status filtering, and deterministic mock evaluation returning Sharpe/MaxDrawdown/WinRate/TotalReturn/IC/IR metrics (P5.1)
 - [Market] Create `NorthboundAdapter` in `services/go/internal/market/adapters/northbound.go` -- EastMoney northbound capital (北向资金) flow adapter with daily kline fetch (Close=total net inflow, Volume=cumulative), FetchTop10Active, and FetchSectorDistribution; no-auth, market CN (P6.2)
 - [Market] Create `IWenCaiAdapter` in `services/go/internal/market/adapters/iwencai.go` -- iWenCai (问财 AI 选股) natural language stock query adapter with Fetch (query as Symbol, returns stock matches as bars) and Query() method; no-auth, market CN, multi-format JSON response parsing (P6.2)
+- [Workflow] Add `DefaultRegistry` to `services/go/internal/workflow/registry.go` -- package-level singleton for node self-registration via init()
+- [Workflow] Create 7 Research workflow nodes in `services/go/internal/workflow/nodes/research.go` -- financials (FinancialsService.Analyze), geopolitics (GeopoliticsService.Analyze), northbound (NorthboundService.Analyze), news (NewsService.Analyze), sentiment (NewsService.Analyze sentiment-subset), analyst_estimates (mock placeholder), insider_trades (mock placeholder); all self-register via init() (P9 Batch 1)
+- [Workflow] Add tests in `services/go/internal/workflow/nodes/research_test.go` -- TestFinancialsNodeType, TestGeopoliticsNodeType, TestResearchNodes (P9 Batch 1)
 
 ### Changed
 - [Python] Migrate 22 TODO(P6) markers to Go REST API — workflow nodes (trading, thin, strategy), live_bridge, gp_engine now call Go HTTP endpoints instead of deleted Python modules

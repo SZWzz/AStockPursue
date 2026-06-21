@@ -17,6 +17,11 @@ type NodeMeta struct {
 	Category string `json:"category"`
 }
 
+// DefaultRegistry is the package-level registry used by node packages to
+// self-register via their init() functions.  It is initialised at startup
+// and consumed by the workflow Engine.
+var DefaultRegistry = NewRegistry()
+
 // NodeRegistry provides thread-safe registration and creation of workflow
 // nodes by type name.  Constructors are registered once at startup and
 // queried during workflow deserialisation or interactive node creation.
