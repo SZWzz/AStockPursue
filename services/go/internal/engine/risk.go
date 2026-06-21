@@ -3,9 +3,13 @@ package engine
 import "math"
 
 type RiskConfig struct {
-	StopLossPercent    float64
-	TakeProfitPercent  float64
+	StopLossPercent     float64
+	TakeProfitPercent   float64
 	TrailingStopPercent float64
+	DayLossLimit        float64 `json:"day_loss_limit"`
+	MaxPositionCount    int     `json:"max_position_count"`
+	MaxCorrelation      float64 `json:"max_correlation"`
+	VolatilityAdjust    bool    `json:"volatility_adjust"`
 }
 
 type RiskManager struct {
@@ -67,4 +71,35 @@ func (r *RiskManager) CheckExits(portfolio *Portfolio, bar interface{}) []*Order
 		}
 	}
 	return orders
+}
+
+func (rm *RiskManager) BlockNewSignals(pf *Portfolio) bool {
+	if rm.Config.DayLossLimit > 0 {
+		currentEquity := pf.TotalEquity()
+		if pf.InitialEquity-currentEquity >= rm.Config.DayLossLimit {
+			return true
+		}
+	}
+	if rm.Config.MaxPositionCount > 0 {
+		activeCount := 0
+		for _, pos := range pf.Positions {
+			if pos.Size > 0 {
+				activeCount++
+			}
+		}
+		if activeCount >= rm.Config.MaxPositionCount {
+			return true
+		}
+	}
+	return false
+}
+
+func (pf *Portfolio) TotalEquity() float64 {
+	total := pf.Cash
+	for _, pos := range pf.Positions {
+		if pos.Size > 0 {
+			total += pos.Size * pos.CurrentPrice
+		}
+	}
+	return total
 }

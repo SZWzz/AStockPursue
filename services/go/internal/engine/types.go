@@ -81,7 +81,8 @@ type Bar struct {
 }
 
 type Portfolio struct {
-	Positions map[string]*Position `json:"positions"`
-	Cash      float64              `json:"cash"`
-	Equity    float64              `json:"equity"`
+	Positions     map[string]*Position `json:"positions"`
+	Cash          float64              `json:"cash"`
+	Equity        float64              `json:"equity"`
+	InitialEquity float64              `json:"initial_equity"`
 }
