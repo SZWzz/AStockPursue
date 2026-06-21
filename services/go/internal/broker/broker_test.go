@@ -72,7 +72,7 @@ func TestBinanceBrokerPlaceOrder(t *testing.T) {
 			OrderID: 12345, Symbol: "BTCUSDT", Side: "BUY", Type: "MARKET",
 			Price: "0", OrigQty: "0.1", ExecutedQty: "0.1", AvgPrice: "45000", Status: "FILLED",
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	}))
 	defer server.Close()
 

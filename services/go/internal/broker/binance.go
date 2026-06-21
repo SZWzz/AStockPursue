@@ -229,7 +229,7 @@ func (b *BinanceBroker) sign(params url.Values) url.Values {
 	}
 	params.Set("timestamp", strconv.FormatInt(time.Now().UnixMilli(), 10))
 	mac := hmac.New(sha256.New, []byte(b.secretKey))
-	mac.Write([]byte(params.Encode()))
+	_, _ = mac.Write([]byte(params.Encode()))
 	params.Set("signature", hex.EncodeToString(mac.Sum(nil)))
 	return params
 }

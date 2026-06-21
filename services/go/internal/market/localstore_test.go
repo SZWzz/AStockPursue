@@ -45,7 +45,7 @@ func TestLocalStoreLoadWithDateFilter(t *testing.T) {
 		{Symbol: "600000", Open: 11.0, Close: 11.5, Volume: 2000000, Timestamp: time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC).UnixMilli(), Frequency: "1d"},
 		{Symbol: "600000", Open: 12.0, Close: 12.5, Volume: 3000000, Timestamp: time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC).UnixMilli(), Frequency: "1d"},
 	}
-	store.SaveBars("600000", "1d", bars)
+	_ = store.SaveBars("600000", "1d", bars)
 
 	// Only January data
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -78,8 +78,8 @@ func TestLocalStoreSaveDedup(t *testing.T) {
 		{Symbol: "600000", Open: 99.0, Close: 99.5, Timestamp: ts, Frequency: "1d"},
 	}
 
-	store.SaveBars("600000", "1d", bars1)
-	store.SaveBars("600000", "1d", bars2)
+	_ = store.SaveBars("600000", "1d", bars1)
+	_ = store.SaveBars("600000", "1d", bars2)
 
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 1, 10, 0, 0, 0, 0, time.UTC)
@@ -98,7 +98,7 @@ func TestLocalStoreSZSymbol(t *testing.T) {
 	bars := []*commonv1.Bar{
 		{Symbol: "000001", Open: 5.0, Close: 5.5, Volume: 500000, Timestamp: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC).UnixMilli(), Frequency: "1d"},
 	}
-	store.SaveBars("000001", "1d", bars)
+	_ = store.SaveBars("000001", "1d", bars)
 
 	expectedPath := filepath.Join(dir, "sz", "000001", "1d.jsonl")
 	assert.FileExists(t, expectedPath)
@@ -111,7 +111,7 @@ func TestLocalStoreBJSymbol(t *testing.T) {
 	bars := []*commonv1.Bar{
 		{Symbol: "430047", Open: 8.0, Close: 8.5, Volume: 200000, Timestamp: time.Date(2026, 1, 2, 0, 0, 0, 0, time.UTC).UnixMilli(), Frequency: "1d"},
 	}
-	store.SaveBars("430047", "1d", bars)
+	_ = store.SaveBars("430047", "1d", bars)
 
 	expectedPath := filepath.Join(dir, "bj", "430047", "1d.jsonl")
 	assert.FileExists(t, expectedPath)
@@ -142,7 +142,7 @@ func TestLocalStoreDelete(t *testing.T) {
 	bars := []*commonv1.Bar{
 		{Symbol: "600000", Open: 10.0, Close: 10.5, Timestamp: time.Now().UnixMilli(), Frequency: "1d"},
 	}
-	store.SaveBars("600000", "1d", bars)
+	_ = store.SaveBars("600000", "1d", bars)
 
 	err := store.DeleteBars("600000", "1d")
 	assert.NoError(t, err)
