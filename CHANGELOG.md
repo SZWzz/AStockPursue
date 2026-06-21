@@ -2,6 +2,9 @@
 
 ## [2026.6.21] - 2026-06-21
 
+### Added
+- [Market] Create `Adapter` interface in `services/go/internal/market/adapter.go` -- unified 5-method interface with context support, `FetchRequest` struct, and `Markets()`/`RequiresAuth()` methods
+
 ### Changed
 - [Python] Migrate 22 TODO(P6) markers to Go REST API — workflow nodes (trading, thin, strategy), live_bridge, gp_engine now call Go HTTP endpoints instead of deleted Python modules
 - [Python] Add `src/go_http.py` — lightweight HTTP client for Go REST API with X-API-Key auth
