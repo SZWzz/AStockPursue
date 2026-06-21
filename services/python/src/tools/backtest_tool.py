@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import json
 import logging
-from pathlib import Path
 
 from src.agent.progress import emit_progress
 from src.agent.tools import BaseTool
+from src.tools.path_utils import safe_run_dir
 
 logger = logging.getLogger(__name__)
 
@@ -31,9 +31,10 @@ def run_backtest(run_dir: str) -> str:
         JSON-formatted execution result.
     """
     emit_progress("validate", message="validating run_dir and config")
-    run_path = Path(run_dir).resolve()
-    if not run_path.is_dir():
-        return json.dumps({"status": "error", "error": f"run_dir does not exist: {run_dir}"}, ensure_ascii=False)
+    try:
+        run_path = safe_run_dir(run_dir)
+    except ValueError as exc:
+        return json.dumps({"status": "error", "error": str(exc)}, ensure_ascii=False)
 
     config_path = run_path / "config.json"
     if not config_path.exists():
