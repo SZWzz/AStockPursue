@@ -9,6 +9,8 @@
 - [Research] Create `NorthboundService` in `services/go/internal/research/northbound.go` -- A-share northbound capital flow monitoring with net_inflow_daily/weekly/monthly, cumulative_net_buy, top10_active_stocks, and sector_distribution; cache-first with deterministic mock fallback via hashFloat() (P4.5)
 - [Research] Create `NewsService` in `services/go/internal/research/news.go` -- multi-source news aggregation with overall_sentiment, sentiment_change, key_topics, source_count, and 7 deterministic mock articles per symbol; cache-first with mock fallback (P4.6)
 - [ML] Create `ModelRegistry` + `Evaluator` in `services/go/internal/ml/` -- SQLite-backed model persistence with CRUD operations, category/status filtering, and deterministic mock evaluation returning Sharpe/MaxDrawdown/WinRate/TotalReturn/IC/IR metrics (P5.1)
+- [Market] Create `NorthboundAdapter` in `services/go/internal/market/adapters/northbound.go` -- EastMoney northbound capital (北向资金) flow adapter with daily kline fetch (Close=total net inflow, Volume=cumulative), FetchTop10Active, and FetchSectorDistribution; no-auth, market CN (P6.2)
+- [Market] Create `IWenCaiAdapter` in `services/go/internal/market/adapters/iwencai.go` -- iWenCai (问财 AI 选股) natural language stock query adapter with Fetch (query as Symbol, returns stock matches as bars) and Query() method; no-auth, market CN, multi-format JSON response parsing (P6.2)
 
 ### Changed
 - [Python] Migrate 22 TODO(P6) markers to Go REST API — workflow nodes (trading, thin, strategy), live_bridge, gp_engine now call Go HTTP endpoints instead of deleted Python modules
