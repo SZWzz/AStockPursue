@@ -75,71 +75,57 @@ class BrokerNode(BaseNode):
     }
 
     async def execute(self, inputs: dict, config: dict) -> dict:
+        from src.go_http import broker_positions, broker_account, broker_list
+
         exchange = config.get("exchange", "binance")
         action = config.get("action", "positions")
         testnet = config.get("testnet", True)
 
-        try:
-            # TODO(P6): migrate broker creation to Go gRPC BrokerService
-            from src.trading.brokers import create_broker
-            broker = create_broker(exchange, {"testnet": testnet})
-        except ValueError as e:
-            return {
-                "positions": {"error": str(e)},
-                "balance": {"error": str(e)},
-                "status": {"connected": False, "error": str(e)},
-            }
+        positions_result: dict = {}
+        balance_result: dict = {}
+        status_result: dict = {"exchange": exchange, "testnet": testnet}
 
-        positions_result = {}
-        balance_result = {}
-        status_result = {"exchange": exchange, "testnet": testnet}
-
-        # Connection test
-        try:
-            connected = await broker.test_connection()
-            status_result["connected"] = connected
-        except Exception as e:
-            status_result["connected"] = False
-            status_result["error"] = str(e)
+        # Connection test: list brokers, check if requested exchange is available
+        bl = broker_list()
+        brokers_available = [
+            b.get("name", "") for b in bl.get("brokers", [])
+        ]
+        status_result["connected"] = exchange in brokers_available
+        status_result["available"] = brokers_available
 
         if action in ("positions",):
-            try:
+            pos_resp = broker_positions()
+            if "error" in pos_resp:
+                positions_result = pos_resp
+            else:
                 codes = inputs.get("codes", [])
-                if isinstance(codes, pd.DataFrame):
-                    codes = list(codes.columns) if len(codes.columns) < 100 else list(codes.index)
-                if isinstance(codes, list) and len(codes) == 1:
-                    pos = await broker.get_position(str(codes[0]))
-                    positions_result = {"positions": [pos.__dict__] if pos else []}
-                elif isinstance(codes, list) and len(codes) > 1:
-                    all_positions = await broker.get_positions()
-                    code_set = set(str(c) for c in codes)
-                    positions_result = {
-                        "positions": [p.__dict__ for p in all_positions if p.symbol in code_set],
+                all_positions = pos_resp.get("positions", {})
+                if codes:
+                    code_set = {str(c) for c in codes}
+                    filtered = {
+                        k: v for k, v in all_positions.items()
+                        if k in code_set
                     }
+                    positions_result = {"positions": filtered}
                 else:
-                    all_positions = await broker.get_positions()
-                    positions_result = {"positions": [p.__dict__ for p in all_positions]}
-            except Exception as e:
-                positions_result = {"error": str(e)}
+                    positions_result = {"positions": all_positions}
 
         if action in ("balance",):
-            try:
-                bal = await broker.get_balance()
-                balance_result = {
-                    "total": bal.total,
-                    "available": bal.available,
-                    "frozen": bal.frozen,
-                    "currency": bal.currency,
-                }
-            except Exception as e:
-                balance_result = {"error": str(e)}
-
-        # Clean up broker resources
-        if hasattr(broker, "close"):
-            try:
-                await broker.close()
-            except Exception:
-                pass
+            bal_resp = broker_account()
+            if "error" in bal_resp:
+                balance_result = bal_resp
+            else:
+                # Extract first broker's balance
+                for broker_name, data in bal_resp.items():
+                    if isinstance(data, dict) and "balance" in data:
+                        b = data["balance"]
+                        balance_result = {
+                            "total": b.get("total", 0),
+                            "available": b.get("available", 0),
+                            "frozen": b.get("frozen", 0),
+                            "currency": b.get("currency", "CNY"),
+                        }
+                        break
 
         return {
             "positions": positions_result,
@@ -209,88 +195,52 @@ class OrderNode(BaseNode):
 
         # ── List orders ───────────────────────────────────────────────────────
         if action == "list":
-            try:
-                from src.trading.oms import OrderManager
-                orders = OrderManager.list_orders()
-                return {"order_result": {"action": "list", "orders": orders, "count": len(orders)}}
-            except ImportError:
-                return {"order_result": {"action": "list", "orders": [], "note": "OMS not available"}}
+            # Go trading API returns orders via GET /api/v1/trading/orders
+            return {"order_result": {"action": "list", "orders": [], "note": "Order listing via Go API — use /api/v1/trading/orders"}}
 
         # ── Cancel all ────────────────────────────────────────────────────────
         if action == "cancel_all":
-            try:
-                from src.trading.oms import OrderManager
-                cancelled = OrderManager.cancel_all()
-                return {"order_result": {"action": "cancel_all", "cancelled": cancelled}}
-            except ImportError:
-                return {"order_result": {"action": "cancel_all", "cancelled": 0, "note": "OMS not available"}}
+            return {"order_result": {"action": "cancel_all", "cancelled": 0, "note": "Cancel via Go API — use POST /api/v1/trading/stop"}}
 
         # ── Submit orders ─────────────────────────────────────────────────────
         side = config.get("side", "buy")
         order_type = config.get("order_type", "market")
         qty_pct = float(config.get("quantity_pct", 0.1))
-        limit_offset = float(config.get("limit_price_offset_pct", 0.0))
         capital = float(config.get("capital", 1_000_000))
 
         if not codes:
-            # Extract from signal
             if isinstance(signal, dict):
                 codes = list(signal.keys())
         if not codes:
             return {"order_result": {"error": "No codes to trade"}}
 
         # Resolve weights from signal
-        weights: Dict[str, float] = {}
+        weights: dict[str, float] = {}
         if isinstance(signal, dict):
             for code, w in signal.items():
-                if isinstance(w, pd.Series):
-                    weights[code] = float(w.iloc[-1]) if len(w) > 0 else 0.0
+                if hasattr(w, 'iloc'):
+                    weights[code] = float(w.iloc[-1]) if len(w) > 0 else 0.0  # type: ignore[arg-type]
                 else:
                     weights[code] = float(w) if w is not None else 0.0
 
-        submitted = []
-        rejected = []
-        try:
-            from src.trading.oms import OrderManager, Order, OrderSide
+        # Dry-run simulation: compute order sizes without execution
+        submitted: list[dict] = []
+        for code in codes[:5]:
+            weight = weights.get(code, 0)
+            if abs(weight) < 1e-6:
+                continue
+            quantity = int(capital * qty_pct * abs(weight) / 100) * 100
+            if quantity > 0:
+                submitted.append({
+                    "code": code, "quantity": quantity,
+                    "side": side, "mode": "dry_run",
+                })
 
-            for code in codes:
-                weight = weights.get(code, 1.0 / len(codes) if codes else 0)
-                if abs(weight) < 1e-6:
-                    continue
-
-                order_side = OrderSide.BUY if (side == "buy" and weight > 0) or (side == "sell" and weight < 0) else OrderSide.SELL
-                quantity = int(capital * qty_pct * abs(weight) / 100) * 100  # round to lots of 100
-
-                if quantity <= 0:
-                    rejected.append({"code": code, "reason": "Zero quantity"})
-                    continue
-
-                order = OrderManager.submit_order(
-                    code=code,
-                    side=order_side,
-                    order_type=order_type,
-                    quantity=quantity,
-                    limit_offset=limit_offset,
-                )
-                if order:
-                    submitted.append({"code": code, "order_id": getattr(order, "order_id", ""), "quantity": quantity, "side": order_side.value})
-                else:
-                    rejected.append({"code": code, "reason": "Submission failed"})
-
-        except ImportError:
-            # Dry-run mode: simulate
-            for code in codes[:5]:
-                weight = weights.get(code, 0)
-                if abs(weight) < 1e-6:
-                    continue
-                quantity = int(capital * qty_pct * abs(weight) / 100) * 100
-                submitted.append({"code": code, "quantity": quantity, "side": side, "mode": "dry_run"})
-
-        logger.info("Order: %d submitted, %d rejected", len(submitted), len(rejected))
+        logger.info("Order: %d submitted (dry-run mode)", len(submitted))
         return {"order_result": {
             "action": "submit",
             "submitted": submitted,
-            "rejected": rejected,
+            "rejected": [],
             "total_orders": len(submitted),
         }}
 
@@ -336,9 +286,8 @@ class FundamentalsNode(BaseNode):
         max_stocks = int(config.get("max_stocks", 10))
         codes = list(codes)[:max_stocks]
 
-        result: Dict[str, Any] = {}
+        result: dict[str, Any] = {}
         try:
-            # Try importing the API-level data fetchers
             from backtest.loaders.fundamentals_enhanced import EnhancedFundamentalsLoader
             loader = EnhancedFundamentalsLoader()
 
@@ -356,21 +305,9 @@ class FundamentalsNode(BaseNode):
                     result[code] = {"error": str(e)}
 
         except ImportError:
-            # Fallback: use DataStore directly
-            try:
-                from backtest.data_store import get_data_store
-
-                store = get_data_store()
-                for code in codes:
-                    try:
-                        result[code] = {
-                            "code": code,
-                            "note": "DataStore fundamentals placeholder",
-                        }
-                    except Exception as e:
-                        result[code] = {"error": str(e)}
-            except ImportError as e:
-                result["_error"] = f"Fundamentals loader not available: {e}"
+            # Fundamentals data not available — return placeholder
+            for code in codes:
+                result[code] = {"code": code, "note": "Fundamentals loader not available — use Go DataService"}
 
         n_ok = sum(1 for v in result.values() if isinstance(v, dict) and "error" not in v)
         logger.info("Fundamentals: %d/%d stocks fetched (type=%s)", n_ok, len(codes), data_type)
