@@ -2,8 +2,17 @@
 
 ## [2026.6.21] - 2026-06-21
 
+### Changed
+- [Python] Migrate 22 TODO(P6) markers to Go REST API — workflow nodes (trading, thin, strategy), live_bridge, gp_engine now call Go HTTP endpoints instead of deleted Python modules
+- [Python] Add `src/go_http.py` — lightweight HTTP client for Go REST API with X-API-Key auth
+
 ### Fixed
-- [Python] Replace deleted FutuBroker imports in live_bridge.py with go_http calls — `_check_broker` uses `go_http.broker_list()`, `_check_balance` uses `go_http.broker_account()`
+- [Python] Fix strategy_nodes Go API field mapping — use "ids" key for list, unwrap {id, result} envelope for backtest results
+- [Python] Fix gp_engine fallback data fetching — full universe data now loaded when fallback source is found
+- [Python] Fix thin_nodes unused `duration` variable — now passes configured value to Timedelta
+
+### Removed
+- [Python] Delete `src/trading/` stub package — all 22 consumers migrated to Go HTTP
 
 ## [2026.6.20] - 2026-06-20
 

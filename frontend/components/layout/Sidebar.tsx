@@ -7,7 +7,7 @@ import { navGroups } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 import { useTranslations } from 'next-intl'
 
-export const APP_VERSION = 'v2026.6.20'
+export const APP_VERSION = 'v2026.6.21'
 
 export function Sidebar() {
   const pathname = usePathname()
