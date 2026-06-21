@@ -8,7 +8,9 @@ type RiskConfig struct {
 	TrailingStopPercent float64
 	DayLossLimit        float64 `json:"day_loss_limit"`
 	MaxPositionCount    int     `json:"max_position_count"`
+	// TODO(P3): wire MaxCorrelation into BlockNewSignals (Pearson check)
 	MaxCorrelation      float64 `json:"max_correlation"`
+	// TODO(P3): wire VolatilityAdjust into position sizing (Kelly formula)
 	VolatilityAdjust    bool    `json:"volatility_adjust"`
 }
 

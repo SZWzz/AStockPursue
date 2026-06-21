@@ -100,8 +100,9 @@ func (pf *Portfolio) Snapshot() *Portfolio {
 		positions[k] = &copy
 	}
 	return &Portfolio{
-		Cash:      pf.Cash,
-		Equity:    pf.Equity,
-		Positions: positions,
+		Cash:          pf.Cash,
+		Equity:        pf.Equity,
+		InitialEquity: pf.InitialEquity,
+		Positions:     positions,
 	}
 }

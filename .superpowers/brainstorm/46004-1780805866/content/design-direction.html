@@ -1,0 +1,141 @@
+<h2>AStockPursue — OLED Trading Terminal 设计方向</h2>
+<p class="subtitle">四个关键设计决策的可视化预览</p>
+
+<div class="section">
+  <h3>1. 配色系统 — 品牌橙 × OLED 深黑</h3>
+  <div style="background:#020617;border-radius:12px;padding:24px;font-family:'Fira Sans',sans-serif">
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="width:80px;height:80px;border-radius:10px;background:#020617;border:1px solid #1E293B" title="Background #020617"></div>
+      <div style="width:80px;height:80px;border-radius:10px;background:#0F172A;border:1px solid #1E293B" title="Surface #0F172A"></div>
+      <div style="width:80px;height:80px;border-radius:10px;background:#1A1E2F;border:1px solid #334155" title="Card #1A1E2F"></div>
+      <div style="width:80px;height:80px;border-radius:10px;background:#272F42;border:1px solid #334155" title="Muted #272F42"></div>
+      <div style="width:80px;height:80px;border-radius:10px;background:#FB923C;border:1px solid #FB923C" title="Primary #FB923C"></div>
+      <div style="width:80px;height:80px;border-radius:10px;background:#22C55E;border:1px solid #22C55E" title="Up/Profit #22C55E"></div>
+      <div style="width:80px;height:80px;border-radius:10px;background:#EF4444;border:1px solid #EF4444" title="Down/Loss #EF4444"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;font-size:12px;color:#94A3B8">
+      <span>bg #020617</span><span style="color:#475569">|</span>
+      <span>surface #0F172A</span><span style="color:#475569">|</span>
+      <span>card #1A1E2F</span><span style="color:#475569">|</span>
+      <span>muted #272F42</span><span style="color:#475569">|</span>
+      <span style="color:#FB923C">primary #FB923C</span><span style="color:#475569">|</span>
+      <span style="color:#22C55E">up #22C55E</span><span style="color:#475569">|</span>
+      <span style="color:#EF4444">down #EF4444</span>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>2. 字体 — Fira Sans + Fira Code</h3>
+  <div style="background:#020617;border-radius:12px;padding:24px;font-family:'Fira Sans',sans-serif;color:#F8FAFC">
+    <p style="font-family:'Fira Sans';font-size:24px;font-weight:700;margin:0 0 4px 0">Fira Sans Bold — 页面标题与 KPI 数字</p>
+    <p style="font-family:'Fira Sans';font-size:16px;font-weight:500;margin:0 0 4px 0;color:#FB923C">Fira Sans Medium — 板块标题与导航</p>
+    <p style="font-family:'Fira Sans';font-size:14px;font-weight:400;margin:0 0 12px 0;color:#94A3B8">Fira Sans Regular — 正文、描述、标签</p>
+    <p style="font-family:'Fira Code';font-size:14px;font-weight:500;margin:0 0 4px 0;color:#22C55E">Fira Code 500 — 价格 12,345.67 +8.32% ↑</p>
+    <p style="font-family:'Fira Code';font-size:12px;font-weight:400;margin:0;color:#64748B">Fira Code 400 — 辅助数据 | 表格数字 | 时间戳 | 2026-06-07 14:35:22</p>
+  </div>
+</div>
+
+<div class="section">
+  <h3>3. KPI 卡片 — Data-Dense 密度</h3>
+  <div style="background:#0F172A;border-radius:12px;padding:16px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;font-family:'Fira Sans','Fira Code',sans-serif">
+    <div style="background:#1A1E2F;border:1px solid #272F42;border-radius:8px;padding:12px">
+      <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Portfolio Value</div>
+      <div style="font-family:'Fira Code';font-size:20px;font-weight:700;color:#F8FAFC;margin-bottom:2px">¥1,234,567</div>
+      <div style="font-family:'Fira Code';font-size:12px;color:#22C55E">+2.34% ↑</div>
+    </div>
+    <div style="background:#1A1E2F;border:1px solid #272F42;border-radius:8px;padding:12px">
+      <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Daily P&L</div>
+      <div style="font-family:'Fira Code';font-size:20px;font-weight:700;color:#22C55E;margin-bottom:2px">+¥28,450</div>
+      <div style="font-family:'Fira Code';font-size:12px;color:#22C55E">+1.82% ↑</div>
+    </div>
+    <div style="background:#1A1E2F;border:1px solid #272F42;border-radius:8px;padding:12px">
+      <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Open Positions</div>
+      <div style="font-family:'Fira Code';font-size:20px;font-weight:700;color:#F8FAFC;margin-bottom:2px">8</div>
+      <div style="font-family:'Fira Code';font-size:12px;color:#94A3B8">3 long · 5 short</div>
+    </div>
+    <div style="background:#1A1E2F;border:1px solid #272F42;border-radius:8px;padding:12px">
+      <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">Win Rate (30D)</div>
+      <div style="font-family:'Fira Code';font-size:20px;font-weight:700;color:#FB923C;margin-bottom:2px">64.7%</div>
+      <div style="font-family:'Fira Code';font-size:12px;color:#22C55E">↑ 3.2% vs prev</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>4. 迷你仪表盘预览 — 综合效果</h3>
+  <div style="background:#020617;border-radius:12px;padding:16px;font-family:'Fira Sans','Fira Code',sans-serif">
+    <!-- Top bar -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:0 0 12px 0;border-bottom:1px solid #1E293B;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="color:#FB923C;font-weight:700;font-size:16px">◆</span>
+        <span style="color:#F8FAFC;font-weight:600;font-size:14px">AStockPursue</span>
+      </div>
+      <div style="display:flex;gap:6px;font-size:12px">
+        <span style="color:#FB923C;border-bottom:2px solid #FB923C;padding-bottom:4px">Dashboard</span>
+        <span style="color:#64748B;padding-bottom:4px">Trading</span>
+        <span style="color:#64748B;padding-bottom:4px">Strategy</span>
+        <span style="color:#64748B;padding-bottom:4px">Factors</span>
+        <span style="color:#64748B;padding-bottom:4px">Agent</span>
+      </div>
+    </div>
+    <!-- Content grid -->
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px">
+      <!-- Chart area -->
+      <div style="background:#0F172A;border:1px solid #1E293B;border-radius:8px;padding:12px;min-height:180px;position:relative">
+        <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">000001.SZ — 平安银行 · 1D</div>
+        <!-- Fake chart -->
+        <svg width="100%" height="120" viewBox="0 0 400 120" style="margin-bottom:8px">
+          <polyline points="0,100 30,110 60,80 90,90 120,60 150,70 180,40 210,50 240,20 270,30 300,10 330,0 360,15 400,8" fill="none" stroke="#FB923C" stroke-width="1.5"/>
+          <polyline points="0,105 30,112 60,90 90,95 120,70 150,78 180,55 210,60 240,38 270,42 300,25 330,18 360,28 400,22" fill="none" stroke="#334155" stroke-width="1"/>
+        </svg>
+        <div style="display:flex;gap:16px;font-size:12px">
+          <span style="font-family:'Fira Code';color:#F8FAFC;font-weight:600">¥15.82</span>
+          <span style="font-family:'Fira Code';color:#22C55E">+3.47%</span>
+          <span style="font-family:'Fira Code';color:#94A3B8">Vol 125.6M</span>
+        </div>
+      </div>
+      <!-- Watchlist -->
+      <div style="background:#0F172A;border:1px solid #1E293B;border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Watchlist</div>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+          <div style="display:flex;justify-content:space-between;font-family:'Fira Code';color:#F8FAFC"><span>600519.SH</span><span style="color:#22C55E">+1.2%</span></div>
+          <div style="display:flex;justify-content:space-between;font-family:'Fira Code';color:#F8FAFC"><span>000858.SZ</span><span style="color:#EF4444">-0.8%</span></div>
+          <div style="display:flex;justify-content:space-between;font-family:'Fira Code';color:#F8FAFC"><span>300750.SZ</span><span style="color:#22C55E">+4.1%</span></div>
+          <div style="display:flex;justify-content:space-between;font-family:'Fira Code';color:#F8FAFC"><span>601318.SH</span><span style="color:#22C55E">+0.3%</span></div>
+          <div style="display:flex;justify-content:space-between;font-family:'Fira Code';color:#F8FAFC"><span>000001.SZ</span><span style="color:#EF4444">-2.1%</span></div>
+          <div style="display:flex;justify-content:space-between;font-family:'Fira Code';color:#F8FAFC"><span>002594.SZ</span><span style="color:#22C55E">+5.6%</span></div>
+        </div>
+      </div>
+    </div>
+    <!-- Order panel bottom -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+      <div style="background:#0F172A;border:1px solid #1E293B;border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Open Positions</div>
+        <table style="width:100%;font-size:12px;border-collapse:collapse">
+          <tr style="color:#64748B;font-size:10px;text-transform:uppercase"><th style="text-align:left;font-weight:500;padding-bottom:6px">Symbol</th><th style="text-align:right;font-weight:500;padding-bottom:6px">Size</th><th style="text-align:right;font-weight:500;padding-bottom:6px">PnL</th></tr>
+          <tr style="font-family:'Fira Code';color:#F8FAFC"><td style="padding:3px 0">000001.SZ</td><td style="text-align:right">10,000</td><td style="text-align:right;color:#22C55E">+¥4,200</td></tr>
+          <tr style="font-family:'Fira Code';color:#F8FAFC"><td style="padding:3px 0">600519.SH</td><td style="text-align:right">500</td><td style="text-align:right;color:#EF4444">-¥1,800</td></tr>
+        </table>
+      </div>
+      <div style="background:#0F172A;border:1px solid #1E293B;border-radius:8px;padding:12px">
+        <div style="font-size:11px;color:#64748B;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">Recent Signals</div>
+        <div style="display:flex;flex-direction:column;gap:4px">
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px"><span style="width:6px;height:6px;border-radius:50%;background:#22C55E;display:inline-block"></span><span style="font-family:'Fira Code';color:#F8FAFC">BUY 300750.SZ</span><span style="font-family:'Fira Code';color:#64748B;margin-left:auto">14:35:22</span></div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px"><span style="width:6px;height:6px;border-radius:50%;background:#EF4444;display:inline-block"></span><span style="font-family:'Fira Code';color:#F8FAFC">SELL 002594.SZ</span><span style="font-family:'Fira Code';color:#64748B;margin-left:auto">14:32:15</span></div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px"><span style="width:6px;height:6px;border-radius:50%;background:#22C55E;display:inline-block"></span><span style="font-family:'Fira Code';color:#F8FAFC">BUY 000858.SZ</span><span style="font-family:'Fira Code';color:#64748B;margin-left:auto">14:28:07</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>设计决策汇总</h3>
+  <table style="width:100%;font-size:13px;border-collapse:collapse">
+    <tr style="border-bottom:1px solid #334155"><td style="padding:8px 12px;color:#64748B;width:160px">范围</td><td style="padding:8px 12px;color:#F8FAFC;font-weight:600">全面重设计</td></tr>
+    <tr style="border-bottom:1px solid #334155"><td style="padding:8px 12px;color:#64748B">模式</td><td style="padding:8px 12px;color:#F8FAFC;font-weight:600">纯暗色 OLED（#020617 基底）</td></tr>
+    <tr style="border-bottom:1px solid #334155"><td style="padding:8px 12px;color:#64748B">品牌色</td><td style="padding:8px 12px;color:#FB923C;font-weight:600">保留橙色 #FB923C（进化非革命）</td></tr>
+    <tr style="border-bottom:1px solid #334155"><td style="padding:8px 12px;color:#64748B">字体</td><td style="padding:8px 12px;color:#F8FAFC;font-weight:600">Fira Sans（正文）+ Fira Code（数据/代码）</td></tr>
+  </table>
+</div>
