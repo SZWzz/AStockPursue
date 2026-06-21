@@ -18,5 +18,5 @@ type Service interface {
 	Name() string
 	Analyze(ctx context.Context, symbol string, params map[string]any) (map[string]any, error)
 	History(ctx context.Context, symbol string, days int) ([]DataPoint, error)
-	IsAvailable(ctx context.Context) bool
+	IsAvailable() bool
 }

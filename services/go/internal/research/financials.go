@@ -59,8 +59,8 @@ func (s *FinancialsService) History(ctx context.Context, symbol string, days int
 	return s.repo.GetCategory(symbol, "financials")
 }
 
-func (s *FinancialsService) IsAvailable(ctx context.Context) bool {
-	return true // mock always available
+func (s *FinancialsService) IsAvailable() bool {
+	return false
 }
 
 func (s *FinancialsService) mockFinancials(symbol string) map[string]float64 {

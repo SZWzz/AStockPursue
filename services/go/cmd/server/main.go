@@ -126,7 +126,7 @@ func main() {
 		"financials":  research.NewFinancialsService(nil, nil),
 		"geopolitics": research.NewGeopoliticsService(nil, nil),
 		"northbound":  research.NewNorthboundService(nil, nil),
-		"news":        research.NewNewsService(nil, nil),
+		"news":        research.NewNewsRealService(&http.Client{Timeout: 10 * time.Second}, nil),
 	}
 	researchH := handler.NewResearchHandler(researchServices)
 

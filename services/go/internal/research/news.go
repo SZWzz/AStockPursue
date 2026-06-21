@@ -118,9 +118,9 @@ func (s *NewsService) History(ctx context.Context, symbol string, days int) ([]D
 	return s.repo.GetCategory(symbol, "news")
 }
 
-// IsAvailable always returns true because the mock fallback is always ready.
-func (s *NewsService) IsAvailable(ctx context.Context) bool {
-	return true
+// IsAvailable returns false (mock data is disabled, use NewsRealService instead).
+func (s *NewsService) IsAvailable() bool {
+	return false
 }
 
 // ---------- private helpers ----------

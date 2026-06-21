@@ -102,9 +102,9 @@ func (s *NorthboundService) History(ctx context.Context, symbol string, days int
 	return s.repo.GetCategory(symbol, "northbound")
 }
 
-// IsAvailable always returns true because the mock fallback is always ready.
-func (s *NorthboundService) IsAvailable(ctx context.Context) bool {
-	return true
+// IsAvailable returns false (mock data is disabled).
+func (s *NorthboundService) IsAvailable() bool {
+	return false
 }
 
 // ---------- private helpers ----------

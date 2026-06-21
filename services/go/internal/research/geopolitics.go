@@ -161,9 +161,9 @@ func (s *GeopoliticsService) Analyze(ctx context.Context, symbol string, params 
 func (s *GeopoliticsService) History(ctx context.Context, symbol string, days int) ([]DataPoint, error) {
 	return s.repo.GetCategory("", "geopolitics")
 }
-// IsAvailable always returns true because the mock fallback is always ready.
-func (s *GeopoliticsService) IsAvailable(ctx context.Context) bool {
-	return true
+// IsAvailable returns false (mock data is disabled).
+func (s *GeopoliticsService) IsAvailable() bool {
+	return false
 }
 // ---------- private helpers ----------
 // assessment holds the computed risk values for a single topic.
