@@ -1,0 +1,10 @@
+run:
+  go: "1.25"
+  tests: false
+
+issues:
+  exclude-rules:
+    # Generated protobuf stubs
+    - path: internal/gen/
+      linters:
+        - all
