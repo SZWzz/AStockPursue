@@ -287,52 +287,46 @@ class GPEvolution:
             # keeps ~3 months), walk the fallback chain to find a source
             # with better coverage.  Without this, the train panel ends up
             # empty and all individuals get fitness=0.
-            # TODO(P5-task8): This uses the loader registry for bulk multi-symbol
-            # fetch with fallback-chain walking and coverage checking —
-            # significantly more complex than a single fetch_bars() call.
-            # Migrate when DataService supports bulk fetch + fallback chains.
-            # TODO(P6): migrate data coverage check to Go gRPC DataService
-            from backtest.loaders.registry import (
-                FALLBACK_CHAINS, LOADER_REGISTRY, _ensure_registered,
-            )
-            try:
-                from backtest.runner import _data_covers_range, _detect_market
-            except ImportError:
-                _data_covers_range = lambda dm, start: True  # noqa: E731
-                _detect_market = lambda sym: "equity_cn"  # noqa: E731
+            # Use existing data_client.fetch_bars for coverage check
+            # instead of the deleted backtest.loaders.registry
+            from src.grpc.data_client import fetch_bars
 
-            _ensure_registered()
-            needs_fallback = not _data_covers_range(data_map, train_start)
+            def _detect_market(sym: str) -> str:
+                code = sym.strip().upper().replace(".SH", "").replace(".SZ", "")
+                if code.startswith("6") or code.startswith("0") or code.startswith("3"):
+                    return "equity_cn"
+                return "equity_us"
+
+            # Check coverage by trying to fetch a small amount of data
+            sample = fetch_bars(
+                symbol=universe[0],
+                start_date=train_start.strftime("%Y-%m-%d"),
+                end_date=train_start.strftime("%Y-%m-%d"),
+                source="auto",
+                frequency="1d",
+            )
+            needs_fallback = len(sample) == 0
+
             if needs_fallback and universe:
+                # Try alternate sources
                 market = _detect_market(universe[0])
-                for fb_name in FALLBACK_CHAINS.get(market, []):
-                    if fb_name not in LOADER_REGISTRY:
-                        continue
-                    try:
-                        fb_loader = LOADER_REGISTRY[fb_name]()
-                    except (ImportError, ModuleNotFoundError, TypeError, ValueError):
-                        continue
-                    if not fb_loader.is_available():
-                        continue
-                    try:
-                        fb_data_map = fb_loader.fetch(
-                            universe, full_start, full_end, interval="1D",
-                        )
-                    except (ValueError, KeyError, IOError, OSError, RuntimeError):
-                        continue
-                    if fb_data_map and _data_covers_range(fb_data_map, train_start):
-                        logger.info(
-                            "GP data: switched from primary to %s (better coverage)", fb_name,
-                        )
-                        data_map = fb_data_map
-                        break
-                    elif fb_data_map and not data_map:
-                        data_map = fb_data_map
-                if needs_fallback and not _data_covers_range(data_map, train_start):
-                    logger.warning(
-                        "GP data: all sources have insufficient coverage for train_start=%s. "
-                        "Train panel may be empty.", train_start,
+                _FALLBACK_SOURCES = {
+                    "equity_cn": ["mootdx", "tushare", "akshare"],
+                    "equity_us": ["yfinance", "akshare"],
+                    "equity_hk": ["yfinance", "akshare"],
+                    "crypto": ["ccxt", "okx"],
+                }
+                for fb_name in _FALLBACK_SOURCES.get(market, []):
+                    sample = fetch_bars(
+                        symbol=universe[0],
+                        start_date=train_start.strftime("%Y-%m-%d"),
+                        end_date=train_start.strftime("%Y-%m-%d"),
+                        source=fb_name,
+                        frequency="1d",
                     )
+                    if sample:
+                        needs_fallback = False
+                        break
 
             # Build panel: {col_name -> wide DataFrame}
             panels: dict[str, dict[str, pd.DataFrame]] = {"train": {}, "test": {}}
