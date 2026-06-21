@@ -28,8 +28,7 @@ from queue import Empty, Queue
 import pytest
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
-AGENT_DIR = REPO_ROOT / "services" / "python"
+AGENT_DIR = Path(__file__).resolve().parents[1]
 
 # Generous bound — covers cold imports of fastmcp + tool registry build on
 # slow CI runners. The patched server typically finishes initialize in 3-9s.
