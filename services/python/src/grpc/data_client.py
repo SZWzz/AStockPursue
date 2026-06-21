@@ -9,6 +9,8 @@ import ``fetch_bars`` from here instead.
 from __future__ import annotations
 
 import logging
+import random
+import time
 from typing import Any
 
 import grpc
@@ -16,6 +18,58 @@ import grpc
 from src.gen import data_pb2, data_pb2_grpc
 
 logger = logging.getLogger(__name__)
+
+
+def _is_transient_grpc_error(exc: Exception) -> bool:
+    """判断 gRPC 错误是否可重试（网络抖动 vs 业务错误）。"""
+    if isinstance(exc, grpc.RpcError):
+        code = exc.code()
+        return code in (
+            grpc.StatusCode.UNAVAILABLE,
+            grpc.StatusCode.DEADLINE_EXCEEDED,
+            grpc.StatusCode.RESOURCE_EXHAUSTED,
+            grpc.StatusCode.INTERNAL,  # 可能是临时性内部错误
+        )
+    return True  # 非 gRPC 异常（连接错误）也重试
+
+
+def _retry_with_backoff(
+    fn,
+    max_retries: int = 3,
+    base_delay: float = 0.1,
+) -> Any:
+    """带线性退避 + jitter 的重试调用。
+
+    Args:
+        fn: 无参可调用对象（已经部分应用的 gRPC 调用）。
+        max_retries: 最大重试次数（总调用次数 = max_retries + 1）。
+        base_delay: 基础延迟秒数，第 N 次重试延迟 = base_delay * N + jitter。
+
+    Returns:
+        fn() 的返回值。
+
+    Raises:
+        最后一次尝试的异常（如果所有重试都失败）。
+    """
+    last_exc = None
+    for attempt in range(max_retries + 1):
+        try:
+            return fn()
+        except Exception as exc:
+            last_exc = exc
+            if attempt == max_retries:
+                break
+            if not _is_transient_grpc_error(exc):
+                raise
+            jitter = random.uniform(0, base_delay * (attempt + 1) * 0.5)
+            delay = base_delay * (attempt + 1) + jitter
+            logger.debug(
+                "Retry attempt %d/%d after %.2fs: %s",
+                attempt + 1, max_retries, delay, exc,
+            )
+            time.sleep(delay)
+    raise last_exc  # type: ignore[misc]
+
 
 _data_client: data_pb2_grpc.DataServiceStub | None = None
 
@@ -65,12 +119,13 @@ def fetch_bars(
         frequency=frequency,
     )
     try:
-        resp = client.FetchBars(req, timeout=30)
-    except grpc.RpcError as exc:
-        logger.debug("FetchBars gRPC call failed for %s: %s", symbol, exc)
-        return []
-    except Exception:
-        logger.debug("FetchBars unexpected error for %s", symbol, exc_info=True)
+        resp = _retry_with_backoff(
+            lambda: client.FetchBars(req, timeout=30),
+            max_retries=3,
+            base_delay=0.1,
+        )
+    except Exception as exc:
+        logger.debug("FetchBars gRPC call failed for %s after retries: %s", symbol, exc)
         return []
 
     if resp.error:
@@ -125,6 +180,8 @@ def fetch_bars_bulk(
             frequency=frequency,
         )
         if not bars:
+            if len(symbols) > 1:
+                time.sleep(0.05)  # 50ms 间隔，避免重试风暴
             continue
         df = pd.DataFrame(bars)
         if "timestamp" in df.columns:

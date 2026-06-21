@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 import logging
 import os
+import random
+import time
 import urllib.error
 import urllib.request
 from typing import Any
@@ -17,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 GO_BASE = os.environ.get("GO_API_URL", "http://localhost:8899").rstrip("/")
 GO_API_KEY = os.environ.get("GO_API_KEY", "")
+_http_retries = int(os.environ.get("GO_HTTP_RETRIES", "2"))
 
 
 def _request(
@@ -37,21 +40,33 @@ def _request(
     if GO_API_KEY:
         req.add_header("X-API-Key", GO_API_KEY)
 
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read()
-            return json.loads(raw) if raw else {}
-    except urllib.error.HTTPError as exc:
+    for attempt in range(_http_retries + 1):
         try:
-            detail = json.loads(exc.read())
-            msg = detail.get("error", exc.reason)
-        except Exception:
-            msg = exc.reason
-        logger.warning("Go API HTTP %s %s: %s", exc.code, path, msg)
-        return {"error": f"HTTP {exc.code}: {msg}"}
-    except Exception as exc:
-        logger.warning("Go API error %s: %s", path, exc)
-        return {"error": str(exc)}
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                raw = resp.read()
+                return json.loads(raw) if raw else {}
+        except urllib.error.HTTPError as exc:
+            if 500 <= exc.code < 600 and attempt < _http_retries:
+                time.sleep(0.1 * (attempt + 1))
+                continue
+            # 非 5xx 或已耗尽重试次数，走原有错误处理
+            try:
+                detail = json.loads(exc.read())
+                msg = detail.get("error", exc.reason)
+            except Exception:
+                msg = exc.reason
+            logger.warning("Go API HTTP %s %s: %s", exc.code, path, msg)
+            return {"error": f"HTTP {exc.code}: {msg}"}
+        except (urllib.error.URLError, OSError) as exc:
+            if attempt < _http_retries:
+                delay = 0.1 * (attempt + 1) + random.uniform(0, 0.05)
+                time.sleep(delay)
+                continue
+            logger.warning("Go API error %s: %s", path, exc)
+            return {"error": str(exc)}
+        except Exception as exc:
+            logger.warning("Go API error %s: %s", path, exc)
+            return {"error": str(exc)}
 
 
 def broker_list() -> dict[str, Any]:
