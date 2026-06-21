@@ -131,8 +131,11 @@ func (h *SettingsHandler) Reset(c *gin.Context) {
 	userID := h.getUserID(c)
 
 	if h.db != nil {
-		h.db.Exec(c.Request.Context(),
-			`DELETE FROM user_settings WHERE user_id = $1`, userID)
+		if _, err := h.db.Exec(c.Request.Context(),
+			`DELETE FROM user_settings WHERE user_id = $1`, userID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to reset settings"})
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{"user_id": userID, "reset": true})
