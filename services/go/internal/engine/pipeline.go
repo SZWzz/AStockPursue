@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type SignalAdapter interface {
+type SignalGenerator interface {
 	Generate(bars []interface{}, ts time.Time) (map[string]float64, error)
 }
 
@@ -17,7 +17,7 @@ type RiskPipeline interface {
 type Pipeline struct {
 	Engine      Engine
 	Portfolio   *Portfolio
-	Signal      SignalAdapter
+	Signal      SignalGenerator
 	Risk        RiskPipeline
 	OM          *OrderManager
 	LastBars    map[string]interface{}
@@ -37,20 +37,11 @@ func (p *Pipeline) OnBar(bar interface{}, ts time.Time) {
 
 	p.checkSuspension(b)
 
-	var weights map[string]float64
-	var err error
-	if p.Signal != nil {
-		weights, err = p.Signal.Generate(p.barWindow(), ts)
-		if err != nil {
-			log.Printf("signal error: %v", err)
-		}
-	}
-
 	p.LastBars[b.Symbol] = b
 
-	riskOrders := p.Risk.CheckExits(p.Portfolio, b)
-
-	p.processOrders(weights, riskOrders, b, ts)
+	if err := p.processOrders(b, ts); err != nil {
+		log.Printf("pipeline: order processing error: %v", err)
+	}
 
 	p.recordEquity(b)
 }
@@ -84,13 +75,46 @@ func (p *Pipeline) barWindow() []interface{} {
 	return bars
 }
 
-func (p *Pipeline) processOrders(weights map[string]float64, riskOrders []*Order, bar interface{}, ts time.Time) {
+func (p *Pipeline) processOrders(bar *Bar, ts time.Time) error {
+	snapshot := p.Portfolio.Snapshot()
+
+	// Phase 1: Risk exits
+	riskOrders := p.Risk.CheckExits(p.Portfolio, bar)
 	for _, order := range riskOrders {
 		p.executeOrder(order, bar)
 	}
+
+	// Phase 2: Signal generation
+	var weights map[string]float64
+	if p.Signal != nil {
+		var err error
+		weights, err = p.Signal.Generate(p.barWindow(), ts)
+		if err != nil {
+			log.Printf("signal error: %v, rolling back", err)
+			*p.Portfolio = *snapshot
+			return err
+		}
+	}
+
+	if len(weights) == 0 {
+		return nil
+	}
+
+	// Block new signals check
+	if rm, ok := interface{}(p.Risk).(interface{ BlockNewSignals(*Portfolio) bool }); ok && rm.BlockNewSignals(p.Portfolio) {
+		log.Printf("risk: new signals blocked")
+		return nil
+	}
+
+	// Phase 3: Execute signal orders
+	executed := 0
 	for symbol, targetWeight := range weights {
 		p.generateSignalOrder(symbol, targetWeight, bar, ts)
+		executed++
 	}
+	log.Printf("pipeline: executed %d orders", executed)
+
+	return nil
 }
 
 func (p *Pipeline) generateSignalOrder(symbol string, targetWeight float64, bar interface{}, ts time.Time) {

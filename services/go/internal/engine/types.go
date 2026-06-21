@@ -92,3 +92,16 @@ type Portfolio struct {
 	Equity        float64              `json:"equity"`
 	InitialEquity float64              `json:"initial_equity"`
 }
+
+func (pf *Portfolio) Snapshot() *Portfolio {
+	positions := make(map[string]*Position, len(pf.Positions))
+	for k, v := range pf.Positions {
+		copy := *v
+		positions[k] = &copy
+	}
+	return &Portfolio{
+		Cash:      pf.Cash,
+		Equity:    pf.Equity,
+		Positions: positions,
+	}
+}

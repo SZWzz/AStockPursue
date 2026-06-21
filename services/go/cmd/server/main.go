@@ -53,6 +53,13 @@ func main() {
 
 	btHandler := handler.NewBacktestHandler(repo, ds, factory)
 
+	// gRPC connection to Python research layer
+	connMgr := grpcpkg.NewConnManager("localhost:8902", 30*time.Second)
+	if err := connMgr.Connect(context.Background()); err != nil {
+		log.Printf("gRPC: python research layer unavailable, retrying in background...")
+	}
+	go connMgr.StartHealthCheck(context.Background())
+
 	pipeline := &engine.Pipeline{
 		Engine:    factory.ForSymbol("000001"),
 		Portfolio: &engine.Portfolio{
@@ -60,7 +67,7 @@ func main() {
 			Equity:    100000,
 			Positions: make(map[string]*engine.Position),
 		},
-		Signal:   engine.NewSignalAdapter("localhost:8902", 10*time.Second),
+		Signal:   engine.NewSignalAdapterFromConnMgr(connMgr, 10*time.Second),
 		Risk:     engine.NewRiskManager(engine.RiskConfig{}),
 		OM:       engine.NewOrderManager(),
 		LastBars: make(map[string]interface{}),
@@ -99,13 +106,6 @@ func main() {
 	analysisH := handler.NewAnalysisHandler(ds)
 	schedulerH := handler.NewSchedulerHandler(ds, factory, repo)
 	screenerH := handler.NewScreenerHandler(ds)
-
-	// gRPC connection to Python research layer
-	connMgr := grpcpkg.NewConnManager("localhost:8902", 30*time.Second)
-	if err := connMgr.Connect(context.Background()); err != nil {
-		log.Printf("gRPC: python research layer unavailable, retrying in background...")
-	}
-	go connMgr.StartHealthCheck(context.Background())
 
 	var factorClient factorv1.FactorServiceClient
 	var workflowClient workflowv1.WorkflowServiceClient
