@@ -7,11 +7,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-# TODO(P5): migrate remaining to Go equivalents:
-#   - engines → Go EngineService (not yet exposed)
-#   - risk → Go RiskService (not yet exposed)
-# Broker checks migrated: _check_broker → go_http.broker_list(), _check_balance → go_http.broker_account()
-
 logger = logging.getLogger(__name__)
 
 

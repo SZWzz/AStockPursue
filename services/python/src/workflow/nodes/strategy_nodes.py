@@ -14,11 +14,6 @@ from src.workflow.node_base import BaseNode
 from src.workflow.node_registry import register_node
 from src.workflow.schema import NodePort, PortType
 
-# TODO(P5): migrate to Go gRPC equivalents:
-#   - engines → EngineService (not yet exposed)
-#   - risk → RiskService (not yet exposed)
-#   - brokers → BrokerService (not yet exposed)
-
 logger = logging.getLogger(__name__)
 
 # ── Built-in strategy template ────────────────────────────────────────────────
