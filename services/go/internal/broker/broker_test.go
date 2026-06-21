@@ -1,6 +1,7 @@
 package broker
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -41,7 +42,7 @@ func TestBinanceBrokerGetPositions(t *testing.T) {
 	defer server.Close()
 
 	b := &BinanceBroker{apiKey: "k", secretKey: "s", baseURL: server.URL, client: http.DefaultClient}
-	positions, err := b.GetPositions(t.Context())
+	positions, err := b.GetPositions(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(positions))
 	assert.Equal(t, "BTCUSDT", positions[0].Symbol)
@@ -58,7 +59,7 @@ func TestBinanceBrokerGetBalance(t *testing.T) {
 	defer server.Close()
 
 	b := &BinanceBroker{apiKey: "k", secretKey: "s", baseURL: server.URL, client: http.DefaultClient}
-	bal, err := b.GetBalance(t.Context())
+	bal, err := b.GetBalance(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 10000.0, bal.Total)
 	assert.Equal(t, 8000.0, bal.Available)
@@ -77,7 +78,7 @@ func TestBinanceBrokerPlaceOrder(t *testing.T) {
 	defer server.Close()
 
 	b := &BinanceBroker{apiKey: "k", secretKey: "s", baseURL: server.URL, client: http.DefaultClient}
-	order, err := b.PlaceOrder(t.Context(), "BTCUSDT", Buy, Market, 0.1, 0)
+	order, err := b.PlaceOrder(context.Background(), "BTCUSDT", Buy, Market, 0.1, 0)
 	assert.NoError(t, err)
 	assert.Equal(t, "12345", order.OrderID)
 	assert.Equal(t, StatusFilled, order.Status)
@@ -86,7 +87,7 @@ func TestBinanceBrokerPlaceOrder(t *testing.T) {
 
 func TestBinanceBrokerRequiresAPIKey(t *testing.T) {
 	b := &BinanceBroker{apiKey: "", secretKey: "", baseURL: "http://localhost", client: http.DefaultClient}
-	_, err := b.GetPositions(t.Context())
+	_, err := b.GetPositions(context.Background())
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "API key")
 }
@@ -116,7 +117,7 @@ func TestOKXBrokerGetPositions(t *testing.T) {
 	defer server.Close()
 
 	b := &OKXBroker{apiKey: "k", secretKey: "s", passphrase: "p", baseURL: server.URL, client: http.DefaultClient}
-	positions, err := b.GetPositions(t.Context())
+	positions, err := b.GetPositions(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(positions), "should filter out zero positions")
 	assert.Equal(t, "BTC-USDT-SWAP", positions[0].Symbol)
@@ -131,7 +132,7 @@ func TestOKXBrokerGetBalance(t *testing.T) {
 	defer server.Close()
 
 	b := &OKXBroker{apiKey: "k", secretKey: "s", passphrase: "p", baseURL: server.URL, client: http.DefaultClient}
-	bal, err := b.GetBalance(t.Context())
+	bal, err := b.GetBalance(context.Background())
 	assert.NoError(t, err)
 	assert.Equal(t, 10000.0, bal.Total)
 	assert.Equal(t, 8000.0, bal.Available)
