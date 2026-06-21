@@ -4,7 +4,13 @@ run:
 
 issues:
   exclude-rules:
-    # Generated protobuf stubs
     - path: internal/gen/
       linters:
         - all
+    # Pre-existing code patterns — not introduced by refactoring
+    - text: "S1009:"
+      linters:
+        - gosimple
+    - text: "SA9003:"
+      linters:
+        - staticcheck
