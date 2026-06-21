@@ -84,11 +84,11 @@ version = {file = "VERSION"}
 
 [tool.setuptools]
 package-dir = {"" = "services/python"}
-py-modules = ["cli", "api_server", "mcp_server"]
+py-modules = ["cli", "mcp_server"]
 
 [tool.setuptools.packages.find]
 where = ["services/python"]
-include = ["src*", "backtest*", "papertrade*", "migrations*"]
+include = ["src*", "backtest*", "migrations*"]
 
 [tool.setuptools.package-data]
 "src" = [
