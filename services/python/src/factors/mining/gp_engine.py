@@ -308,7 +308,7 @@ class GPEvolution:
             needs_fallback = len(sample) == 0
 
             if needs_fallback and universe:
-                # Try alternate sources
+                # Try alternate sources with better coverage
                 market = _detect_market(universe[0])
                 _FALLBACK_SOURCES = {
                     "equity_cn": ["mootdx", "tushare", "akshare"],
@@ -316,6 +316,7 @@ class GPEvolution:
                     "equity_hk": ["yfinance", "akshare"],
                     "crypto": ["ccxt", "okx"],
                 }
+                fb_source = None
                 for fb_name in _FALLBACK_SOURCES.get(market, []):
                     sample = fetch_bars(
                         symbol=universe[0],
@@ -326,7 +327,31 @@ class GPEvolution:
                     )
                     if sample:
                         needs_fallback = False
+                        fb_source = fb_name
                         break
+
+                # Replace data_map with fallback source's full data
+                if fb_source:
+                    fb_data_map: dict = {}
+                    for sym in universe:
+                        bars = fetch_bars(
+                            symbol=sym,
+                            start_date=full_start.strftime("%Y-%m-%d"),
+                            end_date=full_end.strftime("%Y-%m-%d"),
+                            source=fb_source,
+                            frequency="1d",
+                        )
+                        if bars:
+                            df = pd.DataFrame(bars)
+                            if "timestamp" in df.columns:
+                                df["date"] = pd.to_datetime(df["timestamp"], unit="ms")
+                            fb_data_map[sym] = df
+                    if fb_data_map:
+                        data_map = fb_data_map
+                        self.data_source = fb_source
+                        self.data_source_detail = (
+                            f"Fallback to {fb_source} for {len(fb_data_map)}/{len(universe)} symbols"
+                        )
 
             # Build panel: {col_name -> wide DataFrame}
             panels: dict[str, dict[str, pd.DataFrame]] = {"train": {}, "test": {}}
