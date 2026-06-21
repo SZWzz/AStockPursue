@@ -2,6 +2,9 @@ run:
   go: "1.22"
   tests: false
 
+output:
+  formats: "colored-line-number"
+
 issues:
   exclude-rules:
     - path: internal/gen/

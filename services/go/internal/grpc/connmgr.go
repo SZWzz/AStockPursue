@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -41,12 +42,22 @@ func (m *ConnManager) Connect(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, m.connectTimeout)
 	defer cancel()
 
-	conn, err := grpc.DialContext(ctx, m.addr,
+	conn, err := grpc.NewClient(m.addr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
 	)
 	if err != nil {
 		return fmt.Errorf("grpc dial %s: %w", m.addr, err)
+	}
+	conn.Connect()
+	for {
+		state := conn.GetState()
+		if state == connectivity.Ready {
+			break
+		}
+		if !conn.WaitForStateChange(ctx, state) {
+			conn.Close()
+			return fmt.Errorf("gRPC connect to %s: timeout", m.addr)
+		}
 	}
 	m.conn = conn
 	log.Printf("gRPC: connected to %s", m.addr)
