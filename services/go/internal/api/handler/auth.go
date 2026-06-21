@@ -111,7 +111,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 func hashPassword(password string) string {
 	salt := make([]byte, 16)
-	rand.Read(salt)
+	_, _ = rand.Read(salt)
 	hash := pbkdf2.Key([]byte(password), salt, 100000, 32, sha256.New)
 	return hex.EncodeToString(salt) + ":" + hex.EncodeToString(hash)
 }

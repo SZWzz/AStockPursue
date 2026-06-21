@@ -149,13 +149,6 @@ func (c *CompositeEngine) resolvePosition(position *Position) Engine {
 	return c.factory.ForSymbol("000001")
 }
 
-func (c *CompositeEngine) resolveBar(bar interface{}) Engine {
-	if b, ok := bar.(*Bar); ok {
-		return c.factory.ForSymbol(b.Symbol)
-	}
-	return c.factory.ForSymbol("000001")
-}
-
 func (c *CompositeEngine) Name() string       { return "composite" }
 func (c *CompositeEngine) CanExecute(order *Order) bool {
 	return c.resolve(order).CanExecute(order)

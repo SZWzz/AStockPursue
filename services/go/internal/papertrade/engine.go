@@ -83,7 +83,7 @@ func (e *Engine) Create(name string, symbols []string, freq string, initialCash 
 	e.mu.Unlock()
 
 	if e.repo != nil {
-		e.repo.Save(run)
+		_ = e.repo.Save(run)
 	}
 
 	return run, nil
@@ -129,11 +129,11 @@ func (e *Engine) Delete(id string) error {
 		return fmt.Errorf("papertrade: run %s not found", id)
 	}
 	if run.Status == StatusRunning {
-		run.Runner.Stop()
+		_ = run.Runner.Stop()
 	}
 	delete(e.runs, id)
 	if e.repo != nil {
-		e.repo.Delete(id)
+		_ = e.repo.Delete(id)
 	}
 	return nil
 }

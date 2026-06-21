@@ -36,7 +36,6 @@ type WSHub struct {
 	register   chan *WSClient
 	unregister chan *WSClient
 	broadcast  chan WSMessage
-	upgrader   websocket.Upgrader
 }
 
 // NewWSHub creates a new WebSocket hub and starts its run loop.

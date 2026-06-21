@@ -20,7 +20,7 @@ type GrpcSignalAdapter struct {
 }
 
 func NewSignalAdapter(addr string, timeout time.Duration) *GrpcSignalAdapter {
-	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("signal adapter: grpc dial error: %v", err)
 		return &GrpcSignalAdapter{grpcAddr: addr, timeout: timeout}

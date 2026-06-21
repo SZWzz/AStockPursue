@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"sync"
 	"time"
@@ -236,8 +237,6 @@ func (h *SchedulerHandler) executeRun(job *ScheduledJob) {
 
 	// Persist if store available
 	if job.store != nil {
-		ctx := &gin.Context{}
-		_ = ctx
-		job.store.Save(ctx, result)
+		_, _ = job.store.Save(context.TODO(), result)
 	}
 }

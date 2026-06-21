@@ -36,7 +36,7 @@ func (g *GrpcDataLoader) IsAvailable() bool {
 	if g.client != nil {
 		return true
 	}
-	conn, err := grpc.Dial(g.addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(g.addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return false
 	}

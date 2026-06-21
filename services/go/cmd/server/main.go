@@ -96,7 +96,7 @@ func main() {
 	screenerH := handler.NewScreenerHandler(ds)
 
 	// gRPC connection to Python research layer
-	grpcConn, err := grpc.Dial("localhost:8902", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	grpcConn, err := grpc.NewClient("localhost:8902", grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Printf("gRPC dial warning: %v", err)
 	}

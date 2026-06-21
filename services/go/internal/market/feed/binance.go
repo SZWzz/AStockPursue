@@ -76,7 +76,7 @@ func (f *BinanceFeed) Connect() error {
 		for s := range f.subs {
 			symbols = append(symbols, s)
 		}
-		f.subscribe(symbols)
+		_ = f.subscribe(symbols)
 	}
 
 	go f.readLoop()
@@ -215,6 +215,6 @@ func binanceStreamName(symbol, interval string) string {
 // parseFloatStr parses a string to float64, returning 0 on failure.
 func parseFloatStr(s string) float64 {
 	var v float64
-	fmt.Sscanf(s, "%f", &v)
+	_, _ = fmt.Sscanf(s, "%f", &v)
 	return v
 }

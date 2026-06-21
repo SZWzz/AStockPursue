@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -195,7 +196,7 @@ func (b *FutuBroker) GetFeeRate(symbol string) FeeRate {
 // ── Connection management ─────────────────────────────────────────
 
 func (b *FutuBroker) dial() (net.Conn, error) {
-	addr := fmt.Sprintf("%s:%d", b.cfg.Host, b.cfg.Port)
+	addr := net.JoinHostPort(b.cfg.Host, strconv.Itoa(b.cfg.Port))
 	return net.DialTimeout("tcp", addr, 5*time.Second)
 }
 

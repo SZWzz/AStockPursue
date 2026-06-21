@@ -107,7 +107,7 @@ func (f *OKXFeed) Connect() error {
 		for s := range f.subs {
 			symbols = append(symbols, s)
 		}
-		f.subscribe(symbols)
+		_ = f.subscribe(symbols)
 	}
 
 	go f.readLoop()

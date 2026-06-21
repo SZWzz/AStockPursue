@@ -52,10 +52,7 @@ func (e *GlobalFuturesEngine) Name() string { return "global_futures" }
 // CanExecute implements the Engine interface (single-param version).
 // Checks that quantity is positive and respects round-lot constraints.
 func (e *GlobalFuturesEngine) CanExecute(order *Order) bool {
-	if order.Quantity <= 0 {
-		return false
-	}
-	return true
+	return order.Quantity > 0
 }
 
 // CalcCommission implements the Engine interface (single-param version).
