@@ -252,7 +252,7 @@ func (b *OKXBroker) sign(method, path, body string) (timestamp, sign string) {
 	ts := time.Now().UTC().Format("2006-01-02T15:04:05.000Z")
 	preHash := ts + method + path + body
 	mac := hmac.New(sha256.New, []byte(b.secretKey))
-	mac.Write([]byte(preHash))
+	_, _ = mac.Write([]byte(preHash))
 	return ts, base64.StdEncoding.EncodeToString(mac.Sum(nil))
 }
 

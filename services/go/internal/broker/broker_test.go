@@ -34,7 +34,7 @@ func TestBinanceBrokerFeeRate(t *testing.T) {
 
 func TestBinanceBrokerGetPositions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"totalWalletBalance":"10000.0","availableBalance":"8000.0","positions":[
+		_, _ = w.Write([]byte(`{"totalWalletBalance":"10000.0","availableBalance":"8000.0","positions":[
 			{"symbol":"BTCUSDT","positionAmt":"0.5","entryPrice":"40000.0","markPrice":"45000.0","unRealizedProfit":"2500.0"}
 		]}`))
 	}))
@@ -53,7 +53,7 @@ func TestBinanceBrokerGetPositions(t *testing.T) {
 
 func TestBinanceBrokerGetBalance(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`[{"asset":"USDT","balance":"10000.0","availableBalance":"8000.0"},{"asset":"BTC","balance":"1.5","availableBalance":"0.5"}]`))
+		_, _ = w.Write([]byte(`[{"asset":"USDT","balance":"10000.0","availableBalance":"8000.0"},{"asset":"BTC","balance":"1.5","availableBalance":"0.5"}]`))
 	}))
 	defer server.Close()
 
@@ -108,7 +108,7 @@ func TestOKXBrokerName(t *testing.T) {
 
 func TestOKXBrokerGetPositions(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"code":"0","data":[
+		_, _ = w.Write([]byte(`{"code":"0","data":[
 			{"instId":"BTC-USDT-SWAP","pos":"0.5","avgPx":"40000","markPx":"45000","upl":"2500"},
 			{"instId":"ETH-USDT-SWAP","pos":"0","avgPx":"0","markPx":"0","upl":"0"}
 		]}`))
@@ -124,7 +124,7 @@ func TestOKXBrokerGetPositions(t *testing.T) {
 
 func TestOKXBrokerGetBalance(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"code":"0","data":[{"details":[
+		_, _ = w.Write([]byte(`{"code":"0","data":[{"details":[
 			{"ccy":"USDT","eq":"10000","availEq":"8000","frozenBal":"2000"}
 		]}]}`))
 	}))
