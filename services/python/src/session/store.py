@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-import fcntl
 import json
 import os
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+
+try:
+    import fcntl
+    HAS_FCNTL = True
+except ImportError:
+    HAS_FCNTL = False
 
 from src.session.models import Attempt, Message, Session
 
@@ -147,13 +152,15 @@ class SessionStore:
         path = self._messages_file(message.session_id)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("a", encoding="utf-8") as f:
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+            if HAS_FCNTL:
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
             try:
                 f.write(json.dumps(message.to_dict(), ensure_ascii=False) + "\n")
                 f.flush()
                 os.fsync(f.fileno())
             finally:
-                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+                if HAS_FCNTL:
+                    fcntl.flock(f.fileno(), fcntl.LOCK_UN)
 
     def get_messages(self, session_id: str, limit: int = 100) -> List[Message]:
         """Read all messages for a session.

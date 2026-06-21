@@ -1,4 +1,8 @@
-"""Tests for risk parity optimizer."""
+"""Tests for risk parity optimizer.
+
+The risk parity optimizer was migrated to Go (services/go/internal/portfolio/sizing.go).
+These tests are skipped until a Go gRPC PortfolioService is available.
+"""
 
 from __future__ import annotations
 
@@ -6,9 +10,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from backtest.optimizers.risk_parity import RiskParityOptimizer
+try:
+    from backtest.optimizers.risk_parity import RiskParityOptimizer
+except ImportError:
+    RiskParityOptimizer = None  # type: ignore[assignment]
 
 
+@pytest.mark.skipif(RiskParityOptimizer is None, reason="RiskParityOptimizer migrated to Go")
 class TestRiskParityCalcWeights:
     """Unit tests for the core weight calculation."""
 

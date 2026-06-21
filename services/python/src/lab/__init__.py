@@ -15,12 +15,9 @@ from src.security.sandbox import (
 from src.lab.params import IndicatorParamsParser, StrategyConfigParser
 from src.lab.quality import analyze_indicator_code_quality
 from src.lab.storage.repository import IndicatorRepository
-from src.lab.backtest_bridge import (
-    LabSignalEngine,
-    extract_weight_series,
-    fetch_ohlcv,
-    run_indicator_backtest,
-)
+
+# TODO(P5): backtest_bridge migrated to Go — LabSignalEngine et al. removed.
+# When Lab backtesting is needed, use src.go_http.run_backtest() instead.
 
 __all__ = [
     # sandbox
@@ -37,9 +34,4 @@ __all__ = [
     "analyze_indicator_code_quality",
     # repository
     "IndicatorRepository",
-    # backtest bridge
-    "LabSignalEngine",
-    "extract_weight_series",
-    "fetch_ohlcv",
-    "run_indicator_backtest",
 ]

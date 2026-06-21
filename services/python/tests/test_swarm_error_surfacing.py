@@ -19,7 +19,11 @@ from pathlib import Path
 
 import httpx
 import pytest
-from openai import AuthenticationError
+
+try:
+    from openai import AuthenticationError
+except ImportError:
+    AuthenticationError = None  # type: ignore[assignment]
 
 import mcp_server
 import src.swarm.runtime as rt
