@@ -239,7 +239,7 @@ func (s *GeopoliticsService) cachedResult(dps []DataPoint) map[string]any {
 	topicsByID := make(map[string]map[string]any)
 	for _, dp := range dps {
 		topicID := dp.Key
-		entry, ok := topicsByID[topicID]
+		_, ok := topicsByID[topicID]
 		if !ok {
 			meta := dp.Metadata
 			if meta == nil {
@@ -255,7 +255,7 @@ func (s *GeopoliticsService) cachedResult(dps []DataPoint) map[string]any {
 			tone, _ := strconv.ParseFloat(meta["tone"], 64)
 			toneChange, _ := strconv.ParseFloat(meta["tone_change"], 64)
 			volChange, _ := strconv.ParseFloat(meta["vol_change"], 64)
-			entry = map[string]any{
+			entry := map[string]any{
 				"topic_id":          topicID,
 				"title":             meta["title"],
 				"title_cn":          meta["title_cn"],

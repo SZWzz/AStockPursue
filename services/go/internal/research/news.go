@@ -125,21 +125,25 @@ func (s *NewsService) IsAvailable(ctx context.Context) bool {
 
 // ---------- private helpers ----------
 
+
+// clampSentiment clamps a sentiment score to [lo, hi] range.
+func clampSentiment(v, lo, hi float64) float64 {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
 // mockNews generates deterministic pseudo-random news and sentiment data.
 func (s *NewsService) mockNews(symbol string) map[string]any {
 	now := time.Now()
 
 	// Pre-defined article templates to give variety per symbol via hashFloat
-	overallSentiment := hashFloat(symbol, 0) * 0.8 // -0.4 to +0.4
-	if overallSentiment < 0 {
-		overallSentiment *= -0.5 // bias slightly positive
-	}
-	if overallSentiment > 0.3 {
-		overallSentiment = 0.3
-	} else if overallSentiment < -0.3 {
-		overallSentiment = -0.3
-	}
-	overallSentiment += 0.1 // base positive bias
+		// Clamp to [-0.3, 0.3] then apply 0.1 base positive bias
+		overallSentiment := clampSentiment(hashFloat(symbol, 0)*0.8, -0.3, 0.3) + 0.1
 
 	articles := []map[string]any{
 		{
@@ -222,7 +226,7 @@ func (s *NewsService) mockNews(symbol string) map[string]any {
 
 	return map[string]any{
 		"recent_articles":   articles,
-		"overall_sentiment": avgSentiment,
+		"overall_sentiment": overallSentiment,
 		"sentiment_change":  hashFloat(symbol, 19) * 0.15,
 		"key_topics":        keyTopics,
 		"source_count":      len(uniqueSources),

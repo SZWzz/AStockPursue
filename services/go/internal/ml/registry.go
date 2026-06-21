@@ -88,8 +88,8 @@ func (r *ModelRegistry) Get(ctx context.Context, id string) (*MLModel, error) {
 		return nil, err
 	}
 
-	json.Unmarshal([]byte(hpJSON), &model.Hyperparams)
-	json.Unmarshal([]byte(mJSON), &model.Metrics)
+	_ = json.Unmarshal([]byte(hpJSON), &model.Hyperparams)
+	_ = json.Unmarshal([]byte(mJSON), &model.Metrics)
 	model.CreatedAt = time.Unix(createdAt, 0).UTC()
 	model.UpdatedAt = time.Unix(updatedAt, 0).UTC()
 	return model, nil
@@ -115,8 +115,8 @@ func (r *ModelRegistry) List(ctx context.Context, category ModelCategory) ([]*ML
 			&createdAt, &updatedAt); err != nil {
 			return nil, err
 		}
-		json.Unmarshal([]byte(hpJSON), &m.Hyperparams)
-		json.Unmarshal([]byte(mJSON), &m.Metrics)
+		_ = json.Unmarshal([]byte(hpJSON), &m.Hyperparams)
+		_ = json.Unmarshal([]byte(mJSON), &m.Metrics)
 		m.CreatedAt = time.Unix(createdAt, 0).UTC()
 		m.UpdatedAt = time.Unix(updatedAt, 0).UTC()
 		models = append(models, m)
@@ -144,8 +144,8 @@ func (r *ModelRegistry) ListByStatus(ctx context.Context, status ModelStatus) ([
 			&createdAt, &updatedAt); err != nil {
 			return nil, err
 		}
-		json.Unmarshal([]byte(hpJSON), &m.Hyperparams)
-		json.Unmarshal([]byte(mJSON), &m.Metrics)
+		_ = json.Unmarshal([]byte(hpJSON), &m.Hyperparams)
+		_ = json.Unmarshal([]byte(mJSON), &m.Metrics)
 		m.CreatedAt = time.Unix(createdAt, 0).UTC()
 		m.UpdatedAt = time.Unix(updatedAt, 0).UTC()
 		models = append(models, m)
