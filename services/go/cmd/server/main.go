@@ -19,13 +19,12 @@ import (
 	factorv1 "github.com/astockpursue/go-core/internal/gen/factor/v1"
 	signalv1 "github.com/astockpursue/go-core/internal/gen/signal/v1"
 	workflowv1 "github.com/astockpursue/go-core/internal/gen/workflow/v1"
+	grpcpkg "github.com/astockpursue/go-core/internal/grpc"
 	"github.com/astockpursue/go-core/internal/market"
 	"github.com/astockpursue/go-core/internal/ml"
 	"github.com/astockpursue/go-core/internal/notify"
 	"github.com/astockpursue/go-core/internal/research"
 	_ "modernc.org/sqlite"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func main() {
@@ -101,18 +100,19 @@ func main() {
 	screenerH := handler.NewScreenerHandler(ds)
 
 	// gRPC connection to Python research layer
-	grpcConn, err := grpc.NewClient("localhost:8902", grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
-		log.Printf("gRPC dial warning: %v", err)
+	connMgr := grpcpkg.NewConnManager("localhost:8902", 30*time.Second)
+	if err := connMgr.Connect(context.Background()); err != nil {
+		log.Printf("gRPC: python research layer unavailable, retrying in background...")
 	}
-	// Always create gRPC proxy handlers — return 503 if Python gRPC is down
+	go connMgr.StartHealthCheck(context.Background())
+
 	var factorClient factorv1.FactorServiceClient
 	var workflowClient workflowv1.WorkflowServiceClient
 	var signalClient signalv1.SignalServiceClient
-	if grpcConn != nil {
-		factorClient = factorv1.NewFactorServiceClient(grpcConn)
-		workflowClient = workflowv1.NewWorkflowServiceClient(grpcConn)
-		signalClient = signalv1.NewSignalServiceClient(grpcConn)
+	if conn := connMgr.GetConn(); conn != nil {
+		factorClient = factorv1.NewFactorServiceClient(conn)
+		workflowClient = workflowv1.NewWorkflowServiceClient(conn)
+		signalClient = signalv1.NewSignalServiceClient(conn)
 	}
 	factorH := handler.NewFactorHandler(factorClient)
 	workflowH := handler.NewWorkflowHandler(workflowClient)
