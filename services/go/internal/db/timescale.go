@@ -2,11 +2,13 @@ package db
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
 	commonv1 "github.com/astockpursue/go-core/internal/gen/common/v1"
 )
 
@@ -31,6 +33,12 @@ func NewTimescaleDB(ctx context.Context, connString string) (*TimescaleDB, error
 // Pool returns the underlying pgxpool.Pool for health checks.
 func (db *TimescaleDB) Pool() *pgxpool.Pool {
 	return db.pool
+}
+
+// DB returns a *sql.DB backed by the TimescaleDB connection pool.
+// Use this when an API requires database/sql while still benefiting from pgx.
+func (db *TimescaleDB) DB() *sql.DB {
+	return stdlib.OpenDBFromPool(db.pool)
 }
 
 func (db *TimescaleDB) Close() {

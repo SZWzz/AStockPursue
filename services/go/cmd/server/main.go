@@ -45,6 +45,7 @@ func main() {
 	} else if err := timescaleDB.InitSchema(context.Background()); err != nil {
 		log.Printf("init schema failed, using in-memory backtest store: %v", err)
 		timescaleDB.Close()
+		timescaleDB = nil
 		repo = handler.NewBacktestStore()
 	} else {
 		defer timescaleDB.Close()
@@ -129,10 +130,24 @@ func main() {
 	}
 	researchH := handler.NewResearchHandler(researchServices)
 
-	// ── ML model registry (in-memory SQLite) ───────────────────────────
-	mlDB, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		log.Fatalf("ml sqlite: %v", err)
+	// ── ML model registry + Notification manager ───────────────────────
+	// Use PostgreSQL when available; fall back to in-memory SQLite.
+	var mlDB, notifDB *sql.DB
+	if timescaleDB != nil {
+		mlDB = timescaleDB.DB()
+		notifDB = timescaleDB.DB()
+		log.Print("ML and Notifications using PostgreSQL")
+	} else {
+		var err error
+		mlDB, err = sql.Open("sqlite", ":memory:")
+		if err != nil {
+			log.Fatalf("ml sqlite: %v", err)
+		}
+		notifDB, err = sql.Open("sqlite", ":memory:")
+		if err != nil {
+			log.Fatalf("notify sqlite: %v", err)
+		}
+		log.Print("ML and Notifications using in-memory SQLite (DB unavailable)")
 	}
 	mlRegistry := ml.NewModelRegistry(mlDB)
 	if err := mlRegistry.Init(); err != nil {
@@ -140,11 +155,6 @@ func main() {
 	}
 	mlH := handler.NewMLHandler(mlRegistry)
 
-	// ── Notification manager (in-memory SQLite) ────────────────────────
-	notifDB, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		log.Fatalf("notify sqlite: %v", err)
-	}
 	notifManager := notify.NewManager(notifDB)
 	notifH := handler.NewNotificationHandler(notifManager)
 
