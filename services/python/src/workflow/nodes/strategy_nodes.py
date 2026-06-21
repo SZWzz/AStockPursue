@@ -94,9 +94,10 @@ class StrategyNode(BaseNode):
         try:
             from src.go_http import _request
             resp = _request("GET", "/api/v1/backtest")
-            results = resp.get("results", [])
-            if isinstance(results, list):
-                return [{"id": r, "name": r} for r in results]
+            # Go returns {"ids": [...]}
+            ids = resp.get("ids", [])
+            if isinstance(ids, list):
+                return [{"id": r, "name": r} for r in ids]
             return []
         except Exception:
             return []
@@ -143,14 +144,21 @@ class StrategyNode(BaseNode):
 
     @staticmethod
     def _load_saved_strategy(strategy_id: str) -> str | None:
-        """Load strategy code from Go backtest store."""
+        """Load strategy code from Go backtest store.
+
+        Note: Go BacktestResult stores metrics, not strategy code.
+        Strategy code persistence requires a future StrategyService gRPC.
+        For now, saved strategies use the built-in templates.
+        """
         try:
             from src.go_http import _request
             resp = _request("GET", f"/api/v1/backtest/{strategy_id}")
             if "error" in resp:
                 return None
-            # Return the strategy code if stored in backtest result
-            return resp.get("code") or resp.get("strategy_code")
+            # BacktestResult has no code field — strategy code needs
+            # a separate StrategyService (future gRPC endpoint).
+            # Return None to fall through to template-based execution.
+            return None
         except Exception:
             return None
 
@@ -236,7 +244,6 @@ class BacktestNode(BaseNode):
             signals = signals_raw
         else:
             return {"backtest_result": {"error": f"Unexpected signal type: {type(signals_raw)}"}}
-        sig_engine = StaticSignalEngine(signals)
 
         market = config.get("market", "equity_cn")
         interval = config.get("interval", "1D")
@@ -260,7 +267,9 @@ class BacktestNode(BaseNode):
 
         try:
             from src.go_http import run_backtest
-            metrics = run_backtest(bt_req)
+            resp = run_backtest(bt_req)
+            # Go wraps backtest in {"id": ..., "result": BacktestResult}
+            metrics = resp.get("result", {}) if isinstance(resp, dict) else {}
         except Exception as e:
             logger.exception("Backtest via Go API failed")
             return {"backtest_result": {"error": str(e)}}
