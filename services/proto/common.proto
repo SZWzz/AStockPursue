@@ -7,6 +7,7 @@ message Bar {
   double open = 2;  double high = 3;  double low = 4;  double close = 5;
   int64 volume = 6;  int64 timestamp = 7;
   string frequency = 8;
+  double amount = 9;
 }
 
 message Position {
@@ -16,6 +17,8 @@ message Position {
   double current_price = 4;
   double pnl = 5;
   string side = 6;
+  double unrealized_pnl = 7;
+  double realized_pnl = 8;
 }
 
 message Order {

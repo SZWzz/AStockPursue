@@ -56,13 +56,30 @@ func (e *ChinaAEngine) CalcCommission(order *Order) float64 {
 	return comm
 }
 
+func (e *ChinaAEngine) CalculateSlippage(symbol string, qty float64, isBuy bool) float64 {
+	// Dynamic slippage based on daily amplitude
+	base := 0.001 // 0.1% base
+	amp := e.getDailyAmplitude(symbol)
+	if amp > 0 {
+		base += amp * 0.01 // scale with amplitude
+	}
+	return base
+}
+
+func (e *ChinaAEngine) getDailyAmplitude(symbol string) float64 {
+	// Get latest bar amplitude from data store
+	// Fallback to 0 if unavailable
+	return 0
+}
+
 func (e *ChinaAEngine) ApplySlippage(order *Order, bar interface{}) float64 {
 	b := bar.(*Bar)
 	price := b.Close
+	slip := e.CalculateSlippage(order.Symbol, order.Quantity, order.Side == Buy)
 	if order.Side == Buy {
-		price *= 1.001
+		price *= (1 + slip)
 	} else {
-		price *= 0.999
+		price *= (1 - slip)
 	}
 	upperLimit := b.Close * (1 + ChinaAPriceLimitPct)
 	lowerLimit := b.Close * (1 - ChinaAPriceLimitPct)

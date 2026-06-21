@@ -31,6 +31,7 @@ type Bar struct {
 	Volume        int64                  `protobuf:"varint,6,opt,name=volume,proto3" json:"volume,omitempty"`
 	Timestamp     int64                  `protobuf:"varint,7,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	Frequency     string                 `protobuf:"bytes,8,opt,name=frequency,proto3" json:"frequency,omitempty"`
+	Amount        float64                `protobuf:"fixed64,9,opt,name=amount,proto3" json:"amount,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -121,6 +122,13 @@ func (x *Bar) GetFrequency() string {
 	return ""
 }
 
+func (x *Bar) GetAmount() float64 {
+	if x != nil {
+		return x.Amount
+	}
+	return 0
+}
+
 type Position struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Symbol        string                 `protobuf:"bytes,1,opt,name=symbol,proto3" json:"symbol,omitempty"`
@@ -129,6 +137,8 @@ type Position struct {
 	CurrentPrice  float64                `protobuf:"fixed64,4,opt,name=current_price,json=currentPrice,proto3" json:"current_price,omitempty"`
 	Pnl           float64                `protobuf:"fixed64,5,opt,name=pnl,proto3" json:"pnl,omitempty"`
 	Side          string                 `protobuf:"bytes,6,opt,name=side,proto3" json:"side,omitempty"`
+	UnrealizedPnl float64                `protobuf:"fixed64,7,opt,name=unrealized_pnl,json=unrealizedPnl,proto3" json:"unrealized_pnl,omitempty"`
+	RealizedPnl   float64                `protobuf:"fixed64,8,opt,name=realized_pnl,json=realizedPnl,proto3" json:"realized_pnl,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -203,6 +213,20 @@ func (x *Position) GetSide() string {
 		return x.Side
 	}
 	return ""
+}
+
+func (x *Position) GetUnrealizedPnl() float64 {
+	if x != nil {
+		return x.UnrealizedPnl
+	}
+	return 0
+}
+
+func (x *Position) GetRealizedPnl() float64 {
+	if x != nil {
+		return x.RealizedPnl
+	}
+	return 0
 }
 
 type Order struct {
@@ -301,7 +325,7 @@ var File_common_proto protoreflect.FileDescriptor
 
 const file_common_proto_rawDesc = "" +
 	"\n" +
-	"\fcommon.proto\x12\x13astockpursue.common\"\xc1\x01\n" +
+	"\fcommon.proto\x12\x13astockpursue.common\"\xd9\x01\n" +
 	"\x03Bar\x12\x16\n" +
 	"\x06symbol\x18\x01 \x01(\tR\x06symbol\x12\x12\n" +
 	"\x04open\x18\x02 \x01(\x01R\x04open\x12\x12\n" +
@@ -310,7 +334,8 @@ const file_common_proto_rawDesc = "" +
 	"\x05close\x18\x05 \x01(\x01R\x05close\x12\x16\n" +
 	"\x06volume\x18\x06 \x01(\x03R\x06volume\x12\x1c\n" +
 	"\ttimestamp\x18\a \x01(\x03R\ttimestamp\x12\x1c\n" +
-	"\tfrequency\x18\b \x01(\tR\tfrequency\"\xa2\x01\n" +
+	"\tfrequency\x18\b \x01(\tR\tfrequency\x12\x16\n" +
+	"\x06amount\x18\t \x01(\x01R\x06amount\"\xec\x01\n" +
 	"\bPosition\x12\x16\n" +
 	"\x06symbol\x18\x01 \x01(\tR\x06symbol\x12\x12\n" +
 	"\x04size\x18\x02 \x01(\x01R\x04size\x12\x1f\n" +
@@ -318,7 +343,9 @@ const file_common_proto_rawDesc = "" +
 	"entryPrice\x12#\n" +
 	"\rcurrent_price\x18\x04 \x01(\x01R\fcurrentPrice\x12\x10\n" +
 	"\x03pnl\x18\x05 \x01(\x01R\x03pnl\x12\x12\n" +
-	"\x04side\x18\x06 \x01(\tR\x04side\"\xa1\x01\n" +
+	"\x04side\x18\x06 \x01(\tR\x04side\x12%\n" +
+	"\x0eunrealized_pnl\x18\a \x01(\x01R\runrealizedPnl\x12!\n" +
+	"\frealized_pnl\x18\b \x01(\x01R\vrealizedPnl\"\xa1\x01\n" +
 	"\x05Order\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06symbol\x18\x02 \x01(\tR\x06symbol\x12\x12\n" +
