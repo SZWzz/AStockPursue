@@ -89,3 +89,46 @@ def fetch_bars(
             "timestamp": bar.timestamp,
         })
     return bars
+
+
+def fetch_bars_bulk(
+    symbols: list[str],
+    start_date: str,
+    end_date: str,
+    source: str = "auto",
+    frequency: str = "1d",
+) -> dict[str, "pd.DataFrame"]:
+    """Fetch OHLCV bars for multiple symbols, return symbol→DataFrame map.
+
+    This is a convenience wrapper around :func:`fetch_bars`.  It makes one
+    gRPC call per symbol and assembles the results into a ``data_map``
+    suitable for backtesting and factor computation.
+
+    Args:
+        symbols: List of symbol codes.
+        start_date / end_date / source / frequency: Forwarded to
+            :func:`fetch_bars` for each symbol.
+
+    Returns:
+        ``{symbol: DataFrame}``.  Symbols with no data are omitted.
+        Returns an empty dict if *all* symbols fail.
+    """
+    import pandas as pd
+
+    data_map: dict[str, "pd.DataFrame"] = {}
+    for sym in symbols:
+        bars = fetch_bars(
+            symbol=sym,
+            start_date=start_date,
+            end_date=end_date,
+            source=source,
+            frequency=frequency,
+        )
+        if not bars:
+            continue
+        df = pd.DataFrame(bars)
+        if "timestamp" in df.columns:
+            df["date"] = pd.to_datetime(df["timestamp"], unit="ms")
+        data_map[sym] = df
+
+    return data_map

@@ -434,22 +434,16 @@ def reconstruct_price_series(run_dir: Path) -> List[Dict[str, Any]]:
 
     try:
         source = context.get("source", "tushare")
-        # Dynamically resolve loader class from registry instead of
-        # hardcoding if/elif branches (supports mootdx/eastmoney/baidu/…).
-        # TODO(P5-task8): Migrate to src.grpc.data_client.fetch_bars once
-        # the DataService supports bulk multi-symbol fetch with dynamic
-        # source resolution and returns a data_map (symbol→DataFrame).
-        # Currently fetch_bars() is per-symbol and returns flat dicts.
-        from backtest.loaders.registry import LOADER_REGISTRY, _ensure_registered
-        _ensure_registered()
-        loader_cls = LOADER_REGISTRY.get(source)
-        if loader_cls is None:
-            # Fallback to tushare for unknown sources
-            from backtest.loaders.tushare import DataLoader as loader_cls
-        loader = loader_cls()
-        data_map = loader.fetch(codes, fetch_start_date, end_date)
+        from src.grpc.data_client import fetch_bars_bulk
+        data_map = fetch_bars_bulk(
+            symbols=codes,
+            start_date=fetch_start_date,
+            end_date=end_date,
+            source=source,
+            frequency="1d",
+        )
     except Exception as exc:
-        logger.warning("reconstruct_price_series: DataLoader failed (%s)", exc)
+        logger.warning("reconstruct_price_series: DataService failed (%s)", exc)
         return []
 
     if not data_map:
