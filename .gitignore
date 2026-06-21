@@ -70,3 +70,9 @@ AGENTS.md
 NOTES.md
 
 .DS_Store
+
+# WorkBuddy
+.workbuddy/
+
+# opencode
+.opencode/
