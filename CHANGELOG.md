@@ -3,6 +3,7 @@
 ## [2026.6.21] - 2026-06-21
 
 ### Added
+- [Agent] Create `AgentLoop` in `services/go/internal/agent/loop.go` -- capability-first execution loop with `MatchThreshold = 0.3`, LLM fallback, and `AgentResult` struct
 - [Market] Create `Adapter` interface in `services/go/internal/market/adapter.go` -- unified 5-method interface with context support, `FetchRequest` struct, and `Markets()`/`RequiresAuth()` methods
 
 ### Changed
