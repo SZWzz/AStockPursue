@@ -191,13 +191,14 @@ Any modification that touches engine logic, financial calculations, or data pipe
 | Go 实现 | Python 删除 |
 |---------|------------|
 | `services/go/internal/engine/` | `services/python/backtest/engines/` |
-| `services/go/internal/market/loader/` | `services/python/backtest/loaders/` |
 | `services/go/internal/market/store.go` | `services/python/backtest/loaders/store.py` |
 | `services/go/internal/engine/risk.go` | `services/python/src/trading/risk_pipeline.py` |
 | `services/go/internal/api/handler/` | `services/python/src/api/` 对应 route |
 | `services/go/internal/engine/pipeline.go` | `services/python/src/trading/engine.py` |
 | `services/go/internal/broker/` | `services/python/src/trading/brokers/` |
 | `services/go/internal/papertrade/` | `services/python/papertrade/` |
+
+**例外 — `backtest/loaders/` 保留不改：** Go 的 `market/loader/` 是独立的 8-source fallback（Go 原生实现），但 Python `backtest/loaders/` 依赖 mootdx/tushare/akshare/futu 等 Python-only SDK，这些库 Go 无法直接调用。Python loaders 是 DataService gRPC 的后端 — Go 通过 gRPC 调用 DataService 获取这些 loader 的数据。两者互补，不冗余。
 
 删除前必须满足：
 - Go 端实现**功能完整**（测试覆盖、与 Python 输出回归比对通过）
