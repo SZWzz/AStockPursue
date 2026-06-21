@@ -32,6 +32,55 @@ func (m *MockSignalGenerator) Generate(bars []interface{}, ts time.Time) (map[st
 	return m.weights, m.err
 }
 
+// --- Legacy mock types used by backtest_test.go ---
+type mockSignalAdapter struct {
+	called bool
+	weight map[string]float64
+	err    error
+}
+
+func (m *mockSignalAdapter) Generate(bars []interface{}, ts time.Time) (map[string]float64, error) {
+	m.called = true
+	return m.weight, m.err
+}
+
+type mockRiskPipeline struct {
+	called bool
+	orders []*Order
+}
+
+func (m *mockRiskPipeline) CheckExits(portfolio *Portfolio, bar interface{}) []*Order {
+	m.called = true
+	return m.orders
+}
+
+type mockEngine struct {
+	canExec     bool
+	roundSizeFn func(float64) float64
+	commFn      func(*Order) float64
+}
+
+func (m *mockEngine) Name() string                       { return "mock" }
+func (m *mockEngine) CanExecute(order *Order) bool        { return m.canExec }
+func (m *mockEngine) RoundSize(size float64) float64      { return m.roundSizeFn(size) }
+func (m *mockEngine) CalcCommission(order *Order) float64 { return m.commFn(order) }
+func (m *mockEngine) ApplySlippage(order *Order, bar interface{}) float64 {
+	if b, ok := bar.(*Bar); ok {
+		return b.Close
+	}
+	return order.Price
+}
+func (m *mockEngine) CalcMargin(position *Position) float64 { return 0 }
+func (m *mockEngine) CalcPnL(position *Position) float64    { return 0 }
+
+func defaultMockEngine() *mockEngine {
+	return &mockEngine{
+		canExec:     true,
+		roundSizeFn: func(f float64) float64 { return f },
+		commFn:      func(o *Order) float64 { return 0 },
+	}
+}
+
 func TestPipelinePortfolioRollbackOnSignalFailure(t *testing.T) {
 	engine := &MockEngine{}
 	pf := &Portfolio{
