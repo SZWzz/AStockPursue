@@ -19,6 +19,11 @@ type ConnManager struct {
 	conn           *grpc.ClientConn
 	mu             sync.RWMutex
 	maxBackoff     time.Duration
+
+	reconnecting    bool
+	reconnectMu     sync.Mutex
+	reconnectCtx    context.Context
+	reconnectCancel context.CancelFunc
 }
 
 func NewConnManager(addr string, connectTimeout time.Duration) *ConnManager {
@@ -49,13 +54,37 @@ func (m *ConnManager) Connect(ctx context.Context) error {
 }
 
 func (m *ConnManager) reconnect() {
+	m.reconnectMu.Lock()
+	if m.reconnecting {
+		m.reconnectMu.Unlock()
+		return
+	}
+	m.reconnecting = true
+	ctx := m.reconnectCtx
+	m.reconnectMu.Unlock()
+
+	defer func() {
+		m.reconnectMu.Lock()
+		m.reconnecting = false
+		m.reconnectMu.Unlock()
+	}()
+
 	bo := 1 * time.Second
 	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
 		log.Printf("gRPC: attempting reconnect to %s (backoff %v)", m.addr, bo)
-		if err := m.Connect(context.Background()); err == nil {
+		if err := m.Connect(ctx); err == nil {
 			return
 		}
-		time.Sleep(bo)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(bo):
+		}
 		bo = time.Duration(math.Min(float64(bo*2), float64(m.maxBackoff)))
 	}
 }
@@ -63,6 +92,11 @@ func (m *ConnManager) reconnect() {
 func (m *ConnManager) StartHealthCheck(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
+
+	m.reconnectMu.Lock()
+	m.reconnectCtx, m.reconnectCancel = context.WithCancel(ctx)
+	m.reconnectMu.Unlock()
+	defer m.reconnectCancel()
 
 	failCount := 0
 	const maxFailBeforeReconnect = 3
@@ -78,7 +112,12 @@ func (m *ConnManager) StartHealthCheck(ctx context.Context) {
 			m.mu.RUnlock()
 
 			if conn == nil {
-				go m.reconnect()
+				m.reconnectMu.Lock()
+				reconnecting := m.reconnecting
+				m.reconnectMu.Unlock()
+				if !reconnecting {
+					go m.reconnect()
+				}
 				continue
 			}
 
@@ -99,7 +138,12 @@ func (m *ConnManager) StartHealthCheck(ctx context.Context) {
 						m.conn = nil
 					}
 					m.mu.Unlock()
-					go m.reconnect()
+					m.reconnectMu.Lock()
+					reconnecting := m.reconnecting
+					m.reconnectMu.Unlock()
+					if !reconnecting {
+						go m.reconnect()
+					}
 				}
 			} else {
 				failCount = 0
