@@ -137,103 +137,38 @@ class PaperTradingNode(BaseNode):
         # ── Simulation mode ───────────────────────────────────────────────────
         if mode == "simulate" and signal and codes:
             try:
-                # TODO(P6): migrate simulation to Go TradingEngine gRPC
-                from src.trading.engine import TradingEngine
-                from src.trading.signal_adapter import SignalAdapter
-                from src.trading.risk_pipeline import RiskPipeline, RiskConfig
+                from src.go_http import run_backtest
 
                 capital = float(config.get("initial_capital", 1_000_000))
-                market = config.get("market", "equity_cn")
                 interval = config.get("interval", "1D")
                 duration = int(config.get("duration_days", 30))
 
-                # Build market engine
-                engine_cfg = {"initial_capital": capital}
-                if market == "equity_cn":
-                    from backtest.engines.china_a import ChinaAEngine
-                    mkt_engine = ChinaAEngine(config=engine_cfg)
-                elif market in ("equity_us", "equity_hk"):
-                    from backtest.engines.global_equity import GlobalEquityEngine
-                    mkt_engine = GlobalEquityEngine(config=engine_cfg)
-                elif market == "crypto":
-                    from backtest.engines.crypto import CryptoEngine
-                    mkt_engine = CryptoEngine(config=engine_cfg)
+                # Build backtest config for Go API
+                bt_config = {
+                    "symbols": list(codes),
+                    "start_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
+                    "end_date": (pd.Timestamp.now() + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+                    "frequency": interval.lower(),
+                    "initial_cash": capital,
+                }
+
+                bt_resp = run_backtest(bt_config)
+
+                if "error" in bt_resp:
+                    result["simulation"] = {"error": bt_resp["error"]}
                 else:
-                    from backtest.engines.china_a import ChinaAEngine
-                    mkt_engine = ChinaAEngine(config=engine_cfg)
-
-                # Build signal adapter
-                from src.workflow.nodes.strategy_nodes import InMemoryLoader, StaticSignalEngine
-                sig_engine = StaticSignalEngine(signal if isinstance(signal, dict) else {})
-                adapter = SignalAdapter(sig_engine)
-
-                # Risk config
-                risk = RiskPipeline(RiskConfig(
-                    stop_loss_pct=float(config.get("stop_loss_pct", 0.05)),
-                    trailing_stop_pct=None,
-                    take_profit_pct=float(config.get("take_profit_pct", 0.15)),
-                ))
-
-                engine = TradingEngine(
-                    config={"codes": list(codes), "initial_capital": capital, "interval": interval},
-                    signal_adapter=adapter,
-                    market_engine=mkt_engine,
-                    risk_pipeline=risk,
-                )
-
-                # Seed with historical data
-                if not isinstance(ohlcv, dict) or not ohlcv:
-                    result["simulation"] = {"error": "No OHLCV data for seeding"}
-                else:
-                    engine.initialize(ohlcv)
-                    # Run through bars
-                    all_bars = self._build_bar_iterator(ohlcv, duration)
-                    trade_count = 0
-                    for bar, ts in all_bars:
-                        bar_result = engine.on_bar(bar, ts)
-                        if bar_result:
-                            pass  # accumulate results as needed
-                    summary = engine.get_summary()
                     result["simulation"] = {
-                        "mode": "paper_trading",
-                        "bars_processed": len(all_bars) if isinstance(all_bars, list) else duration,
-                        "final_equity": round(summary.get("final_equity", capital), 2),
-                        "total_return": round(summary.get("total_return", 0), 4),
-                        "sharpe": round(summary.get("sharpe", 0), 4),
-                        "max_drawdown": round(summary.get("max_drawdown", 0), 4),
+                        "mode": "paper_trading_go",
+                        "final_equity": round(bt_resp.get("final_equity", capital), 2),
+                        "total_return": round(bt_resp.get("total_return", 0), 4),
+                        "sharpe": round(bt_resp.get("sharpe_ratio", 0), 4),
+                        "max_drawdown": round(bt_resp.get("max_drawdown", 0), 4),
+                        "total_trades": bt_resp.get("total_trades", 0),
+                        "win_rate": round(bt_resp.get("win_rate", 0), 4),
                     }
 
-            except ImportError as e:
-                result["simulation"] = {"error": f"Trading engine not available: {e}"}
             except Exception as e:
-                logger.exception("PaperTrading simulation failed")
+                logger.exception("PaperTrading simulation via Go API failed")
                 result["simulation"] = {"error": str(e)}
 
         return {"deploy_status": result}
-
-    @staticmethod
-    def _build_bar_iterator(ohlcv: dict, max_days: int):
-        """Build (bar_dict, timestamp) iterator from OHLCV data."""
-        import pandas as pd
-
-
-        bars: list = []
-        # Collect all unique timestamps
-        all_idx = set()
-        for df in ohlcv.values():
-            if isinstance(df, pd.DataFrame) and not df.empty:
-                all_idx.update(df.index)
-        if not all_idx:
-            # Fallback: generate date range
-            end = pd.Timestamp.now()
-            start = end - pd.Timedelta(days=max_days)
-            all_idx = pd.date_range(start, end, freq="B")  # business days
-
-        sorted_idx = sorted(all_idx)[:max_days]
-        for ts in sorted_idx:
-            bar = {}
-            for code, df in ohlcv.items():
-                if isinstance(df, pd.DataFrame) and ts in df.index:
-                    bar[code] = df.loc[ts]
-            bars.append((bar, ts))
-        return bars
