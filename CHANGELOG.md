@@ -6,6 +6,8 @@
 - [Agent] Create `AgentLoop` in `services/go/internal/agent/loop.go` -- capability-first execution loop with `MatchThreshold = 0.3`, LLM fallback, and `AgentResult` struct
 - [Market] Create `Adapter` interface in `services/go/internal/market/adapter.go` -- unified 5-method interface with context support, `FetchRequest` struct, and `Markets()`/`RequiresAuth()` methods
 - [Research] Create `GeopoliticsService` in `services/go/internal/research/geopolitics.go` -- 10 pre-configured GDELT topics (US-China Trade, Taiwan Strait, South China Sea, Russia-Ukraine, Middle East, Energy Security, Semiconductor Supply Chain, Rare Earth, Global Inflation, Emerging Market Debt) with cache-first mock risk assessment, per-topic risk_level/tone/tone_change/vol_change, and `IsAvailable()` always true (P4.4)
+- [Research] Create `NorthboundService` in `services/go/internal/research/northbound.go` -- A-share northbound capital flow monitoring with net_inflow_daily/weekly/monthly, cumulative_net_buy, top10_active_stocks, and sector_distribution; cache-first with deterministic mock fallback via hashFloat() (P4.5)
+- [Research] Create `NewsService` in `services/go/internal/research/news.go` -- multi-source news aggregation with overall_sentiment, sentiment_change, key_topics, source_count, and 7 deterministic mock articles per symbol; cache-first with mock fallback (P4.6)
 
 ### Changed
 - [Python] Migrate 22 TODO(P6) markers to Go REST API — workflow nodes (trading, thin, strategy), live_bridge, gp_engine now call Go HTTP endpoints instead of deleted Python modules
