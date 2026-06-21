@@ -147,7 +147,7 @@ class PaperTradingNode(BaseNode):
                 bt_config = {
                     "symbols": list(codes),
                     "start_date": pd.Timestamp.now().strftime("%Y-%m-%d"),
-                    "end_date": (pd.Timestamp.now() + pd.Timedelta(days=1)).strftime("%Y-%m-%d"),
+                    "end_date": (pd.Timestamp.now() + pd.Timedelta(days=duration)).strftime("%Y-%m-%d"),
                     "frequency": interval.lower(),
                     "initial_cash": capital,
                 }
