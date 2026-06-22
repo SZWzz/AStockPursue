@@ -19,15 +19,15 @@ func (m *mockBarLoader) GetBars(symbol string, start, end time.Time, freq string
 func TestBacktestRunnerSingleSymbol(t *testing.T) {
 	loader := &mockBarLoader{
 		bars: map[string][]*commonv1.Bar{
-			"000001": {
-				{Symbol: "000001", Open: 10, Close: 10, Volume: 1000, Timestamp: day(1)},
-				{Symbol: "000001", Open: 10, Close: 11, Volume: 1000, Timestamp: day(2)},
-				{Symbol: "000001", Open: 11, Close: 12, Volume: 1000, Timestamp: day(3)},
+			"000001.SZ": {
+				{Symbol: "000001.SZ", Open: 10, Close: 10, Volume: 1000, Timestamp: day(1)},
+				{Symbol: "000001.SZ", Open: 10, Close: 11, Volume: 1000, Timestamp: day(2)},
+				{Symbol: "000001.SZ", Open: 11, Close: 12, Volume: 1000, Timestamp: day(3)},
 			},
 		},
 	}
 
-	signal := &mockSignalAdapter{weight: map[string]float64{"000001": 0.5}}
+	signal := &mockSignalAdapter{weight: map[string]float64{"000001.SZ": 0.5}}
 	risk := &mockRiskPipeline{}
 	p := &Pipeline{
 		Engine: defaultMockEngine(), Signal: signal, Risk: risk,
@@ -46,15 +46,15 @@ func TestBacktestRunnerSingleSymbol(t *testing.T) {
 func TestBacktestRunnerMetrics(t *testing.T) {
 	loader := &mockBarLoader{
 		bars: map[string][]*commonv1.Bar{
-			"000001": {
-				{Symbol: "000001", Open: 10, Close: 10, Volume: 1000, Timestamp: day(1)},
-				{Symbol: "000001", Open: 10, Close: 11, Volume: 1000, Timestamp: day(2)},
-				{Symbol: "000001", Open: 11, Close: 12, Volume: 1000, Timestamp: day(3)},
+			"000001.SZ": {
+				{Symbol: "000001.SZ", Open: 10, Close: 10, Volume: 1000, Timestamp: day(1)},
+				{Symbol: "000001.SZ", Open: 10, Close: 11, Volume: 1000, Timestamp: day(2)},
+				{Symbol: "000001.SZ", Open: 11, Close: 12, Volume: 1000, Timestamp: day(3)},
 			},
 		},
 	}
 
-	signal := &mockSignalAdapter{weight: map[string]float64{"000001": 0.5}}
+	signal := &mockSignalAdapter{weight: map[string]float64{"000001.SZ": 0.5}}
 	risk := &mockRiskPipeline{}
 	p := &Pipeline{
 		Engine: defaultMockEngine(), Signal: signal, Risk: risk,
@@ -74,9 +74,9 @@ func TestBacktestRunnerMetrics(t *testing.T) {
 func TestBacktestRunnerNoSignal(t *testing.T) {
 	loader := &mockBarLoader{
 		bars: map[string][]*commonv1.Bar{
-			"000001": {
-				{Symbol: "000001", Open: 10, Close: 10, Volume: 1000, Timestamp: day(1)},
-				{Symbol: "000001", Open: 10, Close: 10.5, Volume: 1000, Timestamp: day(2)},
+			"000001.SZ": {
+				{Symbol: "000001.SZ", Open: 10, Close: 10, Volume: 1000, Timestamp: day(1)},
+				{Symbol: "000001.SZ", Open: 10, Close: 10.5, Volume: 1000, Timestamp: day(2)},
 			},
 		},
 	}
@@ -99,18 +99,18 @@ func TestBacktestRunnerNoSignal(t *testing.T) {
 func TestBacktestRunnerMultipleSymbols(t *testing.T) {
 	loader := &mockBarLoader{
 		bars: map[string][]*commonv1.Bar{
-			"000001": {
-				{Symbol: "000001", Open: 10, Close: 10, Volume: 1000, Timestamp: day(1)},
-				{Symbol: "000001", Open: 10, Close: 11, Volume: 1000, Timestamp: day(2)},
+			"000001.SZ": {
+				{Symbol: "000001.SZ", Open: 10, Close: 10, Volume: 1000, Timestamp: day(1)},
+				{Symbol: "000001.SZ", Open: 10, Close: 11, Volume: 1000, Timestamp: day(2)},
 			},
-			"600001": {
-				{Symbol: "600001", Open: 20, Close: 20, Volume: 1000, Timestamp: day(1)},
-				{Symbol: "600001", Open: 20, Close: 22, Volume: 1000, Timestamp: day(2)},
+			"600001.SH": {
+				{Symbol: "600001.SH", Open: 20, Close: 20, Volume: 1000, Timestamp: day(1)},
+				{Symbol: "600001.SH", Open: 20, Close: 22, Volume: 1000, Timestamp: day(2)},
 			},
 		},
 	}
 
-	signal := &mockSignalAdapter{weight: map[string]float64{"000001": 0.3, "600001": 0.3}}
+	signal := &mockSignalAdapter{weight: map[string]float64{"000001.SZ": 0.3, "600001.SH": 0.3}}
 	risk := &mockRiskPipeline{}
 	p := &Pipeline{
 		Engine: defaultMockEngine(), Signal: signal, Risk: risk,
@@ -136,6 +136,15 @@ func TestBacktestRunnerEmptyBars(t *testing.T) {
 	br := NewBacktestRunner(p, loader)
 	_, err := br.Run([]string{"000001"}, time.Now(), time.Now(), "1d")
 	assert.Error(t, err)
+}
+
+func TestNormalizeAStock(t *testing.T) {
+	assert.Equal(t, "000001.SZ", normalizeAStock("000001"))
+	assert.Equal(t, "600519.SH", normalizeAStock("600519"))
+	assert.Equal(t, "002415.SZ", normalizeAStock("002415"))
+	assert.Equal(t, "AAPL", normalizeAStock("AAPL"))
+	assert.Equal(t, "000001.SZ", normalizeAStock("000001.SZ"))
+	assert.Equal(t, "", normalizeAStock(""))
 }
 
 func day(d int) int64 {

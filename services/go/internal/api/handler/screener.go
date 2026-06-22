@@ -57,7 +57,8 @@ func (h *ScreenerHandler) Screen(c *gin.Context) {
 
 	var results []screenResult
 	for _, sym := range req.Symbols {
-		bars, err := h.ds.GetBars(sym, start, end, "1d")
+		normalized := market.NormalizeSymbol(sym)
+		bars, err := h.ds.GetBars(normalized, start, end, "1d")
 		if err != nil || len(bars) < 5 {
 			continue
 		}
@@ -128,11 +129,11 @@ func (h *ScreenerHandler) Screen(c *gin.Context) {
 // TopMovers returns top gainers/losers from a watchlist.
 // GET /api/v1/screener/movers?market=a_share&direction=up&limit=10
 func (h *ScreenerHandler) TopMovers(c *gin.Context) {
-	market := c.DefaultQuery("market", "a_share")
+	mkt := c.DefaultQuery("market", "a_share")
 	direction := c.DefaultQuery("direction", "up")
 	limit := 10
 
-	symbols := defaultSymbolsForMarket(market)
+	symbols := defaultSymbolsForMarket(mkt)
 	end := time.Now()
 	start := end.Add(-7 * 24 * time.Hour)
 
@@ -143,7 +144,8 @@ func (h *ScreenerHandler) TopMovers(c *gin.Context) {
 
 	var results []mover
 	for _, sym := range symbols {
-		bars, err := h.ds.GetBars(sym, start, end, "1d")
+		normalized := market.NormalizeSymbol(sym)
+		bars, err := h.ds.GetBars(normalized, start, end, "1d")
 		if err != nil || len(bars) < 2 {
 			continue
 		}
@@ -171,7 +173,7 @@ func (h *ScreenerHandler) TopMovers(c *gin.Context) {
 		results = results[:limit]
 	}
 
-	c.JSON(http.StatusOK, gin.H{"market": market, "direction": direction, "movers": results, "count": len(results)})
+	c.JSON(http.StatusOK, gin.H{"market": mkt, "direction": direction, "movers": results, "count": len(results)})
 }
 
 // MarketOverview returns summary stats for major indices and sectors.
@@ -183,7 +185,8 @@ func (h *ScreenerHandler) MarketOverview(c *gin.Context) {
 
 	up, down, total := 0, 0, 0
 	for _, sym := range symbols {
-		bars, err := h.ds.GetBars(sym, start, end, "1d")
+		normalized := market.NormalizeSymbol(sym)
+		bars, err := h.ds.GetBars(normalized, start, end, "1d")
 		if err != nil || len(bars) < 2 {
 			continue
 		}
