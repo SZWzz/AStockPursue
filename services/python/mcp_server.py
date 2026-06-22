@@ -47,6 +47,7 @@ mcp = FastMCP("AStockPursue")
 logger = logging.getLogger(__name__)
 
 _data_tokens_loaded = False
+_loader_cache: dict[str, object] = {}
 
 
 def _ensure_data_tokens() -> None:
@@ -562,8 +563,10 @@ def get_market_data(
     _unresolved_errors: dict[str, str] = {}
 
     for src, src_codes in groups.items():
-        loader_cls = _get_loader(src)
-        loader = loader_cls()
+        if src not in _loader_cache:
+            loader_cls = _get_loader(src)
+            _loader_cache[src] = loader_cls()
+        loader = _loader_cache[src]
         try:
             data_map = loader.fetch(src_codes, start_date, end_date, interval=interval)
         except Exception as exc:
