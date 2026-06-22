@@ -27,8 +27,8 @@ func TestBacktestHandlerRun(t *testing.T) {
 	store := NewBacktestStore()
 	loader := &mockBarLoader{
 		bars: map[string][]*commonv1.Bar{
-			"000001": {
-				{Symbol: "000001", Open: 10, Close: 10, Volume: 1000, Timestamp: time.Date(2026, 1, 2, 9, 30, 0, 0, time.UTC).UnixMilli()},
+			"000001.SZ": {
+				{Symbol: "000001.SZ", Open: 10, Close: 10, Volume: 1000, Timestamp: time.Date(2026, 1, 2, 9, 30, 0, 0, time.UTC).UnixMilli()},
 			},
 		},
 	}

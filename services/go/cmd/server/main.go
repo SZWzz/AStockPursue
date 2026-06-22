@@ -129,6 +129,9 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 	portfolioH := handler.NewPortfolioHandler(runner)
 	paperTradeH := handler.NewPaperTradingHandler(ds, factory, dbPool)
+	// Wire up promotion context for backtest→paper→live chain
+	paperTradeH.SetBacktestRepo(repo)
+	trHandler.SetPromotionContext(paperTradeH.Engine(), factory, ds)
 	settingsH := handler.NewSettingsHandler(dbPool)
 	systemH := handler.NewSystemHandler()
 	var factorClient factorv1.FactorServiceClient
@@ -183,6 +186,8 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	notifManager := notify.NewManager(notifDB)
 	notifH := handler.NewNotificationHandler(notifManager)
 
+	strategyH := handler.NewStrategyHandler(dbPool)
+
 	s.db = dbPool
 
 	userRepo := handler.NewUserRepository(dbPool)
@@ -190,7 +195,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 	healthH := handler.NewHealthHandler(dbPool, s.grpcConn, nil)
 	s.wsHub = api.NewWSHub()
-	s.router = api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH, factorH, workflowH, signalH, researchH, mlH, notifH, s.wsHub)
+	s.router = api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH, factorH, workflowH, signalH, researchH, mlH, notifH, strategyH, s.wsHub)
 
 	// Preload seed data in background
 	go func() {

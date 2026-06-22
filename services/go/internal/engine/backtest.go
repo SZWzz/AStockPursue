@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	commonv1 "github.com/astockpursue/go-core/internal/gen/common/v1"
@@ -78,6 +79,11 @@ func (br *BacktestRunner) Run(symbols []string, start, end time.Time, freq strin
 	)
 	br.pipeline = p
 	br.trades = nil
+
+	// Normalize symbols to unified {code}.{exchange} format
+	for i, sym := range symbols {
+		symbols[i] = normalizeAStock(sym)
+	}
 
 	symbolBars := make(map[string][]*commonv1.Bar)
 	for _, symbol := range symbols {
@@ -334,4 +340,22 @@ func periodsPerYear(freq string) float64 {
 	default:
 		return 252
 	}
+}
+
+// normalizeAStock adds .SZ or .SH suffix to A-share codes that lack an exchange suffix.
+func normalizeAStock(code string) string {
+	if code == "" || strings.Contains(code, ".") {
+		return code
+	}
+	if len(code) < 3 {
+		return code
+	}
+	prefix := code[:3]
+	if prefix == "000" || prefix == "001" || prefix == "002" || prefix == "003" {
+		return code + ".SZ"
+	}
+	if prefix == "600" || prefix == "601" || prefix == "603" || prefix == "605" {
+		return code + ".SH"
+	}
+	return code
 }

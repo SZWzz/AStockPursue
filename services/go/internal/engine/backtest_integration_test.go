@@ -13,12 +13,12 @@ import (
 // TestBacktestEndToEnd runs a full backtest with pre-populated local data.
 // Exercises: DataStore → BacktestRunner → Engine → Pipeline → Risk → Metrics.
 func TestBacktestEndToEnd(t *testing.T) {
-	// 1. Populate LocalStore with test bars
+	// 1. Populate LocalStore with test bars (unified symbol format)
 	dir := t.TempDir()
 	localStore := market.NewLocalStore(dir)
 
-	bars := generateTestBars("000001", 20, 10.0, 0.05)
-	err := localStore.SaveBars("000001", "1d", bars)
+	bars := generateTestBars("000001.SZ", 20, 10.0, 0.05)
+	err := localStore.SaveBars("000001.SZ", "1d", bars)
 	assert.NoError(t, err)
 
 	// 2. Build DataStore with local store + cache
@@ -39,7 +39,7 @@ func TestBacktestEndToEnd(t *testing.T) {
 		LastBars: make(map[string]*engine.Bar),
 	}
 
-	// 4. Run backtest
+	// 4. Run backtest with bare symbol — engine normalizes to "000001.SZ"
 	runner := engine.NewBacktestRunner(p, ds)
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := time.Date(2026, 1, 20, 0, 0, 0, 0, time.UTC)
@@ -57,8 +57,8 @@ func TestBacktestEndToEndWithSignal(t *testing.T) {
 	dir := t.TempDir()
 	localStore := market.NewLocalStore(dir)
 
-	bars := generateTestBars("000001", 20, 10.0, 0.02)
-	err := localStore.SaveBars("000001", "1d", bars)
+	bars := generateTestBars("000001.SZ", 20, 10.0, 0.02)
+	err := localStore.SaveBars("000001.SZ", "1d", bars)
 	assert.NoError(t, err)
 
 	cache := market.NewMemoryCache(time.Hour, 100)

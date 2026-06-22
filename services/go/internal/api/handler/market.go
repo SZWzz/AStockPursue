@@ -20,7 +20,7 @@ func NewMarketHandler(ds *market.DataStore) *MarketHandler {
 // GetBars fetches OHLCV bars for a symbol and date range.
 // GET /api/v1/market/bars?symbol=000001&start=2026-01-01&end=2026-01-10&freq=1d
 func (h *MarketHandler) GetBars(c *gin.Context) {
-	symbol := c.Query("symbol")
+	symbol := market.NormalizeSymbol(c.Query("symbol"))
 	startStr := c.Query("start")
 	endStr := c.Query("end")
 	freq := c.DefaultQuery("freq", "1d")

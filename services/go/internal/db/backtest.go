@@ -2,18 +2,41 @@ package db
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/astockpursue/go-core/internal/engine"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+// BacktestConfig holds the original request parameters saved alongside results.
+type BacktestConfig struct {
+	Symbols     []string `json:"symbols"`
+	StartDate   string   `json:"start_date"`
+	EndDate     string   `json:"end_date"`
+	Frequency   string   `json:"frequency"`
+	InitialCash float64  `json:"initial_cash"`
+}
+
+// BacktestRow represents a row in the backtest_results table.
+type BacktestRow struct {
+	ID        int             `json:"id"`
+	UserID    int             `json:"user_id"`
+	Name      string          `json:"name"`
+	Symbols   []string        `json:"symbols"`
+	Config    json.RawMessage `json:"config"`
+	Result    json.RawMessage `json:"result"`
+	CreatedAt time.Time       `json:"created_at"`
+}
+
+// PostgresBacktestStore persists backtest results via pgx pool.
 type PostgresBacktestStore struct {
 	pool *pgxpool.Pool
 }
 
+// NewPostgresBacktestStore creates a store backed by a TimescaleDB pool.
 func NewPostgresBacktestStore(timescale *TimescaleDB) *PostgresBacktestStore {
 	if timescale == nil {
 		return &PostgresBacktestStore{}
@@ -29,174 +52,113 @@ func NewPGBacktestStore(pool *pgxpool.Pool) *PostgresBacktestStore {
 	return &PostgresBacktestStore{pool: pool}
 }
 
+// Save persists a backtest result and returns the id as a string.
 func (s *PostgresBacktestStore) Save(ctx context.Context, result *engine.BacktestResult) (string, error) {
+	return s.SaveWithConfig(ctx, result, "", nil)
+}
+
+// SaveWithConfig persists a backtest result with optional name and config metadata.
+func (s *PostgresBacktestStore) SaveWithConfig(ctx context.Context, result *engine.BacktestResult, name string, cfg *BacktestConfig) (string, error) {
 	if s.pool == nil {
 		return "", fmt.Errorf("database not available")
 	}
-	id := uuid.New().String()
 
-	_, err := s.pool.Exec(ctx, s.buildInsertRunSQL(),
-		id, result.Symbols, result.Frequency,
-		result.StartTime, result.EndTime,
-		result.InitialCash, result.FinalEquity,
-		result.TotalReturn, result.SharpeRatio,
-		result.MaxDrawdown, result.MaxDrawdownPct,
-		result.WinRate, result.TotalTrades,
-		result.WinningTrades, result.LosingTrades,
-	)
-	if err != nil {
-		return "", fmt.Errorf("insert backtest run: %w", err)
-	}
-
-	if len(result.EquityCurve) > 0 {
-		if err := s.insertEquityPoints(ctx, id, result.EquityCurve); err != nil {
-			return "", err
+	configJSON := json.RawMessage("{}")
+	if cfg != nil {
+		if raw, err := json.Marshal(cfg); err == nil {
+			configJSON = raw
 		}
 	}
 
-	if len(result.Trades) > 0 {
-		if err := s.insertTrades(ctx, id, result.Trades); err != nil {
-			return "", err
-		}
-	}
-
-	return id, nil
-}
-
-func (s *PostgresBacktestStore) insertEquityPoints(ctx context.Context, runID string, points []engine.EquityPoint) error {
-	batch := &pgx.Batch{}
-	for _, ep := range points {
-		batch.Queue(s.buildInsertEquitySQL(), runID, ep.Timestamp, ep.Equity, ep.Cash, ep.PositionCount)
-	}
-	br := s.pool.SendBatch(ctx, batch)
-	defer br.Close()
-	_, err := br.Exec()
+	resultJSON, err := json.Marshal(result)
 	if err != nil {
-		return fmt.Errorf("insert equity curves: %w", err)
+		return "", fmt.Errorf("marshal backtest result: %w", err)
 	}
-	return nil
-}
 
-func (s *PostgresBacktestStore) insertTrades(ctx context.Context, runID string, trades []engine.TradeRecord) error {
-	batch := &pgx.Batch{}
-	for _, t := range trades {
-		tradeID := uuid.New().String()
-		batch.Queue(s.buildInsertTradesSQL(),
-			tradeID, runID, t.Symbol, string(t.Side),
-			t.Quantity, t.Price, t.Commission, t.PnL, t.Timestamp,
-		)
-	}
-	br := s.pool.SendBatch(ctx, batch)
-	defer br.Close()
-	_, err := br.Exec()
+	var id int
+	err = s.pool.QueryRow(ctx,
+		`INSERT INTO backtest_results (user_id, name, symbols, config, result)
+		 VALUES ($1, $2, $3, $4, $5)
+		 RETURNING id`,
+		1, name, result.Symbols, configJSON, resultJSON,
+	).Scan(&id)
 	if err != nil {
-		return fmt.Errorf("insert trades: %w", err)
+		return "", fmt.Errorf("insert backtest result: %w", err)
 	}
-	return nil
+	return fmt.Sprintf("%d", id), nil
 }
 
+// Get retrieves a backtest result by id.
 func (s *PostgresBacktestStore) Get(ctx context.Context, id string) (*engine.BacktestResult, error) {
 	if s.pool == nil {
 		return nil, fmt.Errorf("database not available")
 	}
-	result := &engine.BacktestResult{}
 
-	row := s.pool.QueryRow(ctx, s.buildGetRunSQL(), id)
-	err := row.Scan(
-		&result.Symbols, &result.Frequency,
-		&result.StartTime, &result.EndTime,
-		&result.InitialCash, &result.FinalEquity,
-		&result.TotalReturn, &result.SharpeRatio,
-		&result.MaxDrawdown, &result.MaxDrawdownPct,
-		&result.WinRate, &result.TotalTrades,
-		&result.WinningTrades, &result.LosingTrades,
-	)
+	var resultJSON []byte
+	err := s.pool.QueryRow(ctx,
+		`SELECT result FROM backtest_results WHERE id = $1`, id,
+	).Scan(&resultJSON)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, fmt.Errorf("backtest result not found: %s", id)
 		}
-		return nil, fmt.Errorf("query backtest run: %w", err)
+		return nil, fmt.Errorf("query backtest result: %w", err)
 	}
 
-	rows, err := s.pool.Query(ctx, s.buildGetEquitySQL(), id)
-	if err != nil {
-		return nil, fmt.Errorf("query equity curve: %w", err)
+	var result engine.BacktestResult
+	if err := json.Unmarshal(resultJSON, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal backtest result: %w", err)
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var ep engine.EquityPoint
-		if err := rows.Scan(&ep.Timestamp, &ep.Equity, &ep.Cash, &ep.PositionCount); err != nil {
-			return nil, fmt.Errorf("scan equity point: %w", err)
-		}
-		result.EquityCurve = append(result.EquityCurve, ep)
-	}
-
-	tRows, err := s.pool.Query(ctx, s.buildGetTradesSQL(), id)
-	if err != nil {
-		return nil, fmt.Errorf("query trades: %w", err)
-	}
-	defer tRows.Close()
-	for tRows.Next() {
-		var t engine.TradeRecord
-		if err := tRows.Scan(&t.Symbol, &t.Side, &t.Quantity, &t.Price, &t.Commission, &t.PnL, &t.Timestamp); err != nil {
-			return nil, fmt.Errorf("scan trade: %w", err)
-		}
-		result.Trades = append(result.Trades, t)
-	}
-
-	return result, nil
+	return &result, nil
 }
 
+// List returns all backtest result IDs, newest first.
 func (s *PostgresBacktestStore) List(ctx context.Context) ([]string, error) {
 	if s.pool == nil {
 		return nil, fmt.Errorf("database not available")
 	}
-	rows, err := s.pool.Query(ctx, s.buildListRunsSQL())
+
+	rows, err := s.pool.Query(ctx,
+		`SELECT id FROM backtest_results ORDER BY created_at DESC`,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("list backtest runs: %w", err)
+		return nil, fmt.Errorf("list backtest results: %w", err)
 	}
 	defer rows.Close()
+
 	var ids []string
 	for rows.Next() {
-		var id string
+		var id int
 		if err := rows.Scan(&id); err != nil {
 			return nil, fmt.Errorf("scan id: %w", err)
 		}
-		ids = append(ids, id)
+		ids = append(ids, fmt.Sprintf("%d", id))
 	}
 	return ids, nil
 }
 
-func (s *PostgresBacktestStore) buildInsertRunSQL() string {
-	return `INSERT INTO backtest_runs (
-		id, symbols, frequency, start_date, end_date,
-		initial_cash, final_equity,
-		total_return, sharpe_ratio,
-		max_drawdown, max_drawdown_pct,
-		win_rate, total_trades, winning_trades, losing_trades
-	) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`
-}
+// ListRows returns complete rows for all backtest results.
+func (s *PostgresBacktestStore) ListRows(ctx context.Context) ([]BacktestRow, error) {
+	if s.pool == nil {
+		return nil, fmt.Errorf("database not available")
+	}
 
-func (s *PostgresBacktestStore) buildInsertEquitySQL() string {
-	return `INSERT INTO equity_curves (run_id, timestamp, equity, cash, position_count) VALUES ($1,$2,$3,$4,$5)`
-}
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, user_id, name, symbols, config, result, created_at
+		 FROM backtest_results ORDER BY created_at DESC`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("list backtest rows: %w", err)
+	}
+	defer rows.Close()
 
-func (s *PostgresBacktestStore) buildInsertTradesSQL() string {
-	return `INSERT INTO trades (id, run_id, symbol, side, quantity, price, commission, pnl, timestamp) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`
-}
-
-func (s *PostgresBacktestStore) buildGetRunSQL() string {
-	return `SELECT symbols, frequency, start_date, end_date, initial_cash, final_equity, total_return, sharpe_ratio, max_drawdown, max_drawdown_pct, win_rate, total_trades, winning_trades, losing_trades FROM backtest_runs WHERE id = $1`
-}
-
-func (s *PostgresBacktestStore) buildGetEquitySQL() string {
-	return `SELECT timestamp, equity, cash, position_count FROM equity_curves WHERE run_id = $1 ORDER BY timestamp ASC`
-}
-
-func (s *PostgresBacktestStore) buildGetTradesSQL() string {
-	return `SELECT symbol, side, quantity, price, commission, pnl, timestamp FROM trades WHERE run_id = $1 ORDER BY timestamp ASC`
-}
-
-func (s *PostgresBacktestStore) buildListRunsSQL() string {
-	return `SELECT id FROM backtest_runs ORDER BY created_at DESC`
+	var results []BacktestRow
+	for rows.Next() {
+		var r BacktestRow
+		if err := rows.Scan(&r.ID, &r.UserID, &r.Name, &r.Symbols, &r.Config, &r.Result, &r.CreatedAt); err != nil {
+			return nil, fmt.Errorf("scan backtest row: %w", err)
+		}
+		results = append(results, r)
+	}
+	return results, nil
 }
