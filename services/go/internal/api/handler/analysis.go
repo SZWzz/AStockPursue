@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"math"
 	"net/http"
 	"time"
 
+	analysisv1 "github.com/astockpursue/go-core/internal/gen/analysis/v1"
 	"github.com/astockpursue/go-core/internal/engine"
 	"github.com/astockpursue/go-core/internal/market"
 	"github.com/gin-gonic/gin"
@@ -17,8 +19,9 @@ type TradingPortfolio interface {
 
 // AnalysisHandler provides portfolio analysis and statistics endpoints.
 type AnalysisHandler struct {
-	ds            *market.DataStore
-	tradingRunner TradingPortfolio
+	ds             *market.DataStore
+	tradingRunner  TradingPortfolio
+	analysisClient analysisv1.AnalysisServiceClient
 }
 
 func NewAnalysisHandler(ds *market.DataStore) *AnalysisHandler {
@@ -28,6 +31,12 @@ func NewAnalysisHandler(ds *market.DataStore) *AnalysisHandler {
 // WithTradingRunner sets the trading runner for portfolio-aware analyses.
 func (h *AnalysisHandler) WithTradingRunner(r TradingPortfolio) *AnalysisHandler {
 	h.tradingRunner = r
+	return h
+}
+
+// WithAnalysisClient sets the Python gRPC AnalysisService client for attribution.
+func (h *AnalysisHandler) WithAnalysisClient(client analysisv1.AnalysisServiceClient) *AnalysisHandler {
+	h.analysisClient = client
 	return h
 }
 
@@ -174,9 +183,38 @@ func (h *AnalysisHandler) Attribution(c *gin.Context) {
 		return
 	}
 
-	// Stub: Python gRPC analysis not yet wired
-	c.JSON(http.StatusOK, gin.H{
-		"message":     "Full attribution analysis available via Python gRPC (coming soon). Use Python MCP tool `factor_analysis` for now.",
+	// Try Python gRPC AnalysisService for Brinson attribution
+	if h.analysisClient != nil {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+		defer cancel()
+
+		pbReq := &analysisv1.AttributionRequest{
+			PortfolioId: req.BacktestID,
+			StartDate:   "",
+			EndDate:     "",
+		}
+
+		resp, err := h.analysisClient.CalcAttribution(ctx, pbReq)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "attribution gRPC failed: " + err.Error()})
+			return
+		}
+		if resp.Error != "" {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": resp.Error})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"type":        "brinson",
+			"attribution": resp.Factors,
+			"source":      "python-grpc",
+		})
+		return
+	}
+
+	// Fallback: Python gRPC analysis not available
+	c.JSON(http.StatusServiceUnavailable, gin.H{
+		"message":     "Full attribution analysis requires Python gRPC service. Run: cd services/python && python -m src.grpc.server",
 		"backtest_id": req.BacktestID,
 	})
 }
