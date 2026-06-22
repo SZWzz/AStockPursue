@@ -21,22 +21,12 @@ interface Level {
   quantity: number
 }
 
-// Flattened symbol list from /api/v1/market/symbols grouped by market
-const SYMBOL_CATALOG: { market: string; symbols: string[] }[] = [
-  { market: 'A-Share',  symbols: ['000001.SZ', '000858.SZ', '300750.SZ', '600000.SH', '600519.SH', '601318.SH'] },
-  { market: 'US',       symbols: ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'TSLA', 'NVDA'] },
-  { market: 'HK',       symbols: ['0700.HK', '9988.HK', '0941.HK', '2318.HK'] },
-  { market: 'Crypto',   symbols: ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'SOLUSDT'] },
-]
-
-// Flatten all symbols for searching
-const ALL_SYMBOLS = SYMBOL_CATALOG.flatMap(g => g.symbols)
-
 export default function TradingPage() {
   const t = useTranslations()
   useWebSocket()
 
-  const [symbol, setSymbol] = useState('000001.SZ')
+  const [symbol, setSymbol] = useState('000001')
+  const [symbolCatalog, setSymbolCatalog] = useState<{ market: string; symbols: string[] }[]>([])
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const searchInputRef = useRef<HTMLInputElement>(null)
@@ -51,8 +41,31 @@ export default function TradingPage() {
     const ds = (settingsData as any)?.default_symbols ||
               (settingsData as any)?.general?.default_symbols
     if (Array.isArray(ds) && ds.length) return ds[0]
-    return '000001.SZ'
+    return '000001'
   }, [settingsData])
+
+  // Fetch symbol catalog from API on mount
+  useEffect(() => {
+    fetch('/api/market/symbols')
+      .then(r => r.json())
+      .then((data: { markets?: Record<string, string[]> }) => {
+        if (data?.markets) {
+          setSymbolCatalog(
+            Object.entries(data.markets).map(([market, symbols]) => ({
+              market,
+              symbols: symbols || [],
+            }))
+          )
+        }
+      })
+      .catch(() => {
+        // fallback to empty array on error
+        setSymbolCatalog([])
+      })
+  }, [])
+
+  // Compute flat symbol list from catalog
+  const ALL_SYMBOLS = useMemo(() => symbolCatalog.flatMap(g => g.symbols), [symbolCatalog])
 
   // Set default symbol from settings on mount
   useEffect(() => {
@@ -134,7 +147,7 @@ export default function TradingPage() {
                   />
                 </div>
                 <div className="max-h-64 overflow-y-auto">
-                  {SYMBOL_CATALOG.map((group) => {
+                  {symbolCatalog.map((group) => {
                     const items = searchQuery
                       ? group.symbols.filter(s => s.toUpperCase().includes(searchQuery.toUpperCase()))
                       : group.symbols
