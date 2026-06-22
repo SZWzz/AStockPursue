@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -316,9 +317,10 @@ func generateToken(username string) (string, error) {
 		return "", fmt.Errorf("JWT_SECRET environment variable is required")
 	}
 	claims := jwt.MapClaims{
-		"sub": username,
-		"iat": time.Now().Unix(),
-		"exp": time.Now().Add(24 * time.Hour).Unix(),
+		"sub":     username,
+		"user_id": "1",
+		"iat":     time.Now().Unix(),
+		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(jwtSecret)
@@ -345,6 +347,35 @@ func ValidateToken(tokenStr string) (string, error) {
 	}
 	sub, _ := claims["sub"].(string)
 	return sub, nil
+}
+
+// ValidateTokenWithID parses a JWT token and returns username and user_id.
+func ValidateTokenWithID(tokenStr string) (string, int, error) {
+	if len(jwtSecret) == 0 {
+		pkgLogger.Error("JWT_SECRET environment variable is required")
+		return "", 0, fmt.Errorf("JWT_SECRET environment variable is required")
+	}
+	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return jwtSecret, nil
+	})
+	if err != nil {
+		return "", 0, err
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return "", 0, fmt.Errorf("invalid token")
+	}
+	sub, _ := claims["sub"].(string)
+	userID := 0
+	if uidStr, ok := claims["user_id"].(string); ok {
+		if uid, err := strconv.Atoi(uidStr); err == nil {
+			userID = uid
+		}
+	}
+	return sub, userID, nil
 }
 
 func split(s, sep string) []string {

@@ -152,6 +152,12 @@ func (h *BrokerHandler) SaveCredentials(c *gin.Context) {
 		return
 	}
 
+	userID := h.getUserID(c)
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
 	if h.db != nil {
 		encryptedSecret, err := crypto.Encrypt(req.APISecret)
 		if err != nil {
@@ -176,9 +182,9 @@ func (h *BrokerHandler) SaveCredentials(c *gin.Context) {
 		}
 
 		_, err = h.db.Exec(c.Request.Context(),
-			`INSERT INTO user_settings (user_id, settings) VALUES (1, $1)
-			 ON CONFLICT (user_id) DO UPDATE SET settings = user_settings.settings || $1, updated_at = now()`,
-			string(body))
+			`INSERT INTO user_settings (user_id, settings) VALUES ($1, $2)
+			 ON CONFLICT (user_id) DO UPDATE SET settings = user_settings.settings || $2, updated_at = now()`,
+			userID, string(body))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -191,6 +197,12 @@ func (h *BrokerHandler) SaveCredentials(c *gin.Context) {
 // GetCredentials retrieves and decrypts broker API credentials from user_settings.
 // GET /api/v1/broker/credentials
 func (h *BrokerHandler) GetCredentials(c *gin.Context) {
+	userID := h.getUserID(c)
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
 	if h.db == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not available"})
 		return
@@ -198,7 +210,7 @@ func (h *BrokerHandler) GetCredentials(c *gin.Context) {
 
 	var settingsJSON []byte
 	err := h.db.QueryRow(c.Request.Context(),
-		`SELECT settings FROM user_settings WHERE user_id = $1`, 1,
+		`SELECT settings FROM user_settings WHERE user_id = $1`, userID,
 	).Scan(&settingsJSON)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "no settings found"})
@@ -228,4 +240,11 @@ func (h *BrokerHandler) GetCredentials(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, settings["broker_credentials"])
+}
+
+func (h *BrokerHandler) getUserID(c *gin.Context) int {
+	if uid, exists := c.Get("user_id"); exists {
+		return uid.(int)
+	}
+	return 0 // Will cause 401 in calling handler
 }

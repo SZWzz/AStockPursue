@@ -90,6 +90,10 @@ func (h *SettingsHandler) Get(c *gin.Context) {
 // PUT /api/v1/settings
 func (h *SettingsHandler) Update(c *gin.Context) {
 	userID := h.getUserID(c)
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
 
 	var req UserSettings
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -129,6 +133,10 @@ func (h *SettingsHandler) Update(c *gin.Context) {
 // DELETE /api/v1/settings
 func (h *SettingsHandler) Reset(c *gin.Context) {
 	userID := h.getUserID(c)
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
 
 	if h.db != nil {
 		if _, err := h.db.Exec(c.Request.Context(),
@@ -142,11 +150,10 @@ func (h *SettingsHandler) Reset(c *gin.Context) {
 }
 
 func (h *SettingsHandler) getUserID(c *gin.Context) int {
-	if u, ok := c.Get("username"); ok {
-		// For now, all users map to user_id 1
-		_ = u
+	if uid, exists := c.Get("user_id"); exists {
+		return uid.(int)
 	}
-	return 1
+	return 0 // Will cause 401 in calling handler
 }
 
 func (h *SettingsHandler) cloneDefaults() *UserSettings {

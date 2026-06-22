@@ -28,9 +28,10 @@ func Auth() gin.HandlerFunc {
 		authHeader := c.GetHeader("Authorization")
 		if strings.HasPrefix(authHeader, "Bearer ") {
 			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
-			username, err := handler.ValidateToken(tokenStr)
+			username, userID, err := handler.ValidateTokenWithID(tokenStr)
 			if err == nil {
 				c.Set("username", username)
+				c.Set("user_id", userID)
 				c.Next()
 				return
 			}
