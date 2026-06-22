@@ -405,7 +405,7 @@ class WorkflowEngine:
                 "retryable": True})
 
         except (ValueError, TypeError, KeyError, RuntimeError, AttributeError, IndexError, ZeroDivisionError,
-                     asyncio.TimeoutError, concurrent.futures.TimeoutError) as e:
+                     concurrent.futures.TimeoutError) as e:
             logger.exception("Node %s failed", nid)
             self._node_status[nid] = NodeStatus.ERROR
             self._results[nid] = {"_error": str(e), "_summary": {}}
