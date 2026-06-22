@@ -1,9 +1,7 @@
 // frontend/components/strategy-lab/CodeEditor.tsx
 'use client'
 
-import dynamic from 'next/dynamic'
-
-const MonacoEditor = dynamic(() => import('@monaco-editor/react'), { ssr: false })
+import { CodeMirror } from '@/components/financial/CodeMirror'
 
 interface CodeEditorProps {
   code: string
@@ -13,23 +11,18 @@ interface CodeEditorProps {
 }
 
 export function CodeEditor({ code, onChange, language = 'python', height = '400px' }: CodeEditorProps) {
+  const lang = language === 'javascript' ? 'javascript' : 'python'
+
   return (
-    <div className="border border-[var(--border)] rounded-[6px] overflow-hidden">
-      <MonacoEditor
-        height={height}
-        language={language}
+    <div
+      className="border border-[var(--border)] rounded-[6px] overflow-hidden"
+      style={{ height }}
+    >
+      <CodeMirror
         value={code}
-        onChange={onChange}
-        theme="vs"
-        options={{
-          fontSize: 13,
-          fontFamily: 'var(--font-mono)',
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          lineNumbers: 'on',
-          renderLineHighlight: 'line',
-          tabSize: 4,
-        }}
+        language={lang}
+        onChange={(v) => onChange(v)}
+        className="h-full"
       />
     </div>
   )
