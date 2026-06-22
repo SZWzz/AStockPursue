@@ -121,7 +121,6 @@ func (br *BacktestRunner) Run(symbols []string, start, end time.Time, freq strin
 				br.pipeline.OnBar(eb, tsTime)
 
 				br.recordTrades(bar, posBefore)
-				break
 			}
 		}
 
