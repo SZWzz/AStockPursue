@@ -71,6 +71,14 @@ def _safe_eval_formula(formula: str, panel: dict[str, pd.DataFrame]) -> pd.DataF
     The formula is Python/pandas code that operates on:
       - panel['close'], panel['open'], panel['high'], panel['low'], panel['volume']
       - Derived: close, open_, high, low, volume (local variables)
+
+    Safety: eval() is safe here because:
+      1. ast.parse(mode='eval') limits input to a single expression (no
+         statements, no imports, no multi-line blocks).
+      2. __builtins__ is an empty dict — no open(), exec(), __import__,
+         os, sys, or subprocess modules are accessible.
+      3. Only pd (pandas), np (numpy), and a handful of math builtins
+         (abs, min, max, round, len) are exposed in the local namespace.
     """
     import ast
     try:
