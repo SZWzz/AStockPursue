@@ -15,11 +15,26 @@ export async function bffProxy(req: NextRequest, method: string): Promise<NextRe
     if (method !== 'GET' && method !== 'DELETE') headers['Content-Type'] = 'application/json'
     const body = method === 'GET' || method === 'DELETE' ? undefined : await req.text()
     const res = await fetch(url, { method, headers, body: body || undefined, signal: controller.signal })
-    const data = await res.text()
-    return new NextResponse(data, {
-      status: res.status,
-      headers: { 'Content-Type': res.headers.get('Content-Type') || 'application/json' },
-    })
+
+    let data: unknown
+    try {
+      data = await res.json()
+    } catch {
+      data = await res.text()
+    }
+
+    return NextResponse.json(data, { status: res.status })
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      return NextResponse.json(
+        { error: 'Backend request timed out', code: 'BACKEND_TIMEOUT' },
+        { status: 504 }
+      )
+    }
+    return NextResponse.json(
+      { error: 'Backend unavailable', code: 'BACKEND_UNREACHABLE' },
+      { status: 502 }
+    )
   } finally {
     clearTimeout(timeout)
   }
