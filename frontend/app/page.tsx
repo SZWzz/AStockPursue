@@ -51,7 +51,7 @@ export default function DashboardPage() {
           <StatCallout
             label={t('portfolio.totalEquity')}
             value={portfolio?.total_value ? '¥' + Number(portfolio.total_value).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '--'}
-            change={portfolio?.total_value && portfolio?.cash ? ((portfolio.total_value - portfolio.cash) / portfolio.cash * 100).toFixed(2) + '%' : '--'}
+            change={portfolio?.total_value != null && (portfolio?.cash ?? 0) > 0 ? ((portfolio.total_value - portfolio.cash) / portfolio.cash * 100).toFixed(2) + '%' : '--'}
             direction={(portfolio?.total_value ?? 0) >= (portfolio?.cash ?? 0) ? 'up' : 'down'}
           />
           <KpiCard
