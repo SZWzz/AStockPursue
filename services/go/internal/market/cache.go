@@ -68,6 +68,14 @@ func (mc *MemoryCache) SetBars(key string, bars []*commonv1.Bar) {
 			}
 		}
 		mc.keys = append(mc.keys, key)
+	} else {
+		for i, k := range mc.keys {
+			if k == key {
+				mc.keys = append(mc.keys[:i], mc.keys[i+1:]...)
+				break
+			}
+		}
+		mc.keys = append(mc.keys, key)
 	}
 
 	mc.data[key] = cacheEntry{
