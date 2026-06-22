@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { auth } from '@/lib/auth'
 import { API_BASE } from '@/lib/constants'
 
+const MAX_BODY_SIZE = 10 * 1024 * 1024 // 10MB
+
 export async function bffProxy(req: NextRequest, method: string): Promise<NextResponse> {
   const session = await auth()
   const token = session?.accessToken
@@ -14,6 +16,12 @@ export async function bffProxy(req: NextRequest, method: string): Promise<NextRe
     const headers: Record<string, string> = { Authorization: `Bearer ${token}` }
     if (method !== 'GET' && method !== 'DELETE') headers['Content-Type'] = 'application/json'
     const body = method === 'GET' || method === 'DELETE' ? undefined : await req.text()
+    if (body && body.length > MAX_BODY_SIZE) {
+      return NextResponse.json(
+        { error: 'Request body too large', code: 'BODY_TOO_LARGE' },
+        { status: 413 }
+      )
+    }
     const res = await fetch(url, { method, headers, body: body || undefined, signal: controller.signal })
 
     let data: unknown
