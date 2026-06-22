@@ -82,6 +82,11 @@ class WSClient {
     this.ws?.close()
     this.ws = null
   }
+
+  broadcastTicker(symbol: string, price: number, change: number) {
+    this.listeners.get('ticker')?.forEach(cb => cb('ticker', { symbol, price, change }))
+    this.listeners.get('*')?.forEach(cb => cb('ticker', { symbol, price, change }))
+  }
 }
 
 export const wsClient = new WSClient()
