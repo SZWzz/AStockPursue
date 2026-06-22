@@ -18,12 +18,12 @@ export const authConfig: NextAuthConfig = {
     },
     jwt({ token, user }) {
       if (user) {
-        token.accessToken = (user as any).accessToken
+        token.accessToken = user.accessToken
       }
       return token
     },
     session({ session, token }) {
-      (session as any).accessToken = token.accessToken
+      session.accessToken = token.accessToken
       return session
     },
   },

@@ -4,7 +4,7 @@ import { API_BASE } from '@/lib/constants'
 
 export async function bffProxy(req: NextRequest, method: string): Promise<NextResponse> {
   const session = await auth()
-  const token = (session as any)?.accessToken
+  const token = session?.accessToken
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const path = req.nextUrl.pathname.replace('/api/', '/api/v1/')
   const url = `${API_BASE}${path}${req.nextUrl.search}`

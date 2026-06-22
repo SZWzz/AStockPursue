@@ -7,7 +7,7 @@ export function useAuth() {
   const { data: session, status } = useSession()
   return {
     user: session?.user,
-    token: (session as any)?.accessToken as string | undefined,
+    token: session?.accessToken as string | undefined,
     isAuthenticated: status === 'authenticated',
     isLoading: status === 'loading',
   }
