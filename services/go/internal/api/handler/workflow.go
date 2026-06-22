@@ -206,3 +206,61 @@ func (h *WorkflowHandler) GetNodeResult(c *gin.Context) {
 		"output_len": len(resp.Output),
 	})
 }
+
+// RunWorkflow starts execution of a workflow by ID with a specified mode.
+// POST /api/v1/workflow/:id/run
+func (h *WorkflowHandler) RunWorkflow(c *gin.Context) {
+	if h.client == nil {
+		h.grpcUnavailable(c)
+		return
+	}
+
+	workflowID := c.Param("id")
+	if workflowID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id is required"})
+		return
+	}
+
+	mode := c.DefaultQuery("mode", "backtest")
+	switch mode {
+	case "backtest", "paper", "live":
+		// valid modes
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "mode must be one of: backtest, paper, live"})
+		return
+	}
+
+	var req struct {
+		Params map[string]string `json:"params"`
+	}
+	if c.Request.Body != nil {
+		_ = c.ShouldBindJSON(&req)
+	}
+
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Minute)
+	defer cancel()
+
+	pbReq := &workflowv1.WorkflowRequest{
+		WorkflowId: workflowID,
+		Params:     req.Params,
+	}
+
+	// Add mode to params if not already present
+	if pbReq.Params == nil {
+		pbReq.Params = make(map[string]string)
+	}
+	pbReq.Params["mode"] = mode
+
+	resp, err := h.client.ExecuteWorkflow(ctx, pbReq)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"workflow_id": workflowID,
+		"mode":        mode,
+		"status":      resp.Status,
+		"error":       resp.Error,
+	})
+}

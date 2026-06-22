@@ -119,6 +119,7 @@ func NewRouter(
 		wc.POST("", workflowH.SaveWorkflow)
 		wc.POST("/execute", workflowH.ExecuteWorkflow)
 		wc.GET("/node/:id", workflowH.GetNodeResult)
+		wc.POST("/:id/run", workflowH.RunWorkflow)
 
 		// Signal routes
 		sg := v1.Group("/signals")
