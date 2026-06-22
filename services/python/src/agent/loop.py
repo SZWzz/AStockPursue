@@ -91,7 +91,11 @@ logger = logging.getLogger(__name__)
 
 
 def estimate_tokens(messages: list) -> int:
-    """Rough token count estimate (~4 chars/token).
+    """Character-aware token count estimate.
+
+    ASCII chars count as ~0.25 tokens each; CJK and other non-ASCII
+    scripts count as ~1.5 tokens each.  This avoids under-estimating
+    Chinese-heavy contexts vs the old ``len // 4`` heuristic.
 
     Args:
         messages: Message list.
@@ -99,7 +103,9 @@ def estimate_tokens(messages: list) -> int:
     Returns:
         Estimated token count.
     """
-    return len(json.dumps(messages, default=str, ensure_ascii=False)) // 4
+    text = json.dumps(messages, default=str, ensure_ascii=False)
+    tokens = sum(1.5 if ord(c) > 0x2000 else 0.25 for c in text)
+    return int(tokens)
 
 
 def _microcompact(messages: list) -> None:
