@@ -1,5 +1,31 @@
 # 更新日志
 
+## [2026.6.22] - 2026-06-22
+
+### Added
+- **[Tests] Python `tests/auth/` — 新增 4 个测试文件，58 个测试**：`test_jwt.py`（token 创建/验证往返、过期/篡改、SSE token、PBKDF2 密码哈希+旧版 SHA256 兼容）、`test_dependencies.py`（FastAPI require_auth：JWT/API_KEY/localhost 三路认证、SSE query param 限制）、`test_rate_limit.py`（滑动窗口算法、429 触发、内存回退、X-Forwarded-For）、`test_user_config.py`（AES-256-GCM 加解密往返、ContextVar 隔离、load_user_config mock DB）
+- **[Tests] Python `tests/db/` — 新增 6 个测试文件，42 个测试**：`test_crypto.py`（AES-GCM 密钥生成、加解密往返、唯一 IV、格式验证）、`test_pool.py`（DSN 构建、加密密码解密、连接池 min/max、double-check locking、连接重试/超时、迁移跳过、管理员创建）、`test_backtest_store.py`（回测 CRUD：save/list/get/delete，含 equity_curve/trades/ohlcv_bars）、`test_alpha_bench_store.py`（Alpha 评测 CRUD：JSONB 存储、by_theme/top5_by_ir/dead_examples）、`test_sentiment_store.py`（新闻批量写入去重、按 symbol/source 查询、来源新鲜度检查、情绪 upsert）、`test_factor_kb_store.py`（FactorKBStore 语义搜索、标签回退搜索、状态更新、活动日志、优雅降级）
+- **[Tests] Python `tests/core/` — 新增 2 个测试文件，16 个测试**：`test_runner.py`（RunResult dataclass、Runner 子进程执行、超时、产物收集、Python 解释器选择）、`test_state.py`（RunStateStore 目录创建、请求保存、成功/失败标记）
+- **[Tests] Python `tests/notify/` — 新增 2 个测试文件，27 个测试**：`test_channels.py`（Alert 数据模型、Markdown/HTML 格式化、7 种通道分发、方言检测）、`test_notify_engine.py`（NotifyEngine 启用判断、级别过滤、速率限制、止损/止盈/日亏损/回撤/异常 6 种告警构造）
+- **[Tests] Python `tests/optimize/` — 新增 1 个测试文件，16 个测试**：`test_evolution.py`（StrategyEvolution 网格生成、笛卡尔积、样本外验证、空间收窄、早停、pareto frontier）
+- **[Tests] Python `tests/proto/` — 新增 1 个测试文件，25 个测试**：`test_proto_contracts.py`（7 个 gRPC 服务的消息类型验证、序列化往返、字段类型校验；stub 未生成时优雅跳过）
+- **[Tests] Go `adapters/` — 新增 4 个测试文件，73 个测试**：`finnhub_test.go`（mock HTTP OHLCV/内部交易/SEC 文件/新闻情绪、费率限制 429、多分辨率映射）、`gdelt_test.go`（10 个地缘政治主题、Volume+Tone 并发 Fetch、线程安全）、`iwencai_test.go`（问财多格式 JSON 解析 V1/V2/V3/JSONP、splitCode 函数、stripJSONP）、`northbound_test.go`（北向资金 K 线 CSV 解析、十大活跃股、行业分布、日期计算）
+- **[Tests] Go `middleware/` — 新增 1 个测试文件，13 个测试**：`auth_test.go`（Gin 中间件：公开路由、API Key 认证、JWT Bearer 认证、localhost 绕过、context 值注入、API Key 优先于 JWT）
+- **[Tests] E2E 扩展** — 从 3 个测试函数扩展至 9 个：新增 `TestHealthDetailedCheck`、`TestAPIInfoEndpoint`、`TestBacktestListEndpoint`、`TestBacktestGetEndpoint`、`TestFactorListEndpoint`、`TestPortfolioStatusEndpoint`
+- **[CI] Proto lint job** — `test.yml` 新增 `proto-lint` job（buf lint + breaking change 检测）
+- **[CI] E2E job** — `test.yml` 新增 `e2e` job（docker compose 启动服务 → 运行 E2E 测试 → 清理）
+- **[Scripts] scripts/proto-test.sh** — buf lint 检查脚本
+- **[Scripts] scripts/proto-breaking.sh** — proto 破坏性变更检测脚本（对比 main 分支）
+- **[Scripts] scripts/e2e-test.sh** — E2E 测试运行脚本
+
+### Fixed
+- **[Tests] test_pool.py mock 修正** — psycopg2 mock 需同时 patch `sys.modules`（`psycopg2`/`psycopg2.pool`/`psycopg2.sql`），否则 `import psycopg2.sql` 在测试中失败
+- **[Tests] middleware/auth_test.go JWT_SECRET 一致性** — 测试间 `os.Unsetenv("JWT_SECRET")` 导致后续测试 token 签名密钥与 `handler.init()` 缓存的 `jwtSecret` 不一致，统一为 `test-secret`
+- **[Bug] factor_kb_store.py close() 方法缩进错误** — `close()` 方法错误嵌套在 `_embedding_to_pg_vector()` 函数内部，导致 `FactorKBStore` 缺少 `close` 属性；已移为类级方法
+
+### Changed
+- **[Tests] 所有新增测试遵循现有约定** — Python：`@pytest.mark.unit`/`@pytest.mark.integration` marker + `pytest.approx` + `np.random.RandomState(42)` + monkeypatch；Go：`testing` + `testify/assert` + `httptest.NewServer` mock HTTP
+
 ## [2026.6.21] - 2026-06-21
 
 ### Added

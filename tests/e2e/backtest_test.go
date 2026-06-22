@@ -29,3 +29,51 @@ func TestBacktestCreateEndpoint(t *testing.T) {
 		t.Errorf("expected 200 or 503, got %d", resp.StatusCode)
 	}
 }
+
+func TestBacktestListEndpoint(t *testing.T) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(baseURL + "/api/v1/backtest")
+	if err != nil {
+		t.Skipf("server not running, skipping E2E: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("expected 200 or 503, got %d", resp.StatusCode)
+	}
+}
+
+func TestBacktestGetEndpoint(t *testing.T) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(baseURL + "/api/v1/backtest/nonexistent-id")
+	if err != nil {
+		t.Skipf("server not running, skipping E2E: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("expected 404 or 503, got %d", resp.StatusCode)
+	}
+}
+
+func TestFactorListEndpoint(t *testing.T) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(baseURL + "/api/v1/factors")
+	if err != nil {
+		t.Skipf("server not running, skipping E2E: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("expected 200 or 503, got %d", resp.StatusCode)
+	}
+}
+
+func TestPortfolioStatusEndpoint(t *testing.T) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get(baseURL + "/api/v1/portfolio/status")
+	if err != nil {
+		t.Skipf("server not running, skipping E2E: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusServiceUnavailable {
+		t.Errorf("expected 200 or 503, got %d", resp.StatusCode)
+	}
+}

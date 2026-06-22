@@ -115,3 +115,35 @@ jobs:
           cd frontend
           npm install --legacy-peer-deps
           npm run build
+
+  # ── Proto contract: lint proto files with buf ──
+  proto-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bufbuild/buf-setup-action@v1
+      - uses: bufbuild/buf-lint-action@v1
+        with:
+          input: services/proto
+
+  # ── E2E: start services and run end-to-end tests ──
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Start services
+        run: |
+          docker compose up -d
+          sleep 10
+      - name: Run E2E tests
+        run: |
+          cd tests/e2e
+          go test ./... -v -count=1 -timeout 60s
+      - name: Stop services
+        if: always()
+        run: docker compose down

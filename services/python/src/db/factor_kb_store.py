@@ -345,6 +345,11 @@ class FactorKBStore:
             "expression_json": expr_json,
         }
 
+    def close(self) -> None:
+        if self._conn:
+            self._conn.close()
+            self._available = False
+
 
 def _embedding_to_pg_vector(embedding) -> str | None:
     """Convert a Python list/array to a pgvector-compatible string literal.
@@ -360,8 +365,3 @@ def _embedding_to_pg_vector(embedding) -> str | None:
         return f"[{','.join(str(float(e)) for e in embedding)}]"
     except (TypeError, ValueError):
         return None
-
-    def close(self) -> None:
-        if self._conn:
-            self._conn.close()
-            self._available = False
