@@ -23,6 +23,17 @@ type Pipeline struct {
 	EquityCache float64
 }
 
+func NewPipeline(engine Engine, portfolio *Portfolio, signal SignalGenerator, risk RiskPipeline, om *OrderManager) *Pipeline {
+	return &Pipeline{
+		Engine:    engine,
+		Portfolio: portfolio,
+		Signal:    signal,
+		Risk:      risk,
+		OM:        om,
+		LastBars:  make(map[string]*Bar),
+	}
+}
+
 func (p *Pipeline) OnBar(bar *Bar, ts time.Time) {
 	p.EquityCache = p.Portfolio.Equity
 

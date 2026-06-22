@@ -64,13 +64,19 @@ func NewBacktestRunner(pipeline *Pipeline, loader BarLoader) *BacktestRunner {
 }
 
 func (br *BacktestRunner) Run(symbols []string, start, end time.Time, freq string) (*BacktestResult, error) {
-	br.pipeline.Portfolio = &Portfolio{
-		Cash:          br.pipeline.Portfolio.Cash,
-		Equity:        br.pipeline.Portfolio.Equity,
-		InitialEquity: br.pipeline.Portfolio.InitialEquity,
-		Positions:     make(map[string]*Position),
-	}
-	br.pipeline.LastBars = make(map[string]*Bar)
+	p := NewPipeline(
+		br.pipeline.Engine,
+		&Portfolio{
+			Cash:          br.pipeline.Portfolio.Cash,
+			Equity:        br.pipeline.Portfolio.Equity,
+			InitialEquity: br.pipeline.Portfolio.InitialEquity,
+			Positions:     make(map[string]*Position),
+		},
+		br.pipeline.Signal,
+		br.pipeline.Risk,
+		br.pipeline.OM,
+	)
+	br.pipeline = p
 	br.trades = nil
 
 	symbolBars := make(map[string][]*commonv1.Bar)

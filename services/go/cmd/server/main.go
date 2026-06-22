@@ -89,19 +89,18 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	signalAdapter := engine.NewSignalAdapterFromConnMgr(s.grpcConn, 10*time.Second)
 	btHandler := handler.NewBacktestHandler(repo, ds, factory, signalAdapter)
 
-	pipeline := &engine.Pipeline{
-		Engine:    factory.ForSymbol("000001"),
-		Portfolio: &engine.Portfolio{
+	pipeline := engine.NewPipeline(
+		factory.ForSymbol("000001"),
+		&engine.Portfolio{
 			Cash:          100000,
 			Equity:        100000,
 			InitialEquity: 100000,
 			Positions:     make(map[string]*engine.Position),
 		},
-		Signal:   signalAdapter,
-		Risk:     engine.NewRiskManager(engine.RiskConfig{}),
-		OM:       engine.NewOrderManager(),
-		LastBars: make(map[string]*engine.Bar),
-	}
+		signalAdapter,
+		engine.NewRiskManager(engine.RiskConfig{}),
+		engine.NewOrderManager(),
+	)
 	runner := engine.NewLiveTradingRunner(pipeline, 1*time.Minute)
 	trHandler := handler.NewTradingHandler(runner)
 

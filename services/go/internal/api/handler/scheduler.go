@@ -370,8 +370,16 @@ func (h *SchedulerHandler) DeleteJob(c *gin.Context) {
 
 // runOnce executes a job once immediately.
 func (h *SchedulerHandler) runOnce(job *ScheduledJob) {
-	start, _ := time.Parse("2006-01-02", job.StartDate)
-	end, _ := time.Parse("2006-01-02", job.EndDate)
+	start, err := time.Parse("2006-01-02", job.StartDate)
+	if err != nil {
+		h.logger.Error("scheduler: invalid start date %q: %v", job.StartDate, err)
+		return
+	}
+	end, err := time.Parse("2006-01-02", job.EndDate)
+	if err != nil {
+		h.logger.Error("scheduler: invalid end date %q: %v", job.EndDate, err)
+		return
+	}
 
 	pipeline := &engine.Pipeline{
 		Engine:    h.factory.ForSymbol(job.Symbols[0]),
@@ -432,8 +440,16 @@ func (h *SchedulerHandler) runLoop(rt *jobRuntime) {
 
 func (h *SchedulerHandler) executeRun(rt *jobRuntime) {
 	job := rt.job
-	start, _ := time.Parse("2006-01-02", job.StartDate)
-	end, _ := time.Parse("2006-01-02", job.EndDate)
+	start, err := time.Parse("2006-01-02", job.StartDate)
+	if err != nil {
+		h.logger.Error("scheduler: invalid start date %q: %v", job.StartDate, err)
+		return
+	}
+	end, err := time.Parse("2006-01-02", job.EndDate)
+	if err != nil {
+		h.logger.Error("scheduler: invalid end date %q: %v", job.EndDate, err)
+		return
+	}
 	result, err := rt.runner.Run(job.Symbols, start, end, job.Frequency)
 	if err != nil {
 		return
