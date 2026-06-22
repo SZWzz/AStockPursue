@@ -102,7 +102,9 @@ def timeout_context(seconds: int):
                 signal.alarm(0)
                 signal.signal(signal.SIGALRM, old_handler)
             return
-        except ValueError:
+        except (ValueError, OSError):
+            # signal.signal raises ValueError in non-main thread,
+            # OSError if signal is unavailable on the platform.
             pass
 
     timed_out = threading.Event()
