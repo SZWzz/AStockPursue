@@ -14,6 +14,8 @@ import argparse
 import logging
 import os
 from concurrent import futures
+from dataclasses import dataclass
+from typing import Optional
 
 import grpc
 import numpy as np
@@ -27,6 +29,18 @@ from src.grpc.llm_service import LLMServiceServicer
 from src.grpc.workflow_service import WorkflowServiceServicer
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class GrpcServerHandles:
+    """Named container for gRPC server and its service servicer instances."""
+    server: grpc.Server
+    signal_servicer: Optional[object] = None
+    data_servicer: Optional[object] = None
+    factor_servicer: Optional[object] = None
+    llm_servicer: Optional[object] = None
+    analysis_servicer: Optional[object] = None
+    workflow_servicer: Optional[object] = None
 
 
 class SignalServiceServicer(signal_pb2_grpc.SignalServiceServicer):
@@ -145,7 +159,7 @@ class SignalServiceServicer(signal_pb2_grpc.SignalServiceServicer):
         return weights
 
 
-def serve(port: int = 8902, max_workers: int = 10) -> grpc.Server:
+def serve(port: int = 8902, max_workers: int = 10) -> GrpcServerHandles:
     """Start the gRPC server and return it (non-blocking in caller)."""
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=max_workers))
 
@@ -183,7 +197,15 @@ def serve(port: int = 8902, max_workers: int = 10) -> grpc.Server:
 
     logger.info("gRPC services: SignalService + DataService + FactorService + LLMService + AnalysisService + WorkflowService")
 
-    return server, signal_servicer, data_servicer, factor_servicer, llm_servicer, analysis_servicer, workflow_servicer
+    return GrpcServerHandles(
+        server=server,
+        signal_servicer=signal_servicer,
+        data_servicer=data_servicer,
+        factor_servicer=factor_servicer,
+        llm_servicer=llm_servicer,
+        analysis_servicer=analysis_servicer,
+        workflow_servicer=workflow_servicer,
+    )
 
 
 if __name__ == "__main__":
@@ -196,7 +218,7 @@ if __name__ == "__main__":
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    server, *_ = serve(port=args.port)
-    server.start()
+    handles = serve(port=args.port)
+    handles.server.start()
     logger.info("Server started. Press Ctrl+C to stop.")
-    server.wait_for_termination()
+    handles.server.wait_for_termination()
