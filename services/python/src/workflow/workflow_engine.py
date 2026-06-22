@@ -35,14 +35,21 @@ _CPU_POOL: concurrent.futures.ProcessPoolExecutor | None = None
 _CPU_POOL_LOCK = asyncio.Lock()
 
 
-def _get_cpu_pool() -> concurrent.futures.ProcessPoolExecutor:
-    """Return the shared CPU process pool, creating it on first call."""
+async def _get_cpu_pool() -> concurrent.futures.ProcessPoolExecutor:
+    """Return the shared CPU process pool, creating it on first call.
+
+    Uses double-checked locking with an asyncio.Lock to prevent
+    multiple concurrent callers from creating duplicate pools.
+    """
     global _CPU_POOL
-    if _CPU_POOL is None:
-        _CPU_POOL = concurrent.futures.ProcessPoolExecutor(
-            max_workers=min(os.cpu_count() or 4, 8),
-        )
-    return _CPU_POOL
+    if _CPU_POOL is not None:
+        return _CPU_POOL
+    async with _CPU_POOL_LOCK:
+        if _CPU_POOL is None:  # double-check under lock
+            _CPU_POOL = concurrent.futures.ProcessPoolExecutor(
+                max_workers=min(os.cpu_count() or 4, 8),
+            )
+        return _CPU_POOL
 
 
 class WorkflowEngine:
@@ -341,9 +348,10 @@ class WorkflowEngine:
 
             # CPU-bound nodes run in ProcessPoolExecutor to avoid blocking
             if profile == "cpu_bound":
+                cpu_pool = await _get_cpu_pool()
                 outputs = await asyncio.wait_for(
                     asyncio.get_running_loop().run_in_executor(
-                        _get_cpu_pool(), _run_cpu_node, node.node_type, inputs, node.config),
+                        cpu_pool, _run_cpu_node, node.node_type, inputs, node.config),
                     timeout=timeout)
             else:
                 outputs = await asyncio.wait_for(
