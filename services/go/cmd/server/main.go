@@ -128,6 +128,9 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 	portfolioH := handler.NewPortfolioHandler(runner)
 	paperTradeH := handler.NewPaperTradingHandler(ds, factory, dbPool)
+	// Wire up promotion context for backtest→paper→live chain
+	paperTradeH.SetBacktestRepo(repo)
+	trHandler.SetPromotionContext(paperTradeH.Engine(), factory, ds)
 	settingsH := handler.NewSettingsHandler(dbPool)
 	systemH := handler.NewSystemHandler()
 	analysisH := handler.NewAnalysisHandler(ds).WithTradingRunner(runner)

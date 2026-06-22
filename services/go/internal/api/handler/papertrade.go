@@ -12,14 +12,28 @@ import (
 
 // PaperTradingHandler manages paper trading run endpoints.
 type PaperTradingHandler struct {
-	engine *papertrade.Engine
+	engine        *papertrade.Engine
+	backtestRepo  BacktestRepository
+	paperEngine   *papertrade.Engine
 }
 
 // NewPaperTradingHandler creates a new PaperTradingHandler.
 func NewPaperTradingHandler(ds *market.DataStore, factory *engine.EngineFactory, db *pgxpool.Pool) *PaperTradingHandler {
+	paperEngine := papertrade.NewEngine(ds, factory, db)
 	return &PaperTradingHandler{
-		engine: papertrade.NewEngine(ds, factory, db),
+		engine:      paperEngine,
+		paperEngine: paperEngine,
 	}
+}
+
+// SetBacktestRepo sets the backtest repository for promotion support.
+func (h *PaperTradingHandler) SetBacktestRepo(repo BacktestRepository) {
+	h.backtestRepo = repo
+}
+
+// Engine returns the underlying papertrade engine (used for promotion wiring).
+func (h *PaperTradingHandler) Engine() *papertrade.Engine {
+	return h.engine
 }
 
 // CreateRun creates a new paper trading configuration.
@@ -89,4 +103,37 @@ func (h *PaperTradingHandler) DeleteRun(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"id": c.Param("id"), "deleted": true})
+}
+
+// PromoteToPaper creates a paper trading run from a backtest result.
+// POST /api/v1/backtest/:id/promote-to-paper
+func (h *PaperTradingHandler) PromoteToPaper(c *gin.Context) {
+	id := c.Param("id")
+	if h.backtestRepo == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "backtest repository not configured"})
+		return
+	}
+
+	result, err := h.backtestRepo.Get(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "backtest result not found: " + id})
+		return
+	}
+
+	run, err := h.engine.Create(
+		"Promoted from backtest "+id,
+		result.Symbols,
+		result.Frequency,
+		result.InitialCash,
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{
+		"paper_run": run,
+		"source":    "backtest",
+		"source_id": id,
+	})
 }

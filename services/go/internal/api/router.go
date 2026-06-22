@@ -50,6 +50,7 @@ func NewRouter(
 		bt.POST("", backtest.Run)
 		bt.GET("", backtest.ListResults)
 		bt.GET("/:id", backtest.GetResult)
+		bt.POST("/:id/promote-to-paper", paperTradeH.PromoteToPaper)
 
 		tr := v1.Group("/trading")
 		tr.POST("/start", trading.Start)
@@ -79,6 +80,7 @@ func NewRouter(
 		pt.GET("/:id", paperTradeH.GetRun)
 		pt.POST("/:id/start", paperTradeH.StartRun)
 		pt.POST("/:id/stop", paperTradeH.StopRun)
+		pt.POST("/:id/promote-to-live", trading.PromoteToLive)
 		pt.DELETE("/:id", paperTradeH.DeleteRun)
 
 		st := v1.Group("/settings")
