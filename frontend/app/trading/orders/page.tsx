@@ -72,7 +72,7 @@ export default function OrdersPage() {
     try {
       const res = await fetch(`/api/trading/orders/${id}`, { method: 'DELETE' })
       if (res.ok) {
-        toast.success(t('trading.orderCancelled') || 'Order cancelled')
+        toast.success(t('trading.orderCancelled'))
         mutate()
       } else {
         toast.error(t('common.error'))
@@ -100,7 +100,7 @@ export default function OrdersPage() {
               <SelectValue placeholder={t('trading.status')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">{t('trading.allStatuses') || 'All'}</SelectItem>
+              <SelectItem value="all">{t('trading.allStatuses')}</SelectItem>
               <SelectItem value="open">{t('trading.open')}</SelectItem>
               <SelectItem value="filled">{t('trading.filled')}</SelectItem>
               <SelectItem value="cancelled">{t('trading.cancelled')}</SelectItem>
@@ -113,7 +113,7 @@ export default function OrdersPage() {
               type="text"
               value={symbolSearch}
               onChange={(e) => handleSymbolSearch(e.target.value)}
-              placeholder={t('trading.symbol') || 'Symbol'}
+              placeholder={t('trading.symbol')}
               className="w-full h-8 pl-8 pr-2 text-[12px] bg-white border border-[var(--border)] rounded-[6px] outline-none focus:border-[var(--primary)]"
             />
           </div>
@@ -124,7 +124,7 @@ export default function OrdersPage() {
               className="text-[11px] text-[var(--foreground-muted)] hover:text-[var(--foreground)] flex items-center gap-1"
             >
               <X className="w-3 h-3" />
-              {t('common.clear') || 'Clear'}
+              {t('common.clear')}
             </button>
           )}
         </div>
@@ -147,7 +147,7 @@ export default function OrdersPage() {
                     <TableHead className="h-8 text-right">{t('trading.quantity')}</TableHead>
                     <TableHead className="h-8 text-right">{t('trading.filledQty')}</TableHead>
                     <TableHead className="h-8">{t('trading.status')}</TableHead>
-                    <TableHead className="h-8 text-right">{t('common.createOrder') || 'Actions'}</TableHead>
+                    <TableHead className="h-8 text-right">{t('common.createOrder')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -201,7 +201,7 @@ export default function OrdersPage() {
               {totalCount > 0 && (
                 <div className="flex items-center justify-between px-4 py-2 border-t border-[var(--border)]">
                   <div className="text-[11px] text-[var(--foreground-muted)]">
-                    {t('trading.showing') || 'Showing'} {(safePage - 1) * pageSize + 1}-{Math.min(safePage * pageSize, totalCount)} {t('trading.of') || 'of'} {totalCount}
+                    {t('trading.showing')} {(safePage - 1) * pageSize + 1}-{Math.min(safePage * pageSize, totalCount)} {t('trading.of')} {totalCount}
                   </div>
 
                   <div className="flex items-center gap-3">

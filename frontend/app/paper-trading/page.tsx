@@ -163,7 +163,7 @@ export default function PaperTradingPage() {
           ) : !accounts.length ? (
             <EmptyState
               title={t('common.noData')}
-              description={t('papertrading.emptyHint') || '还没有模拟交易记录，去创建一个吧'}
+              description={t('papertrading.emptyHint')}
               action={{ label: t('common.create'), href: '#' }}
             />
           ) : (

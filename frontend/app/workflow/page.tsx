@@ -178,7 +178,7 @@ export default function WorkflowPage() {
           ) : !workflows.length ? (
             <EmptyState
               title={t('common.noData')}
-              description={t('workflow.emptyHint') || 'No workflows yet, create one to get started'}
+              description={t('workflow.emptyHint')}
             />
           ) : (
             <div className="overflow-x-auto">

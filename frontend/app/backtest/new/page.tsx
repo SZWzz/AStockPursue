@@ -46,28 +46,28 @@ export default function NewBacktestPage() {
     const errors: FormErrors = {}
 
     if (!name.trim()) {
-      errors.name = t('backtest.nameRequired') || 'Strategy name is required'
+      errors.name = t('backtest.nameRequired')
     }
 
     if (!symbol.trim()) {
-      errors.symbol = t('backtest.symbolRequired') || 'Symbol is required'
+      errors.symbol = t('backtest.symbolRequired')
     } else if (!/^\d{6}\.(SZ|SH)$|^[A-Za-z]{2,10}(\.[A-Za-z]+)?$/.test(symbol.trim().toUpperCase())) {
-      errors.symbol = t('backtest.symbolFormat') || 'Format: 000001.SZ, 600519.SH, or BTCUSDT'
+      errors.symbol = t('backtest.symbolFormat')
     }
 
     if (!startDate) {
-      errors.startDate = t('backtest.startDateRequired') || 'Start date is required'
+      errors.startDate = t('backtest.startDateRequired')
     }
 
     if (!endDate) {
-      errors.endDate = t('backtest.endDateRequired') || 'End date is required'
+      errors.endDate = t('backtest.endDateRequired')
     } else if (startDate && endDate && endDate <= startDate) {
-      errors.endDate = t('backtest.endDateAfterStart') || 'End date must be after start date'
+      errors.endDate = t('backtest.endDateAfterStart')
     }
 
     const capital = parseFloat(initialCapital)
     if (isNaN(capital) || capital <= 0) {
-      errors.initialCapital = t('backtest.capitalPositive') || 'Initial capital must be positive'
+      errors.initialCapital = t('backtest.capitalPositive')
     }
 
     setFormErrors(errors)
@@ -141,7 +141,7 @@ export default function NewBacktestPage() {
                 value={name}
                 onChange={(e) => { setName(e.target.value); setFormErrors((p) => { const n = { ...p }; delete n.name; return n }) }}
                 onBlur={() => handleBlur('name')}
-                placeholder={t('backtest.namePlaceholder') || 'e.g. MA Crossover, Momentum Breakout'}
+                placeholder={t('backtest.namePlaceholder')}
                 className={formErrors.name ? 'border-[var(--down)]' : ''}
               />
               {formErrors.name && (
@@ -197,7 +197,7 @@ export default function NewBacktestPage() {
             {/* Frequency */}
             <div>
               <label className="block text-[14px] font-semibold text-[var(--foreground)] mb-1.5">
-                {t('backtest.frequency') || 'Frequency'}
+                {t('backtest.frequency')}
               </label>
               <Select value={frequency} onValueChange={(v) => setFrequency(v ?? '1d')}>
                 <SelectTrigger className="w-full h-10">

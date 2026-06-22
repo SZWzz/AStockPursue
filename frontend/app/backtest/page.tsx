@@ -126,7 +126,7 @@ export default function BacktestListPage() {
           ) : !filteredBacktests.length ? (
             <EmptyState
               title={t('common.noData')}
-              description={t('backtest.emptyHint') || '还没有回测记录，去创建一个吧'}
+              description={t('backtest.emptyHint')}
               action={{ label: t('backtest.new'), href: '/backtest/new' }}
             />
           ) : (

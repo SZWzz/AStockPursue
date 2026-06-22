@@ -142,7 +142,7 @@ export default function TradingPage() {
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={t('common.search') || 'Search symbol...'}
+                    placeholder={t('common.search')}
                     className="w-full h-8 px-2 text-[12px] bg-[var(--surface-1)] border border-[var(--border)] rounded-[4px] outline-none focus:border-[var(--primary)]"
                   />
                 </div>

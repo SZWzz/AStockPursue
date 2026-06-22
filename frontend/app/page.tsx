@@ -31,7 +31,7 @@ export default function DashboardPage() {
       <SidebarLayout>
         <EmptyState
           title={t('common.noData')}
-          description={t('dashboard.emptyHint') || '还没有记录，连接后端服务以获取数据'}
+          description={t('dashboard.emptyHint')}
         />
       </SidebarLayout>
     )
@@ -209,10 +209,10 @@ export default function DashboardPage() {
                     <div>
                       <EquityChart data={[
                         { time: t('backtest.startDate'), equity: initial },
-                        { time: t('common.today') || 'Today', equity: current },
+                        { time: t('common.today'), equity: current },
                       ]} />
                       <p className="text-[10px] text-[var(--muted-foreground)] mt-2 text-center">
-                        {t('dashboard.equityCurveHint') || 'Historical equity curve requires time-series tracking. Showing initial → current snapshot.'}
+                        {t('dashboard.equityCurveHint')}
                       </p>
                     </div>
                   )

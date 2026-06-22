@@ -106,7 +106,7 @@ export const PositionTable = memo(function PositionTable() {
             <div className="text-[16px] font-semibold mt-0.5">{formatPnL(buyingPower)}</div>
           </div>
           <div className="bg-[var(--surface-1)] rounded-[6px] p-3">
-            <div className="text-[10px] text-[var(--foreground-muted)] uppercase tracking-wide">{t('portfolio.exposure') || 'Exposure'}</div>
+            <div className="text-[10px] text-[var(--foreground-muted)] uppercase tracking-wide">{t('portfolio.exposure')}</div>
             <div className={cn('text-[16px] font-semibold mt-0.5', totalPnL > 0 ? 'text-[var(--up)]' : totalPnL < 0 ? 'text-[var(--down)]' : '')}>
               {formatPnL(totalPnL)}
             </div>
@@ -134,7 +134,7 @@ export const PositionTable = memo(function PositionTable() {
                 <TableHead className="text-right">{t('portfolio.currentPrice')}</TableHead>
                 <TableHead className="text-right">{t('portfolio.pnl')}</TableHead>
                 <TableHead className="text-right">{t('portfolio.pnlPct')}</TableHead>
-                <TableHead className="text-right">{t('common.createOrder') || 'Actions'}</TableHead>
+                <TableHead className="text-right">{t('common.createOrder')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -175,7 +175,7 @@ export const PositionTable = memo(function PositionTable() {
                             className="h-7 px-2 text-[11px] text-[var(--down)] hover:text-[var(--down)] hover:bg-[var(--down)]/10"
                           >
                             <X className="w-3.5 h-3.5 mr-1" />
-                            {closing === pos.symbol ? '...' : t('portfolio.close') || 'Close'}
+                            {closing === pos.symbol ? '...' : t('portfolio.close')}
                           </Button>
                         </TableCell>
                       </TableRow>
@@ -198,7 +198,7 @@ export const PositionTable = memo(function PositionTable() {
             <TableHead className="text-right">{t('portfolio.currentPrice')}</TableHead>
             <TableHead className="text-right">{t('portfolio.pnl')}</TableHead>
             <TableHead className="text-right">{t('portfolio.pnlPct')}</TableHead>
-            <TableHead className="text-right">{t('common.createOrder') || 'Actions'}</TableHead>
+            <TableHead className="text-right">{t('common.createOrder')}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -231,7 +231,7 @@ export const PositionTable = memo(function PositionTable() {
                     className="h-7 px-2 text-[11px] text-[var(--down)] hover:text-[var(--down)] hover:bg-[var(--down)]/10"
                   >
                     <X className="w-3.5 h-3.5 mr-1" />
-                    {closing === pos.symbol ? '...' : t('portfolio.close') || 'Close'}
+                    {closing === pos.symbol ? '...' : t('portfolio.close')}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -245,10 +245,10 @@ export const PositionTable = memo(function PositionTable() {
       <Dialog open={!!confirmClose} onOpenChange={(open) => { if (!open) setConfirmClose(null) }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t('portfolio.confirmClose') || 'Confirm Close Position'}</DialogTitle>
+            <DialogTitle>{t('portfolio.confirmClose')}</DialogTitle>
             <DialogDescription>
               {confirmClose
-                ? `${t('portfolio.close') || 'Close'} ${confirmClose.symbol} (${t('portfolio.position') || 'Size'}: ${Math.abs(confirmClose.size || 0)})`
+                ? `${t('portfolio.close')} ${confirmClose.symbol} (${t('portfolio.position')}: ${Math.abs(confirmClose.size || 0)})`
                 : ''}
             </DialogDescription>
           </DialogHeader>
@@ -257,7 +257,7 @@ export const PositionTable = memo(function PositionTable() {
               {t('common.cancel')}
             </Button>
             <Button variant="destructive" onClick={handleClose}>
-              {t('portfolio.confirmClose') || 'Confirm Close'}
+              {t('portfolio.confirmClose')}
             </Button>
           </DialogFooter>
         </DialogContent>
