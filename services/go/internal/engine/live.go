@@ -80,6 +80,7 @@ type LiveTradingRunner struct {
 	pipeline *Pipeline
 	interval time.Duration
 	stopCh   chan struct{}
+	wg       sync.WaitGroup
 
 	fetcher  BarFetcher
 	feed     FeedHandler
@@ -121,11 +122,17 @@ func (l *LiveTradingRunner) WithBroker(b BrokerExecutor) *LiveTradingRunner {
 
 func (l *LiveTradingRunner) Start() error {
 	l.mu.Lock()
-	defer l.mu.Unlock()
 
 	if l.status == TradingRunning {
+		l.mu.Unlock()
 		return nil
 	}
+
+	// Wait for previous goroutines to fully exit before creating new stopCh
+	l.mu.Unlock()
+	l.wg.Wait()
+	l.mu.Lock()
+
 	l.status = TradingRunning
 	l.stopCh = make(chan struct{})
 
@@ -248,6 +255,7 @@ func (l *LiveTradingRunner) SyncPositions(ctx context.Context) error {
 
 func (l *LiveTradingRunner) startPoll() error {
 	log.Printf("live trading started (poll interval=%s, symbols=%v)", l.interval, l.symbols)
+	l.wg.Add(1)
 	go l.pollLoop()
 	return nil
 }
@@ -278,6 +286,7 @@ func (l *LiveTradingRunner) startFeed() error {
 }
 
 func (l *LiveTradingRunner) pollLoop() {
+	defer l.wg.Done()
 	ticker := time.NewTicker(l.interval)
 	defer ticker.Stop()
 	var lastTS int64
