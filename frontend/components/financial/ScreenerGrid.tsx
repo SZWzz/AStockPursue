@@ -18,6 +18,8 @@ interface ScreenerGridProps {
   data: Row[]
   onRowClick?: (symbol: string) => void
   mode?: 'filter' | 'rank' | 'score'
+  actionLabel?: string
+  onAction?: (symbol: string) => void
 }
 
 const ScreenerRow = memo(function ScreenerRow({
@@ -25,11 +27,15 @@ const ScreenerRow = memo(function ScreenerRow({
   index,
   mode,
   onRowClick,
+  actionLabel,
+  onAction,
 }: {
   row: Row
   index: number
   mode: 'filter' | 'rank' | 'score'
   onRowClick?: (symbol: string) => void
+  actionLabel?: string
+  onAction?: (symbol: string) => void
 }) {
   return (
     <TableRow
@@ -78,11 +84,21 @@ const ScreenerRow = memo(function ScreenerRow({
       <TableCell className="text-[13px] font-mono text-right text-[var(--foreground-secondary)] py-1.5">
         {row.volume.toLocaleString()}
       </TableCell>
+      {actionLabel && onAction && (
+        <TableCell className="py-1.5 text-right">
+          <button
+            onClick={(e) => { e.stopPropagation(); onAction(row.symbol) }}
+            className="text-[12px] font-medium text-[var(--primary)] hover:underline"
+          >
+            {actionLabel}
+          </button>
+        </TableCell>
+      )}
     </TableRow>
   )
 })
 
-export function ScreenerGrid({ data, onRowClick, mode = 'filter' }: ScreenerGridProps) {
+export function ScreenerGrid({ data, onRowClick, mode = 'filter', actionLabel, onAction }: ScreenerGridProps) {
   const t = useTranslations()
   if (!data.length)
     return (
@@ -117,11 +133,14 @@ export function ScreenerGrid({ data, onRowClick, mode = 'filter' }: ScreenerGrid
           <TableHead className="text-[11px] text-[var(--foreground-muted)] h-8 text-right">
             {t('screener.volume')}
           </TableHead>
+          {actionLabel && (
+            <TableHead className="text-[11px] text-[var(--foreground-muted)] h-8 text-right w-16">{t('common.actions')}</TableHead>
+          )}
         </TableRow>
       </TableHeader>
       <TableBody>
         {data.map((r, i) => (
-          <ScreenerRow key={r.symbol} row={r} index={i} mode={mode} onRowClick={onRowClick} />
+          <ScreenerRow key={r.symbol} row={r} index={i} mode={mode} onRowClick={onRowClick} actionLabel={actionLabel} onAction={onAction} />
         ))}
       </TableBody>
     </Table>

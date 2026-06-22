@@ -3,6 +3,7 @@
 
 import { useState, useRef } from 'react'
 import { useTranslations } from 'next-intl'
+import Link from 'next/link'
 import { toast } from 'sonner'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { CodeEditor } from '@/components/strategy-lab/CodeEditor'
@@ -25,7 +26,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Save, Loader2, FolderOpen } from 'lucide-react'
+import { Save, Loader2, FolderOpen, ExternalLink } from 'lucide-react'
 
 const DEFAULT_CODE = `# Strategy: Momentum Breakout
 # Symbol: {symbol}  |  Period: {start} → {end}
@@ -79,6 +80,7 @@ export default function StrategyLabPage() {
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<Record<string, number> | null>(null)
   const [equityData, setEquityData] = useState<{ time: string; equity: number }[]>([])
+  const [backtestId, setBacktestId] = useState<string | null>(null)
 
   // save dialog state
   const [saveOpen, setSaveOpen] = useState(false)
@@ -116,6 +118,7 @@ export default function StrategyLabPage() {
       })
       if (!res.ok) throw new Error('Backtest failed')
       const data = await res.json()
+      if (data?.id) setBacktestId(data.id)
       setResult({
         totalReturn: data.total_return || 0,
         sharpeRatio: data.sharpe_ratio || 0,
@@ -255,12 +258,21 @@ export default function StrategyLabPage() {
               symbolLabel={t('strategyLab.symbol')}
               startLabel={t('strategyLab.start')}
               endLabel={t('strategyLab.end')}
-              runLabel={'▶ ' + t('strategyLab.run')}
+              runLabel={'-- ' + t('strategyLab.run')}
               runningLabel={t('strategyLab.running')}
               returnLabel={t('strategyLab.totalReturn')}
               sharpeLabel={t('strategyLab.sharpe')}
               maxDDLabel={t('strategyLab.maxDD')}
             />
+            {backtestId && result && (
+              <Link
+                href={`/backtest/${backtestId}`}
+                className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--primary)] hover:underline"
+              >
+                <ExternalLink className="w-4 h-4" />
+                {t('strategyLab.viewFullReport')}
+              </Link>
+            )}
           </div>
         </div>
       </div>

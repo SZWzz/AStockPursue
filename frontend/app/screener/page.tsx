@@ -3,6 +3,7 @@
 
 import { useState, useEffect } from 'react'
 import { useTranslations } from 'next-intl'
+import { useRouter } from 'next/navigation'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { ScreenerGrid } from '@/components/financial/ScreenerGrid'
 import { Card } from '@/components/ui/card'
@@ -41,6 +42,7 @@ const FIELD_OPTIONS = [
 
 export default function ScreenerPage() {
   const t = useTranslations()
+  const router = useRouter()
   const { trigger, data, isMutating, error } = useScreener()
   const {
     mode,
@@ -286,7 +288,7 @@ export default function ScreenerPage() {
             <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">
               {t('screener.results')} ({results.length})
             </h2>
-            <ScreenerGrid data={results} mode={mode} />
+            <ScreenerGrid data={results} mode={mode} onRowClick={(symbol) => router.push('/trading?symbol=' + symbol)} />
           </Card>
         )}
 

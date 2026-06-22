@@ -2,7 +2,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { useBacktest } from '@/hooks'
@@ -12,6 +12,7 @@ import { DrawdownChart } from '@/components/financial/DrawdownChart'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { formatPercent, formatDateTime, formatPrice, formatPnL } from '@/lib/utils'
+import { toast } from 'sonner'
 
 interface TradeItem {
   id: string
@@ -47,6 +48,7 @@ interface BacktestDetail {
 export default function BacktestDetailPage() {
   const t = useTranslations()
   const params = useParams()
+  const router = useRouter()
   const id = params?.id as string
 
   const { data, isLoading, error } = useBacktest(id || null)
@@ -114,6 +116,29 @@ export default function BacktestDetailPage() {
     URL.revokeObjectURL(url)
   }
 
+  const [promoting, setPromoting] = useState(false)
+  const handlePromoteToPaper = async () => {
+    setPromoting(true)
+    try {
+      const res = await fetch(`/api/backtest/${id}/promote-to-paper`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      if (!res.ok) throw new Error('Promotion failed')
+      const data = await res.json()
+      const paperId = data?.id || data?.data?.id
+      if (paperId) {
+        router.push(`/paper-trading/${paperId}`)
+      } else {
+        toast.error(t('common.error'))
+      }
+    } catch {
+      toast.error(t('common.error'))
+    } finally {
+      setPromoting(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <SidebarLayout>
@@ -148,9 +173,14 @@ export default function BacktestDetailPage() {
             </p>
           </div>
           {/* BD3: Export button */}
-          <Button variant="outline" onClick={handleExportCSV} disabled={!trades.length} className="text-[13px]">
-            {t('common.export')} CSV
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="default" onClick={handlePromoteToPaper} disabled={promoting} className="text-[13px]">
+              {promoting ? t('common.loading') : t('backtest.startPaperTrading')}
+            </Button>
+            <Button variant="outline" onClick={handleExportCSV} disabled={!trades.length} className="text-[13px]">
+              {t('common.export')} CSV
+            </Button>
+          </div>
         </div>
 
         {/* KPI Cards — StatCallout on white card */}

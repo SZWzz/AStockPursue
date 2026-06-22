@@ -91,7 +91,8 @@
   "papertrading": {
     "name": "账户名称",
     "initialCapital": "初始资金",
-    "strategyName": "策略名称"
+    "strategyName": "策略名称",
+    "goLive": "启动实盘"
   },
   "portfolio": {
     "symbol": "代码",
@@ -123,7 +124,8 @@
     "status": "状态",
     "searchByName": "按名称/策略搜索",
     "filterByDate": "按日期筛选",
-    "emptyHint": "还没有回测记录，去创建一个吧"
+    "emptyHint": "还没有回测记录，去创建一个吧",
+    "startPaperTrading": "开始模拟交易"
   },
   "analysis": {
     "correlation": "相关性分析",
@@ -264,6 +266,9 @@
     "acknowledged": "已确认",
     "acted": "已执行",
     "expired": "已过期"
+  },
+  "strategyLab": {
+    "viewFullReport": "查看完整报告"
   },
   "status": {
     "filled": "已完成"

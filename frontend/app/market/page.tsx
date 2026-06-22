@@ -76,6 +76,10 @@ export default function MarketOverviewPage() {
     router.push(`/market/${symbol}`)
   }
 
+  const handleTrade = (symbol: string) => {
+    router.push(`/trading?symbol=${symbol}`)
+  }
+
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && searchQuery.trim()) {
       router.push(`/market/${searchQuery.trim()}`)
@@ -204,7 +208,7 @@ export default function MarketOverviewPage() {
         {!isLoading && !hasError && filteredMovers.length > 0 && (
           <Card className="p-[var(--card-padding)]">
             <h2 className="text-[14px] font-semibold text-[var(--foreground)] mb-2">{t('market.topMovers')}</h2>
-            <ScreenerGrid data={filteredMovers} onRowClick={handleRowClick} />
+            <ScreenerGrid data={filteredMovers} onRowClick={handleRowClick} actionLabel={t('nav.trading')} onAction={handleTrade} />
           </Card>
         )}
 

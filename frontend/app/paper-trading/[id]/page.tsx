@@ -1,7 +1,7 @@
 // frontend/app/paper-trading/[id]/page.tsx — Paper trading detail (Coinbase theme)
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useTranslations } from 'next-intl'
 import useSWR from 'swr'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
@@ -13,6 +13,7 @@ import { useOrders } from '@/hooks'
 import { formatPercent, formatDateTime } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
+import { toast } from 'sonner'
 
 interface TradeItem {
   id: string
@@ -44,6 +45,7 @@ interface PaperDetail {
 export default function PaperTradingDetailPage() {
   const t = useTranslations()
   const params = useParams()
+  const router = useRouter()
   const id = params?.id as string
 
   useWebSocket()
@@ -71,6 +73,14 @@ export default function PaperTradingDetailPage() {
       mutate() // PD4: auto-refresh
     } catch (e) {
       console.error('Failed to stop paper trading', e)
+    }
+  }
+
+  const handleGoLive = async () => {
+    try {
+      router.push(`/trading?deploy=${id}`)
+    } catch (e) {
+      toast.error(t('common.error'))
     }
   }
 
@@ -117,6 +127,9 @@ export default function PaperTradingDetailPage() {
                 {t('common.stop')}
               </Button>
             )}
+            <Button onClick={handleGoLive} variant="default" className="bg-[var(--up)] hover:bg-[var(--up)]/90">
+              {t('papertrading.goLive')}
+            </Button>
           </div>
         </div>
 

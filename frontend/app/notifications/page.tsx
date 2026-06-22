@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useTranslations } from 'next-intl'
+import { useRouter } from 'next/navigation'
 import useSWR, { mutate } from 'swr'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { wsClient } from '@/lib/ws'
 import { cn } from '@/lib/utils'
-import { Bell, Info, AlertTriangle, AlertCircle, Send, Check, CheckCheck } from 'lucide-react'
+import { Bell, Info, AlertTriangle, AlertCircle, Send, Check, CheckCheck, ExternalLink } from 'lucide-react'
 
 // --------------- helpers ---------------
 
@@ -26,6 +27,25 @@ function levelBadgeVariant(level: string): 'destructive' | 'warning' | 'default'
   if (l === 'error') return 'destructive'
   if (l === 'warning') return 'warning'
   return 'default'
+}
+
+// Convert entity metadata to a target page href
+function resolveNotificationHref(n: any): string | null {
+  if (n.action_url) return n.action_url
+  if (n.link) return n.link
+  if (n.href) return n.href
+  if (n.entity_type && n.entity_id) {
+    const type = n.entity_type.toLowerCase()
+    if (type === 'backtest') return `/backtest/${n.entity_id}`
+    if (type === 'paper') return `/paper-trading/${n.entity_id}`
+    if (type === 'order') return `/trading/orders`
+    if (type === 'signal') return `/signals`
+    if (type === 'strategy') return `/strategy-lab`
+    if (type === 'workflow') return `/workflow/${n.entity_id}`
+    if (type === 'trade') return `/trading`
+    return `/${type}/${n.entity_id}`
+  }
+  return null
 }
 
 // NT2: Use i18n keys for relative time
@@ -51,6 +71,7 @@ function useFormatTime() {
 
 export default function NotificationsPage() {
   const t = useTranslations()
+  const router = useRouter()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [sending, setSending] = useState(false)
   const [markingAll, setMarkingAll] = useState(false)
@@ -172,14 +193,26 @@ export default function NotificationsPage() {
                 {notifications.map((n: any) => {
                   const isExpanded = expandedId === n.id
                   const isUnread = !n.read_at
+                  const href = resolveNotificationHref(n)
+
+                  const handleItemClick = () => {
+                    if (href) {
+                      router.push(href)
+                    } else {
+                      setExpandedId(isExpanded ? null : n.id)
+                    }
+                  }
+
                   return (
                     <div
                       key={n.id}
                       className={cn(
                         'py-3 first:pt-0 last:pb-0 cursor-pointer transition-colors',
+                        href && 'hover:bg-[var(--surface-2)]',
+                        !href && 'cursor-pointer',
                         isUnread && 'bg-[var(--primary-muted)]/30 -mx-[var(--card-spacing)] px-[var(--card-spacing)]'
                       )}
-                      onClick={() => setExpandedId(isExpanded ? null : n.id)}
+                      onClick={handleItemClick}
                     >
                       <div className="flex items-start gap-3">
                         <div className="shrink-0 mt-0.5">
@@ -193,15 +226,18 @@ export default function NotificationsPage() {
                             <Badge variant={levelBadgeVariant(n.level)} className="text-[10px] py-0 h-5">
                               {n.level}
                             </Badge>
+                            {href && (
+                              <ExternalLink className="w-3.5 h-3.5 text-[var(--primary)]" />
+                            )}
                           </div>
 
-                          {isExpanded && (
+                          {isExpanded && !href && (
                             <p className="text-sm text-[var(--foreground-secondary)] mt-2 whitespace-pre-wrap">
                               {n.body}
                             </p>
                           )}
 
-                          {!isExpanded && n.body && (
+                          {!isExpanded && !href && n.body && (
                             <p className="text-xs text-[var(--muted-foreground)] mt-1 truncate">
                               {n.body}
                             </p>

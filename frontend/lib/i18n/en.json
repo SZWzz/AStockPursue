@@ -90,7 +90,8 @@
   "papertrading": {
     "name": "Account Name",
     "initialCapital": "Initial Capital",
-    "strategyName": "Strategy Name"
+    "strategyName": "Strategy Name",
+    "goLive": "Go Live"
   },
   "portfolio": {
     "symbol": "Symbol",
@@ -122,7 +123,8 @@
     "status": "Status",
     "searchByName": "Search by name/strategy",
     "filterByDate": "Filter by date",
-    "emptyHint": "No backtest records yet, create one"
+    "emptyHint": "No backtest records yet, create one",
+    "startPaperTrading": "Start Paper Trading"
   },
   "analysis": {
     "correlation": "Correlation",
@@ -263,6 +265,9 @@
     "acknowledged": "Acknowledged",
     "acted": "Acted",
     "expired": "Expired"
+  },
+  "strategyLab": {
+    "viewFullReport": "View Full Report"
   },
   "status": {
     "filled": "Completed"
