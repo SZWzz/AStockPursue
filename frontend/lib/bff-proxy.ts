@@ -3,8 +3,32 @@ import { auth } from '@/lib/auth'
 import { API_BASE } from '@/lib/constants'
 
 const MAX_BODY_SIZE = 10 * 1024 * 1024 // 10MB
+const RATE_LIMIT_MAX = 60
+const RATE_LIMIT_WINDOW_MS = 60_000
+
+const rateLimitMap = new Map<string, { count: number; resetTime: number }>()
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(ip)
+  if (!entry || now > entry.resetTime) {
+    rateLimitMap.set(ip, { count: 1, resetTime: now + RATE_LIMIT_WINDOW_MS })
+    return true
+  }
+  if (entry.count >= RATE_LIMIT_MAX) return false
+  entry.count++
+  return true
+}
 
 export async function bffProxy(req: NextRequest, method: string): Promise<NextResponse> {
+  const ip = req.headers.get('x-forwarded-for') || 'unknown'
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { error: 'Too Many Requests', code: 'RATE_LIMIT_EXCEEDED' },
+      { status: 429 }
+    )
+  }
+
   const session = await auth()
   const token = session?.accessToken
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
