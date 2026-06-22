@@ -6,13 +6,14 @@ import (
 )
 
 type Config struct {
-	Port        string
-	DatabaseURL string
-	RedisURL    string
-	GrpcPort    string
-	DataDir     string
-	DevMode     bool
-	SeedSymbols []string
+	Port          string
+	DatabaseURL   string
+	RedisURL      string
+	GrpcPort      string
+	DataDir       string
+	DevMode       bool
+	SeedSymbols   []string
+	EncryptionKey string
 }
 
 func Load() *Config {
@@ -25,13 +26,14 @@ func Load() *Config {
 	}
 
 	return &Config{
-		Port:        getEnv("PORT", "8899"),
-		DatabaseURL: getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/astockpursue?sslmode=disable"),
-		RedisURL:    getEnv("REDIS_URL", "redis://localhost:6379/0"),
-		GrpcPort:    getEnv("GRPC_PORT", "8901"),
-		DataDir:     getEnv("DATA_DIR", "./data"),
-		DevMode:     getEnv("GO_ENV", "") == "development",
-		SeedSymbols: seedSymbols,
+		Port:          getEnv("PORT", "8899"),
+		DatabaseURL:   getEnv("DATABASE_URL", "postgres://postgres:postgres@localhost:5432/astockpursue?sslmode=disable"),
+		RedisURL:      getEnv("REDIS_URL", "redis://localhost:6379/0"),
+		GrpcPort:      getEnv("GRPC_PORT", "8901"),
+		DataDir:       getEnv("DATA_DIR", "./data"),
+		DevMode:       getEnv("GO_ENV", "") == "development",
+		SeedSymbols:   seedSymbols,
+		EncryptionKey: getEnv("ENCRYPTION_KEY", ""),
 	}
 }
 

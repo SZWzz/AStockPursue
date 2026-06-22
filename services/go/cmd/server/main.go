@@ -15,6 +15,7 @@ import (
 	"github.com/astockpursue/go-core/internal/api/handler"
 	"github.com/astockpursue/go-core/internal/broker"
 	"github.com/astockpursue/go-core/internal/config"
+	"github.com/astockpursue/go-core/internal/crypto"
 	"github.com/astockpursue/go-core/internal/db"
 	"github.com/astockpursue/go-core/internal/engine"
 	factorv1 "github.com/astockpursue/go-core/internal/gen/factor/v1"
@@ -270,6 +271,10 @@ func (s *Server) Shutdown(ctx context.Context) error {
 
 func main() {
 	cfg := config.Load()
+
+	if err := crypto.Init(cfg.EncryptionKey); err != nil {
+		log.Fatalf("Failed to initialize crypto: %v", err)
+	}
 
 	srv, err := NewServer(cfg)
 	if err != nil {
