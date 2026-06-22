@@ -2,11 +2,12 @@ package handler
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/astockpursue/go-core/internal/broker"
+	"github.com/astockpursue/go-core/internal/crypto"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -152,11 +153,32 @@ func (h *BrokerHandler) SaveCredentials(c *gin.Context) {
 	}
 
 	if h.db != nil {
-		_, err := h.db.Exec(c.Request.Context(),
+		encryptedSecret, err := crypto.Encrypt(req.APISecret)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to encrypt credentials"})
+			return
+		}
+
+		credential := map[string]interface{}{
+			"api_key":    req.APIKey,
+			"api_secret": encryptedSecret,
+		}
+		brokerCreds := map[string]interface{}{
+			req.BrokerID: credential,
+		}
+		settings := map[string]interface{}{
+			"broker_credentials": brokerCreds,
+		}
+		body, err := json.Marshal(settings)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal credentials"})
+			return
+		}
+
+		_, err = h.db.Exec(c.Request.Context(),
 			`INSERT INTO user_settings (user_id, settings) VALUES (1, $1)
 			 ON CONFLICT (user_id) DO UPDATE SET settings = user_settings.settings || $1, updated_at = now()`,
-			fmt.Sprintf(`{"broker_credentials":{"%s":{"api_key":"%s","api_secret":"%s"}}}`,
-				req.BrokerID, req.APIKey, req.APISecret))
+			string(body))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -164,4 +186,46 @@ func (h *BrokerHandler) SaveCredentials(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"status": "credentials_saved", "broker_id": req.BrokerID})
+}
+
+// GetCredentials retrieves and decrypts broker API credentials from user_settings.
+// GET /api/v1/broker/credentials
+func (h *BrokerHandler) GetCredentials(c *gin.Context) {
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not available"})
+		return
+	}
+
+	var settingsJSON []byte
+	err := h.db.QueryRow(c.Request.Context(),
+		`SELECT settings FROM user_settings WHERE user_id = $1`, 1,
+	).Scan(&settingsJSON)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no settings found"})
+		return
+	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(settingsJSON, &settings); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read settings"})
+		return
+	}
+
+	if creds, ok := settings["broker_credentials"].(map[string]interface{}); ok {
+		for brokerID, v := range creds {
+			if cred, ok := v.(map[string]interface{}); ok {
+				if encryptedSecret, ok := cred["api_secret"].(string); ok {
+					decrypted, err := crypto.Decrypt(encryptedSecret)
+					if err != nil {
+						// log and skip this broker if decryption fails
+						continue
+					}
+					cred["api_secret"] = decrypted
+				}
+			}
+			_ = brokerID
+		}
+	}
+
+	c.JSON(http.StatusOK, settings["broker_credentials"])
 }
