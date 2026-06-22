@@ -13,6 +13,6 @@ export const useUIStore = create<UIState>()(
       sidebarCollapsed: false,
       toggleSidebar: () => set(s => ({ sidebarCollapsed: !s.sidebarCollapsed })),
     }),
-    { name: 'ui-store' }
+    { name: 'ui-store', version: 1, migrate: (persisted) => persisted as UIState }
   )
 )

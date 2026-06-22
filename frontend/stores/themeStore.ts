@@ -13,6 +13,6 @@ export const useThemeStore = create<ThemeState>()(
       theme: 'light',
       setTheme: (theme) => set({ theme }),
     }),
-    { name: 'theme-store' }
+    { name: 'theme-store', version: 1, migrate: (persisted) => persisted as ThemeState }
   )
 )
