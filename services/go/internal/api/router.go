@@ -26,6 +26,7 @@ func NewRouter(
 	researchH *handler.ResearchHandler,
 	mlH *handler.MLHandler,
 	notifH *handler.NotificationHandler,
+	strategyH *handler.StrategyHandler,
 	wsHub *WSHub,
 ) *gin.Engine {
 	r := gin.Default()
@@ -150,6 +151,13 @@ func NewRouter(
 		ng.POST("/read-all", notifH.MarkAllRead)
 		ng.POST("/test-telegram", notifH.TestTelegram)
 		ng.POST("/test-email", notifH.TestEmail)
+		// Strategy routes
+		stg := v1.Group("/strategy")
+		stg.POST("", strategyH.Create)
+		stg.GET("", strategyH.List)
+		stg.GET("/:id", strategyH.Get)
+		stg.PUT("/:id", strategyH.Update)
+		stg.DELETE("/:id", strategyH.Delete)
 	}
 
 	return r
