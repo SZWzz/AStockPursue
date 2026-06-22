@@ -195,6 +195,20 @@ func (br *BacktestRunner) recordTrades(bar *commonv1.Bar, posBefore map[string]*
 				Timestamp:  time.UnixMilli(bar.Timestamp),
 			})
 		}
+		if oldPos.Size > pos.Size {
+			qty := oldPos.Size - pos.Size
+			pnl := qty * (bar.Close - oldPos.EntryPrice)
+			comm := br.pipeline.Engine.CalcCommission(&Order{
+				Quantity: qty, Price: bar.Close, Side: Sell,
+			})
+			br.trades = append(br.trades, TradeRecord{
+				Symbol: symbol, Side: Sell,
+				Quantity: qty, Price: bar.Close,
+				Commission: comm,
+				PnL:       pnl,
+				Timestamp: time.UnixMilli(bar.Timestamp),
+			})
+		}
 	}
 	for symbol, oldPos := range posBefore {
 		if _, stillHolding := portfolio.Positions[symbol]; !stillHolding {
