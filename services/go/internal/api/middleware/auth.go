@@ -12,16 +12,26 @@ import (
 // Auth provides authentication middleware supporting both:
 // 1. X-API-Key header (simple API key, for dev/service-to-service)
 // 2. Authorization: Bearer <jwt> (for user login tokens)
+//
+// All routes except /api/auth/* and /api/health require authentication.
+// There is no fallthrough to anonymous access.
 func Auth() gin.HandlerFunc {
 	apiKey := os.Getenv("API_KEY")
 
 	return func(c *gin.Context) {
-		// API key mode: if API_KEY env is set, require matching header
-		if apiKey != "" {
-			if c.GetHeader("X-API-Key") == apiKey {
-				c.Next()
-				return
-			}
+		path := c.Request.URL.Path
+
+		// Public routes
+		if strings.HasPrefix(path, "/api/auth/") || path == "/api/health" {
+			c.Next()
+			return
+		}
+
+		// API key mode
+		if apiKey != "" && c.GetHeader("X-API-Key") == apiKey {
+			c.Set("auth_method", "apikey")
+			c.Next()
+			return
 		}
 
 		// JWT Bearer token mode
@@ -30,6 +40,7 @@ func Auth() gin.HandlerFunc {
 			tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 			username, userID, err := handler.ValidateTokenWithID(tokenStr)
 			if err == nil {
+				c.Set("auth_method", "jwt")
 				c.Set("username", username)
 				c.Set("user_id", userID)
 				c.Next()
@@ -37,13 +48,6 @@ func Auth() gin.HandlerFunc {
 			}
 		}
 
-		// If API_KEY is set and neither method matched, reject
-		if apiKey != "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
-			return
-		}
-
-		// No auth configured — allow all
-		c.Next()
+		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
 	}
 }
