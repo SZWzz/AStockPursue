@@ -15,16 +15,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import os
-import time
 from contextlib import asynccontextmanager
 
-from src.db.pool import init_pool
+from src.db.pool import init_pool, _acquire_with_retry
 
 logger = logging.getLogger(__name__)
-
-_DEFAULT_ACQUIRE_TIMEOUT = 10.0
-_DEFAULT_HEALTH_CHECK = True
 
 # ---------------------------------------------------------------------------
 # Lazy reference to the pool singleton (populated on first use)
@@ -53,41 +48,7 @@ def _acquire_conn():
     """Sync: acquire a connection with retry + optional health check."""
     init_pool()
     pool = _get_pool()
-
-    acquire_timeout = float(
-        os.getenv("DB_POOL_ACQUIRE_TIMEOUT", str(_DEFAULT_ACQUIRE_TIMEOUT))
-    )
-    deadline = time.monotonic() + acquire_timeout
-    conn = None
-    last_err = None
-
-    while time.monotonic() < deadline:
-        try:
-            conn = pool.getconn()
-            break
-        except Exception as exc:
-            last_err = exc
-            time.sleep(0.5)
-
-    if conn is None:
-        raise RuntimeError(
-            f"Failed to acquire PG connection within {acquire_timeout}s: {last_err}"
-        )
-
-    # Optional health check (same behaviour as get_connection)
-    if (
-        os.getenv("DB_POOL_HEALTH_CHECK", str(_DEFAULT_HEALTH_CHECK)).lower()
-        in ("1", "true", "yes")
-    ):
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT 1")
-            cur.close()
-        except Exception:
-            pool.putconn(conn, close=True)
-            raise
-
-    return conn
+    return _acquire_with_retry(pool)
 
 
 def _release_conn(conn, *, success: bool):

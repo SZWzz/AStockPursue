@@ -108,6 +108,49 @@ def init_pool() -> None:
         logger.info("PG pool initialised (min=%d, max=%d)", minconn, maxconn)
 
 
+def _acquire_with_retry(pool):
+    """Acquire a PG connection from *pool* with retry + optional health check.
+
+    Shared by the sync context manager (pool.py) and the async wrapper
+    (async_pool.py).  Both need the same retry-on-full-pool loop and
+    ``SELECT 1`` liveness probe.
+    """
+    acquire_timeout = float(
+        os.getenv("DB_POOL_ACQUIRE_TIMEOUT", str(_DEFAULT_ACQUIRE_TIMEOUT))
+    )
+    deadline = time.monotonic() + acquire_timeout
+    conn = None
+    last_err = None
+
+    while time.monotonic() < deadline:
+        try:
+            conn = pool.getconn()
+            break
+        except Exception as exc:
+            last_err = exc
+            time.sleep(0.5)
+
+    if conn is None:
+        raise RuntimeError(
+            f"Failed to acquire PG connection within {acquire_timeout}s: {last_err}"
+        )
+
+    # Optional liveness check (SELECT 1) to detect stale connections
+    if (
+        os.getenv("DB_POOL_HEALTH_CHECK", str(_DEFAULT_HEALTH_CHECK)).lower()
+        in ("1", "true", "yes")
+    ):
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT 1")
+            cur.close()
+        except Exception:
+            pool.putconn(conn, close=True)
+            raise
+
+    return conn
+
+
 def close_pool() -> None:
     """Close the connection pool (for graceful shutdown)."""
     global _pool, _pool_initialised
@@ -129,34 +172,7 @@ def get_connection():
                 cur.execute("SELECT 1")
     """
     init_pool()
-    acquire_timeout = float(os.getenv("DB_POOL_ACQUIRE_TIMEOUT", str(_DEFAULT_ACQUIRE_TIMEOUT)))
-    deadline = time.monotonic() + acquire_timeout
-    conn = None
-    last_err = None
-
-    while time.monotonic() < deadline:
-        try:
-            conn = _pool.getconn()
-            break
-        except Exception as e:
-            last_err = e
-            time.sleep(0.5)
-
-    if conn is None:
-        raise RuntimeError(
-            f"Failed to acquire PG connection within {acquire_timeout}s: {last_err}"
-        )
-
-    # Health check
-    if os.getenv("DB_POOL_HEALTH_CHECK", str(_DEFAULT_HEALTH_CHECK)).lower() in ("1", "true", "yes"):
-        try:
-            cur = conn.cursor()
-            cur.execute("SELECT 1")
-            cur.close()
-        except Exception:
-            _pool.putconn(conn, close=True)
-            raise
-
+    conn = _acquire_with_retry(_pool)
     try:
         yield conn
     except Exception:
