@@ -1,5 +1,4 @@
 import useSWR from 'swr'
-const fetcher = (url: string) => fetch(url).then(r => r.json())
 
 export interface UserSettings {
   language?: string
@@ -18,5 +17,5 @@ export interface UserSettings {
 }
 
 export function useSettings() {
-  return useSWR<UserSettings>('/api/settings', fetcher)
+  return useSWR<UserSettings>('/api/settings')
 }
