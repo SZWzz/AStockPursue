@@ -212,10 +212,12 @@ func (db *TimescaleDB) QueryBars(ctx context.Context, q BarQuery) ([]*commonv1.B
 	query := `SELECT symbol, timestamp, open, high, low, close, volume, frequency
 FROM bars WHERE symbol = $1 AND timestamp >= $2 AND timestamp <= $3 AND frequency = $4
 ORDER BY timestamp ASC`
+	args := []any{q.Symbol, q.StartTime, q.EndTime, q.Frequency}
 	if q.Limit > 0 {
-		query += fmt.Sprintf(" LIMIT %d", q.Limit)
+		query += " LIMIT $5"
+		args = append(args, q.Limit)
 	}
-	rows, err := db.pool.Query(ctx, query, q.Symbol, q.StartTime, q.EndTime, q.Frequency)
+	rows, err := db.pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("query bars: %w", err)
 	}

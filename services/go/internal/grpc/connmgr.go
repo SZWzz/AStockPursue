@@ -27,6 +27,8 @@ type ConnManager struct {
 	reconnectMu     sync.Mutex
 	reconnectCtx    context.Context
 	reconnectCancel context.CancelFunc
+
+	healthCancel context.CancelFunc
 }
 
 func NewConnManager(addr string, connectTimeout time.Duration) *ConnManager {
@@ -102,73 +104,94 @@ func (m *ConnManager) reconnect() {
 	}
 }
 
-func (m *ConnManager) StartHealthCheck(ctx context.Context) {
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
+func (m *ConnManager) StartHealthCheck(ctx context.Context) func() {
+	ctx, cancel := context.WithCancel(ctx)
+	m.mu.Lock()
+	m.healthCancel = cancel
+	m.mu.Unlock()
 
-	m.reconnectMu.Lock()
-	m.reconnectCtx, m.reconnectCancel = context.WithCancel(ctx)
-	m.reconnectMu.Unlock()
-	defer m.reconnectCancel()
+	go func() {
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
 
-	failCount := 0
-	const maxFailBeforeReconnect = 3
+		m.reconnectMu.Lock()
+		m.reconnectCtx, m.reconnectCancel = context.WithCancel(ctx)
+		m.reconnectMu.Unlock()
+		defer m.reconnectCancel()
 
-	for {
-		select {
-		case <-ctx.Done():
-			log.Printf("gRPC: health check stopped")
-			return
-		case <-ticker.C:
-			m.mu.RLock()
-			conn := m.conn
-			m.mu.RUnlock()
+		failCount := 0
+		const maxFailBeforeReconnect = 3
 
-			if conn == nil {
-				m.reconnectMu.Lock()
-				reconnecting := m.reconnecting
-				m.reconnectMu.Unlock()
-				if !reconnecting {
-					go m.reconnect()
-				}
-				continue
-			}
+		for {
+			select {
+			case <-ctx.Done():
+				log.Printf("gRPC: health check stopped")
+				return
+			case <-ticker.C:
+				m.mu.RLock()
+				conn := m.conn
+				m.mu.RUnlock()
 
-			healthClient := grpc_health_v1.NewHealthClient(conn)
-			hcCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
-			resp, err := healthClient.Check(hcCtx, &grpc_health_v1.HealthCheckRequest{})
-			cancel()
-
-			if err != nil || resp.GetStatus() != grpc_health_v1.HealthCheckResponse_SERVING {
-				failCount++
-				log.Printf("gRPC: health check fail %d/3", failCount)
-				if failCount >= maxFailBeforeReconnect {
-					log.Printf("gRPC: health check failed %d times, triggering reconnect", failCount)
-					failCount = 0
-					m.mu.Lock()
-					if m.conn != nil {
-						m.conn.Close()
-						m.conn = nil
-					}
-					m.mu.Unlock()
+				if conn == nil {
 					m.reconnectMu.Lock()
 					reconnecting := m.reconnecting
 					m.reconnectMu.Unlock()
 					if !reconnecting {
 						go m.reconnect()
 					}
+					continue
 				}
-			} else {
-				failCount = 0
+
+				healthClient := grpc_health_v1.NewHealthClient(conn)
+				hcCtx, hcCancel := context.WithTimeout(ctx, 3*time.Second)
+				resp, err := healthClient.Check(hcCtx, &grpc_health_v1.HealthCheckRequest{})
+				hcCancel()
+
+				if err != nil || resp.GetStatus() != grpc_health_v1.HealthCheckResponse_SERVING {
+					failCount++
+					log.Printf("gRPC: health check fail %d/3", failCount)
+					if failCount >= maxFailBeforeReconnect {
+						log.Printf("gRPC: health check failed %d times, triggering reconnect", failCount)
+						failCount = 0
+						m.mu.Lock()
+						if m.conn != nil {
+							m.conn.Close()
+							m.conn = nil
+						}
+						m.mu.Unlock()
+						m.reconnectMu.Lock()
+						reconnecting := m.reconnecting
+						m.reconnectMu.Unlock()
+						if !reconnecting {
+							go m.reconnect()
+						}
+					}
+				} else {
+					failCount = 0
+				}
 			}
 		}
-	}
+	}()
+
+	return cancel
 }
 
 func (m *ConnManager) GetConn() *grpc.ClientConn {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.conn
+}
+
+func (m *ConnManager) Close() {
+	m.mu.Lock()
+	if m.healthCancel != nil {
+		m.healthCancel()
+	}
+	if m.conn != nil {
+		m.conn.Close()
+		m.conn = nil
+	}
+	m.mu.Unlock()
 }
 
 func (m *ConnManager) dialOpts() []grpc.DialOption {
