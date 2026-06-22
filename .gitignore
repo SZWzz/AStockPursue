@@ -76,3 +76,6 @@ NOTES.md
 
 # opencode
 .opencode/
+
+# Git worktrees
+.worktrees/
