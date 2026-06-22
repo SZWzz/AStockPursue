@@ -69,7 +69,7 @@ func (e *Engine) Create(name string, symbols []string, freq string, initialCash 
 	pipeline := &engine.Pipeline{
 		Engine:    e.factory.ForSymbol(symbols[0]),
 		Portfolio: &engine.Portfolio{Cash: initialCash, Equity: initialCash, Positions: make(map[string]*engine.Position)},
-		Signal:    engine.NewSignalAdapter("localhost:8902", 10*time.Second),
+		Signal:    engine.NewSignalAdapter("localhost:8902", 10*time.Second).WithBarStore(e.ds),
 		Risk:      engine.NewRiskManager(engine.RiskConfig{}),
 		LastBars:  make(map[string]*engine.Bar),
 	}

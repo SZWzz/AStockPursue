@@ -8,6 +8,7 @@ import (
 
 	commonv1 "github.com/astockpursue/go-core/internal/gen/common/v1"
 	"github.com/astockpursue/go-core/internal/db"
+	"github.com/astockpursue/go-core/internal/engine"
 	"github.com/astockpursue/go-core/internal/market/loader"
 )
 
@@ -70,4 +71,26 @@ func (ds *DataStore) GetBars(symbol string, start, end time.Time, freq string) (
 	}
 
 	return nil, fmt.Errorf("all data tiers exhausted for %s", symbol)
+}
+
+// GetLatestBars loads the most recent bar for each symbol in the period.
+// Satisfies the engine.BarStore interface for signal generation.
+func (ds *DataStore) GetLatestBars(symbols []string, start, end time.Time, freq string) (map[string]*engine.Bar, error) {
+	result := make(map[string]*engine.Bar)
+	for _, sym := range symbols {
+		bars, err := ds.GetBars(sym, start, end, freq)
+		if err != nil || len(bars) == 0 {
+			continue
+		}
+		last := bars[len(bars)-1]
+		result[sym] = &engine.Bar{
+			Symbol: sym,
+			Open:   last.Open,
+			High:   last.High,
+			Low:    last.Low,
+			Close:  last.Close,
+			Volume: last.Volume,
+		}
+	}
+	return result, nil
 }

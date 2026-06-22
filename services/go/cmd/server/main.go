@@ -13,6 +13,7 @@ import (
 
 	"github.com/astockpursue/go-core/internal/api"
 	"github.com/astockpursue/go-core/internal/api/handler"
+	analysisv1 "github.com/astockpursue/go-core/internal/gen/analysis/v1"
 	"github.com/astockpursue/go-core/internal/broker"
 	"github.com/astockpursue/go-core/internal/config"
 	"github.com/astockpursue/go-core/internal/crypto"
@@ -86,7 +87,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	}
 	go s.grpcConn.StartHealthCheck(context.Background())
 
-	signalAdapter := engine.NewSignalAdapterFromConnMgr(s.grpcConn, 10*time.Second)
+	signalAdapter := engine.NewSignalAdapterFromConnMgr(s.grpcConn, 10*time.Second).WithBarStore(ds)
 	btHandler := handler.NewBacktestHandler(repo, ds, factory, signalAdapter)
 
 	pipeline := engine.NewPipeline(
@@ -130,21 +131,23 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	paperTradeH := handler.NewPaperTradingHandler(ds, factory, dbPool)
 	settingsH := handler.NewSettingsHandler(dbPool)
 	systemH := handler.NewSystemHandler()
-	analysisH := handler.NewAnalysisHandler(ds).WithTradingRunner(runner)
-	schedulerH := handler.NewSchedulerHandler(ds, factory, repo, dbPool)
-	screenerH := handler.NewScreenerHandler(ds)
-
 	var factorClient factorv1.FactorServiceClient
 	var workflowClient workflowv1.WorkflowServiceClient
 	var signalClient signalv1.SignalServiceClient
+	var analysisClient analysisv1.AnalysisServiceClient
 	if conn := s.grpcConn.GetConn(); conn != nil {
 		factorClient = factorv1.NewFactorServiceClient(conn)
 		workflowClient = workflowv1.NewWorkflowServiceClient(conn)
 		signalClient = signalv1.NewSignalServiceClient(conn)
+		analysisClient = analysisv1.NewAnalysisServiceClient(conn)
 	}
 	factorH := handler.NewFactorHandler(factorClient, dbPool)
 	workflowH := handler.NewWorkflowHandler(workflowClient, dbPool)
 	signalH := handler.NewSignalHandler(signalClient, dbPool)
+
+	analysisH := handler.NewAnalysisHandler(ds).WithTradingRunner(runner).WithAnalysisClient(analysisClient)
+	schedulerH := handler.NewSchedulerHandler(ds, factory, repo, dbPool)
+	screenerH := handler.NewScreenerHandler(ds)
 
 	researchServices := map[string]research.Service{
 		"financials":  research.NewFinancialsService(nil, nil),

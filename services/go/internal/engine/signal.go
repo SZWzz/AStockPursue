@@ -15,10 +15,17 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+// BarStore is an interface for loading OHLCV bars needed by the signal adapter
+// when callers do not provide in-memory bars.  market.DataStore satisfies this.
+type BarStore interface {
+	GetLatestBars(symbols []string, start, end time.Time, freq string) (map[string]*Bar, error)
+}
+
 type SignalAdapter struct {
-	address string
-	connMgr *grpcpkg.ConnManager
-	timeout time.Duration
+	address  string
+	connMgr  *grpcpkg.ConnManager
+	timeout  time.Duration
+	barStore BarStore
 }
 
 func NewSignalAdapter(addr string, timeout time.Duration) *SignalAdapter {
@@ -33,6 +40,13 @@ func NewSignalAdapterFromConnMgr(mgr *grpcpkg.ConnManager, timeout time.Duration
 		connMgr: mgr,
 		timeout: timeout,
 	}
+}
+
+// WithBarStore attaches a BarStore for loading bars when none are
+// provided to Generate.
+func (s *SignalAdapter) WithBarStore(bs BarStore) *SignalAdapter {
+	s.barStore = bs
+	return s
 }
 
 func (s *SignalAdapter) getClient() (signalv1.SignalServiceClient, *grpc.ClientConn, func(), error) {
@@ -67,6 +81,12 @@ func (s *SignalAdapter) Generate(bars map[string]*Bar, ts time.Time) (map[string
 	}
 	defer cleanup()
 
+	// If no bars were provided and a BarStore is configured, load
+	// recent bars for common symbols from the data store.
+	if (bars == nil || len(bars) == 0) && s.barStore != nil {
+		bars = s.loadBarsFromStore(ts)
+	}
+
 	log.Printf("signal adapter: calling Python gRPC with %d bars", len(bars))
 
 	pbBars := make([]*commonv1.Bar, 0, len(bars))
@@ -91,4 +111,24 @@ func (s *SignalAdapter) Generate(bars map[string]*Bar, ts time.Time) (map[string
 	}
 
 	return resp.Weights, nil
+}
+
+// loadBarsFromStore loads the most recent daily bar for each tracked
+// symbol using the last 30 days as a look-back window.
+func (s *SignalAdapter) loadBarsFromStore(ts time.Time) map[string]*Bar {
+	start := ts.AddDate(0, 0, -30)
+	candidates := []string{
+		"000001.SZ", "000002.SZ", "000858.SZ",
+		"600519.SH", "600036.SH", "601318.SH",
+		"300750.SZ", "002594.SZ",
+	}
+
+	bars, err := s.barStore.GetLatestBars(candidates, start, ts, "1d")
+	if err != nil || len(bars) == 0 {
+		log.Printf("signal adapter: no bars loaded from store: %v", err)
+		return make(map[string]*Bar)
+	}
+
+	log.Printf("signal adapter: loaded %d bar(s) from bar store for gRPC call", len(bars))
+	return bars
 }
