@@ -164,7 +164,7 @@ export const PositionTable = memo(function PositionTable() {
                           {pos.pnl > 0 ? '▲ ' : '▼ '}{formatPnL(pos.pnl)}
                         </TableCell>
                         <TableCell className={cn('font-mono text-right tabular-nums', pos.pnl_pct > 0 ? 'text-[var(--up)]' : 'text-[var(--down)]')} style={{ height: ROW_HEIGHT }}>
-                          {pos.pnl_pct > 0 ? '▲ ' : '▼ '}{formatPercent(Math.abs(pos.pnl_pct || 0))}%
+                          {pos.pnl_pct > 0 ? '▲ ' : '▼ '}{formatPercent(pos.pnl_pct || 0)}%
                         </TableCell>
                         <TableCell className="text-right" style={{ height: ROW_HEIGHT }}>
                           <Button
@@ -219,7 +219,7 @@ export const PositionTable = memo(function PositionTable() {
                   {pos.pnl > 0 ? '▲ ' : '▼ '}{formatPnL(pos.pnl)}
                 </TableCell>
                 <TableCell className={cn('font-mono text-right tabular-nums', pos.pnl_pct > 0 ? 'text-[var(--up)]' : 'text-[var(--down)]')}>
-                  {pos.pnl_pct > 0 ? '▲ ' : '▼ '}{formatPercent(Math.abs(pos.pnl_pct || 0))}%
+                  {pos.pnl_pct > 0 ? '▲ ' : '▼ '}{formatPercent(pos.pnl_pct || 0)}%
                 </TableCell>
                 {/* PO1: Close position button */}
                 <TableCell className="text-right">
