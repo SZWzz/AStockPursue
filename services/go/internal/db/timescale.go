@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -86,6 +87,9 @@ func (db *TimescaleDB) InitSchema(ctx context.Context) error {
 	}
 	for _, s := range statements {
 		if _, err := db.pool.Exec(ctx, s); err != nil {
+			if strings.Contains(err.Error(), "function create_hypertable") {
+				return fmt.Errorf("schema init: TimescaleDB extension not installed")
+			}
 			return fmt.Errorf("schema init: %w", err)
 		}
 	}

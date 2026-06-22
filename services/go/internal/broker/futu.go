@@ -202,10 +202,11 @@ func (b *FutuBroker) dial() (net.Conn, error) {
 
 func (b *FutuBroker) ensureConnected() error {
 	b.mu.Lock()
-	defer b.mu.Unlock()
 	if b.conn != nil {
+		defer b.mu.Unlock()
 		return nil
 	}
+	b.mu.Unlock()
 	return b.reconnect()
 }
 
@@ -214,9 +215,11 @@ func (b *FutuBroker) reconnect() error {
 	for i, d := range delays {
 		conn, err := b.dial()
 		if err == nil {
+			b.mu.Lock()
 			b.conn = conn
 			b.reader = bufio.NewReader(conn)
 			b.reconnAttempts = 0
+			b.mu.Unlock()
 			return nil
 		}
 		log.Printf("futu: reconnect attempt %d failed: %v", i+1, err)
