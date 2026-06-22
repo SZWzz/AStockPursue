@@ -10,6 +10,7 @@ class WSClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private listeners: Map<string, Set<WSCallback>> = new Map()
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null
+  private retries = 0
 
   connect(token: string) {
     if (this.ws?.readyState === WebSocket.OPEN) return
@@ -17,6 +18,7 @@ class WSClient {
     this.ws = new WebSocket(WS_URL)
 
     this.ws.onopen = () => {
+      this.retries = 0
       useWSStore.getState().setConnected(true)
       this.ws!.send(JSON.stringify({ type: 'auth', token: this.token }))
       this.heartbeatTimer = setInterval(() => {
@@ -45,7 +47,9 @@ class WSClient {
     this.ws.onclose = () => {
       useWSStore.getState().setConnected(false)
       if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null }
-      this.reconnectTimer = setTimeout(() => this.connect(this.token!), 3000)
+      const delay = Math.min(1000 * Math.pow(2, this.retries), 30000)
+      this.retries++
+      this.reconnectTimer = setTimeout(() => this.connect(this.token!), delay)
     }
   }
 
@@ -70,6 +74,7 @@ class WSClient {
   }
 
   disconnect() {
+    this.retries = 0
     if (this.heartbeatTimer) { clearInterval(this.heartbeatTimer); this.heartbeatTimer = null }
     if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null }
     useWSStore.getState().clearSubscriptions()
