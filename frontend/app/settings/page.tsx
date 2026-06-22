@@ -186,24 +186,48 @@ export default function SettingsPage() {
   const saveSection = useCallback(async (section: string, data: any) => {
     setSavingTab(section)
     try {
-      const full = { general, risk_limits: risk, data_sources: Object.fromEntries(dataSources.map(d => [d.key, d.value])), llm, brokers, notifications: notif, account }
-      ;(full as any)[section] = data
-      const res = await fetch('/api/settings', {
+      // Re-fetch current state to avoid overwriting other sections
+      const res = await fetch('/api/settings')
+      if (!res.ok) throw new Error('Failed to fetch current settings')
+      const current = await res.json()
+      const currentSettings = current.data || current.settings || current
+
+      // Merge only the changed section
+      const merged: any = { ...currentSettings }
+      if (section === 'general') {
+        merged.general = { ...currentSettings.general, ...data }
+      } else if (section === 'risk_limits') {
+        merged.risk_limits = { ...currentSettings.risk_limits, ...data }
+      } else if (section === 'data_sources') {
+        merged.data_sources = { ...currentSettings.data_sources, ...data }
+      } else if (section === 'llm') {
+        merged.llm = { ...currentSettings.llm, ...data }
+      } else if (section === 'brokers') {
+        merged.brokers = data
+      } else if (section === 'notifications') {
+        merged.notifications = { ...currentSettings.notifications, ...data }
+      } else if (section === 'account') {
+        merged.account = { ...currentSettings.account, ...data }
+      } else {
+        merged[section] = data
+      }
+
+      const putRes = await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(full),
+        body: JSON.stringify(merged),
       })
-      if (res.ok) {
+      if (putRes.ok) {
         toast.success(t('settings.settingsSaved'))
       } else {
         toast.error(t('common.error'))
       }
-    } catch {
-      toast.error(t('common.error'))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('common.error'))
     } finally {
       setSavingTab(null)
     }
-  }, [general, risk, dataSources, llm, brokers, notif, account, t])
+  }, [t])
 
   // ---- Toggle helpers ----
   const Toggle = ({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) => (
