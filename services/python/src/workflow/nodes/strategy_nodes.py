@@ -417,10 +417,63 @@ class EvolutionNode(BaseNode):
                 "pareto_frontier": {"error": "Invalid parameter_space JSON"},
             }
 
-        # Placeholder backtest and score functions
-        # In production, these would run actual backtests
+        # Real backtest function using OHLCV data from inputs
+        ohlcv_data = inputs.get("ohlcv", {})
+        if isinstance(ohlcv_data, pd.DataFrame):
+            ohlcv_data = {"default": ohlcv_data}
+
         def backtest_fn(s: dict) -> dict:
-            return {"summary": {"sharpe": 0.5, "total_return": 0.1, "max_drawdown": -0.15, "win_rate": 0.45, "trade_count": 20}}
+            """Simple signal-based backtest over available OHLCV data.
+
+            Parameters from s are used to compute a momentum-style signal,
+            which drives daily position sizing.  Returns standard backtest
+            summary including Sharpe, total_return, max_drawdown, etc.
+            """
+            if not ohlcv_data:
+                return {"summary": {"sharpe": 0.0, "total_return": 0.0, "max_drawdown": 0.0, "win_rate": 0.0, "trade_count": 0}}
+
+            daily_returns = []
+            for symbol, df in ohlcv_data.items():
+                if df is None or df.empty or "close" not in df.columns:
+                    continue
+                close = df["close"]
+                if len(close) < 2:
+                    continue
+                momentum_window = int(s.get("momentum_window", 20))
+                top_n = int(s.get("top_n", 5))
+                signal = close.pct_change(momentum_window).shift(1).fillna(0)
+                pos = pd.Series(0.0, index=close.index)
+                long_mask = signal > signal.quantile(0.7)
+                pos[long_mask] = 1.0 / max(1, long_mask.sum())
+                daily_ret = pos * close.pct_change().fillna(0)
+                daily_returns.append(daily_ret)
+
+            if not daily_returns:
+                return {"summary": {"sharpe": 0.0, "total_return": 0.0, "max_drawdown": 0.0, "win_rate": 0.0, "trade_count": 0}}
+
+            # Combine across symbols
+            combined = pd.concat(daily_returns, axis=1).sum(axis=1)
+            ret = combined.dropna()
+            if len(ret) < 2:
+                return {"summary": {"sharpe": 0.0, "total_return": 0.0, "max_drawdown": 0.0, "win_rate": 0.0, "trade_count": 0}}
+
+            total_return = float((1 + ret.values).prod() - 1)
+            ann_factor = 252 ** 0.5
+            sharpe = float(ret.mean() / (ret.std() + 1e-12) * ann_factor) if ret.std() > 0 else 0.0
+            cum = (1 + ret.values).cumprod()
+            peak = pd.Series(cum).expanding().max()
+            dd = (cum / peak.values - 1)
+            max_drawdown = float(dd.min()) if len(dd) > 0 else 0.0
+            win_rate = float((ret > 0).sum() / len(ret))
+            trade_count = int(ret.abs().sum() > 0)
+
+            return {"summary": {
+                "sharpe": round(sharpe, 4),
+                "total_return": round(total_return, 4),
+                "max_drawdown": round(max_drawdown, 4),
+                "win_rate": round(win_rate, 4),
+                "trade_count": trade_count,
+            }}
 
         def score_fn(bt: dict) -> float:
             s = bt.get("summary", {})
