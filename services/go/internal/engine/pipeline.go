@@ -139,6 +139,9 @@ func (p *Pipeline) generateSignalOrder(symbol string, targetWeight float64, bar 
 		return
 	}
 	price := bar.Close
+	if p.Engine != nil {
+		price = p.Engine.ApplySlippage(&Order{Quantity: qty, Price: price, Side: side}, bar)
+	}
 	commission := p.Engine.CalcCommission(&Order{Quantity: qty, Price: price, Side: side})
 	total := qty*price + commission
 	if side == Buy && total > p.Portfolio.Cash {
