@@ -1,11 +1,15 @@
 package engine
 
-import "strings"
+import (
+	"strings"
+	"sync"
+)
 
 // EngineFactory manages engine registration and symbol-to-engine routing.
 // It is the single source of truth for determining which Engine handles a given symbol.
 type EngineFactory struct {
-	engines map[string]Engine
+	engines     map[string]Engine
+	engineCache sync.Map
 }
 
 // NewEngineFactory creates a factory pre-registered with all 7 engine types.
@@ -80,13 +84,18 @@ func (f *EngineFactory) ForSymbol(symbol string) Engine {
 
 	// 2. China futures: exact contract code match (before forex prefix to avoid
 	//    conflicts like "AU" gold futures vs "AUD" forex)
-	if NewChinaFuturesEngine(symbol) != nil {
-		return NewChinaFuturesEngine(symbol)
+	if e, ok := f.engineCache.Load(symbol); ok {
+		return e.(Engine)
+	}
+	if e := NewChinaFuturesEngine(symbol); e != nil {
+		f.engineCache.Store(symbol, e)
+		return e
 	}
 
 	// 3. Global futures: exact contract code match
-	if NewGlobalFuturesEngine(symbol) != nil {
-		return NewGlobalFuturesEngine(symbol)
+	if e := NewGlobalFuturesEngine(symbol); e != nil {
+		f.engineCache.Store(symbol, e)
+		return e
 	}
 
 	// 4. Options: .OPT suffix
