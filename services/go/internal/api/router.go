@@ -77,6 +77,7 @@ func NewRouter(
 		br.POST("/credentials", brokerH.SaveCredentials)
 		br.GET("/credentials", brokerH.GetCredentials)
 		br.POST("/credentials/reveal", brokerH.RevealCredentials)
+		br.POST("/credentials/rotate", brokerH.RotateCredentials)
 
 		v1.GET("/portfolio", portfolioH.GetStatus)
 

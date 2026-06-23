@@ -217,6 +217,64 @@ func (h *BrokerHandler) SaveCredentials(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "credentials_saved", "broker_id": req.BrokerID})
 }
 
+// RotateCredentials replaces broker API credentials with new ones.
+// POST /api/v1/broker/credentials/rotate
+func (h *BrokerHandler) RotateCredentials(c *gin.Context) {
+	var req struct {
+		BrokerID  string `json:"broker_id"`
+		APIKey    string `json:"api_key"`
+		APISecret string `json:"api_secret"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := h.getUserID(c)
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not available"})
+		return
+	}
+
+	encryptedSecret, err := crypto.Encrypt(req.APISecret)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to encrypt credentials"})
+		return
+	}
+
+	credential := BrokerCredential{
+		APIKey:    req.APIKey,
+		APISecret: encryptedSecret,
+	}
+	settings := BrokerSettings{
+		BrokerCredentials: map[string]BrokerCredential{
+			req.BrokerID: credential,
+		},
+	}
+	body, err := json.Marshal(settings)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to marshal credentials"})
+		return
+	}
+
+	_, err = h.db.Exec(c.Request.Context(),
+		`INSERT INTO user_settings (user_id, settings) VALUES ($1, $2)
+		 ON CONFLICT (user_id) DO UPDATE SET settings = user_settings.settings || $2, updated_at = now()`,
+		userID, string(body))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	log.Printf("audit: user_id=%d rotated credentials for broker=%s", userID, req.BrokerID)
+	c.JSON(http.StatusOK, gin.H{"status": "rotated", "broker_id": req.BrokerID})
+}
+
 // maskString masks a sensitive string for safe display.
 // Shows first 3 and last 4 characters, replacing the middle with "****".
 func maskString(s string) string {
