@@ -277,7 +277,10 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 func main() {
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
 
 	if err := crypto.Init(cfg.EncryptionKey); err != nil {
 		log.Fatalf("Failed to initialize crypto: %v", err)
