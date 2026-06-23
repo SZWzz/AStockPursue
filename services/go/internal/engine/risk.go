@@ -26,18 +26,17 @@ func NewRiskManager(config RiskConfig) *RiskManager {
 	}
 }
 
-func (r *RiskManager) CheckExits(portfolio *Portfolio, bar interface{}) []*Order {
-	b := bar.(*Bar)
+func (r *RiskManager) CheckExits(portfolio *Portfolio, bar *Bar) []*Order {
 	var orders []*Order
 	for symbol, pos := range portfolio.Positions {
-		if pos.Symbol != b.Symbol {
+		if pos.Symbol != bar.Symbol {
 			continue
 		}
-		pos.CurrentPrice = b.Close
-		pnlPct := (b.Close - pos.EntryPrice) / pos.EntryPrice * 100
+		pos.CurrentPrice = bar.Close
+		pnlPct := (bar.Close - pos.EntryPrice) / pos.EntryPrice * 100
 
-		if b.Close > r.HighWaterMarks[symbol] {
-			r.HighWaterMarks[symbol] = b.Close
+		if bar.Close > r.HighWaterMarks[symbol] {
+			r.HighWaterMarks[symbol] = bar.Close
 		}
 
 		if r.Config.StopLossPercent > 0 && pnlPct <= -r.Config.StopLossPercent {
@@ -61,7 +60,7 @@ func (r *RiskManager) CheckExits(portfolio *Portfolio, bar interface{}) []*Order
 		if r.Config.TrailingStopPercent > 0 {
 			high := r.HighWaterMarks[symbol]
 			if high > pos.EntryPrice {
-				trailDrop := (high - b.Close) / high * 100
+				trailDrop := (high - bar.Close) / high * 100
 				if trailDrop >= r.Config.TrailingStopPercent {
 					orders = append(orders, &Order{
 						Symbol: symbol, Side: Sell, Type: Market,

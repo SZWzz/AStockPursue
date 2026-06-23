@@ -24,12 +24,11 @@ func (e *ForexEngine) CalcCommission(order *Order) float64 {
 	return 0
 }
 
-func (e *ForexEngine) ApplySlippage(order *Order, bar interface{}) float64 {
-	b := bar.(*Bar)
+func (e *ForexEngine) ApplySlippage(order *Order, bar *Bar) float64 {
 	if order.Side == Buy {
-		return b.Close + e.Slippage
+		return bar.Close + e.Slippage
 	}
-	return b.Close - e.Slippage
+	return bar.Close - e.Slippage
 }
 
 func (e *ForexEngine) CalcMargin(pos *Position) float64 {

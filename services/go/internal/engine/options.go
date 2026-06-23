@@ -26,12 +26,11 @@ func (e *OptionsEngine) CalcCommission(order *Order) float64 {
 	return order.Quantity * e.CommPerContract
 }
 
-func (e *OptionsEngine) ApplySlippage(order *Order, bar interface{}) float64 {
-	b := bar.(*Bar)
+func (e *OptionsEngine) ApplySlippage(order *Order, bar *Bar) float64 {
 	if order.Side == Buy {
-		return b.Close + e.Slippage
+		return bar.Close + e.Slippage
 	}
-	return b.Close - e.Slippage
+	return bar.Close - e.Slippage
 }
 
 func (e *OptionsEngine) CalcMargin(pos *Position) float64 {

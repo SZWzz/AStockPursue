@@ -72,17 +72,16 @@ func (e *ChinaAEngine) getDailyAmplitude(symbol string) float64 {
 	return 0
 }
 
-func (e *ChinaAEngine) ApplySlippage(order *Order, bar interface{}) float64 {
-	b := bar.(*Bar)
-	price := b.Close
+func (e *ChinaAEngine) ApplySlippage(order *Order, bar *Bar) float64 {
+	price := bar.Close
 	slip := e.CalculateSlippage(order.Symbol, order.Quantity, order.Side == Buy)
 	if order.Side == Buy {
 		price *= (1 + slip)
 	} else {
 		price *= (1 - slip)
 	}
-	upperLimit := b.Close * (1 + ChinaAPriceLimitPct)
-	lowerLimit := b.Close * (1 - ChinaAPriceLimitPct)
+	upperLimit := bar.Close * (1 + ChinaAPriceLimitPct)
+	lowerLimit := bar.Close * (1 - ChinaAPriceLimitPct)
 	if price > upperLimit {
 		price = upperLimit
 	} else if price < lowerLimit {

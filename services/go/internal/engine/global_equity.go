@@ -48,12 +48,11 @@ func (e *GlobalEquityEngine) CalcCommission(order *Order) float64 {
 	return comm
 }
 
-func (e *GlobalEquityEngine) ApplySlippage(order *Order, bar interface{}) float64 {
-	b := bar.(*Bar)
+func (e *GlobalEquityEngine) ApplySlippage(order *Order, bar *Bar) float64 {
 	if order.Side == Buy {
-		return b.Close * (1 + e.Slippage)
+		return bar.Close * (1 + e.Slippage)
 	}
-	return b.Close * (1 - e.Slippage)
+	return bar.Close * (1 - e.Slippage)
 }
 
 func (e *GlobalEquityEngine) CalcMargin(pos *Position) float64 {

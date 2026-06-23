@@ -43,12 +43,11 @@ func (f *FuturesBase) CalcPnL(pos *Position) float64 {
 	return (pos.EntryPrice - pos.CurrentPrice) * math.Abs(pos.Size) * f.ContractMultiplier
 }
 
-func (f *FuturesBase) ApplySlippage(order *Order, bar interface{}) float64 {
-	b := bar.(*Bar)
+func (f *FuturesBase) ApplySlippage(order *Order, bar *Bar) float64 {
 	if order.Side == Buy {
-		return b.Close + f.PriceTick
+		return bar.Close + f.PriceTick
 	}
-	return b.Close - f.PriceTick
+	return bar.Close - f.PriceTick
 }
 
 func (f *FuturesBase) CanExecute(order *Order, positions map[string]*Position) bool {

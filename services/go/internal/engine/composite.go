@@ -159,7 +159,7 @@ func (c *CompositeEngine) RoundSize(size float64) float64 {
 func (c *CompositeEngine) CalcCommission(order *Order) float64 {
 	return c.resolve(order).CalcCommission(order)
 }
-func (c *CompositeEngine) ApplySlippage(order *Order, bar interface{}) float64 {
+func (c *CompositeEngine) ApplySlippage(order *Order, bar *Bar) float64 {
 	return c.resolve(order).ApplySlippage(order, bar)
 }
 func (c *CompositeEngine) CalcMargin(position *Position) float64 {

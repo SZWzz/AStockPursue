@@ -13,11 +13,8 @@ func (m *MockEngine) Name() string                                { return "mock
 func (m *MockEngine) CanExecute(order *Order) bool                 { return true }
 func (m *MockEngine) RoundSize(size float64) float64               { return float64(int(size)) }
 func (m *MockEngine) CalcCommission(order *Order) float64          { return 5.0 }
-func (m *MockEngine) ApplySlippage(order *Order, bar interface{}) float64 {
-	if b, ok := bar.(*Bar); ok {
-		return b.Close
-	}
-	return order.Price
+func (m *MockEngine) ApplySlippage(order *Order, bar *Bar) float64 {
+	return bar.Close
 }
 func (m *MockEngine) CalcMargin(position *Position) float64        { return 0 }
 func (m *MockEngine) CalcPnL(position *Position) float64           { return position.UnrealizedPnL() }
@@ -49,9 +46,13 @@ type mockRiskPipeline struct {
 	orders []*Order
 }
 
-func (m *mockRiskPipeline) CheckExits(portfolio *Portfolio, bar interface{}) []*Order {
+func (m *mockRiskPipeline) CheckExits(portfolio *Portfolio, bar *Bar) []*Order {
 	m.called = true
 	return m.orders
+}
+
+func (m *mockRiskPipeline) BlockNewSignals(portfolio *Portfolio) bool {
+	return false
 }
 
 type mockEngine struct {
@@ -64,11 +65,8 @@ func (m *mockEngine) Name() string                       { return "mock" }
 func (m *mockEngine) CanExecute(order *Order) bool        { return m.canExec }
 func (m *mockEngine) RoundSize(size float64) float64      { return m.roundSizeFn(size) }
 func (m *mockEngine) CalcCommission(order *Order) float64 { return m.commFn(order) }
-func (m *mockEngine) ApplySlippage(order *Order, bar interface{}) float64 {
-	if b, ok := bar.(*Bar); ok {
-		return b.Close
-	}
-	return order.Price
+func (m *mockEngine) ApplySlippage(order *Order, bar *Bar) float64 {
+	return bar.Close
 }
 func (m *mockEngine) CalcMargin(position *Position) float64 { return 0 }
 func (m *mockEngine) CalcPnL(position *Position) float64    { return 0 }

@@ -10,7 +10,8 @@ type SignalGenerator interface {
 }
 
 type RiskPipeline interface {
-	CheckExits(portfolio *Portfolio, bar interface{}) []*Order
+	CheckExits(portfolio *Portfolio, bar *Bar) []*Order
+	BlockNewSignals(portfolio *Portfolio) bool
 }
 
 type Pipeline struct {
@@ -95,7 +96,7 @@ func (p *Pipeline) processOrders(bar *Bar, ts time.Time) error {
 	}
 
 	// Block new signals check
-	if rm, ok := interface{}(p.Risk).(interface{ BlockNewSignals(*Portfolio) bool }); ok && rm.BlockNewSignals(p.Portfolio) {
+	if p.Risk.BlockNewSignals(p.Portfolio) {
 		log.Printf("risk: new signals blocked")
 		return nil
 	}
@@ -157,7 +158,7 @@ func (p *Pipeline) generateSignalOrder(symbol string, targetWeight float64, bar 
 	}, bar)
 }
 
-func (p *Pipeline) executeOrder(order *Order, bar interface{}) {
+func (p *Pipeline) executeOrder(order *Order, bar *Bar) {
 	if err := order.Validate(); err != nil {
 		log.Printf("order rejected: %v", err)
 		return
