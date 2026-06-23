@@ -103,8 +103,7 @@ export default function AgentPage() {
       }
 
       setMessages((prev) => [...prev, assistantMsg])
-    } catch (e) {
-      console.error('Failed to send message', e)
+    } catch {
       const errorMsg: Message = {
         id: `error-${Date.now()}`,
         role: 'assistant',

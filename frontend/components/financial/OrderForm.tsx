@@ -60,11 +60,11 @@ export function OrderForm() {
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <label className="text-[11px] text-[var(--foreground-muted)]">{t('trading.symbol')}</label>
-            <Input value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} required className="h-10 text-[13px] bg-[var(--surface-1)] border-[var(--border)]" />
+            <label htmlFor="symbol" className="text-[11px] text-[var(--foreground-muted)]">{t('trading.symbol')}</label>
+            <Input id="symbol" value={symbol} onChange={e => setSymbol(e.target.value.toUpperCase())} required className="h-10 text-[13px] bg-[var(--surface-1)] border-[var(--border)]" />
           </div>
           <div className="space-y-1">
-            <label className="text-[11px] text-[var(--foreground-muted)]">{t('trading.orderType')}</label>
+            <label htmlFor="orderType" className="text-[11px] text-[var(--foreground-muted)]">{t('trading.orderType')}</label>
             <Select value={orderType} onValueChange={v => setOrderType(v as 'limit' | 'market')}>
               <SelectTrigger className="h-10 text-[13px] bg-[var(--surface-1)] border-[var(--border)]"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -74,14 +74,14 @@ export function OrderForm() {
             </Select>
           </div>
           <div className="space-y-1">
-            <label className="text-[11px] text-[var(--foreground-muted)]">{t('trading.quantity')}</label>
-            <Input value={quantity} onChange={e => setQuantity(e.target.value)} type="number" step="any" required className="h-10 text-[13px] bg-[var(--surface-1)] border-[var(--border)]" />
+            <label htmlFor="quantity" className="text-[11px] text-[var(--foreground-muted)]">{t('trading.quantity')}</label>
+            <Input id="quantity" value={quantity} onChange={e => setQuantity(e.target.value)} type="number" step="any" required className="h-10 text-[13px] bg-[var(--surface-1)] border-[var(--border)]" />
           </div>
         </div>
         {orderType === 'limit' && (
           <div className="space-y-1">
-            <label className="text-[11px] text-[var(--foreground-muted)]">{t('trading.price')}</label>
-            <Input value={price} onChange={e => setPrice(e.target.value)} type="number" step="any" required className="h-10 text-[13px] bg-[var(--surface-1)] border-[var(--border)]" />
+            <label htmlFor="price" className="text-[11px] text-[var(--foreground-muted)]">{t('trading.price')}</label>
+            <Input id="price" value={price} onChange={e => setPrice(e.target.value)} type="number" step="any" required className="h-10 text-[13px] bg-[var(--surface-1)] border-[var(--border)]" />
           </div>
         )}
         <button

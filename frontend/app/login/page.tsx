@@ -41,8 +41,9 @@ export default function LoginPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-[12px] text-[var(--foreground-secondary)]">{t('auth.username')}</label>
+              <label htmlFor="username" className="text-[12px] text-[var(--foreground-secondary)]">{t('auth.username')}</label>
               <Input
+                id="username"
                 value={username}
                 onChange={e => setUsername(e.target.value)}
                 required
@@ -51,8 +52,9 @@ export default function LoginPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[12px] text-[var(--foreground-secondary)]">{t('auth.password')}</label>
+              <label htmlFor="password" className="text-[12px] text-[var(--foreground-secondary)]">{t('auth.password')}</label>
               <Input
+                id="password"
                 type="password"
                 value={password}
                 onChange={e => setPassword(e.target.value)}

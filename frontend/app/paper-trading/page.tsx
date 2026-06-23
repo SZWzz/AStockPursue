@@ -70,8 +70,7 @@ export default function PaperTradingPage() {
       } else {
         toast.error(t('common.error'))
       }
-    } catch (e) {
-      console.error('Failed to create paper trading account', e)
+    } catch {
       toast.error(t('common.error'))
     } finally {
       setCreating(false)
@@ -89,8 +88,7 @@ export default function PaperTradingPage() {
       } else {
         toast.error(t('common.error'))
       }
-    } catch (err) {
-      console.error('Failed to delete paper trading account', err)
+    } catch {
       toast.error(t('common.error'))
     }
   }

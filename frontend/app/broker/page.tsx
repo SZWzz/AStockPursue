@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn, formatPrice } from '@/lib/utils'
 import { RefreshCw, Plug, PlugZap, Settings } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface BrokerAccount {
   broker_id: string
@@ -82,8 +83,8 @@ export default function BrokerPage() {
       })
       mutateList()
       mutateAccount()
-    } catch (e) {
-      console.error(`Failed to toggle broker ${brokerId}`, e)
+    } catch {
+      toast.error(t('common.error'))
     }
   }
 
@@ -104,8 +105,8 @@ export default function BrokerPage() {
       setApiKey('')
       setApiSecret('')
       mutateList()
-    } catch (e) {
-      console.error('Failed to save credentials', e)
+    } catch {
+      toast.error(t('common.error'))
     } finally {
       setSavingCreds(false)
     }

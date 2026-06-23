@@ -65,8 +65,8 @@ export default function PaperTradingDetailPage() {
     try {
       await fetch(`/api/papertrading/${id}/start`, { method: 'POST' })
       mutate() // PD4: auto-refresh
-    } catch (e) {
-      console.error('Failed to start paper trading', e)
+    } catch {
+      toast.error(t('common.error'))
     }
   }
 
@@ -74,8 +74,8 @@ export default function PaperTradingDetailPage() {
     try {
       await fetch(`/api/papertrading/${id}/stop`, { method: 'POST' })
       mutate() // PD4: auto-refresh
-    } catch (e) {
-      console.error('Failed to stop paper trading', e)
+    } catch {
+      toast.error(t('common.error'))
     }
   }
 

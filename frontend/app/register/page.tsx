@@ -76,12 +76,12 @@ export default function RegisterPage() {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1">
-              <label className="text-[12px] text-[var(--foreground-secondary)]">{t('auth.username')}</label>
-              <Input value={username} onChange={e => setUsername(e.target.value)} required className="h-9 bg-[var(--surface-1)] border-[var(--border-default)]" />
+              <label htmlFor="username" className="text-[12px] text-[var(--foreground-secondary)]">{t('auth.username')}</label>
+              <Input id="username" value={username} onChange={e => setUsername(e.target.value)} required className="h-9 bg-[var(--surface-1)] border-[var(--border-default)]" />
             </div>
             <div className="space-y-1">
-              <label className="text-[12px] text-[var(--foreground-secondary)]">{t('auth.password')}</label>
-              <Input type="password" value={password} onChange={e => setPassword(e.target.value)} required className="h-9 bg-[var(--surface-1)] border-[var(--border-default)]" />
+              <label htmlFor="password" className="text-[12px] text-[var(--foreground-secondary)]">{t('auth.password')}</label>
+              <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required className="h-9 bg-[var(--surface-1)] border-[var(--border-default)]" />
               {/* RE2: Password strength indicator */}
               {password && (
                 <div className="mt-1 space-y-1">
@@ -135,8 +135,8 @@ export default function RegisterPage() {
               <p className="text-[10px] text-[var(--foreground-muted)] mt-0.5">{t('auth.minPasswordLength')}</p>
             </div>
             <div className="space-y-1">
-              <label className="text-[12px] text-[var(--foreground-secondary)]">{t('auth.confirmPassword')}</label>
-              <Input type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required className="h-9 bg-[var(--surface-1)] border-[var(--border-default)]" />
+              <label htmlFor="confirmPassword" className="text-[12px] text-[var(--foreground-secondary)]">{t('auth.confirmPassword')}</label>
+              <Input id="confirmPassword" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} required className="h-9 bg-[var(--surface-1)] border-[var(--border-default)]" />
             </div>
             {error && <p className="text-[12px] text-[var(--destructive)]">{error}</p>}
             <Button type="submit" disabled={loading} className="w-full h-9 bg-[var(--primary)] hover:bg-[var(--primary-hover)] text-[var(--background)]">

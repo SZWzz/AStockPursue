@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { useScheduler } from '@/hooks'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import { SkeletonTable } from '@/components/ui/SkeletonTable'
 
 interface SchedulerJob {
@@ -114,8 +115,8 @@ export default function SchedulerPage() {
       if (res.ok) {
         mutate()
       }
-    } catch (e) {
-      console.error(`Failed to ${action} job ${jobId}`, e)
+    } catch {
+      toast.error(t('common.error'))
     }
   }
 
@@ -148,8 +149,8 @@ export default function SchedulerPage() {
         setFormCron('')
         setFormConfig('')
       }
-    } catch (e) {
-      console.error('Failed to create job', e)
+    } catch {
+      toast.error(t('common.error'))
     } finally {
       setCreating(false)
     }
