@@ -9,7 +9,7 @@ export function SidebarLayout({ children }: { children: React.ReactNode }) {
       <Header />
       <main
         className="pt-[var(--header-height)] transition-all"
-        style={{ paddingLeft: 'var(--sidebar-width)', padding: 'var(--header-height) 0 0 var(--sidebar-width)' }}
+        style={{ paddingTop: 'var(--header-height)', paddingLeft: 'var(--sidebar-width)' }}
       >
         <div className="p-[var(--page-padding)]">
           {children}
