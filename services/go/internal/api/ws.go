@@ -41,7 +41,7 @@ var upgrader = websocket.Upgrader{
 // WSMessage is a message sent over a WebSocket channel.
 type WSMessage struct {
 	Channel string      `json:"channel"`
-	Data    interface{} `json:"data"`
+	Data    any    `json:"data"`
 }
 
 // WSClient represents a single WebSocket connection.
@@ -128,7 +128,7 @@ func (h *WSHub) heartbeat() {
 }
 
 // Broadcast sends a message to all clients subscribed to a channel.
-func (h *WSHub) Broadcast(channel string, data interface{}) {
+func (h *WSHub) Broadcast(channel string, data any) {
 	h.broadcast <- WSMessage{Channel: channel, Data: data}
 }
 

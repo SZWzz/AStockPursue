@@ -13,6 +13,15 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type BrokerCredential struct {
+	APIKey    string `json:"api_key"`
+	APISecret string `json:"api_secret"`
+}
+
+type BrokerSettings struct {
+	BrokerCredentials map[string]BrokerCredential `json:"broker_credentials,omitempty"`
+}
+
 // BrokerHandler provides broker account endpoints.
 type BrokerHandler struct {
 	binance          broker.Broker
@@ -180,15 +189,14 @@ func (h *BrokerHandler) SaveCredentials(c *gin.Context) {
 			return
 		}
 
-		credential := map[string]interface{}{
-			"api_key":    req.APIKey,
-			"api_secret": encryptedSecret,
+		credential := BrokerCredential{
+			APIKey:    req.APIKey,
+			APISecret: encryptedSecret,
 		}
-		brokerCreds := map[string]interface{}{
-			req.BrokerID: credential,
-		}
-		settings := map[string]interface{}{
-			"broker_credentials": brokerCreds,
+		settings := BrokerSettings{
+			BrokerCredentials: map[string]BrokerCredential{
+				req.BrokerID: credential,
+			},
 		}
 		body, err := json.Marshal(settings)
 		if err != nil {
@@ -241,29 +249,19 @@ func (h *BrokerHandler) GetCredentials(c *gin.Context) {
 		return
 	}
 
-	var settings map[string]interface{}
+	var settings BrokerSettings
 	if err := json.Unmarshal(settingsJSON, &settings); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read settings"})
 		return
 	}
 
-	if creds, ok := settings["broker_credentials"].(map[string]interface{}); ok {
-		for brokerID, v := range creds {
-			if cred, ok := v.(map[string]interface{}); ok {
-				// Mask API key
-				if apiKey, ok := cred["api_key"].(string); ok {
-					cred["api_key"] = maskString(apiKey)
-				}
-				// Mask API secret
-				if apiSecret, ok := cred["api_secret"].(string); ok {
-					cred["api_secret"] = maskString(apiSecret)
-				}
-				_ = brokerID
-			}
-		}
+	for brokerID, cred := range settings.BrokerCredentials {
+		cred.APIKey = maskString(cred.APIKey)
+		cred.APISecret = maskString(cred.APISecret)
+		settings.BrokerCredentials[brokerID] = cred
 	}
 
-	c.JSON(http.StatusOK, settings["broker_credentials"])
+	c.JSON(http.StatusOK, settings.BrokerCredentials)
 }
 
 // RevealCredentials decrypts and returns full broker API credentials.
@@ -318,29 +316,23 @@ func (h *BrokerHandler) RevealCredentials(c *gin.Context) {
 		return
 	}
 
-	var settings map[string]interface{}
+	var settings BrokerSettings
 	if err := json.Unmarshal(settingsJSON, &settings); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read settings"})
 		return
 	}
 
-	if creds, ok := settings["broker_credentials"].(map[string]interface{}); ok {
-		for brokerID, v := range creds {
-			if cred, ok := v.(map[string]interface{}); ok {
-				if encryptedSecret, ok := cred["api_secret"].(string); ok {
-					decrypted, err := crypto.Decrypt(encryptedSecret)
-					if err != nil {
-						continue
-					}
-					cred["api_secret"] = decrypted
-				}
-			}
-			_ = brokerID
+	for brokerID, cred := range settings.BrokerCredentials {
+		decrypted, err := crypto.Decrypt(cred.APISecret)
+		if err != nil {
+			continue
 		}
+		cred.APISecret = decrypted
+		settings.BrokerCredentials[brokerID] = cred
 	}
 
 	log.Printf("audit: user_id=%d revealed full broker credentials", userID)
-	c.JSON(http.StatusOK, settings["broker_credentials"])
+	c.JSON(http.StatusOK, settings.BrokerCredentials)
 }
 
 func (h *BrokerHandler) getUserID(c *gin.Context) int {
