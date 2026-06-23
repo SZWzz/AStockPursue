@@ -1,5 +1,8 @@
 // frontend/components/financial/KpiCard.tsx
 import { cn } from '@/lib/utils'
+import type { KpiData } from '@/types'
+
+export type { KpiData } from '@/types'
 
 interface KpiCardProps {
   label: string

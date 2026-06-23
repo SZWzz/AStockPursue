@@ -10,14 +10,12 @@ import { Card } from '@/components/ui/card'
 import { useScreener } from '@/hooks'
 import { useScreenerStore } from '@/stores'
 import type { ScreenMode } from '@/stores'
+import type { MarketRow } from '@/types'
 import { cn } from '@/lib/utils'
 
-interface ScreenerRow {
-  symbol: string
+/** Screener result row — picks MarketRow fields used by the grid plus screener extras */
+type ScreenerRow = Pick<MarketRow, 'symbol' | 'price' | 'change_pct' | 'volume'> & {
   name?: string
-  price: number
-  change_pct: number
-  volume: number
   score?: number
   rank?: number
 }

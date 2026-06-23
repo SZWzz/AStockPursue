@@ -10,14 +10,11 @@ import { ScreenerGrid } from '@/components/financial/ScreenerGrid'
 import { KpiCard } from '@/components/financial/KpiCard'
 import { Card } from '@/components/ui/card'
 import { cn, formatPercent } from '@/lib/utils'
+import type { MarketRow } from '@/types'
 
-
-interface MoverItem {
-  symbol: string
+/** Market mover — picks MarketRow fields used by the grid plus optional sector */
+type MoverItem = Pick<MarketRow, 'symbol' | 'price' | 'change_pct' | 'volume'> & {
   name?: string
-  price: number
-  change_pct: number
-  volume: number
   sector?: string
 }
 

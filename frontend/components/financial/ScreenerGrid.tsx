@@ -3,19 +3,20 @@ import { memo } from 'react'
 import { useTranslations } from 'next-intl'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { cn, formatPrice, formatPercent } from '@/lib/utils'
+import type { MarketRow } from '@/types'
 
-interface Row {
-  symbol: string
+/**
+ * Screener row type — picks fields used by the grid from MarketRow
+ * plus screener-specific score & rank.
+ */
+export type ScreenerRow = Pick<MarketRow, 'symbol' | 'price' | 'change_pct' | 'volume'> & {
   name?: string
-  price: number
-  change_pct: number
-  volume: number
   score?: number
   rank?: number
 }
 
 interface ScreenerGridProps {
-  data: Row[]
+  data: ScreenerRow[]
   onRowClick?: (symbol: string) => void
   mode?: 'filter' | 'rank' | 'score'
   actionLabel?: string
@@ -30,7 +31,7 @@ const ScreenerRow = memo(function ScreenerRow({
   actionLabel,
   onAction,
 }: {
-  row: Row
+  row: ScreenerRow
   index: number
   mode: 'filter' | 'rank' | 'score'
   onRowClick?: (symbol: string) => void

@@ -5,6 +5,7 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { useAnalysis, usePositions } from '@/hooks'
+import type { Position } from '@/types'
 import { DividerSection } from '@/components/financial/DividerSection'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -24,7 +25,7 @@ export default function StressTestPage() {
   const [customPct, setCustomPct] = useState('')
   const [selectedSymbols, setSelectedSymbols] = useState<string[]>([])
 
-  const positions: any[] = posData?.positions || posData?.data?.positions || []
+  const positions: Position[] = posData?.positions || []
 
   const toggleSymbol = (sym: string) => {
     setSelectedSymbols((prev) =>
@@ -94,7 +95,7 @@ export default function StressTestPage() {
                   {t('analysis.selectPositions')}
                 </label>
                 <div className="space-y-1 max-h-32 overflow-y-auto border border-[var(--border-default)] rounded-[var(--radius-sm)] p-2">
-                  {positions.map((p: any) => (
+                  {positions.map((p: Position) => (
                     <label key={p.symbol} className="flex items-center gap-2 text-[13px] text-[var(--foreground)] cursor-pointer py-0.5">
                       <input
                         type="checkbox"

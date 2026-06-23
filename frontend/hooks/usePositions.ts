@@ -1,4 +1,6 @@
 import useSWR from 'swr'
+import type { Portfolio } from '@/types'
+
 export function usePositions() {
-  return useSWR('/api/portfolio', { refreshInterval: 5000 })
+  return useSWR<Portfolio>('/api/portfolio', { refreshInterval: 5000 })
 }

@@ -15,13 +15,14 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import useSWR from 'swr'
+import type { GeopoliticsTopic, NewsArticle, Portfolio } from '@/types'
 
 export default function DashboardPage() {
   const t = useTranslations()
   useWebSocket()
   const { data: posData } = usePositions()
   const { data: sysData } = useSystemStatus()
-  const { data: portfolio } = useSWR('/api/portfolio')
+  const { data: portfolio } = useSWR<Portfolio>('/api/portfolio')
   const { data: northbound } = useSWR('/api/research/northbound?symbol=SH000001')
   const { data: geopolitics } = useSWR('/api/research/geopolitics?symbol=SH000001')
   const { data: newsData } = useSWR('/api/research/news?symbol=600519')
@@ -123,7 +124,7 @@ export default function DashboardPage() {
                 <CardContent>
                   {geopolitics?.topics && geopolitics.topics.length > 0 ? (
                     <div className="space-y-2">
-                      {geopolitics.topics.slice(0, 5).map((topic: any, idx: number) => (
+                      {geopolitics.topics.slice(0, 5).map((topic: GeopoliticsTopic, idx: number) => (
                         <div key={idx} className="flex items-center justify-between text-xs">
                           <span className="truncate flex-1 min-w-0 pr-2">{topic.name || topic.topic}</span>
                           <Badge
@@ -153,7 +154,7 @@ export default function DashboardPage() {
               <CardContent>
                 {newsData?.articles && newsData.articles.length > 0 ? (
                   <div className="divide-y divide-[var(--border-subtle)]">
-                    {newsData.articles.slice(0, 5).map((article: any, idx: number) => (
+                    {newsData.articles.slice(0, 5).map((article: NewsArticle, idx: number) => (
                       <div key={idx} className="py-2 first:pt-0 last:pb-0">
                         <div className="flex items-start gap-2">
                           <div className={cn(

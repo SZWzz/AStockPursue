@@ -17,12 +17,13 @@ import {
 import { usePositions } from '@/hooks'
 import { formatPrice, formatPnL, formatPercent, cn } from '@/lib/utils'
 import { X } from 'lucide-react'
+import type { Position } from '@/types'
 
 export const PositionTable = memo(function PositionTable() {
   const t = useTranslations()
   const { data, error, isLoading, mutate } = usePositions()
   const [closing, setClosing] = useState<string | null>(null)
-  const [confirmClose, setConfirmClose] = useState<any | null>(null)
+  const [confirmClose, setConfirmClose] = useState<Position | null>(null)
 
   // Virtual scroll state
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -46,15 +47,15 @@ export const PositionTable = memo(function PositionTable() {
   const cash = portfolio?.cash ?? portfolio?.available ?? 0
 
   // PO2: Aggregate stats
-  const totalMarketValue = positions.reduce((sum: number, p: any) => {
+  const totalMarketValue = positions.reduce((sum: number, p: Position) => {
     return sum + (p.size || 0) * (p.current_price || 0)
   }, 0)
   const buyingPower = cash
-  const totalPnL = positions.reduce((sum: number, p: any) => sum + (p.pnl || 0), 0)
+  const totalPnL = positions.reduce((sum: number, p: Position) => sum + (p.pnl || 0), 0)
   const exposure = totalEquity > 0 ? (totalMarketValue / totalEquity) * 100 : 0
 
   // PO1: Close position — show confirmation dialog first
-  const requestClose = (pos: any) => {
+  const requestClose = (pos: Position) => {
     setConfirmClose(pos)
   }
 
@@ -83,7 +84,7 @@ export const PositionTable = memo(function PositionTable() {
         mutate()
       } else {
         const err = await res.json().catch(() => ({}))
-        toast.error((err as any)?.error || t('common.error'))
+        toast.error((err as { error?: string })?.error || t('common.error'))
       }
     } catch {
       toast.error(t('common.error'))
@@ -154,7 +155,7 @@ export const PositionTable = memo(function PositionTable() {
                 return (
                   <>
                     <tr style={{ height: startIdx * ROW_HEIGHT }} />
-                    {positions.slice(startIdx, endIdx).map((pos: any) => (
+                    {positions.slice(startIdx, endIdx).map((pos: Position) => (
                       <TableRow key={pos.symbol}>
                         <TableCell className="font-mono font-medium" style={{ height: ROW_HEIGHT }}>{pos.symbol}</TableCell>
                         <TableCell className="font-mono text-right" style={{ height: ROW_HEIGHT }}>{pos.size}</TableCell>
@@ -209,7 +210,7 @@ export const PositionTable = memo(function PositionTable() {
               </TableCell>
             </TableRow>
           ) : (
-            positions.map((pos: any) => (
+            positions.map((pos: Position) => (
               <TableRow key={pos.symbol}>
                 <TableCell className="font-mono font-medium">{pos.symbol}</TableCell>
                 <TableCell className="font-mono text-right">{pos.size}</TableCell>
