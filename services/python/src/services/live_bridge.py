@@ -128,7 +128,8 @@ class LiveBridge:
                 return False
             brokers = resp.get("brokers", [])
             return any(b.get("name") == "futu" for b in brokers)
-        except Exception:
+        except Exception as e:
+            logger.warning("Broker connectivity check failed for user %s: %s", user_id, e)
             return False
 
     def _check_risk_config(self, user_id: int) -> bool:
@@ -140,8 +141,8 @@ class LiveBridge:
             if config_path.exists():
                 cfg = json.loads(config_path.read_text())
                 return bool(cfg.get("max_daily_loss") or cfg.get("max_position_pct"))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to load risk config for user %s: %s", user_id, e)
         return False
 
     def _check_strategy_performance(self, run_id: str) -> tuple[bool, str]:
@@ -156,7 +157,8 @@ class LiveBridge:
                     return True, f"Sharpe={sharpe:.2f}, Return={returns:.1%}"
                 return False, f"Sharpe={sharpe:.2f} (need > 0.5), Return={returns:.1%} (need > 0)"
             return False, "No backtest metrics available"
-        except Exception:
+        except Exception as e:
+            logger.warning("Failed to load backtest data for run %s: %s", run_id, e)
             return False, "Could not load backtest data"
 
     def _check_balance(self, user_id: int) -> tuple[bool, str]:

@@ -55,6 +55,11 @@ class AnalysisServiceServicer(analysis_pb2_grpc.AnalysisServiceServicer):
 
             factors = self._compute_brinson(portfolio_id, start, end)
 
+            if "error" in factors:
+                return analysis_pb2.AttributionResponse(
+                    factors={}, error=factors.get("message", factors["error"])
+                )
+
             return analysis_pb2.AttributionResponse(factors=factors, error="")
 
         except Exception as e:
@@ -78,7 +83,6 @@ class AnalysisServiceServicer(analysis_pb2_grpc.AnalysisServiceServicer):
         from datetime import datetime
 
         # Try to load portfolio positions from data store
-        portfolio_weights: dict[str, float] = {}
         try:
             from backtest.data_store import get_data_store
             store = get_data_store()
@@ -91,16 +95,9 @@ class AnalysisServiceServicer(analysis_pb2_grpc.AnalysisServiceServicer):
             # Treat each as an equal-weight holding (simulated portfolio)
             weight = 1.0 / len(common_symbols)
             portfolio_weights = {s: weight for s in common_symbols}
-        except Exception:
-            # Fallback: use hardcoded weights
-            portfolio_weights = {
-                "000001.SZ": 0.15,
-                "600519.SH": 0.25,
-                "600036.SH": 0.20,
-                "601318.SH": 0.20,
-                "300750.SZ": 0.10,
-                "002594.SZ": 0.10,
-            }
+        except Exception as e:
+            logger.warning("Data store unavailable for portfolio positions: %s", e)
+            return {"error": "data_unavailable", "message": f"Failed to load portfolio data: {e}"}
 
         # Compute actual returns for each symbol
         symbol_returns: dict[str, float] = {}
@@ -112,19 +109,12 @@ class AnalysisServiceServicer(analysis_pb2_grpc.AnalysisServiceServicer):
                 if df is not None and not df.empty and len(df) > 1:
                     r = float(df["close"].iloc[-1] / df["close"].iloc[0] - 1)
                     symbol_returns[sym] = r
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to compute symbol returns: %s", e)
 
-        # If data loading failed, use placeholder returns
+        # If no price data is available, return error
         if not symbol_returns:
-            symbol_returns = {
-                "000001.SZ": 0.05,
-                "600519.SH": 0.12,
-                "600036.SH": 0.03,
-                "601318.SH": -0.02,
-                "300750.SZ": 0.15,
-                "002594.SZ": 0.08,
-            }
+            return {"error": "data_unavailable", "message": "No price data available for any portfolio symbols"}
 
         # Benchmark: equal-weighted across all positions
         syms = list(portfolio_weights.keys())
@@ -254,11 +244,10 @@ class AnalysisServiceServicer(analysis_pb2_grpc.AnalysisServiceServicer):
             )
 
         try:
-            results: dict[str, float] = {}
-            for scenario in scenarios:
-                results[scenario] = 0.0  # Placeholder — real stress test logic
-
-            return analysis_pb2.StressTestResponse(results=results, error="")
+            return analysis_pb2.StressTestResponse(
+                results={},
+                error="data_unavailable: Stress test simulation not yet available",
+            )
 
         except Exception as e:
             logger.exception("Stress test failed")

@@ -43,8 +43,8 @@ def _create_store(base_dir: Path | None = None) -> SessionStore | "PgSessionStor
     if store_type == "pg" and _HAS_PG_STORE:
         try:
             return PgSessionStore()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("PgSessionStore creation failed: %s", e)
     return SessionStore(base_dir)
 
 
@@ -256,8 +256,8 @@ class SessionService:
         try:
             from src.auth.user_config import load_user_config
             load_user_config(user_id)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to load user config for user %s: %s", user_id, e)
 
         llm = ChatLLM()
         pm = PersistentMemory()
@@ -396,8 +396,8 @@ class SessionService:
                 rows = list(csv.DictReader(f))
                 if rows:
                     return {k: float(v) for k, v in rows[0].items() if v}
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Failed to load metrics from %s: %s", metrics_path, e)
         return None
 
     @staticmethod
