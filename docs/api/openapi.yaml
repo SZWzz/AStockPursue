@@ -1,0 +1,385 @@
+openapi: "3.0.3"
+info:
+  title: AStockPursue API
+  description: AI-driven quantitative research and trading platform API
+  version: "1.0.0"
+servers:
+  - url: http://localhost:8899/api/v1
+    description: Local development
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string, minLength: 6 }
+      responses:
+        "200":
+          description: JWT token
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string }
+        "401":
+          description: Invalid credentials
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: User registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string, minLength: 6 }
+      responses:
+        "201": { description: Created }
+        "409": { description: Username exists }
+
+  /admin/setup:
+    post:
+      tags: [Admin]
+      summary: Initial admin setup (only if no admin exists)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              properties:
+                password: { type: string, minLength: 8 }
+      responses:
+        "201": { description: Admin created }
+        "409": { description: Admin already exists }
+
+  /broker/credentials:
+    get:
+      tags: [Broker]
+      summary: Get masked broker credentials
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Masked credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BrokerSettings"
+
+  /broker/credentials/save:
+    post:
+      tags: [Broker]
+      summary: Save broker credentials
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [broker_id, api_key, api_secret]
+              properties:
+                broker_id: { type: string }
+                api_key: { type: string }
+                api_secret: { type: string }
+      responses:
+        "200": { description: Credentials saved }
+
+  /broker/credentials/reveal:
+    post:
+      tags: [Broker]
+      summary: Reveal full credentials (requires password)
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password]
+              properties:
+                current_password: { type: string }
+      responses:
+        "200": { description: Full credentials }
+        "403": { description: Wrong password }
+        "429": { description: Rate limited }
+
+  /broker/credentials/rotate:
+    post:
+      tags: [Broker]
+      summary: Rotate broker API keys
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [broker_id, api_key, api_secret]
+              properties:
+                broker_id: { type: string }
+                api_key: { type: string }
+                api_secret: { type: string }
+      responses:
+        "200": { description: Keys rotated }
+
+  /broker/account:
+    get:
+      tags: [Broker]
+      summary: Get account summary
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Account data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Account"
+
+  /broker/positions:
+    get:
+      tags: [Broker]
+      summary: Get current positions
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200":
+          description: Position list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Position"
+
+  /backtest/run:
+    post:
+      tags: [Backtest]
+      summary: Start a backtest
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, start_date, end_date]
+              properties:
+                symbol: { type: string }
+                start_date: { type: string, format: date }
+                end_date: { type: string, format: date }
+                initial_capital: { type: number, default: 100000 }
+                strategy: { type: string }
+      responses:
+        "200":
+          description: Backtest started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  run_id: { type: string }
+
+  /backtest/result/{id}:
+    get:
+      tags: [Backtest]
+      summary: Get backtest result
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Backtest result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BacktestResult"
+
+  /market/data:
+    get:
+      tags: [Market]
+      summary: Get market data
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: symbol
+          in: query
+          schema: { type: string }
+        - name: interval
+          in: query
+          schema: { type: string, enum: [1m, 5m, 15m, 1h, 1d, 1w] }
+      responses:
+        "200":
+          description: Market data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Bar"
+
+  /trading/order:
+    post:
+      tags: [Trading]
+      summary: Place an order
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [symbol, side, type, quantity]
+              properties:
+                symbol: { type: string }
+                side: { type: string, enum: [buy, sell] }
+                type: { type: string, enum: [market, limit, stop, stop_limit] }
+                quantity: { type: number }
+                price: { type: number }
+      responses:
+        "200":
+          description: Order placed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Order"
+
+  /trading/orders:
+    get:
+      tags: [Trading]
+      summary: Get order history
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: symbol
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Order list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Order"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Bar:
+      type: object
+      properties:
+        symbol: { type: string }
+        timestamp: { type: integer, format: int64 }
+        open: { type: number }
+        high: { type: number }
+        low: { type: number }
+        close: { type: number }
+        volume: { type: number }
+
+    Position:
+      type: object
+      properties:
+        symbol: { type: string }
+        side: { type: string, enum: [long, short] }
+        quantity: { type: number }
+        avg_price: { type: number }
+        current_price: { type: number }
+        market_value: { type: number }
+        unrealized_pnl: { type: number }
+
+    Order:
+      type: object
+      properties:
+        id: { type: string }
+        symbol: { type: string }
+        side: { type: string, enum: [buy, sell] }
+        type: { type: string, enum: [market, limit, stop, stop_limit] }
+        price: { type: number }
+        quantity: { type: number }
+        filled: { type: number }
+        status: { type: string, enum: [pending, filled, partially_filled, cancelled, rejected] }
+        created_at: { type: string, format: date-time }
+
+    Account:
+      type: object
+      properties:
+        total_value: { type: number }
+        cash: { type: number }
+        market_value: { type: number }
+        unrealized_pnl: { type: number }
+
+    BrokerSettings:
+      type: object
+      properties:
+        broker_credentials:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              api_key: { type: string }
+              api_secret: { type: string }
+
+    BacktestResult:
+      type: object
+      properties:
+        id: { type: string }
+        symbol: { type: string }
+        total_return: { type: number }
+        annual_return: { type: number }
+        sharpe_ratio: { type: number }
+        max_drawdown: { type: number }
+        win_rate: { type: number }
+        total_trades: { type: integer }
+
+  responses:
+    Unauthorized:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }
+    RateLimited:
+      description: Too many requests
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }

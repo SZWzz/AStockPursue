@@ -372,11 +372,11 @@ export default function SettingsPage() {
                     <Save className="w-3.5 h-3.5 mr-1.5" />{savingTab === 'general' ? t('common.saving') : t('common.save')}
                   </Button>
                   <div className="border-t border-[var(--border)] pt-4">
-                    <FormRow label={t('settings.general.restartGuide')}>
+                    <FormRow label={t('settings.generalRestartGuide')}>
                       <div>
-                        <p className="text-[12px] text-[var(--foreground-muted)] mb-2">{t('settings.general.restartGuideDesc')}</p>
+                        <p className="text-[12px] text-[var(--foreground-muted)] mb-2">{t('settings.generalRestartGuideDesc')}</p>
                         <Button variant="outline" size="sm" onClick={() => { resetOnboarding(); toast.success(t('settings.settingsSaved')) }}>
-                          <RotateCcw className="w-3.5 h-3.5 mr-1.5" />{t('settings.general.restartGuide')}
+                          <RotateCcw className="w-3.5 h-3.5 mr-1.5" />{t('settings.generalRestartGuide')}
                         </Button>
                       </div>
                     </FormRow>

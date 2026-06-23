@@ -22,7 +22,16 @@
     "scheduler": "定时任务",
     "researchAnalysis": "研究分析",
     "mlModels": "机器学习",
-    "notifications": "通知"
+    "notifications": "通知",
+    "discovery": "发现",
+    "strategy": "策略",
+    "optimization": "参数优化",
+    "liveTrading": "实盘交易",
+    "signals": "交易信号",
+    "monitor": "监控",
+    "correlation": "相关性",
+    "drawdown": "回撤",
+    "stressTest": "压力测试"
   },
   "common": {
     "save": "保存",
@@ -529,7 +538,7 @@
     "telegram": "Telegram",
     "emailSection": "Email",
     "webhook": "Webhook",
-    "general.restartGuide": "重新开始引导",
-    "general.restartGuideDesc": "重置引导状态，下次访问时将再次显示欢迎引导。"
+    "generalRestartGuide": "重新开始引导",
+    "generalRestartGuideDesc": "重置引导状态，下次访问时将再次显示欢迎引导。"
   }
 }

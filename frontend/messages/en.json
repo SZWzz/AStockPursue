@@ -22,7 +22,16 @@
     "scheduler": "Scheduler",
     "researchAnalysis": "Research",
     "mlModels": "ML Models",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "discovery": "Discovery",
+    "strategy": "Strategy",
+    "optimization": "Optimization",
+    "liveTrading": "Live Trading",
+    "signals": "Signals",
+    "monitor": "Monitor",
+    "correlation": "Correlation",
+    "drawdown": "Drawdown",
+    "stressTest": "Stress Test"
   },
   "common": {
     "save": "Save",
@@ -529,7 +538,7 @@
     "telegram": "Telegram",
     "emailSection": "Email",
     "webhook": "Webhook",
-    "general.restartGuide": "Restart Guide",
-    "general.restartGuideDesc": "Reset onboarding and show the welcome guide again on next visit."
+    "generalRestartGuide": "Restart Guide",
+    "generalRestartGuideDesc": "Reset onboarding and show the welcome guide again on next visit."
   }
 }
