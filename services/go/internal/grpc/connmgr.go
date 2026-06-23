@@ -11,7 +11,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 )
@@ -196,7 +195,11 @@ func (m *ConnManager) Close() {
 
 func (m *ConnManager) dialOpts() []grpc.DialOption {
 	if os.Getenv("GRPC_TLS_ENABLED") == "true" {
-		creds := credentials.NewClientTLSFromCert(nil, "")
+		creds, err := LoadTLSCredentials()
+		if err != nil {
+			log.Printf("gRPC: TLS credentials unavailable, falling back to insecure: %v", err)
+			return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+		}
 		return []grpc.DialOption{grpc.WithTransportCredentials(creds)}
 	}
 	return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}

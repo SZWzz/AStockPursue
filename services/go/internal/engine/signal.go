@@ -11,7 +11,6 @@ import (
 	grpcpkg "github.com/astockpursue/go-core/internal/grpc"
 	signalv1 "github.com/astockpursue/go-core/internal/gen/signal/v1"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -61,7 +60,11 @@ func (s *SignalAdapter) getClient() (signalv1.SignalServiceClient, *grpc.ClientC
 
 	var dialOpt grpc.DialOption
 	if os.Getenv("GRPC_TLS_ENABLED") == "true" {
-		dialOpt = grpc.WithTransportCredentials(credentials.NewClientTLSFromCert(nil, ""))
+		creds, err := grpcpkg.LoadTLSCredentials()
+		if err != nil {
+			return nil, nil, nil, fmt.Errorf("signal adapter: TLS setup failed: %w", err)
+		}
+		dialOpt = grpc.WithTransportCredentials(creds)
 	} else {
 		dialOpt = grpc.WithTransportCredentials(insecure.NewCredentials())
 	}
