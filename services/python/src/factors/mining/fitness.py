@@ -64,22 +64,13 @@ def ic_fitness(
     fv = factor_values.loc[common_dates, common_cols]
     fr = forward_returns.loc[common_dates, common_cols]
 
-    ics: list[float] = []
-    for i in range(len(common_dates)):
-        fv_row = fv.iloc[i]
-        fr_row = fr.iloc[i]
-        valid = fv_row.notna() & fr_row.notna()
-        if valid.sum() < 3:
-            continue
-        try:
-            corr, _ = sp_stats.pearsonr(fv_row[valid].to_numpy(dtype=np.float64),
-                                         fr_row[valid].to_numpy(dtype=np.float64))
-            if not np.isnan(corr):
-                ics.append(corr)
-        except Exception:
-            pass
-
-    return float(np.mean(ics)) if ics else 0.0
+    # Vectorized: compute Pearson correlation across all dates at once.
+    # corrwith(axis=1) computes row-wise correlation; min_periods=3
+    # ensures rows with fewer than 3 valid cross-sectional pairs
+    # produce NaN, matching the original per-row guard.
+    ics = fv.corrwith(fr, axis=1, method="pearson", min_periods=3)
+    ics = ics.dropna()
+    return float(ics.mean()) if len(ics) > 0 else 0.0
 
 
 def rank_ic_fitness(
