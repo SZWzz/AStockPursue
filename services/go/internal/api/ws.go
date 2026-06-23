@@ -4,15 +4,38 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"runtime"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
+var wsAllowedOrigins = buildWSAllowedOrigins()
+
+func buildWSAllowedOrigins() map[string]bool {
+	raw := os.Getenv("WS_ALLOWED_ORIGINS")
+	if raw == "" {
+		raw = "http://localhost:5899,http://127.0.0.1:5899"
+	}
+	origins := make(map[string]bool)
+	for _, origin := range strings.Split(raw, ",") {
+		origins[strings.TrimSpace(origin)] = true
+	}
+	return origins
+}
+
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			// Allow same-origin requests (browsers omit Origin for same-origin WS)
+			return true
+		}
+		return wsAllowedOrigins[origin]
+	},
 }
 
 // WSMessage is a message sent over a WebSocket channel.
