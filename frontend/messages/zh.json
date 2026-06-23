@@ -45,12 +45,14 @@
     "noData": "暂无数据",
     "confirm": "确认",
     "confirmDelete": "确认删除？",
+    "confirmClose": "确认关闭？",
     "logout": "退出登录",
     "today": "今天",
     "acknowledge": "确认",
     "dismiss": "忽略",
     "createOrder": "创建订单",
     "clear": "清除",
+    "closeSuccess": "已关闭",
     "start": "启动",
     "stop": "停止",
     "export": "导出",
@@ -63,8 +65,12 @@
     "pause": "暂停",
     "saving": "保存中...",
     "send": "发送",
+    "skipToContent": "跳至内容",
+    "somethingWentWrong": "出了点问题",
     "reset": "重置",
-    "to": "至"
+    "to": "至",
+    "toggleMenu": "切换菜单",
+    "user": "用户"
   },
   "auth": {
     "login": "登录",
@@ -84,7 +90,8 @@
     "medium": "中",
     "strong": "强",
     "minPasswordLength": "至少8位，包含大小写字母和数字",
-    "networkError": "网络错误"
+    "networkError": "网络错误",
+    "none": "无"
   },
   "trading": {
     "symbol": "代码",
@@ -119,6 +126,7 @@
     "available": "可用",
     "margin": "保证金",
     "close": "平仓",
+    "confirmClose": "确认平仓？",
     "closeSuccess": "持仓已平仓",
     "exposure": "敞口比例",
     "positionCount": "持仓数",
@@ -257,7 +265,12 @@
     "totalReturn": "收益",
     "sharpe": "夏普",
     "maxDD": "最大回撤",
-    "codeValidationError": "代码验证失败"
+    "codeValidationError": "代码验证失败",
+    "namePlaceholder": "例如：双均线策略、动量突破",
+    "backtestFailed": "回测失败",
+    "saveFailed": "保存失败",
+    "fetchFailed": "加载失败",
+    "codeEmpty": "策略代码不能为空"
   },
   "status": {
     "running": "运行中",

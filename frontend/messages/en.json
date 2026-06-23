@@ -45,12 +45,14 @@
     "noData": "No Data",
     "confirm": "Confirm",
     "confirmDelete": "Confirm delete?",
+    "confirmClose": "Confirm close?",
     "logout": "Logout",
     "today": "Today",
     "acknowledge": "Acknowledge",
     "dismiss": "Dismiss",
     "createOrder": "Create Order",
     "clear": "Clear",
+    "closeSuccess": "Closed successfully",
     "start": "Start",
     "stop": "Stop",
     "export": "Export",
@@ -63,8 +65,12 @@
     "pause": "Pause",
     "saving": "Saving...",
     "send": "Send",
+    "skipToContent": "Skip to content",
+    "somethingWentWrong": "Something went wrong",
     "reset": "Reset",
-    "to": "to"
+    "to": "to",
+    "toggleMenu": "Toggle menu",
+    "user": "User"
   },
   "auth": {
     "login": "Login",
@@ -84,7 +90,8 @@
     "medium": "Medium",
     "strong": "Strong",
     "minPasswordLength": "Min 8 chars, mixed case + digit",
-    "networkError": "Network error"
+    "networkError": "Network error",
+    "none": "None"
   },
   "trading": {
     "symbol": "Symbol",
@@ -119,6 +126,7 @@
     "available": "Available",
     "margin": "Margin",
     "close": "Close",
+    "confirmClose": "Confirm close?",
     "closeSuccess": "Position closed",
     "exposure": "Exposure",
     "positionCount": "Positions",
@@ -257,7 +265,12 @@
     "totalReturn": "Return",
     "sharpe": "Sharpe",
     "maxDD": "Max DD",
-    "codeValidationError": "Code validation failed"
+    "codeValidationError": "Code validation failed",
+    "namePlaceholder": "e.g. MA Crossover, Momentum Breakout",
+    "backtestFailed": "Backtest failed",
+    "saveFailed": "Save failed",
+    "fetchFailed": "Fetch failed",
+    "codeEmpty": "Strategy code cannot be empty"
   },
   "status": {
     "running": "Running",
