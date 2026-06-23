@@ -18,12 +18,12 @@ func NewFinancialsService(repo *Repo, adapter interface{}) *FinancialsService {
 
 func (s *FinancialsService) Name() string { return s.name }
 
-func (s *FinancialsService) Analyze(ctx context.Context, symbol string, params map[string]any) (map[string]any, error) {
+func (s *FinancialsService) Analyze(ctx context.Context, symbol string, params ResearchParams) (ResearchResult, error) {
 	// 1. Check cache
 	if s.repo != nil {
 		cached, _ := s.repo.GetCategory(symbol, "financials")
 		if len(cached) > 0 {
-			result := make(map[string]any)
+			result := make(ResearchResult)
 			for _, dp := range cached {
 				result[dp.Key] = dp.Value
 			}

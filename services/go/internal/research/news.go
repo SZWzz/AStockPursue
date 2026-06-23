@@ -51,7 +51,7 @@ func (s *NewsService) Name() string { return s.name }
 //
 // Cache-first: cached DataPoints are loaded if available and fresh.
 // Otherwise mock data is generated, cached, and returned.
-func (s *NewsService) Analyze(ctx context.Context, symbol string, params map[string]any) (map[string]any, error) {
+func (s *NewsService) Analyze(ctx context.Context, symbol string, params ResearchParams) (ResearchResult, error) {
 	// 1. Cache-first
 	if s.repo != nil {
 		cached, _ := s.repo.GetCategory(symbol, "news")
@@ -149,7 +149,7 @@ func clampSentiment(v, lo, hi float64) float64 {
 }
 
 // mockNews generates deterministic pseudo-random news and sentiment data.
-func (s *NewsService) mockNews(symbol string) map[string]any {
+func (s *NewsService) mockNews(symbol string) ResearchResult {
 	now := time.Now()
 
 	// Pre-defined article templates to give variety per symbol via hashFloat
@@ -222,7 +222,7 @@ func (s *NewsService) mockNews(symbol string) map[string]any {
 		uniqueSources[a["source"].(string)] = true
 	}
 
-	return map[string]any{
+	return ResearchResult{
 		"recent_articles":   articles,
 		"overall_sentiment": overallSentiment,
 		"sentiment_change":  hashFloat(symbol, 19) * 0.15,
@@ -232,8 +232,8 @@ func (s *NewsService) mockNews(symbol string) map[string]any {
 }
 
 // cachedResult reconstructs the API response from cached DataPoints.
-func (s *NewsService) cachedResult(dps []DataPoint) map[string]any {
-	result := map[string]any{
+func (s *NewsService) cachedResult(dps []DataPoint) ResearchResult {
+	result := ResearchResult{
 		"overall_sentiment": 0.0,
 		"sentiment_change":  0.0,
 		"source_count":      0,

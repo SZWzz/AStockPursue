@@ -49,13 +49,13 @@ func (n *ScaleNode) ParamSchema() []workflow.ParamDef {
 	}
 }
 
-func (n *ScaleNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *ScaleNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	series, ok := inputs["series"].([]float64)
 	if !ok {
 		return nil, fmt.Errorf("scale: series must be []float64, got %T", inputs["series"])
 	}
 	if len(series) == 0 {
-		return map[string]any{"scaled": []float64{}}, nil
+		return workflow.NodeOutputs{"scaled": []float64{}}, nil
 	}
 
 	method := "minmax"
@@ -82,7 +82,7 @@ func (n *ScaleNode) Execute(ctx context.Context, inputs map[string]any, params m
 func (n *ScaleNode) Validate() error { return nil }
 
 // scaleMinMax rescales series linearly into [rangeMin, rangeMax].
-func scaleMinMax(series []float64, rangeMin, rangeMax float64) (map[string]any, error) {
+func scaleMinMax(series []float64, rangeMin, rangeMax float64) (workflow.NodeOutputs, error) {
 	min, max := series[0], series[0]
 	for _, v := range series {
 		if v < min {
@@ -106,11 +106,11 @@ func scaleMinMax(series []float64, rangeMin, rangeMax float64) (map[string]any, 
 			scaled[i] = rangeMin + (v-min)/(max-min)*span
 		}
 	}
-	return map[string]any{"scaled": scaled}, nil
+	return workflow.NodeOutputs{"scaled": scaled}, nil
 }
 
 // scaleZScore standardises series to mean=0, std=1.
-func scaleZScore(series []float64) (map[string]any, error) {
+func scaleZScore(series []float64) (workflow.NodeOutputs, error) {
 	n := float64(len(series))
 	var sum, sumSq float64
 	for _, v := range series {
@@ -131,7 +131,7 @@ func scaleZScore(series []float64) (map[string]any, error) {
 			scaled[i] = (v - mean) / std
 		}
 	}
-	return map[string]any{"scaled": scaled}, nil
+	return workflow.NodeOutputs{"scaled": scaled}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -167,7 +167,7 @@ func (n *ArithmeticNode) ParamSchema() []workflow.ParamDef {
 	}
 }
 
-func (n *ArithmeticNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *ArithmeticNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	a, err := toFloat64(inputs["a"])
 	if err != nil {
 		return nil, fmt.Errorf("arithmetic: a must be numeric, got %T", inputs["a"])
@@ -199,7 +199,7 @@ func (n *ArithmeticNode) Execute(ctx context.Context, inputs map[string]any, par
 		return nil, fmt.Errorf("arithmetic: unknown op %q", op)
 	}
 
-	return map[string]any{"result": result}, nil
+	return workflow.NodeOutputs{"result": result}, nil
 }
 
 func (n *ArithmeticNode) Validate() error { return nil }
@@ -252,7 +252,7 @@ func (n *ScheduleNode) ParamSchema() []workflow.ParamDef {
 	}
 }
 
-func (n *ScheduleNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *ScheduleNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	cronExpr := "0 9 * * 1-5"
 	if c, ok := params["cron"].(string); ok && c != "" {
 		cronExpr = c
@@ -270,7 +270,7 @@ func (n *ScheduleNode) Execute(ctx context.Context, inputs map[string]any, param
 	now := time.Now().In(loc)
 	next := nextCronTime(cronExpr, now)
 
-	return map[string]any{
+	return workflow.NodeOutputs{
 		"next_run":      next.Format(time.RFC3339),
 		"trigger_count": 0, // mock; real counter requires persistent state
 	}, nil
@@ -426,7 +426,7 @@ func (n *AlertNode) ParamSchema() []workflow.ParamDef {
 	}
 }
 
-func (n *AlertNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *AlertNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	condition, ok := inputs["condition"].(bool)
 	if !ok {
 		return nil, fmt.Errorf("alert: condition must be bool, got %T", inputs["condition"])
@@ -443,12 +443,12 @@ func (n *AlertNode) Execute(ctx context.Context, inputs map[string]any, params m
 		alertID := uuid.New().String()
 		_ = message
 		_ = level
-		return map[string]any{
+		return workflow.NodeOutputs{
 			"triggered": true,
 			"alert_id":  alertID,
 		}, nil
 	}
-	return map[string]any{
+	return workflow.NodeOutputs{
 		"triggered": false,
 		"alert_id":  "",
 	}, nil
@@ -485,13 +485,13 @@ func (n *BranchNode) OutputPorts() []workflow.PortDef {
 
 func (n *BranchNode) ParamSchema() []workflow.ParamDef { return nil }
 
-func (n *BranchNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *BranchNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	condition, ok := inputs["condition"].(bool)
 	if !ok {
 		return nil, fmt.Errorf("branch: condition must be bool, got %T", inputs["condition"])
 	}
 
-	return map[string]any{
+	return workflow.NodeOutputs{
 		"true_branch":  condition,
 		"false_branch": !condition,
 	}, nil
@@ -528,15 +528,15 @@ func (n *MergeNode) OutputPorts() []workflow.PortDef {
 
 func (n *MergeNode) ParamSchema() []workflow.ParamDef { return nil }
 
-func (n *MergeNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *MergeNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	// Prefer branch_a over branch_b; if neither is set, return nil.
 	if a, ok := inputs["branch_a"]; ok {
-		return map[string]any{"merged": a}, nil
+		return workflow.NodeOutputs{"merged": a}, nil
 	}
 	if b, ok := inputs["branch_b"]; ok {
-		return map[string]any{"merged": b}, nil
+		return workflow.NodeOutputs{"merged": b}, nil
 	}
-	return map[string]any{"merged": nil}, nil
+	return workflow.NodeOutputs{"merged": nil}, nil
 }
 
 func (n *MergeNode) Validate() error { return nil }
@@ -546,27 +546,27 @@ func (n *MergeNode) Validate() error { return nil }
 // ---------------------------------------------------------------------------
 
 func init() {
-	workflow.DefaultRegistry.RegisterWithCategory("scale", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("scale", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &ScaleNode{id: id}, nil
 	}, "utility")
 
-	workflow.DefaultRegistry.RegisterWithCategory("arithmetic", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("arithmetic", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &ArithmeticNode{id: id}, nil
 	}, "utility")
 
-	workflow.DefaultRegistry.RegisterWithCategory("schedule", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("schedule", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &ScheduleNode{id: id}, nil
 	}, "schedule")
 
-	workflow.DefaultRegistry.RegisterWithCategory("alert", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("alert", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &AlertNode{id: id}, nil
 	}, "notify")
 
-	workflow.DefaultRegistry.RegisterWithCategory("branch", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("branch", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &BranchNode{id: id}, nil
 	}, "control")
 
-	workflow.DefaultRegistry.RegisterWithCategory("merge", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("merge", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &MergeNode{id: id}, nil
 	}, "control")
 }

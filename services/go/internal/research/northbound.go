@@ -41,7 +41,7 @@ func (s *NorthboundService) Name() string { return s.name }
 //
 // Cache-first: cached DataPoints are loaded if available and fresh.
 // Otherwise mock data is generated, cached, and returned.
-func (s *NorthboundService) Analyze(ctx context.Context, symbol string, params map[string]any) (map[string]any, error) {
+func (s *NorthboundService) Analyze(ctx context.Context, symbol string, params ResearchParams) (ResearchResult, error) {
 	// 1. Cache-first
 	if s.repo != nil {
 		cached, _ := s.repo.GetCategory(symbol, "northbound")
@@ -118,7 +118,7 @@ func (s *NorthboundService) IsAvailable() bool {
 
 // mockNorthbound generates deterministic pseudo-random northbound flow data.
 // Values are calibrated to realistic A-share northbound magnitudes (CNY).
-func (s *NorthboundService) mockNorthbound(symbol string) map[string]any {
+func (s *NorthboundService) mockNorthbound(symbol string) ResearchResult {
 	// Top-10 stocks northbound capital typically flows into (blue chips)
 	topStocks := []map[string]any{
 		{"code": "600519.SH", "name": "贵州茅台", "name_en": "Kweichow Moutai", "net_buy": 1.52e9 + hashFloat(symbol, 0)*5e8},
@@ -150,7 +150,7 @@ func (s *NorthboundService) mockNorthbound(symbol string) map[string]any {
 	monthly := daily * (18.0 + hashFloat(symbol, 20)*6)
 	cumulative := 2.15e11 + hashFloat(symbol, 21)*5e10
 
-	return map[string]any{
+	return ResearchResult{
 		"net_inflow_daily":    daily,
 		"net_inflow_weekly":   weekly,
 		"net_inflow_monthly":  monthly,
@@ -161,8 +161,8 @@ func (s *NorthboundService) mockNorthbound(symbol string) map[string]any {
 }
 
 // cachedResult reconstructs the API response from cached DataPoints.
-func (s *NorthboundService) cachedResult(dps []DataPoint) map[string]any {
-	result := map[string]any{
+func (s *NorthboundService) cachedResult(dps []DataPoint) ResearchResult {
+	result := ResearchResult{
 		"net_inflow_daily":    0.0,
 		"net_inflow_weekly":   0.0,
 		"net_inflow_monthly":  0.0,

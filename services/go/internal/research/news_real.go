@@ -57,7 +57,7 @@ func (s *NewsRealService) IsAvailable() bool {
 
 // Analyze fetches news from EastMoney, computes basic sentiment, and returns
 // the aggregated result in the same shape as the mock NewsService.
-func (s *NewsRealService) Analyze(ctx context.Context, symbol string, params map[string]any) (map[string]any, error) {
+func (s *NewsRealService) Analyze(ctx context.Context, symbol string, params ResearchParams) (ResearchResult, error) {
 	// 1. Check cache
 	if s.repo != nil {
 		cached, _ := s.repo.GetCategory(symbol, "news")
@@ -99,7 +99,7 @@ func (s *NewsRealService) Analyze(ctx context.Context, symbol string, params map
 
 	overallSentiment := totalSentiment / float64(len(articles))
 
-	result := map[string]any{
+	result := ResearchResult{
 		"recent_articles":   articles,
 		"overall_sentiment": overallSentiment,
 		"sentiment_change":  0.0,
@@ -207,8 +207,8 @@ func (s *NewsRealService) fetchFromEastMoney(ctx context.Context, keyword string
 	return articles, nil
 }
 
-func (s *NewsRealService) emptyResult() map[string]any {
-	return map[string]any{
+func (s *NewsRealService) emptyResult() ResearchResult {
+	return ResearchResult{
 		"recent_articles":   []map[string]any{},
 		"overall_sentiment": 0.0,
 		"sentiment_change":  0.0,
@@ -265,8 +265,8 @@ func searchRunes(s, substr []rune) bool {
 
 // cachedNewsResult reconstructs the API response from cached DataPoints.
 // (Same logic as the mock NewsService.cachedResult.)
-func cachedNewsResult(dps []DataPoint) map[string]any {
-	result := map[string]any{
+func cachedNewsResult(dps []DataPoint) ResearchResult {
+	result := ResearchResult{
 		"overall_sentiment": 0.0,
 		"sentiment_change":  0.0,
 		"source_count":      0,

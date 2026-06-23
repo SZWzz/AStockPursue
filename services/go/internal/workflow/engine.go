@@ -9,7 +9,7 @@ import (
 // WorkflowResult holds the outputs produced by every node in the workflow
 // after a successful execution, or the error if execution failed.
 type WorkflowResult struct {
-	NodeOutputs map[string]map[string]any
+	NodeOutputs map[string]NodeOutputs
 	Error       error
 }
 
@@ -52,7 +52,7 @@ func (e *Engine) Execute(ctx context.Context, wf *Workflow) (*WorkflowResult, er
 	}
 
 	// outputs maps node ID → port name → value.
-	outputs := make(map[string]map[string]any)
+	outputs := make(map[string]NodeOutputs)
 	var mu sync.Mutex
 
 	for _, layer := range layers {
@@ -76,7 +76,7 @@ func (e *Engine) Execute(ctx context.Context, wf *Workflow) (*WorkflowResult, er
 				}
 
 				// Gather inputs from upstream nodes via the workflow edges.
-				inputs := make(map[string]any)
+				inputs := make(NodeParams)
 				for _, edge := range wf.Edges {
 					if edge.ToNode == id {
 						mu.Lock()

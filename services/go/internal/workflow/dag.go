@@ -12,9 +12,9 @@ type Edge struct {
 
 // NodeInstance represents a single node instance within a workflow DAG.
 type NodeInstance struct {
-	ID       string         `json:"id"`
-	NodeType string         `json:"node_type"`
-	Params   map[string]any `json:"params,omitempty"`
+	ID       string     `json:"id"`
+	NodeType string     `json:"node_type"`
+	Params   NodeParams `json:"params,omitempty"`
 }
 
 // Workflow is a complete DAG consisting of node instances and edges.

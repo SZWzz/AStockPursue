@@ -49,13 +49,13 @@ func (n *TrainModelNode) ParamSchema() []workflow.ParamDef {
 	}
 }
 
-func (n *TrainModelNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *TrainModelNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	if _, ok := inputs["dataset"]; !ok {
 		return nil, fmt.Errorf("train_model: dataset input is required")
 	}
 	// Mock: generate a unique model ID
 	modelID := uuid.New().String()
-	return map[string]any{"model_id": modelID}, nil
+	return workflow.NodeOutputs{"model_id": modelID}, nil
 }
 
 func (n *TrainModelNode) Validate() error { return nil }
@@ -101,7 +101,7 @@ func (n *EvaluateModelNode) ParamSchema() []workflow.ParamDef {
 	}
 }
 
-func (n *EvaluateModelNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *EvaluateModelNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	modelID, ok := inputs["model_id"].(string)
 	if !ok {
 		return nil, fmt.Errorf("evaluate_model: model_id must be a string, got %T", inputs["model_id"])
@@ -118,7 +118,7 @@ func (n *EvaluateModelNode) Execute(ctx context.Context, inputs map[string]any, 
 		if err != nil {
 			return nil, fmt.Errorf("evaluate_model: %w", err)
 		}
-		return map[string]any{
+		return workflow.NodeOutputs{
 			"sharpe":       result.Sharpe,
 			"max_drawdown": result.MaxDrawdown,
 			"win_rate":     result.WinRate,
@@ -139,7 +139,7 @@ func (n *EvaluateModelNode) Execute(ctx context.Context, inputs map[string]any, 
 	ic := 0.01 + seed*0.10           // range ~0.01 to 0.11
 	ir := sharpe / math.Sqrt(252)    // annualized IR
 
-	return map[string]any{
+	return workflow.NodeOutputs{
 		"sharpe":       math.Round(sharpe*10000) / 10000,
 		"max_drawdown": math.Round(maxDD*10000) / 10000,
 		"win_rate":     math.Round(winRate*10000) / 10000,
@@ -180,7 +180,7 @@ func (n *PredictNode) OutputPorts() []workflow.PortDef {
 
 func (n *PredictNode) ParamSchema() []workflow.ParamDef { return nil }
 
-func (n *PredictNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *PredictNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	modelID, ok := inputs["model_id"].(string)
 	if !ok {
 		return nil, fmt.Errorf("predict: model_id must be a string, got %T", inputs["model_id"])
@@ -194,7 +194,7 @@ func (n *PredictNode) Execute(ctx context.Context, inputs map[string]any, params
 	seed := float64(h[0]) / 255.0
 	prediction := (seed - 0.5) * 2.0
 
-	return map[string]any{"prediction": math.Round(prediction*10000) / 10000}, nil
+	return workflow.NodeOutputs{"prediction": math.Round(prediction*10000) / 10000}, nil
 }
 
 func (n *PredictNode) Validate() error { return nil }
@@ -227,7 +227,7 @@ func (n *FeatureImportanceNode) OutputPorts() []workflow.PortDef {
 
 func (n *FeatureImportanceNode) ParamSchema() []workflow.ParamDef { return nil }
 
-func (n *FeatureImportanceNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *FeatureImportanceNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	modelID, ok := inputs["model_id"].(string)
 	if !ok {
 		return nil, fmt.Errorf("feature_importance: model_id must be a string, got %T", inputs["model_id"])
@@ -254,7 +254,7 @@ func (n *FeatureImportanceNode) Execute(ctx context.Context, inputs map[string]a
 		}
 	}
 
-	return map[string]any{"importance": importance}, nil
+	return workflow.NodeOutputs{"importance": importance}, nil
 }
 
 func (n *FeatureImportanceNode) Validate() error { return nil }
@@ -294,7 +294,7 @@ func (n *ModelCompareNode) OutputPorts() []workflow.PortDef {
 
 func (n *ModelCompareNode) ParamSchema() []workflow.ParamDef { return nil }
 
-func (n *ModelCompareNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *ModelCompareNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	rawIDs, ok := inputs["model_ids"].([]string)
 	if !ok {
 		// Accept []any (JSON unmarshalling convention) as fallback.
@@ -313,7 +313,7 @@ func (n *ModelCompareNode) Execute(ctx context.Context, inputs map[string]any, p
 	}
 
 	if len(rawIDs) == 0 {
-		return map[string]any{"rankings": []ModelRank{}}, nil
+		return workflow.NodeOutputs{"rankings": []ModelRank{}}, nil
 	}
 
 	type scoredItem struct {
@@ -339,7 +339,7 @@ func (n *ModelCompareNode) Execute(ctx context.Context, inputs map[string]any, p
 		}
 	}
 
-	return map[string]any{"rankings": rankings}, nil
+	return workflow.NodeOutputs{"rankings": rankings}, nil
 }
 
 func (n *ModelCompareNode) Validate() error { return nil }
@@ -349,23 +349,23 @@ func (n *ModelCompareNode) Validate() error { return nil }
 // ---------------------------------------------------------------------------
 
 func init() {
-	workflow.DefaultRegistry.RegisterWithCategory("train_model", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("train_model", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &TrainModelNode{id: id}, nil
 	}, "ml")
 
-	workflow.DefaultRegistry.RegisterWithCategory("evaluate_model", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("evaluate_model", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &EvaluateModelNode{id: id, evaluator: nil}, nil
 	}, "ml")
 
-	workflow.DefaultRegistry.RegisterWithCategory("predict", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("predict", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &PredictNode{id: id}, nil
 	}, "ml")
 
-	workflow.DefaultRegistry.RegisterWithCategory("feature_importance", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("feature_importance", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &FeatureImportanceNode{id: id}, nil
 	}, "ml")
 
-	workflow.DefaultRegistry.RegisterWithCategory("model_compare", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("model_compare", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &ModelCompareNode{id: id}, nil
 	}, "ml")
 }

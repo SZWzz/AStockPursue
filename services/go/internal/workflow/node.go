@@ -2,6 +2,19 @@ package workflow
 
 import "context"
 
+// NodeParams is a named type alias for the configuration parameters map
+// passed to a node's Execute method. It is map[string]any under the hood
+// and is fully interchangeable with that type. The alias exists only for
+// readability and to provide a migration anchor for a future structured
+// configuration type.
+type NodeParams = map[string]any
+
+// NodeOutputs is a named type alias for the outputs map returned by a
+// node's Execute method, keyed by output port name. Like NodeParams it is
+// map[string]any and fully interchangeable; the alias is for readability
+// and future migration.
+type NodeOutputs = map[string]any
+
 // PortType represents the type of data a port accepts or produces.
 type PortType string
 
@@ -60,7 +73,7 @@ type BaseNode interface {
 
 	// Execute runs the node's logic with the given inputs and parameters,
 	// returning the output values keyed by port name.
-	Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error)
+	Execute(ctx context.Context, inputs NodeParams, params NodeParams) (NodeOutputs, error)
 
 	// Validate checks that the node is correctly configured before execution.
 	Validate() error

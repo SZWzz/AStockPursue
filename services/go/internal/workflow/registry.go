@@ -8,7 +8,7 @@ import (
 // NodeConstructor is a factory function that creates a new node instance.
 // It receives the node instance ID and configuration parameters, and returns
 // a fully-initialised BaseNode or an error if construction fails.
-type NodeConstructor func(id string, params map[string]any) (BaseNode, error)
+type NodeConstructor func(id string, params NodeParams) (BaseNode, error)
 
 // NodeMeta holds metadata about a registered node type for discovery and
 // UI rendering.
@@ -58,7 +58,7 @@ func (r *NodeRegistry) RegisterWithCategory(nodeType string, ctor NodeConstructo
 
 // Create instantiates a node of the given type by calling its registered
 // constructor.  It returns an error if the type is unknown.
-func (r *NodeRegistry) Create(nodeType, id string, params map[string]any) (BaseNode, error) {
+func (r *NodeRegistry) Create(nodeType, id string, params NodeParams) (BaseNode, error) {
 	r.mu.RLock()
 	ctor, ok := r.constructors[nodeType]
 	r.mu.RUnlock()

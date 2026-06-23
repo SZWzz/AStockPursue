@@ -121,7 +121,7 @@ func (s *GeopoliticsService) Name() string { return s.name }
 // Otherwise mock data is generated, cached, and returned.
 // The symbol and params arguments are accepted for interface compatibility;
 // geopolitics analysis is global (symbol is ignored).
-func (s *GeopoliticsService) Analyze(ctx context.Context, symbol string, params map[string]any) (map[string]any, error) {
+func (s *GeopoliticsService) Analyze(ctx context.Context, symbol string, params ResearchParams) (ResearchResult, error) {
 	// 1. Cache-first: try loading cached assessments
 	if s.repo != nil {
 		cached, _ := s.repo.GetCategory("", "geopolitics")
@@ -213,7 +213,7 @@ func (s *GeopoliticsService) mockAssessments() map[string]assessment {
 	return assessments
 }
 // buildResponse converts the internal assessment map into the public API format.
-func (s *GeopoliticsService) buildResponse(assessments map[string]assessment) map[string]any {
+func (s *GeopoliticsService) buildResponse(assessments map[string]assessment) ResearchResult {
 	var topics []map[string]any
 	for _, topic := range predefinedTopics {
 		a := assessments[topic.ID]
@@ -232,13 +232,13 @@ func (s *GeopoliticsService) buildResponse(assessments map[string]assessment) ma
 	sort.Slice(topics, func(i, j int) bool {
 		return topics[i]["topic_id"].(string) < topics[j]["topic_id"].(string)
 	})
-	return map[string]any{
+	return ResearchResult{
 		"topics":     topics,
 		"updated_at": time.Now().Format(time.RFC3339),
 	}
 }
 // cachedResult reconstructs the API response from cached DataPoints.
-func (s *GeopoliticsService) cachedResult(dps []DataPoint) map[string]any {
+func (s *GeopoliticsService) cachedResult(dps []DataPoint) ResearchResult {
 	topicsByID := make(map[string]map[string]any)
 	for _, dp := range dps {
 		topicID := dp.Key
@@ -277,7 +277,7 @@ func (s *GeopoliticsService) cachedResult(dps []DataPoint) map[string]any {
 			topics = append(topics, entry)
 		}
 	}
-	return map[string]any{
+	return ResearchResult{
 		"topics":     topics,
 		"updated_at": time.Now().Format(time.RFC3339),
 	}

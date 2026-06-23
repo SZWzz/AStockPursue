@@ -42,7 +42,7 @@ func (n *CrossOverNode) OutputPorts() []workflow.PortDef {
 	}
 }
 
-func (n *CrossOverNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *CrossOverNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	fast, ok := inputs["fast"].([]float64)
 	if !ok {
 		return nil, fmt.Errorf("cross_over: fast must be []float64, got %T", inputs["fast"])
@@ -58,7 +58,7 @@ func (n *CrossOverNode) Execute(ctx context.Context, inputs map[string]any, para
 		minLen = len(slow)
 	}
 	if minLen < 2 {
-		return map[string]any{"signal": "hold", "crossover_point": 0.0}, nil
+		return workflow.NodeOutputs{"signal": "hold", "crossover_point": 0.0}, nil
 	}
 
 	fPrev, fCurr := fast[minLen-2], fast[minLen-1]
@@ -72,7 +72,7 @@ func (n *CrossOverNode) Execute(ctx context.Context, inputs map[string]any, para
 	case fPrev >= sPrev && fCurr < sCurr:
 		signal = "sell" // fast crosses below slow (death cross)
 	}
-	return map[string]any{"signal": signal, "crossover_point": point}, nil
+	return workflow.NodeOutputs{"signal": signal, "crossover_point": point}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -105,7 +105,7 @@ func (n *CrossSignalNode) OutputPorts() []workflow.PortDef {
 	}
 }
 
-func (n *CrossSignalNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *CrossSignalNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	a, ok := inputs["series_a"].([]float64)
 	if !ok {
 		return nil, fmt.Errorf("cross_signal: series_a must be []float64, got %T", inputs["series_a"])
@@ -138,7 +138,7 @@ func (n *CrossSignalNode) Execute(ctx context.Context, inputs map[string]any, pa
 	if minLen > 0 {
 		last = signals[minLen-1]
 	}
-	return map[string]any{"signals": signals, "last_signal": last}, nil
+	return workflow.NodeOutputs{"signals": signals, "last_signal": last}, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -176,7 +176,7 @@ func (n *EntrySignalNode) ParamSchema() []workflow.ParamDef {
 	}
 }
 
-func (n *EntrySignalNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *EntrySignalNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	conditions, ok := inputs["conditions"].(map[string]bool)
 	if !ok {
 		// Accept map[string]any with bool values as a fallback.
@@ -224,9 +224,9 @@ func (n *EntrySignalNode) Execute(ctx context.Context, inputs map[string]any, pa
 	}
 
 	if triggered {
-		return map[string]any{"signal": "buy", "confidence": confidence}, nil
+		return workflow.NodeOutputs{"signal": "buy", "confidence": confidence}, nil
 	}
-	return map[string]any{"signal": "hold", "confidence": 0.0}, nil
+	return workflow.NodeOutputs{"signal": "hold", "confidence": 0.0}, nil
 }
 
 func (n *EntrySignalNode) Validate() error { return nil }
@@ -268,7 +268,7 @@ func (n *BollingerNode) ParamSchema() []workflow.ParamDef {
 	}
 }
 
-func (n *BollingerNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *BollingerNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	series, ok := inputs["series"].([]float64)
 	if !ok {
 		return nil, fmt.Errorf("bollinger: series must be []float64, got %T", inputs["series"])
@@ -320,7 +320,7 @@ func (n *BollingerNode) Execute(ctx context.Context, inputs map[string]any, para
 		}
 	}
 
-	return map[string]any{
+	return workflow.NodeOutputs{
 		"upper":     upper,
 		"middle":    middle,
 		"lower":     lower,
@@ -363,7 +363,7 @@ func (n *SMANode) ParamSchema() []workflow.ParamDef {
 	}
 }
 
-func (n *SMANode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *SMANode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	series, ok := inputs["series"].([]float64)
 	if !ok {
 		return nil, fmt.Errorf("sma: series must be []float64, got %T", inputs["series"])
@@ -372,7 +372,7 @@ func (n *SMANode) Execute(ctx context.Context, inputs map[string]any, params map
 	if period < 1 {
 		period = 1
 	}
-	return map[string]any{"sma": computeSMA(series, period)}, nil
+	return workflow.NodeOutputs{"sma": computeSMA(series, period)}, nil
 }
 
 func (n *SMANode) Validate() error { return nil }
@@ -409,7 +409,7 @@ func (n *EMANode) ParamSchema() []workflow.ParamDef {
 	}
 }
 
-func (n *EMANode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *EMANode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	series, ok := inputs["series"].([]float64)
 	if !ok {
 		return nil, fmt.Errorf("ema: series must be []float64, got %T", inputs["series"])
@@ -418,7 +418,7 @@ func (n *EMANode) Execute(ctx context.Context, inputs map[string]any, params map
 	if period < 1 {
 		period = 1
 	}
-	return map[string]any{"ema": computeEMA(series, period)}, nil
+	return workflow.NodeOutputs{"ema": computeEMA(series, period)}, nil
 }
 
 func (n *EMANode) Validate() error { return nil }
@@ -456,7 +456,7 @@ func (n *StdDevNode) ParamSchema() []workflow.ParamDef {
 	}
 }
 
-func (n *StdDevNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *StdDevNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	series, ok := inputs["series"].([]float64)
 	if !ok {
 		return nil, fmt.Errorf("std_dev: series must be []float64, got %T", inputs["series"])
@@ -490,7 +490,7 @@ func (n *StdDevNode) Execute(ctx context.Context, inputs map[string]any, params 
 		lastStd = std
 	}
 
-	return map[string]any{"std_dev": lastStd, "values": values}, nil
+	return workflow.NodeOutputs{"std_dev": lastStd, "values": values}, nil
 }
 
 func (n *StdDevNode) Validate() error { return nil }
@@ -528,7 +528,7 @@ func (n *DeltaNode) ParamSchema() []workflow.ParamDef {
 	}
 }
 
-func (n *DeltaNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *DeltaNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	series, ok := inputs["series"].([]float64)
 	if !ok {
 		return nil, fmt.Errorf("delta: series must be []float64, got %T", inputs["series"])
@@ -556,7 +556,7 @@ func (n *DeltaNode) Execute(ctx context.Context, inputs map[string]any, params m
 		}
 	}
 
-	return map[string]any{"delta": delta, "pct_change": pctChange}, nil
+	return workflow.NodeOutputs{"delta": delta, "pct_change": pctChange}, nil
 }
 
 func (n *DeltaNode) Validate() error { return nil }
@@ -627,7 +627,7 @@ func rollingStdDev(series []float64, idx, period int, mean float64) float64 {
 
 // extractIntParam reads an int parameter from params, trying float64 first
 // (JSON unmarshalling convention) then int.
-func extractIntParam(params map[string]any, key string, defaultVal int) int {
+func extractIntParam(params workflow.NodeParams, key string, defaultVal int) int {
 	if v, ok := params[key]; ok {
 		switch val := v.(type) {
 		case float64:
@@ -645,36 +645,36 @@ func extractIntParam(params map[string]any, key string, defaultVal int) int {
 
 func init() {
 	// Signal nodes
-	workflow.DefaultRegistry.RegisterWithCategory("cross_over", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("cross_over", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &CrossOverNode{id: id}, nil
 	}, "signal")
 
-	workflow.DefaultRegistry.RegisterWithCategory("cross_signal", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("cross_signal", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &CrossSignalNode{id: id}, nil
 	}, "signal")
 
-	workflow.DefaultRegistry.RegisterWithCategory("entry_signal", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("entry_signal", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &EntrySignalNode{id: id}, nil
 	}, "signal")
 
 	// Indicator nodes
-	workflow.DefaultRegistry.RegisterWithCategory("bollinger", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("bollinger", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &BollingerNode{id: id}, nil
 	}, "indicator")
 
-	workflow.DefaultRegistry.RegisterWithCategory("sma", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("sma", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &SMANode{id: id}, nil
 	}, "indicator")
 
-	workflow.DefaultRegistry.RegisterWithCategory("ema", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("ema", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &EMANode{id: id}, nil
 	}, "indicator")
 
-	workflow.DefaultRegistry.RegisterWithCategory("std_dev", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("std_dev", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &StdDevNode{id: id}, nil
 	}, "indicator")
 
-	workflow.DefaultRegistry.RegisterWithCategory("delta", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.RegisterWithCategory("delta", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &DeltaNode{id: id}, nil
 	}, "indicator")
 }

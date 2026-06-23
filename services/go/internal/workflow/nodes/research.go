@@ -42,7 +42,7 @@ func (n *FinancialsNode) OutputPorts() []workflow.PortDef {
 
 func (n *FinancialsNode) ParamSchema() []workflow.ParamDef { return nil }
 
-func (n *FinancialsNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *FinancialsNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	symbol, ok := inputs["symbol"].(string)
 	if !ok {
 		return nil, fmt.Errorf("financials: symbol must be a string, got %T", inputs["symbol"])
@@ -82,7 +82,7 @@ func (n *GeopoliticsNode) OutputPorts() []workflow.PortDef {
 
 func (n *GeopoliticsNode) ParamSchema() []workflow.ParamDef { return nil }
 
-func (n *GeopoliticsNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *GeopoliticsNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	symbol, _ := inputs["symbol"].(string)
 	return n.service.Analyze(ctx, symbol, nil)
 }
@@ -119,7 +119,7 @@ func (n *NorthboundNode) OutputPorts() []workflow.PortDef {
 
 func (n *NorthboundNode) ParamSchema() []workflow.ParamDef { return nil }
 
-func (n *NorthboundNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *NorthboundNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	symbol, ok := inputs["symbol"].(string)
 	if !ok {
 		return nil, fmt.Errorf("northbound: symbol must be a string, got %T", inputs["symbol"])
@@ -159,7 +159,7 @@ func (n *NewsNode) OutputPorts() []workflow.PortDef {
 
 func (n *NewsNode) ParamSchema() []workflow.ParamDef { return nil }
 
-func (n *NewsNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *NewsNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	symbol, ok := inputs["symbol"].(string)
 	if !ok {
 		return nil, fmt.Errorf("news: symbol must be a string, got %T", inputs["symbol"])
@@ -200,7 +200,7 @@ func (n *SentimentNode) OutputPorts() []workflow.PortDef {
 
 func (n *SentimentNode) ParamSchema() []workflow.ParamDef { return nil }
 
-func (n *SentimentNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *SentimentNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	symbol, ok := inputs["symbol"].(string)
 	if !ok {
 		return nil, fmt.Errorf("sentiment: symbol must be a string, got %T", inputs["symbol"])
@@ -210,7 +210,7 @@ func (n *SentimentNode) Execute(ctx context.Context, inputs map[string]any, para
 		return nil, err
 	}
 	// Return sentiment-specific subset
-	result := make(map[string]any)
+	result := make(workflow.NodeOutputs)
 	if v, ok := full["overall_sentiment"]; ok {
 		result["overall_sentiment"] = v
 	}
@@ -254,7 +254,7 @@ func (n *AnalystEstimatesNode) OutputPorts() []workflow.PortDef {
 
 func (n *AnalystEstimatesNode) ParamSchema() []workflow.ParamDef { return nil }
 
-func (n *AnalystEstimatesNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *AnalystEstimatesNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	symbol, ok := inputs["symbol"].(string)
 	if !ok {
 		return nil, fmt.Errorf("analyst_estimates: symbol must be a string, got %T", inputs["symbol"])
@@ -267,11 +267,11 @@ func (n *AnalystEstimatesNode) Validate() error { return nil }
 // mockAnalystEstimates returns placeholder analyst consensus data for the
 // given symbol.  Values are calibrated to realistic A-share analyst estimate
 // ranges.
-func mockAnalystEstimates(symbol string) map[string]any {
+func mockAnalystEstimates(symbol string) workflow.NodeOutputs {
 	seed := hashStr(symbol)
 	now := time.Now().Format(time.RFC3339)
 
-	return map[string]any{
+	return workflow.NodeOutputs{
 		"symbol":             symbol,
 		"consensus_target":   round2(18.0 + seed*15),
 		"consensus_eps":      round2(0.85 + seed*0.6),
@@ -318,7 +318,7 @@ func (n *InsiderTradesNode) OutputPorts() []workflow.PortDef {
 
 func (n *InsiderTradesNode) ParamSchema() []workflow.ParamDef { return nil }
 
-func (n *InsiderTradesNode) Execute(ctx context.Context, inputs map[string]any, params map[string]any) (map[string]any, error) {
+func (n *InsiderTradesNode) Execute(ctx context.Context, inputs workflow.NodeParams, params workflow.NodeParams) (workflow.NodeOutputs, error) {
 	symbol, ok := inputs["symbol"].(string)
 	if !ok {
 		return nil, fmt.Errorf("insider_trades: symbol must be a string, got %T", inputs["symbol"])
@@ -331,7 +331,7 @@ func (n *InsiderTradesNode) Validate() error { return nil }
 // mockInsiderTrades returns placeholder insider transaction data for the
 // given symbol.  Values include recent buy/sell transactions by executives
 // and large shareholders, and net insider activity metrics.
-func mockInsiderTrades(symbol string) map[string]any {
+func mockInsiderTrades(symbol string) workflow.NodeOutputs {
 	seed := hashStr(symbol)
 	now := time.Now().Format(time.RFC3339)
 	thirtyDaysAgo := time.Now().Add(-30 * 24 * time.Hour).Format(time.RFC3339)
@@ -372,7 +372,7 @@ func mockInsiderTrades(symbol string) map[string]any {
 		},
 	}
 
-	return map[string]any{
+	return workflow.NodeOutputs{
 		"symbol":          symbol,
 		"recent_trades":   trades,
 		"net_buy_30d":     round2(netBuy),
@@ -413,31 +413,31 @@ func round2(v float64) float64 {
 // ---------------------------------------------------------------------------
 
 func init() {
-	workflow.DefaultRegistry.Register("financials", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.Register("financials", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &FinancialsNode{id: id, service: nil}, nil // service wired later
 	})
 
-	workflow.DefaultRegistry.Register("geopolitics", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.Register("geopolitics", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &GeopoliticsNode{id: id, service: nil}, nil // service wired later
 	})
 
-	workflow.DefaultRegistry.Register("northbound", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.Register("northbound", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &NorthboundNode{id: id, service: nil}, nil // service wired later
 	})
 
-	workflow.DefaultRegistry.Register("news", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.Register("news", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &NewsNode{id: id, service: nil}, nil // service wired later
 	})
 
-	workflow.DefaultRegistry.Register("sentiment", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.Register("sentiment", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &SentimentNode{id: id, service: nil}, nil // service wired later
 	})
 
-	workflow.DefaultRegistry.Register("analyst_estimates", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.Register("analyst_estimates", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &AnalystEstimatesNode{id: id}, nil
 	})
 
-	workflow.DefaultRegistry.Register("insider_trades", func(id string, params map[string]any) (workflow.BaseNode, error) {
+	workflow.DefaultRegistry.Register("insider_trades", func(id string, params workflow.NodeParams) (workflow.BaseNode, error) {
 		return &InsiderTradesNode{id: id}, nil
 	})
 }
