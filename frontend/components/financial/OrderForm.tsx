@@ -27,8 +27,8 @@ export function OrderForm() {
       if (!res.ok) throw new Error('Order failed')
       toast.success('Order placed')
       reset()
-    } catch (err: any) {
-      toast.error(err.message || 'Order failed')
+    } catch (err: unknown) {
+      toast.error((err as Error)?.message || 'Order failed')
     }
   }
 

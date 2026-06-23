@@ -17,6 +17,35 @@ import { Search, TrendingUp, TrendingDown, Minus } from 'lucide-react'
 
 // --------------- helpers ---------------
 
+interface GeopoliticsItem {
+  name?: string
+  topic?: string
+  risk_level?: string
+  description?: string
+  tone_score?: number
+  tone_change?: number
+}
+
+interface NorthboundStock {
+  symbol?: string
+  code?: string
+  net_inflow?: number
+}
+
+interface SectorDistributionItem {
+  sector?: string
+  name?: string
+  inflow?: number
+}
+
+interface ResearchArticle {
+  title: string
+  url?: string
+  summary?: string
+  published_at?: string
+  sentiment?: number
+}
+
 function riskVariant(level: string): 'destructive' | 'warning' | 'success' | 'secondary' {
   const l = level?.toLowerCase() || ''
   if (l === 'high' || l === '高') return 'destructive'
@@ -134,7 +163,7 @@ function GeopoliticsTab({ t }: { t: (key: string) => string }) {
       {error && <p className="text-sm text-[var(--down)]">{t('common.error')}</p>}
       {data?.topics && data.topics.length > 0 ? (
         <div className="grid grid-cols-2 gap-[var(--grid-gap)]">
-          {data.topics.slice(0, 10).map((topic: any, idx: number) => (
+          {data.topics.slice(0, 10).map((topic: GeopoliticsItem, idx: number) => (
             <Card key={idx} size="sm">
               <CardContent>
                 <div className="flex items-start justify-between">
@@ -144,7 +173,7 @@ function GeopoliticsTab({ t }: { t: (key: string) => string }) {
                       <p className="text-xs text-[var(--muted-foreground)] mt-1 line-clamp-2">{topic.description}</p>
                     )}
                   </div>
-                  <Badge variant={riskVariant(topic.risk_level)} className="shrink-0 ml-2">
+                  <Badge variant={riskVariant(topic.risk_level || 'medium')} className="shrink-0 ml-2">
                     {topic.risk_level || t('research.medium')}
                   </Badge>
                 </div>
@@ -224,7 +253,7 @@ function NorthboundTab({ t }: { t: (key: string) => string }) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {data.top10_active_stocks.map((s: any, idx: number) => (
+                    {data.top10_active_stocks.map((s: NorthboundStock, idx: number) => (
                       <TableRow key={idx}>
                         <TableCell className="font-mono">{s.symbol || s.code}</TableCell>
                         <TableCell className={cn('font-mono', (s.net_inflow ?? 0) >= 0 ? 'text-[var(--up)]' : 'text-[var(--down)]')}>
@@ -245,7 +274,7 @@ function NorthboundTab({ t }: { t: (key: string) => string }) {
               </CardHeader>
               <CardContent>
                 <div className="flex flex-wrap gap-2">
-                  {data.sector_distribution.map((sec: any, idx: number) => (
+                  {data.sector_distribution.map((sec: SectorDistributionItem, idx: number) => (
                     <Badge key={idx} variant="secondary" className="text-xs">
                       {sec.sector || sec.name}: {(sec.inflow != null ? (Number(sec.inflow) / 1e8).toFixed(2) + ' 亿' : '--')}
                     </Badge>
@@ -342,7 +371,7 @@ function NewsTab({ t }: { t: (key: string) => string }) {
               </CardHeader>
               <CardContent>
                 <div className="divide-y divide-[var(--border-subtle)]">
-                  {data.articles.map((article: any, idx: number) => (
+                  {data.articles.map((article: ResearchArticle, idx: number) => (
                     <div key={idx} className="py-3 first:pt-0 last:pb-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1 min-w-0">

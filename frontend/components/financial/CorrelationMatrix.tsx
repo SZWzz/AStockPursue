@@ -36,7 +36,20 @@ interface DataPoint {
   textFill: string
 }
 
-function CustomCell(props: any) {
+interface CustomCellProps {
+  cx?: number
+  cy?: number
+  payload?: {
+    x?: number
+    y?: number
+    cellSize?: number
+    fill?: string
+    textFill?: string
+    label?: string
+  }
+}
+
+function CustomCell(props: CustomCellProps) {
   const { cx, cy, payload } = props
   if (!payload) return null
   const cellSize = payload.cellSize || 30
@@ -123,7 +136,7 @@ export function CorrelationMatrix({ symbols, matrix }: Props) {
           />
           <Scatter
             data={data}
-            shape={(props: any) => (
+            shape={(props: CustomCellProps) => (
               <CustomCell {...props} payload={{ ...props.payload, cellSize }} />
             )}
             isAnimationActive={false}

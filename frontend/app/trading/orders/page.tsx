@@ -14,7 +14,13 @@ import { useOrders } from '@/hooks'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { SkeletonTable } from '@/components/ui/SkeletonTable'
 import { formatPrice, cn } from '@/lib/utils'
+import type { Order } from '@/types'
 import { X, Search } from 'lucide-react'
+
+interface DisplayOrder extends Order {
+  order_id?: string
+  filled_qty?: number
+}
 
 /** Map order status to StatusBadge variant */
 function badgeStatus(status: string): 'filled' | 'cancelled' | 'pending' | 'error' | 'paused' {
@@ -48,12 +54,12 @@ export default function OrdersPage() {
     let list = data?.orders || []
     // Apply status filter
     if (statusFilter !== 'all') {
-      list = list.filter((o: any) => (o.status || '').toLowerCase() === statusFilter)
+      list = list.filter((o: DisplayOrder) => (o.status || '').toLowerCase() === statusFilter)
     }
     // Apply symbol search
     if (symbolSearch) {
       const q = symbolSearch.toUpperCase()
-      list = list.filter((o: any) => (o.symbol || '').toUpperCase().includes(q))
+      list = list.filter((o: DisplayOrder) => (o.symbol || '').toUpperCase().includes(q))
     }
     return list
   }, [data, statusFilter, symbolSearch])
@@ -65,7 +71,7 @@ export default function OrdersPage() {
   const paginatedOrders = orders.slice((safePage - 1) * pageSize, safePage * pageSize)
 
   // OR1: Cancel order
-  const handleCancel = async (order: any) => {
+  const handleCancel = async (order: DisplayOrder) => {
     const id = order.id || order.order_id
     if (!id) return
     setCancelling(id)
@@ -158,7 +164,7 @@ export default function OrdersPage() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    paginatedOrders.map((order: any) => {
+                    paginatedOrders.map((order: DisplayOrder) => {
                       const id = order.id || order.order_id
                       const isOpen = (order.status || '').toLowerCase() === 'open'
                       return (
@@ -174,7 +180,7 @@ export default function OrdersPage() {
                           <TableCell className="font-mono tabular-nums text-right">{order.quantity}</TableCell>
                           <TableCell className="font-mono tabular-nums text-right">{order.filled_qty ?? order.filled ?? 0}</TableCell>
                           <TableCell>
-                            <StatusBadge status={badgeStatus(order.status)} label={t(`trading.${order.status}` as any) || order.status} />
+                            <StatusBadge status={badgeStatus(order.status)} label={t(`trading.${order.status}` as Parameters<typeof t>[0]) || order.status} />
                           </TableCell>
                           <TableCell className="text-right">
                             {isOpen && (

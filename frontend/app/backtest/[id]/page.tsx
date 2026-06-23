@@ -69,7 +69,7 @@ export default function BacktestDetailPage() {
       filtered = filtered.filter((tr) => tr.side === sideFilter)
     }
     return [...filtered].sort((a, b) => {
-      let va: any, vb: any
+      let va: string | number = 0, vb: string | number = 0
       if (sortField === 'time') {
         va = a.time; vb = b.time
       } else if (sortField === 'symbol') {

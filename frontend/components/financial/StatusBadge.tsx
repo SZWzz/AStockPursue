@@ -1,7 +1,7 @@
 // frontend/components/financial/StatusBadge.tsx
 import { cn } from '@/lib/utils'
 
-type StatusVariant = 'running' | 'filled' | 'success' | 'cancelled' | 'error' | 'paused' | 'pending' | 'stopped'
+export type StatusVariant = 'running' | 'filled' | 'success' | 'cancelled' | 'error' | 'paused' | 'pending' | 'stopped'
 
 const statusStyles: Record<StatusVariant, string> = {
   running:    'bg-[rgba(0,82,255,0.10)] text-[#0052FF] border-[rgba(0,82,255,0.20)]',

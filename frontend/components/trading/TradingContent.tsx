@@ -39,9 +39,9 @@ export function TradingContent() {
 
   // T3: Use user's default_symbols from settings as initial symbol if available
   const defaultSymbol = useMemo(() => {
-    const ds = (settingsData as any)?.default_symbols ||
-              (settingsData as any)?.general?.default_symbols
-    if (Array.isArray(ds) && ds.length) return ds[0]
+    const s = settingsData as Record<string, unknown> | undefined
+    const ds = (s?.['default_symbols'] || (s?.['general'] as Record<string, unknown>)?.['default_symbols']) as unknown
+    if (Array.isArray(ds) && ds.length) return ds[0] as string
     return '000001'
   }, [settingsData])
 

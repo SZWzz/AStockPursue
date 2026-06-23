@@ -181,7 +181,7 @@ export default function SignalsPage() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={signalStatusVariant(status)} className="text-[11px] h-5">
-                          {t(`signals.${status}` as any) || status}
+                          {t(`signals.${status}` as Parameters<typeof t>[0]) || status}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">

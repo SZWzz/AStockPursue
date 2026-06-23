@@ -15,6 +15,20 @@ import { Bell, Info, AlertTriangle, AlertCircle, Send, Check, CheckCheck, Extern
 
 // --------------- helpers ---------------
 
+interface Notification {
+  id: string
+  level: string
+  title: string
+  body?: string
+  created_at?: string
+  read_at?: string | null
+  action_url?: string
+  link?: string
+  href?: string
+  entity_type?: string
+  entity_id?: string
+}
+
 function levelIcon(level: string) {
   const l = level?.toLowerCase() || ''
   if (l === 'error') return <AlertCircle className="w-4 h-4 text-[var(--down)]" />
@@ -30,7 +44,7 @@ function levelBadgeVariant(level: string): 'destructive' | 'warning' | 'default'
 }
 
 // Convert entity metadata to a target page href
-function resolveNotificationHref(n: any): string | null {
+function resolveNotificationHref(n: Notification): string | null {
   if (n.action_url) return n.action_url
   if (n.link) return n.link
   if (n.href) return n.href
@@ -89,8 +103,8 @@ export default function NotificationsPage() {
 
   const { data, error, isLoading } = useSWR('/api/notifications?limit=50')
 
-  const notifications: any[] = data?.notifications || data || []
-  const unreadCount = notifications.filter((n: any) => !n.read_at).length
+  const notifications: Notification[] = data?.notifications || data || []
+  const unreadCount = notifications.filter((n: Notification) => !n.read_at).length
 
   const handleMarkRead = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
@@ -110,7 +124,7 @@ export default function NotificationsPage() {
       mutate('/api/notifications?limit=50')
     } catch {
       // Fallback: mark each unread one individually
-      const unreadIds = notifications.filter((n: any) => !n.read_at).map((n: any) => n.id)
+      const unreadIds = notifications.filter((n: Notification) => !n.read_at).map((n: Notification) => n.id)
       for (const id of unreadIds) {
         try { await fetch(`/api/notifications/${id}/read`, { method: 'POST' }) } catch {}
       }
@@ -190,7 +204,7 @@ export default function NotificationsPage() {
           <Card>
             <CardContent>
               <div className="divide-y divide-[var(--border-subtle)]">
-                {notifications.map((n: any) => {
+                {notifications.map((n: Notification) => {
                   const isExpanded = expandedId === n.id
                   const isUnread = !n.read_at
                   const href = resolveNotificationHref(n)

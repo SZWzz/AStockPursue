@@ -22,6 +22,23 @@ interface Level {
   quantity: number
 }
 
+type OrderBookEntry = [number, number] | { price: number; quantity: number }
+
+interface OrderBookData {
+  symbol?: string
+  bids?: OrderBookEntry[]
+  asks?: OrderBookEntry[]
+}
+
+interface BarData {
+  volume?: number
+  close?: number
+  open?: number
+  high?: number
+  low?: number
+  time?: string | number
+}
+
 type Frequency = '1m' | '5m' | 'daily' | 'weekly' | 'monthly' | 'tick'
 
 const FREQUENCIES: { key: Frequency; label: string; labelKey?: string }[] = [
@@ -72,16 +89,16 @@ export default function SymbolDetailPage() {
 
     wsClient.subscribe('orderbook', [symbol])
 
-    const unsub = wsClient.on('orderbook', (_channel: string, data: any) => {
+    const unsub = wsClient.on('orderbook', (_channel: string, data: OrderBookData) => {
       // Data may contain symbol field; match to current symbol
       if (data.symbol === symbol || !data.symbol) {
-        const bids: Level[] = (data.bids || []).map((b: any) => ({
-          price: b[0] ?? b.price,
-          quantity: b[1] ?? b.quantity,
+        const bids: Level[] = (data.bids || []).map((b: OrderBookEntry) => ({
+          price: Array.isArray(b) ? b[0] : b.price,
+          quantity: Array.isArray(b) ? b[1] : b.quantity,
         }))
-        const asks: Level[] = (data.asks || []).map((a: any) => ({
-          price: a[0] ?? a.price,
-          quantity: a[1] ?? a.quantity,
+        const asks: Level[] = (data.asks || []).map((a: OrderBookEntry) => ({
+          price: Array.isArray(a) ? a[0] : a.price,
+          quantity: Array.isArray(a) ? a[1] : a.quantity,
         }))
         setOrderBook({ bids, asks })
       }
@@ -94,7 +111,7 @@ export default function SymbolDetailPage() {
   }, [symbol])
 
   // SD2: Compute volume data for profile
-  const maxVolume = bars.length ? Math.max(...bars.map((b: any) => b.volume || 0)) : 0
+  const maxVolume = bars.length ? Math.max(...bars.map((b: BarData) => b.volume || 0)) : 0
 
   return (
     <SidebarLayout>
@@ -211,7 +228,7 @@ export default function SymbolDetailPage() {
                       {t('market.volumeProfile')}
                     </h2>
                     <div className="flex items-end gap-[2px] h-16">
-                      {bars.slice(-60).map((b: any, i: number) => {
+                      {bars.slice(-60).map((b: BarData, i: number) => {
                         const vol = b.volume || 0
                         const height = maxVolume > 0 ? (vol / maxVolume) * 100 : 0
                         const barColor =

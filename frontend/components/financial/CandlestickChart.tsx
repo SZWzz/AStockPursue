@@ -37,7 +37,7 @@ function computeMA(data: number[], period: number): (number | null)[] {
 
 // ── Custom Tooltip ──────────────────────────────────────────────────
 
-function CandleTooltip({ active, payload }: any) {
+function CandleTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: CandleData }> }) {
   if (!active || !payload?.length || !payload[0]?.payload) return null
   const d = payload[0].payload as CandleData
   const change = d.close - d.open
@@ -69,7 +69,15 @@ function CandleTooltip({ active, payload }: any) {
 
 // ── Custom Candle Renderer ──────────────────────────────────────────
 
-function CandleRenderer(props: any) {
+interface CandleRendererProps {
+  formattedGraphicalItems?: Array<{ props?: { data?: CandleData[] } }>
+  width?: number
+  height?: number
+  offset?: { left?: number; right?: number; top?: number; bottom?: number }
+  yAxisMap?: Map<string, { scale?: (v: number) => number; yAxisId?: string }> | { values?: () => Array<{ scale?: (v: number) => number; yAxisId?: string }> }
+}
+
+function CandleRenderer(props: CandleRendererProps) {
   const { formattedGraphicalItems, width, height, offset } = props
 
   if (!formattedGraphicalItems?.length) return null
@@ -81,7 +89,7 @@ function CandleRenderer(props: any) {
 
   // Extract Y scale from recharts internal state
   // We find the primary yAxis from the chart
-  let yScale: any = null
+  let yScale: ((v: number) => number) | null = null
   for (const axis of props.yAxisMap?.values?.() ?? []) {
     if (!axis?.scale) continue
     // Check if this is the primary price axis (not the volume axis)
@@ -92,6 +100,8 @@ function CandleRenderer(props: any) {
   }
 
   if (!yScale) return null
+
+  if (!width || !height) return null
 
   const chartLeft = offset?.left ?? 0
   const chartTop = offset?.top ?? 0
@@ -183,7 +193,7 @@ export function CandlestickChart({ data }: { data: CandleData[] }) {
   // Build enriched data for Line components
   const enrichedData = useMemo(() => {
     return data.map((d, i) => {
-      const entry: any = { ...d }
+      const entry: Record<string, string | number | null> & CandleData = { ...d }
       for (const p of MA_PERIODS) {
         entry[`MA${p}`] = maSeries[p][i]
       }

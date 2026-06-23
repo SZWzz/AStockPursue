@@ -124,7 +124,7 @@ export default function SchedulerPage() {
     if (!formName.trim()) return
     setCreating(true)
     try {
-      let configJson: any = {}
+      let configJson: Record<string, unknown> = {}
       try {
         configJson = formConfig.trim() ? JSON.parse(formConfig) : {}
       } catch {

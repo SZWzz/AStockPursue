@@ -10,6 +10,13 @@ import { DividerSection } from '@/components/financial/DividerSection'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
+interface StressTestResult {
+  scenario?: string
+  name?: string
+  impact?: number
+  var?: number
+}
+
 const SCENARIOS = [
   { value: 'market_crash', labelKey: 'analysis.scenarioMarketCrash' },
   { value: 'rate_hike', labelKey: 'analysis.scenarioRateHike' },
@@ -45,7 +52,7 @@ export default function StressTestPage() {
     })
   }
 
-  const results: any[] = data?.data?.results || data?.results || data?.data || (data ? [data] : [])
+  const results: StressTestResult[] = data?.data?.results || data?.results || data?.data || (data ? [data] : [])
 
   return (
     <SidebarLayout>
@@ -154,7 +161,7 @@ export default function StressTestPage() {
                 </tr>
               </thead>
               <tbody>
-                {results.map((r: any, i: number) => (
+                {results.map((r: StressTestResult, i: number) => (
                   <tr
                     key={i}
                     className="border-b border-[var(--border-subtle)] last:border-0"

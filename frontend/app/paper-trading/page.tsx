@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { StatusBadge } from '@/components/financial/StatusBadge'
+import type { StatusVariant } from '@/components/financial/StatusBadge'
 import { SkeletonTable } from '@/components/ui/SkeletonTable'
 import { EmptyState } from '@/components/ui/EmptyState'
 
@@ -188,7 +189,7 @@ export default function PaperTradingPage() {
                     <TableCell className="font-medium">{acct.strategy || '--'}</TableCell>
                     <TableCell className="text-[var(--foreground-secondary)]">{acct.name}</TableCell>
                     <TableCell>
-                      <StatusBadge status={(acct.status as any) || 'paused'} label={acct.status} />
+                      <StatusBadge status={(acct.status as StatusVariant) || 'paused'} label={acct.status} />
                     </TableCell>
                     <TableCell className={cn('font-mono tabular-nums text-right', acct.pnl_pct !== undefined ? (acct.pnl_pct >= 0 ? 'text-[var(--up)]' : 'text-[var(--down)]') : 'text-[var(--foreground-secondary)]')}>
                       {acct.pnl_pct !== undefined ? formatPercent(acct.pnl_pct) : '--'}

@@ -13,6 +13,7 @@ import { TradeTimeline } from '@/components/financial/TradeTimeline'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { useOrders } from '@/hooks'
 import { formatPercent, formatDateTime } from '@/lib/utils'
+import type { Order } from '@/types'
 import { Button } from '@/components/ui/button'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { toast } from 'sonner'
@@ -56,7 +57,7 @@ export default function PaperTradingDetailPage() {
 
   // PD3: Order history
   const { data: ordersData } = useOrders()
-  const orders: any[] = ordersData?.orders || ordersData?.data || ordersData || []
+  const orders: Order[] = ordersData?.orders || ordersData?.data || ordersData || []
 
   const detail: PaperDetail | null = data?.data || data || null
 
@@ -188,7 +189,7 @@ export default function PaperTradingDetailPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {orders.map((o: any, i: number) => (
+                {orders.map((o: Order, i: number) => (
                   <TableRow key={o.id || i}>
                     <TableCell className="font-medium">{o.symbol || '--'}</TableCell>
                     <TableCell>{o.side || '--'}</TableCell>

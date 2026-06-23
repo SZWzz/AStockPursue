@@ -102,8 +102,8 @@ export default function NewBacktestPage() {
           return
         }
       }
-      const errData = await res.json().catch(() => ({}))
-      setError((errData as any)?.error || (errData as any)?.message || t('common.error'))
+      const errData = await res.json().catch(() => ({})) as Record<string, unknown>
+      setError(String(errData?.error || errData?.message || t('common.error')))
     } catch {
       setError(t('common.error'))
     } finally {

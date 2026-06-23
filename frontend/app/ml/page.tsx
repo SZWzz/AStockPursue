@@ -33,6 +33,20 @@ import { Plus, Archive, ChevronDown, ChevronRight, Play, GitCompare } from 'luci
 
 // --------------- helpers ---------------
 
+interface MLModel {
+  id: string
+  name: string
+  model_type: string
+  category: string
+  status: string
+  created_at?: string
+  hyperparams?: Record<string, unknown>
+  metrics?: Record<string, number>
+  trained_at?: string
+  version?: string
+  [key: string]: unknown
+}
+
 function typeVariant(type: string): 'default' | 'secondary' | 'outline' {
   const t = type?.toLowerCase() || ''
   if (t === 'regression' || t === '回归') return 'default'
@@ -184,7 +198,7 @@ function ComparisonDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
   selectedIds: string[]
-  models: any[]
+  models: MLModel[]
   t: (key: string) => string
 }) {
   const selectedModels = models.filter((m) => selectedIds.includes(m.id))
@@ -283,7 +297,7 @@ export default function MLModelsPage() {
 
   const { data, error, isLoading } = useSWR(url)
 
-  const models: any[] = data?.models || data || []
+  const models: MLModel[] = data?.models || data || []
 
   // ML3: archive via dialog
   const openArchiveDialog = (id: string) => {
@@ -337,7 +351,7 @@ export default function MLModelsPage() {
     if (selectedModelIds.size === models.length) {
       setSelectedModelIds(new Set())
     } else {
-      setSelectedModelIds(new Set(models.map((m: any) => m.id)))
+      setSelectedModelIds(new Set(models.map((m: MLModel) => m.id)))
     }
   }
 
@@ -428,7 +442,7 @@ export default function MLModelsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {models.map((m: any) => (
+                  {models.map((m: MLModel) => (
                     <>
                       <TableRow
                         key={m.id}

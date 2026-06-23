@@ -185,8 +185,9 @@ export default function SettingsPage() {
   }, [])
 
   // ---- Save helpers ----
-  const saveSection = useCallback(async (section: string, data: any) => {
+  const saveSection = useCallback(async (section: string, data: unknown) => {
     setSavingTab(section)
+    const sectionData = data as Record<string, unknown>
     try {
       // Re-fetch current state to avoid overwriting other sections
       const res = await fetch('/api/settings')
@@ -195,23 +196,23 @@ export default function SettingsPage() {
       const currentSettings = current.data || current.settings || current
 
       // Merge only the changed section
-      const merged: any = { ...currentSettings }
+      const merged: Record<string, unknown> = { ...currentSettings }
       if (section === 'general') {
-        merged.general = { ...currentSettings.general, ...data }
+        merged.general = { ...currentSettings.general, ...sectionData }
       } else if (section === 'risk_limits') {
-        merged.risk_limits = { ...currentSettings.risk_limits, ...data }
+        merged.risk_limits = { ...currentSettings.risk_limits, ...sectionData }
       } else if (section === 'data_sources') {
-        merged.data_sources = { ...currentSettings.data_sources, ...data }
+        merged.data_sources = { ...currentSettings.data_sources, ...sectionData }
       } else if (section === 'llm') {
-        merged.llm = { ...currentSettings.llm, ...data }
+        merged.llm = { ...currentSettings.llm, ...sectionData }
       } else if (section === 'brokers') {
-        merged.brokers = data
+        merged.brokers = sectionData
       } else if (section === 'notifications') {
-        merged.notifications = { ...currentSettings.notifications, ...data }
+        merged.notifications = { ...currentSettings.notifications, ...sectionData }
       } else if (section === 'account') {
-        merged.account = { ...currentSettings.account, ...data }
+        merged.account = { ...currentSettings.account, ...sectionData }
       } else {
-        merged[section] = data
+        merged[section] = sectionData
       }
 
       const putRes = await fetch('/api/settings', {
@@ -460,7 +461,7 @@ export default function SettingsPage() {
               <Card>
                 <CardContent className="pt-4 space-y-4">
                   <FormRow label={t('settings.llmProvider')}>
-                    <Select value={llm.provider} onValueChange={(v) => { if (v) setLLM(p => ({ ...p, provider: v, model: (LLM_PROVIDERS as any)[v]?.[0] || '' })) }}>
+                    <Select value={llm.provider} onValueChange={(v) => { if (v) setLLM(p => ({ ...p, provider: v, model: (LLM_PROVIDERS as Record<string, string[]>)[v]?.[0] || '' })) }}>
                       <SelectTrigger className="w-full h-10"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="openai">OpenAI</SelectItem>
@@ -725,7 +726,7 @@ function SliderField({ value, onChange, max, unit }: { value: number; onChange: 
   )
 }
 
-function BrokerFormDialog({ broker, onSave, onCancel, t }: { broker: BrokerCredential; onSave: (b: BrokerCredential) => void; onCancel: () => void; t: any }) {
+function BrokerFormDialog({ broker, onSave, onCancel, t }: { broker: BrokerCredential; onSave: (b: BrokerCredential) => void; onCancel: () => void; t: (key: string) => string }) {
   const [form, setForm] = useState<BrokerCredential>({ ...broker })
   const isOKX = form.exchange === 'okx'
   return (
