@@ -75,7 +75,7 @@ export function Sidebar() {
         {/* User footer */}
         <div className="p-3 shrink-0">
           <div className="text-[12px] text-[var(--muted-foreground)] truncate">
-            user@account
+            {t('common.user')}
           </div>
           <div className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
             {APP_VERSION}

@@ -112,6 +112,8 @@
     "cancelled": "Cancelled",
     "allStatuses": "All",
     "orderCancelled": "Order cancelled",
+    "orderFailed": "Order failed",
+    "orderPlaced": "Order placed",
     "showing": "Showing",
     "of": "of"
   },

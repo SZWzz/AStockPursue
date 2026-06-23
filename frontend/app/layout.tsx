@@ -23,6 +23,14 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'AStockPursue — AI-Powered Quantitative Trading',
   description: 'AI-driven quantitative research and trading platform. Describe strategies in natural language, auto backtest, one-click live trading.',
+  openGraph: {
+    title: 'AStockPursue — AI-Powered Quantitative Trading',
+    description: 'AI-driven quantitative research and trading platform. Describe strategies in natural language, auto backtest, one-click live trading.',
+    url: 'https://astockpursue.com',
+    siteName: 'AStockPursue',
+    locale: 'en_US',
+    type: 'website',
+  },
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

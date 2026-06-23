@@ -41,41 +41,36 @@ def generate(df, params):
     return df
 `
 
-// --------------- basic Python syntax validation ---------------
-function validatePythonSyntax(code: string): string | null {
-  if (!code.trim()) return 'Code cannot be empty'
-
-  // check for unbalanced parentheses/brackets/braces
-  const pairs: [string, string][] = [['(', ')'], ['[', ']'], ['{', '}']]
-  for (const [open, close] of pairs) {
-    let depth = 0
-    for (const ch of code) {
-      if (ch === open) depth++
-      if (ch === close) depth--
-      if (depth < 0) return `Unbalanced '${close}'`
-    }
-    if (depth !== 0) return `Unbalanced '${open}'`
-  }
-
-  // check for triple-quoted strings that aren't closed
-  const tripleSingle = code.split("'''")
-  const tripleDouble = code.split('"""')
-  if (tripleSingle.length % 2 === 0) return "Unbalanced '''"
-  if (tripleDouble.length % 2 === 0) return 'Unbalanced """'
-
-  try {
-    // Any Python code that compiles is considered valid syntax
-    Function('"use strict"; return (' + JSON.stringify(code) + ')')()
-  } catch {
-    // Not a JSON string issue - just check basic structure
-  }
-
-  return null
-}
 
 // --------------- Page ---------------
 export default function StrategyLabPage() {
   const t = useTranslations()
+
+  // --------------- basic Python syntax validation ---------------
+  function validatePythonSyntax(code: string): string | null {
+    if (!code.trim()) return t('strategyLab.codeEmpty')
+
+    const pairs: [string, string][] = [['(', ')'], ['[', ']'], ['{', '}']]
+    for (const [open, close] of pairs) {
+      let depth = 0
+      for (const ch of code) {
+        if (ch === open) depth++
+        if (ch === close) depth--
+        if (depth < 0) return `Unbalanced '${close}'`
+      }
+      if (depth !== 0) return `Unbalanced '${open}'`
+    }
+
+    const tripleSingle = code.split("'''")
+    const tripleDouble = code.split('"""')
+    if (tripleSingle.length % 2 === 0) return "Unbalanced '''"
+    if (tripleDouble.length % 2 === 0) return 'Unbalanced """'
+
+    try { Function('"use strict"; return (' + JSON.stringify(code) + ')')() } catch { /* ignore */ }
+
+    return null
+  }
+
   const [code, setCode] = useState(DEFAULT_CODE)
   const [running, setRunning] = useState(false)
   const [result, setResult] = useState<Record<string, number> | null>(null)
@@ -116,7 +111,7 @@ export default function StrategyLabPage() {
           code,
         }),
       })
-      if (!res.ok) throw new Error('Backtest failed')
+      if (!res.ok) throw new Error(t('strategyLab.backtestFailed'))
       const data = await res.json()
       if (data?.id) setBacktestId(data.id)
       setResult({
@@ -156,7 +151,7 @@ export default function StrategyLabPage() {
           initial_capital: 100000,
         }),
       })
-      if (!res.ok) throw new Error('Save failed')
+      if (!res.ok) throw new Error(t('strategyLab.saveFailed'))
       toast.success(t('strategyLab.saveSuccess'))
       setSaveOpen(false)
       setStrategyName('')
@@ -187,7 +182,7 @@ export default function StrategyLabPage() {
   const handleLoadStrategy = async (id: string) => {
     try {
       const res = await fetch(`/api/backtest/${id}`)
-      if (!res.ok) throw new Error('Fetch failed')
+      if (!res.ok) throw new Error(t('strategyLab.fetchFailed'))
       const data = await res.json()
       const detail = data.data || data
       if (detail?.code) {

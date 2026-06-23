@@ -62,7 +62,7 @@ export function Header() {
               <span className="w-8 h-8 rounded-full bg-[var(--surface-2)] flex items-center justify-center text-[14px] font-semibold text-[var(--foreground)]">
                 U
               </span>
-              <span className="text-[14px] text-[var(--foreground-secondary)] hidden sm:inline">User</span>
+              <span className="text-[14px] text-[var(--foreground-secondary)] hidden sm:inline">{t('common.user')}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">

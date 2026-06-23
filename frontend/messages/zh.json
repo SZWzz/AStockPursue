@@ -112,6 +112,8 @@
     "cancelled": "已取消",
     "allStatuses": "全部",
     "orderCancelled": "订单已撤销",
+    "orderFailed": "下单失败",
+    "orderPlaced": "下单成功",
     "showing": "显示",
     "of": "共"
   },

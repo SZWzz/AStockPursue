@@ -24,11 +24,11 @@ export function OrderForm() {
           quantity: parseFloat(quantity) || 0,
         }),
       })
-      if (!res.ok) throw new Error('Order failed')
-      toast.success('Order placed')
+      if (!res.ok) throw new Error(t('trading.orderFailed'))
+      toast.success(t('trading.orderPlaced'))
       reset()
     } catch (err: unknown) {
-      toast.error((err as Error)?.message || 'Order failed')
+      toast.error((err as Error)?.message || t('trading.orderFailed'))
     }
   }
 

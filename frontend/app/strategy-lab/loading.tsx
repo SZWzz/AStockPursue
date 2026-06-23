@@ -1,9 +1,8 @@
-// frontend/app/loading.tsx
 'use client'
 
 import { useTranslations } from 'next-intl'
 
-export default function Loading() {
+export default function StrategyLabLoading() {
   const t = useTranslations()
   return (
     <div className="flex items-center justify-center min-h-[50vh]">
