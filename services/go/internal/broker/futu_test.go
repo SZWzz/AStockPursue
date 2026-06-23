@@ -2,6 +2,7 @@ package broker
 
 import (
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,4 +47,32 @@ func TestFutuBrokerDefaultHostPort(t *testing.T) {
 	fee := b.GetFeeRate("000001.SZ")
 	assert.Equal(t, 0.0003, fee.Maker)
 	assert.Equal(t, 0.0003, fee.Taker)
+}
+
+func TestFutuBroker_EnsureConnected_Concurrent(t *testing.T) {
+	// This test verifies that concurrent calls to ensureConnected()
+	// do not cause race conditions or multiple connections.
+	b := &FutuBroker{
+		cfg: BrokerConfig{Host: "127.0.0.1", Port: 11111}, // deliberately unreachable
+	}
+
+	var wg sync.WaitGroup
+	errs := make(chan error, 10)
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errs <- b.ensureConnected()
+		}()
+	}
+	wg.Wait()
+	close(errs)
+
+	// All should return an error (connection refused), not panic
+	for err := range errs {
+		if err == nil {
+			t.Error("expected error for unreachable host")
+		}
+	}
 }

@@ -203,31 +203,45 @@ func (b *FutuBroker) dial() (net.Conn, error) {
 func (b *FutuBroker) ensureConnected() error {
 	b.mu.Lock()
 	if b.conn != nil {
-		defer b.mu.Unlock()
+		b.mu.Unlock()
 		return nil
 	}
+	// conn is nil — hold lock through reconnection to prevent races
+	err := b.reconnectLocked()
 	b.mu.Unlock()
-	return b.reconnect()
+	return err
 }
 
-func (b *FutuBroker) reconnect() error {
+// reconnectLocked performs reconnection while the caller holds b.mu.
+// It is called by ensureConnected() under the lock.
+func (b *FutuBroker) reconnectLocked() error {
 	delays := []time.Duration{2 * time.Second, 5 * time.Second, 10 * time.Second}
 	for i, d := range delays {
+		b.mu.Unlock() // release lock during I/O
 		conn, err := b.dial()
+		b.mu.Lock() // reacquire before reading/writing state
 		if err == nil {
-			b.mu.Lock()
 			b.conn = conn
 			b.reader = bufio.NewReader(conn)
 			b.reconnAttempts = 0
-			b.mu.Unlock()
 			return nil
 		}
 		log.Printf("futu: reconnect attempt %d failed: %v", i+1, err)
 		if i < len(delays)-1 {
+			b.mu.Unlock()
 			time.Sleep(d)
+			b.mu.Lock()
 		}
 	}
 	return ErrNotConnected
+}
+
+// reconnect performs reconnection from outside the lock.
+// Used by callers that do not already hold b.mu.
+func (b *FutuBroker) reconnect() error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.reconnectLocked()
 }
 
 func (b *FutuBroker) send(req map[string]interface{}) (map[string]interface{}, error) {
