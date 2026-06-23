@@ -139,15 +139,45 @@ type AuthHandler struct {
 // NewAuthHandler creates an AuthHandler with an optional UserRepository.
 // When userRepo is nil, in-memory storage is used as fallback.
 func NewAuthHandler(userRepo UserRepository) *AuthHandler {
-	return &AuthHandler{
-		users: map[string]*userRecord{
-			"admin": {Username: "admin", Password: hashPassword("admin123")},
-		},
+	h := &AuthHandler{
+		users:        make(map[string]*userRecord),
 		userRepo:     userRepo,
 		logger:       log.New(),
 		regLimiter:   NewRateLimiter(time.Minute, 5),
 		loginLimiter: NewRateLimiter(time.Minute, 5),
 	}
+	h.initAdminUser()
+	return h
+}
+
+// initAdminUser creates the admin user if ADMIN_PASSWORD environment variable
+// is set and no admin user already exists.
+func (h *AuthHandler) initAdminUser() {
+	adminPass := os.Getenv("ADMIN_PASSWORD")
+	if adminPass == "" {
+		return
+	}
+
+	// Check if admin already exists
+	h.mu.RLock()
+	_, exists := h.users["admin"]
+	h.mu.RUnlock()
+	if exists {
+		return
+	}
+	if h.userRepo != nil {
+		if _, err := h.userRepo.FindByUsername(context.Background(), "admin"); err == nil {
+			return // admin exists in PG
+		}
+	}
+
+	h.mu.Lock()
+	h.users["admin"] = &userRecord{
+		Username: "admin",
+		Password: hashPassword(adminPass),
+	}
+	h.mu.Unlock()
+	h.logger.Info("admin user initialized from ADMIN_PASSWORD")
 }
 
 // Register creates a new user account.
@@ -291,6 +321,44 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"token": token, "username": req.Username})
 }
 
+// AdminSetup creates the admin user. Only succeeds if no admin exists.
+// POST /api/v1/admin/setup
+func (h *AuthHandler) AdminSetup(c *gin.Context) {
+	var req struct {
+		Password string `json:"password" binding:"required,min=8"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Check if admin already exists
+	h.mu.RLock()
+	if _, exists := h.users["admin"]; exists {
+		h.mu.RUnlock()
+		c.JSON(http.StatusConflict, gin.H{"error": "admin user already exists"})
+		return
+	}
+	h.mu.RUnlock()
+
+	if h.userRepo != nil {
+		if _, err := h.userRepo.FindByUsername(c.Request.Context(), "admin"); err == nil {
+			c.JSON(http.StatusConflict, gin.H{"error": "admin user already exists"})
+			return
+		}
+	}
+
+	h.mu.Lock()
+	h.users["admin"] = &userRecord{
+		Username: "admin",
+		Password: hashPassword(req.Password),
+	}
+	h.mu.Unlock()
+
+	h.logger.Info("admin user created via setup endpoint")
+	c.JSON(http.StatusCreated, gin.H{"status": "admin_created"})
+}
+
 // ── Helpers ───────────────────────────────────────────────────────
 
 func hashPassword(password string) string {
@@ -318,7 +386,7 @@ func generateToken(username string) (string, error) {
 	}
 	claims := jwt.MapClaims{
 		"sub":     username,
-		"user_id": "1",
+		"user_id": username,
 		"iat":     time.Now().Unix(),
 		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 	}

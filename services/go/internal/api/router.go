@@ -43,6 +43,9 @@ func NewRouter(
 	r.GET("/health", health.FullCheck)
 	r.GET("/ws", func(c *gin.Context) { wsHub.HandleWebSocket(c.Writer, c.Request) })
 
+	// Admin setup (no auth required — only works if no admin exists)
+	r.POST("/api/v1/admin/setup", authH.AdminSetup)
+
 	// Protected routes
 	v1 := r.Group("/api/v1")
 	v1.Use(middleware.Auth())
