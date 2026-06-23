@@ -5,7 +5,9 @@ import { useState } from 'react'
 import { useTranslations } from 'next-intl'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { useAnalysis } from '@/hooks'
-import { CorrelationMatrix } from '@/components/financial/CorrelationMatrix'
+import { Skeleton } from '@/components/ui/Skeleton'
+import dynamic from 'next/dynamic'
+const CorrelationMatrix = dynamic(() => import('@/components/financial/CorrelationMatrix').then(mod => mod.CorrelationMatrix), { ssr: false, loading: () => <Skeleton className="h-[400px] w-full" /> })
 import { DividerSection } from '@/components/financial/DividerSection'
 import { Card } from '@/components/ui/card'
 

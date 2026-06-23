@@ -7,8 +7,10 @@ import { useTranslations } from 'next-intl'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { useBacktest } from '@/hooks'
 import { StatCallout } from '@/components/financial/StatCallout'
-import { EquityChart } from '@/components/financial/EquityChart'
-import { DrawdownChart } from '@/components/financial/DrawdownChart'
+import { Skeleton } from '@/components/ui/Skeleton'
+import dynamic from 'next/dynamic'
+const EquityChart = dynamic(() => import('@/components/financial/EquityChart').then(mod => mod.EquityChart), { ssr: false, loading: () => <Skeleton className="h-[400px] w-full" /> })
+const DrawdownChart = dynamic(() => import('@/components/financial/DrawdownChart').then(mod => mod.DrawdownChart), { ssr: false, loading: () => <Skeleton className="h-[400px] w-full" /> })
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { formatPercent, formatDateTime, formatPrice, formatPnL } from '@/lib/utils'
