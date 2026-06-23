@@ -13,7 +13,6 @@ from typing import Literal
 
 import numpy as np
 import pandas as pd
-from scipy import stats as sp_stats
 
 logger = logging.getLogger(__name__)
 
@@ -94,22 +93,9 @@ def rank_ic_fitness(
     fv = factor_values.loc[common_dates, common_cols]
     fr = forward_returns.loc[common_dates, common_cols]
 
-    rank_ics: list[float] = []
-    for i in range(len(common_dates)):
-        fv_row = fv.iloc[i]
-        fr_row = fr.iloc[i]
-        valid = fv_row.notna() & fr_row.notna()
-        if valid.sum() < 3:
-            continue
-        try:
-            corr, _ = sp_stats.spearmanr(fv_row[valid].to_numpy(dtype=np.float64),
-                                          fr_row[valid].to_numpy(dtype=np.float64))
-            if not np.isnan(corr):
-                rank_ics.append(corr)
-        except Exception:
-            pass
-
-    return float(np.mean(rank_ics)) if rank_ics else 0.0
+    ics = fv.corrwith(fr, axis=1, method="spearman", numeric_only=True)
+    result = ics.mean()
+    return float(result) if not pd.isna(result) else 0.0
 
 
 def sharpe_fitness(
