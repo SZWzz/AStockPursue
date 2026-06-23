@@ -12,6 +12,7 @@ from src.security.sandbox import (
     safe_exec_with_validation,
     validate_code_safety,
 )
+from src.factors.mining.sandbox_pandas import SandboxError, SandboxNumpy, SandboxPandas
 
 
 class TestValidateCodeSafety:
@@ -215,3 +216,56 @@ class TestImportWhitelist:
 
     def test_subprocess_not_allowed(self) -> None:
         assert "subprocess" not in SAFE_IMPORT_MODULES
+
+
+class TestSandboxPandas:
+    def test_sandbox_pandas_blocks_io(self) -> None:
+        """SandboxPandas should block pd.read_csv and other I/O methods."""
+        sp = SandboxPandas()
+
+        # I/O methods should be blocked
+        for method in ("read_csv", "read_parquet", "read_excel", "read_json",
+                       "read_sql", "read_pickle", "read_feather", "read_hdf",
+                       "read_stata", "read_sas", "read_spss", "read_table"):
+            try:
+                getattr(sp, method)
+                assert False, f"Should have raised SandboxError for pd.{method}"
+            except SandboxError:
+                pass  # expected
+
+    def test_sandbox_pandas_allows_safe_ops(self) -> None:
+        """SandboxPandas should allow safe operations like pd.DataFrame, pd.Series, pd.rolling etc."""
+        sp = SandboxPandas()
+        # These should not raise
+        assert sp.DataFrame is not None
+        assert sp.Series is not None
+
+    def test_sandbox_pandas_blocks_unknown_attr(self) -> None:
+        """SandboxPandas should block unknown attributes."""
+        sp = SandboxPandas()
+        try:
+            _ = sp.unknown_method
+            assert False, "Should have raised SandboxError"
+        except SandboxError:
+            pass
+
+    def test_sandbox_numpy_blocks_io(self) -> None:
+        """SandboxNumpy should block np.load, np.save etc."""
+        sn = SandboxNumpy()
+        for method in ("load", "save", "savez", "loadtxt", "savetxt", "fromfile", "tofile"):
+            try:
+                getattr(sn, method)
+                assert False, f"Should have raised SandboxError for numpy.{method}"
+            except SandboxError:
+                pass
+
+    def test_eval_sandbox_blocks_file_read(self) -> None:
+        """eval() with SandboxPandas should not allow file reads."""
+        safe_builtins = {"True": True, "False": False, "None": None}
+        safe_locals = {"pd": SandboxPandas()}
+
+        try:
+            eval('pd.read_csv("/etc/passwd")', {"__builtins__": safe_builtins}, safe_locals)
+            assert False, "Should have raised SandboxError for read_csv"
+        except SandboxError:
+            pass

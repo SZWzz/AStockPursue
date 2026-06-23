@@ -18,6 +18,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from src.factors.mining.sandbox_pandas import SandboxError, SandboxNumpy, SandboxPandas
+
 logger = logging.getLogger(__name__)
 
 
@@ -425,14 +427,19 @@ class LLMFactorMiner:
                 "volume": pd.DataFrame(np.abs(rng.randn(30, 3)) * 1e6, index=dates, columns=symbols),
             }
 
+            safe_builtins = {
+                "True": True, "False": False, "None": None,
+                "abs": abs, "min": min, "max": max, "round": round, "len": len,
+            }
             safe_locals = {
                 "panel": panel, "close": close, "open_": panel["open_"],
                 "high": panel["high"], "low": panel["low"], "volume": panel["volume"],
-                "pd": pd, "np": np, "abs": abs, "min": min, "max": max,
+                "pd": SandboxPandas(), "np": SandboxNumpy(),
+                "abs": abs, "min": min, "max": max,
                 "round": round, "len": len,
             }
 
-            result = eval(formula, {"__builtins__": {}}, safe_locals)
+            result = eval(formula, {"__builtins__": safe_builtins}, safe_locals)
             if isinstance(result, pd.DataFrame) and not result.empty:
                 arr = result.to_numpy(dtype=np.float64)
                 return True, "", {
