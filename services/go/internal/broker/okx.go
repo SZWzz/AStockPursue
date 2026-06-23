@@ -30,26 +30,26 @@ type OKXBroker struct {
 }
 
 type okxOrderResp struct {
-	Code string          `json:"code"`
-	Msg  string          `json:"msg"`
-	Data []okxOrderData  `json:"data"`
+	Code string         `json:"code"`
+	Msg  string         `json:"msg"`
+	Data []okxOrderData `json:"data"`
 }
 
 type okxOrderData struct {
-	OrdID    string `json:"ordId"`
-	InstID   string `json:"instId"`
-	Side     string `json:"side"`
-	OrdType  string `json:"ordType"`
-	Px       string `json:"px"`
-	Sz       string `json:"sz"`
+	OrdID     string `json:"ordId"`
+	InstID    string `json:"instId"`
+	Side      string `json:"side"`
+	OrdType   string `json:"ordType"`
+	Px        string `json:"px"`
+	Sz        string `json:"sz"`
 	AccFillSz string `json:"accFillSz"`
-	AvgPx    string `json:"avgPx"`
-	State    string `json:"state"`
+	AvgPx     string `json:"avgPx"`
+	State     string `json:"state"`
 }
 
 type okxBalanceResp struct {
-	Code string            `json:"code"`
-	Data []okxBalanceData  `json:"data"`
+	Code string           `json:"code"`
+	Data []okxBalanceData `json:"data"`
 }
 
 type okxBalanceData struct {
@@ -64,16 +64,16 @@ type okxBalanceDetail struct {
 }
 
 type okxPositionResp struct {
-	Code string             `json:"code"`
-	Data []okxPositionData  `json:"data"`
+	Code string            `json:"code"`
+	Data []okxPositionData `json:"data"`
 }
 
 type okxPositionData struct {
-	InstID     string `json:"instId"`
-	Pos        string `json:"pos"`
-	AvgPx      string `json:"avgPx"`
-	MarkPx     string `json:"markPx"`
-	Upl        string `json:"upl"`
+	InstID string `json:"instId"`
+	Pos    string `json:"pos"`
+	AvgPx  string `json:"avgPx"`
+	MarkPx string `json:"markPx"`
+	Upl    string `json:"upl"`
 }
 
 // NewOKXBroker creates a new OKX broker.
@@ -250,18 +250,18 @@ func (b *OKXBroker) GetBalance(ctx context.Context) (*Balance, error) {
 	for _, d := range resp.Data {
 		for _, det := range d.Details {
 			if det.Ccy == "USDT" {
-			total, err := safeParseFloat(det.Eq)
-			if err != nil {
-				return nil, fmt.Errorf("okx: parse balance total: %w", err)
-			}
-			avail, err := safeParseFloat(det.AvailEq)
-			if err != nil {
-				return nil, fmt.Errorf("okx: parse balance available: %w", err)
-			}
-			frozen, err := safeParseFloat(det.FrozenBal)
-			if err != nil {
-				return nil, fmt.Errorf("okx: parse balance frozen: %w", err)
-			}
+				total, err := safeParseFloat(det.Eq)
+				if err != nil {
+					return nil, fmt.Errorf("okx: parse balance total: %w", err)
+				}
+				avail, err := safeParseFloat(det.AvailEq)
+				if err != nil {
+					return nil, fmt.Errorf("okx: parse balance available: %w", err)
+				}
+				frozen, err := safeParseFloat(det.FrozenBal)
+				if err != nil {
+					return nil, fmt.Errorf("okx: parse balance frozen: %w", err)
+				}
 				return &Balance{Total: total, Available: avail, Frozen: frozen, Currency: "USDT"}, nil
 			}
 		}
