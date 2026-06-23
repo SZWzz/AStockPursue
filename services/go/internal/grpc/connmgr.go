@@ -45,9 +45,11 @@ func (m *ConnManager) Connect(ctx context.Context) error {
 	ctx, cancel := context.WithTimeout(ctx, m.connectTimeout)
 	defer cancel()
 
-	conn, err := grpc.NewClient(m.addr,
-		m.dialOpts()...,
-	)
+	dialOpts := m.dialOpts()
+	if dialOpts == nil {
+		return fmt.Errorf("gRPC TLS required but unavailable")
+	}
+	conn, err := grpc.NewClient(m.addr, dialOpts...)
 	if err != nil {
 		return fmt.Errorf("grpc dial %s: %w", m.addr, err)
 	}
@@ -197,6 +199,10 @@ func (m *ConnManager) dialOpts() []grpc.DialOption {
 	if os.Getenv("GRPC_TLS_ENABLED") == "true" {
 		creds, err := LoadTLSCredentials()
 		if err != nil {
+			if os.Getenv("GRPC_TLS_REQUIRED") == "true" {
+				log.Printf("gRPC: TLS required but credentials unavailable: %v", err)
+				return nil // causes Connect() to fail
+			}
 			log.Printf("gRPC: TLS credentials unavailable, falling back to insecure: %v", err)
 			return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
 		}
