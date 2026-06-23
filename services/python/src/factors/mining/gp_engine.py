@@ -19,7 +19,8 @@ import random
 import threading
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import concurrent.futures
+from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -55,6 +56,119 @@ from src.factors.mining.factor_kb import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Module-level evaluation helpers (picklable for ProcessPoolExecutor)
+# ---------------------------------------------------------------------------
+
+def _compute_oos_ic_windows(
+    factor_values: pd.DataFrame,
+    forward_returns: pd.DataFrame,
+    walk_forward_windows: int,
+) -> list[float]:
+    """Compute true OOS ICs from rolling walk-forward windows.
+
+    Module-level (picklable) version — the instance method on
+    ``GPEvolution`` delegates here.
+    """
+    from src.factors.mining.fitness import rank_ic_fitness
+
+    n_total = len(factor_values)
+    if n_total < 60:
+        return []
+
+    n_windows = min(walk_forward_windows, max(2, n_total // 30))
+    window_size = n_total // (n_windows + 1)
+    if window_size < 20:
+        return []
+
+    oos_ics: list[float] = []
+    for w in range(n_windows):
+        train_end = n_total - (n_windows - w) * window_size
+        oos_start = train_end
+        oos_end = min(n_total, oos_start + window_size)
+
+        if oos_end - oos_start < 5:
+            continue
+
+        oos_fv = factor_values.iloc[oos_start:oos_end]
+        oos_fr = forward_returns.iloc[oos_start:oos_end]
+
+        common_idx = oos_fv.index.intersection(oos_fr.index)
+        common_cols = oos_fv.columns.intersection(oos_fr.columns)
+        if len(common_idx) < 5 or len(common_cols) < 3:
+            continue
+
+        try:
+            ic_val = float(rank_ic_fitness(
+                oos_fv.loc[common_idx, common_cols],
+                oos_fr.loc[common_idx, common_cols],
+            ))
+            if np.isfinite(ic_val):
+                oos_ics.append(ic_val)
+        except (ValueError, KeyError, TypeError, IndexError, ZeroDivisionError):
+            continue
+
+    return oos_ics
+
+
+def _eval_single(
+    tree_dict: dict[str, Any],
+    train_panel: dict[str, pd.DataFrame],
+    train_returns: pd.DataFrame | None,
+    core_factors: dict[str, pd.DataFrame] | None,
+    use_walk_forward_oos: bool,
+    walk_forward_windows: int,
+) -> tuple[float, list[float], float, dict[str, Any]]:
+    """Evaluate a single expression tree's composite fitness.
+
+    Module-level — picklable for ``ProcessPoolExecutor``.  Does **not**
+    access any instance state or KB; callers handle KB dedup separately.
+
+    Returns:
+        ``(fitness, oos_ic_per_window, rank_ic, detail_dict)``
+    """
+    from src.factors.mining.expression_tree import ExpressionTree
+    from src.factors.mining.enhanced_fitness import composite_fitness
+
+    tree = ExpressionTree.from_dict(tree_dict)
+
+    try:
+        compute_fn = tree.to_callable()
+        factor_values = compute_fn(train_panel)
+    except (ValueError, KeyError, TypeError, IndexError, ZeroDivisionError, RuntimeError):
+        return (0.0, [], 0.0, {})
+
+    if factor_values.empty or train_returns is None:
+        return (0.0, [], 0.0, {})
+
+    common_idx = factor_values.index.intersection(train_returns.index)
+    common_cols = factor_values.columns.intersection(train_returns.columns)
+
+    if len(common_idx) < 10 or len(common_cols) < 3:
+        return (0.0, [], 0.0, {})
+
+    fv = factor_values.loc[common_idx, common_cols]
+    fr = train_returns.loc[common_idx, common_cols]
+
+    # Walk-forward OOS IC
+    oos_ic_windows: list[float] = []
+    if use_walk_forward_oos and len(common_idx) >= 40:
+        oos_ic_windows = _compute_oos_ic_windows(fv, fr, walk_forward_windows)
+
+    result = composite_fitness(
+        tree=tree,
+        factor_values=fv,
+        forward_returns=fr,
+        panel=train_panel,
+        core_factors=core_factors if core_factors else None,
+    )
+
+    fitness = result["fitness"]
+    oos_ic = oos_ic_windows if oos_ic_windows else [result["rank_ic"]]
+
+    return (float(fitness), oos_ic, float(result["rank_ic"]), result)
 
 
 # ---------------------------------------------------------------------------
@@ -646,23 +760,8 @@ class GPEvolution:
     def _evaluate_individual(self, ind: GPIndividual) -> float:
         """Evaluate a single individual's fitness.
 
-        Uses ``composite_fitness()`` for a multiplicative composite score
-        that incorporates rank IC, A-share cost penalty, orthogonality
-        check against KB core factors, cross-time stability, and
-        complexity discount.
-
-        Also tracks OOS IC per window for FDR correction and checks the
-        KB for duplicate formulas before evaluating.
-
-        Args:
-            ind: The GP individual to evaluate.  Its ``train_fitness``,
-                ``oos_ic_per_window``, and ``_fitness_detail`` attributes
-                are set in-place.
-
-        Returns:
-            The composite fitness score (float).  Returns ``0.0`` when the
-            factor cannot be computed (e.g., invalid expression,
-            insufficient data, or KB dedup hit with matching provenance).
+        Uses ``_eval_single`` for the core evaluation after optional KB
+        dedup (which must run in the main thread for ProcessPoolExecutor).
         """
         # ── P0: KB dedup check (skip evaluation if duplicate) ──
         if self._kb is not None and self.config.use_kb:
@@ -687,55 +786,21 @@ class GPEvolution:
                             fhash[:12],
                         )
 
-        try:
-            compute_fn = ind.tree.to_callable()
-            factor_values = compute_fn(self._train_panel)
-        except (ValueError, KeyError, TypeError, IndexError, ZeroDivisionError, RuntimeError):
-            ind.train_fitness = 0.0
-            return 0.0
-
-        if factor_values.empty or self._train_returns is None:
-            ind.train_fitness = 0.0
-            return 0.0
-
-        common_idx = factor_values.index.intersection(self._train_returns.index)
-        common_cols = factor_values.columns.intersection(self._train_returns.columns)
-
-        if len(common_idx) < 10 or len(common_cols) < 3:
-            ind.train_fitness = 0.0
-            return 0.0
-
-        fv = factor_values.loc[common_idx, common_cols]
-        fr = self._train_returns.loc[common_idx, common_cols]
-
-        # ── P1-06 fix: Walk-forward OOS evaluation ──
-        # When use_walk_forward_oos is enabled, compute true OOS IC from
-        # rolling windows rather than reusing in-sample IC.
-        oos_ic_windows: list[float] = []
-        if self.config.use_walk_forward_oos and len(common_idx) >= 40:
-            oos_ic_windows = self._compute_oos_ic_windows(fv, fr)
-            if not oos_ic_windows:
-                oos_ic_windows = []  # fall through to single-window below
-
-        # ── P0: Composite fitness (multiplicative) ──
-        result = composite_fitness(
-            tree=ind.tree,
-            factor_values=fv,
-            forward_returns=fr,
-            panel=self._train_panel,
-            core_factors=self._core_factor_values if self._core_factor_values else None,
+        tree_dict = ind.tree.to_dict()
+        fitness, oos_ic_windows, _rank_ic, detail = _eval_single(
+            tree_dict,
+            self._train_panel,
+            self._train_returns,
+            self._core_factor_values if self._core_factor_values else None,
+            self.config.use_walk_forward_oos,
+            self.config.walk_forward_windows,
         )
 
-        fitness = result["fitness"]
-        ind.train_fitness = float(fitness)
-        # [P1-06 fix] Use true OOS windows when available, otherwise fall back
-        # to the single in-sample IC for backward compatibility.
-        ind.oos_ic_per_window = oos_ic_windows if oos_ic_windows else [result["rank_ic"]]
+        ind.train_fitness = fitness
+        ind.oos_ic_per_window = oos_ic_windows
+        ind._fitness_detail = detail
 
-        # ── P0: Store component scores for diagnostics ──
-        ind._fitness_detail = result
-
-        return float(fitness)
+        return fitness
 
     def _evaluate_individual_wf(self, ind: GPIndividual) -> tuple[float, list[float]]:
         """Walk-forward fitness evaluation using rank IC in each OOS window.
@@ -839,71 +904,81 @@ class GPEvolution:
     ) -> list[float]:
         """[P1-06 fix] Compute true OOS ICs from rolling walk-forward windows.
 
-        Splits the data into n expanding or rolling windows, computes the
-        factor on each training window, and evaluates IC on the held-out
-        OOS window.  Returns a list of OOS IC values.
+        Delegates to the module-level version, passing the configured
+        ``walk_forward_windows`` count.
         """
-        from src.factors.mining.fitness import rank_ic_fitness
-
-        n_total = len(factor_values)
-        if n_total < 60:
-            return []
-
-        n_windows = min(self.config.walk_forward_windows, max(2, n_total // 30))
-        window_size = n_total // (n_windows + 1)
-        if window_size < 20:
-            return []
-
-        oos_ics: list[float] = []
-        for w in range(n_windows):
-            train_end = n_total - (n_windows - w) * window_size
-            train_start = max(0, train_end - window_size * 3)  # 3x lookback
-            oos_start = train_end
-            oos_end = min(n_total, oos_start + window_size)
-
-            if oos_end - oos_start < 5 or train_end - train_start < 20:
-                continue
-
-            oos_fv = factor_values.iloc[oos_start:oos_end]
-            oos_fr = forward_returns.iloc[oos_start:oos_end]
-
-            common_idx = oos_fv.index.intersection(oos_fr.index)
-            common_cols = oos_fv.columns.intersection(oos_fr.columns)
-            if len(common_idx) < 5 or len(common_cols) < 3:
-                continue
-
-            try:
-                ic_val = float(rank_ic_fitness(
-                    oos_fv.loc[common_idx, common_cols],
-                    oos_fr.loc[common_idx, common_cols],
-                ))
-                if np.isfinite(ic_val):
-                    oos_ics.append(ic_val)
-            except (ValueError, KeyError, TypeError, IndexError, ZeroDivisionError):
-                continue
-
-        return oos_ics
+        return _compute_oos_ic_windows(
+            factor_values, forward_returns, self.config.walk_forward_windows,
+        )
 
     def evaluate_population(self, parallel: bool = True) -> list[float]:
-        """Evaluate all individuals in the population. Returns fitnesses."""
+        """Evaluate all individuals in the population. Returns fitnesses.
+
+        Parallel path uses ``ProcessPoolExecutor`` for true parallelism
+        (GIL-free).  KB dedup is performed in the main thread *before*
+        dispatching to workers, since ``FactorKnowledgeBase`` is a
+        database-backed singleton that cannot be shared across processes.
+        """
         if not self._population:
             return []
 
         if parallel and len(self._population) > 10:
             fitnesses: list[float] = [0.0] * len(self._population)
             max_workers = min(self.config.max_workers, len(self._population))
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                futures = {
-                    executor.submit(self._evaluate_individual, ind): i
-                    for i, ind in enumerate(self._population)
+
+            # ── Pre-filter: KB dedup in main thread ──
+            pending_indices: list[int] = []
+            pending_tree_dicts: list[dict[str, Any]] = []
+
+            for i, ind in enumerate(self._population):
+                kb_hit = False
+                if self._kb is not None and self.config.use_kb:
+                    fhash = ind.tree.formula_hash
+                    with self._kb_lock:
+                        existing = self._kb.get_by_hash(fhash)
+                        if existing is not None and self._kb_provenance_matches(existing):
+                            ind.train_fitness = abs(existing.test_ic)
+                            ind.test_ic = existing.test_ic
+                            ind.test_ir = existing.test_ir
+                            ind.oos_ic_per_window = existing.oos_ic_per_window
+                            self._kb_duplicates_avoided += 1
+                            fitnesses[i] = abs(existing.test_ic)
+                            kb_hit = True
+                if not kb_hit:
+                    pending_indices.append(i)
+                    pending_tree_dicts.append(ind.tree.to_dict())
+
+            # ── ProcessPoolExecutor for pending individuals ──
+            if pending_indices:
+                kw = {
+                    "train_panel": self._train_panel,
+                    "train_returns": self._train_returns,
+                    "core_factors": (
+                        self._core_factor_values if self._core_factor_values else None
+                    ),
+                    "use_walk_forward_oos": self.config.use_walk_forward_oos,
+                    "walk_forward_windows": self.config.walk_forward_windows,
                 }
-                for future in as_completed(futures):
-                    i = futures[future]
-                    try:
-                        fitnesses[i] = future.result(timeout=120)
-                    except (concurrent.futures.TimeoutError, concurrent.futures.CancelledError, RuntimeError, ValueError) as e:
-                        logger.debug("Fitness eval timed out or failed: %s", e)
-                        fitnesses[i] = 0.0
+                with ProcessPoolExecutor(max_workers=max_workers) as executor:
+                    futures = {}
+                    for i, td in zip(pending_indices, pending_tree_dicts):
+                        futures[
+                            executor.submit(_eval_single, td, **kw)
+                        ] = i
+
+                    for future in as_completed(futures):
+                        i = futures[future]
+                        try:
+                            fitness, oos_windows, _rank_ic, detail = future.result(timeout=120)
+                            fitnesses[i] = fitness
+                            ind = self._population[i]
+                            ind.train_fitness = fitness
+                            ind.oos_ic_per_window = oos_windows
+                            ind._fitness_detail = detail
+                        except (concurrent.futures.TimeoutError, concurrent.futures.CancelledError, RuntimeError, ValueError) as e:
+                            logger.debug("Fitness eval failed for ind %d: %s", i, e)
+                            fitnesses[i] = 0.0
+
             return fitnesses
 
         return [self._evaluate_individual(ind) for ind in self._population]
@@ -1714,3 +1789,11 @@ def _random_tree_restricted(
         t_branch = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
         f_branch = _random_tree_restricted(rng, unary_ops, binary_ops, ternary_ops, max_depth - 1)
         return ExpressionTree(ExpressionNode(op=op, children=[cond.root, t_branch.root, f_branch.root]))
+
+
+# ---------------------------------------------------------------------------
+# ProcessPoolExecutor guard (required for spawn-mode multiprocessing)
+# ---------------------------------------------------------------------------
+
+if __name__ == "__main__":
+    pass
