@@ -80,7 +80,7 @@ const ScreenerRow = memo(function ScreenerRow({
           row.change_pct > 0 ? 'text-[var(--up)]' : 'text-[var(--down)]'
         )}
       >
-        {formatPercent(row.change_pct / 100)}
+        {formatPercent(row.change_pct)}
       </TableCell>
       <TableCell className="text-[13px] font-mono text-right text-[var(--foreground-secondary)] py-1.5">
         {row.volume.toLocaleString()}
