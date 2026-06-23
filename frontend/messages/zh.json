@@ -268,7 +268,22 @@
     "weekly": "周",
     "monthly": "月",
     "equityCurveHint": "历史权益曲线需要时序数据追踪。当前显示初始 → 当前快照。",
-    "emptyHint": "暂无记录，请连接后端服务获取数据"
+    "emptyHint": "暂无记录，请连接后端服务获取数据",
+    "quickStart": {
+      "title": "快速开始",
+      "strategy": {
+        "title": "创建策略",
+        "description": "设计并回测您的量化交易策略，发现市场机会"
+      },
+      "broker": {
+        "title": "连接券商",
+        "description": "连接您的券商账户，实现实时交易与持仓管理"
+      },
+      "backtest": {
+        "title": "运行回测",
+        "description": "用历史数据验证策略表现，优化交易参数"
+      }
+    }
   },
   "signals": {
     "title": "交易信号",
@@ -423,6 +438,32 @@
     "importWorkflow": "导入",
     "createWorkflow": "创建工作流",
     "emptyHint": "还没有工作流，创建一个开始吧"
+  },
+  "onboarding": {
+    "step1": {
+      "title": "欢迎使用 AStockPursue",
+      "description": "AI 驱动的量化研究与交易平台，助您实现数据驱动的投资决策",
+      "button": "开始设置"
+    },
+    "step2": {
+      "title": "连接券商",
+      "description": "连接您的券商账户，实现实时交易与持仓管理",
+      "button": "连接券商"
+    },
+    "step3": {
+      "title": "创建策略",
+      "description": "设计并回测您的量化交易策略，发现市场机会",
+      "button": "创建策略"
+    },
+    "step4": {
+      "title": "运行回测",
+      "description": "用历史数据验证策略表现，优化交易参数",
+      "button": "运行回测"
+    },
+    "skip": "跳过",
+    "next": "下一步",
+    "complete": "完成",
+    "progress": "步骤 {current}/{total}"
   },
   "settings": {
     "general": "通用",
