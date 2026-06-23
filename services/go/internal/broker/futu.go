@@ -149,10 +149,22 @@ func (b *FutuBroker) GetPositions(ctx context.Context) ([]*Position, error) {
 	if list, ok := resp["positions"].([]interface{}); ok {
 		for _, item := range list {
 			if m, ok := item.(map[string]interface{}); ok {
-				qty, _ := getFloat(m, "quantity")
-				avgPx, _ := getFloat(m, "avg_price")
-				curPx, _ := getFloat(m, "current_price")
-				upnl, _ := getFloat(m, "unrealized_pnl")
+				qty, err := getFloat(m, "quantity")
+				if err != nil {
+					log.Printf("futu: GetPositions quantity: %v", err)
+				}
+				avgPx, err := getFloat(m, "avg_price")
+				if err != nil {
+					log.Printf("futu: GetPositions avg_price: %v", err)
+				}
+				curPx, err := getFloat(m, "current_price")
+				if err != nil {
+					log.Printf("futu: GetPositions current_price: %v", err)
+				}
+				upnl, err := getFloat(m, "unrealized_pnl")
+				if err != nil {
+					log.Printf("futu: GetPositions unrealized_pnl: %v", err)
+				}
 				sym, _ := m["symbol"].(string)
 				positions = append(positions, &Position{
 					Symbol:        sym,
@@ -175,9 +187,18 @@ func (b *FutuBroker) GetBalance(ctx context.Context) (*Balance, error) {
 	if err != nil {
 		return nil, err
 	}
-	total, _ := getFloat(resp, "total")
-	avail, _ := getFloat(resp, "available")
-	frozen, _ := getFloat(resp, "frozen")
+	total, err := getFloat(resp, "total")
+	if err != nil {
+		log.Printf("futu: GetBalance total: %v", err)
+	}
+	avail, err := getFloat(resp, "available")
+	if err != nil {
+		log.Printf("futu: GetBalance available: %v", err)
+	}
+	frozen, err := getFloat(resp, "frozen")
+	if err != nil {
+		log.Printf("futu: GetBalance frozen: %v", err)
+	}
 	ccy, _ := resp["currency"].(string)
 	return &Balance{
 		Total:     total,
@@ -285,10 +306,22 @@ func parseOrder(m map[string]interface{}) *Order {
 	sym, _ := m["symbol"].(string)
 	sd, _ := m["side"].(string)
 	ot, _ := m["type"].(string)
-	price, _ := getFloat(m, "price")
-	qty, _ := getFloat(m, "quantity")
-	filledQty, _ := getFloat(m, "filled_qty")
-	filledPrice, _ := getFloat(m, "filled_price")
+	price, err := getFloat(m, "price")
+	if err != nil {
+		log.Printf("futu: parseOrder price: %v", err)
+	}
+	qty, err := getFloat(m, "quantity")
+	if err != nil {
+		log.Printf("futu: parseOrder quantity: %v", err)
+	}
+	filledQty, err := getFloat(m, "filled_qty")
+	if err != nil {
+		log.Printf("futu: parseOrder filled_qty: %v", err)
+	}
+	filledPrice, err := getFloat(m, "filled_price")
+	if err != nil {
+		log.Printf("futu: parseOrder filled_price: %v", err)
+	}
 	status, _ := m["status"].(string)
 
 	return &Order{
@@ -306,26 +339,26 @@ func parseOrder(m map[string]interface{}) *Order {
 }
 
 // getFloat safely extracts a float64 value from a map.
-func getFloat(m map[string]interface{}, key string) (float64, bool) {
+func getFloat(m map[string]interface{}, key string) (float64, error) {
 	v, ok := m[key]
 	if !ok {
-		return 0, false
+		return 0, fmt.Errorf("futu: key %q not found in response", key)
 	}
 	switch n := v.(type) {
 	case float64:
-		return n, true
+		return n, nil
 	case float32:
-		return float64(n), true
+		return float64(n), nil
 	case int:
-		return float64(n), true
+		return float64(n), nil
 	case int64:
-		return float64(n), true
+		return float64(n), nil
 	case json.Number:
 		f, err := n.Float64()
 		if err != nil {
-			return 0, false
+			return 0, fmt.Errorf("futu: key %q parse float64: %w", key, err)
 		}
-		return f, true
+		return f, nil
 	}
-	return 0, false
+	return 0, fmt.Errorf("futu: key %q unexpected type %T", key, v)
 }
