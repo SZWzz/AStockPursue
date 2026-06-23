@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -102,7 +103,7 @@ func (b *BinanceBroker) PlaceOrder(ctx context.Context, symbol string, side Orde
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("binance parse order: %w", err)
 	}
-	return b.toOrder(&resp), nil
+	return b.toOrder(&resp)
 }
 
 func (b *BinanceBroker) CancelOrder(ctx context.Context, orderID, symbol string) error {
@@ -125,7 +126,7 @@ func (b *BinanceBroker) GetOrder(ctx context.Context, orderID, symbol string) (*
 	if err := json.Unmarshal(body, &resp); err != nil {
 		return nil, fmt.Errorf("binance parse order: %w", err)
 	}
-	return b.toOrder(&resp), nil
+	return b.toOrder(&resp)
 }
 
 func (b *BinanceBroker) GetOpenOrders(ctx context.Context, symbol string) ([]*Order, error) {
@@ -143,7 +144,11 @@ func (b *BinanceBroker) GetOpenOrders(ctx context.Context, symbol string) ([]*Or
 	}
 	orders := make([]*Order, len(responses))
 	for i := range responses {
-		orders[i] = b.toOrder(&responses[i])
+		o, err := b.toOrder(&responses[i])
+		if err != nil {
+			return nil, err
+		}
+		orders[i] = o
 	}
 	return orders, nil
 }
@@ -175,13 +180,29 @@ func (b *BinanceBroker) GetPositions(ctx context.Context) ([]*Position, error) {
 	}
 	var positions []*Position
 	for _, bp := range resp.Positions {
-		qty, _ := strconv.ParseFloat(bp.PositionAmt, 64)
+		qty, err := safeParseFloat(bp.PositionAmt)
+		if err != nil {
+			log.Printf("binance: parse PositionAmt %q: %v", bp.PositionAmt, err)
+			continue
+		}
 		if qty == 0 {
 			continue
 		}
-		avgPrice, _ := strconv.ParseFloat(bp.EntryPrice, 64)
-		markPrice, _ := strconv.ParseFloat(bp.MarkPrice, 64)
-		upnl, _ := strconv.ParseFloat(bp.UnrealizedProfit, 64)
+		avgPrice, err := safeParseFloat(bp.EntryPrice)
+		if err != nil {
+			log.Printf("binance: parse EntryPrice %q: %v", bp.EntryPrice, err)
+			continue
+		}
+		markPrice, err := safeParseFloat(bp.MarkPrice)
+		if err != nil {
+			log.Printf("binance: parse MarkPrice %q: %v", bp.MarkPrice, err)
+			continue
+		}
+		upnl, err := safeParseFloat(bp.UnrealizedProfit)
+		if err != nil {
+			log.Printf("binance: parse UnrealizedProfit %q: %v", bp.UnrealizedProfit, err)
+			continue
+		}
 		positions = append(positions, &Position{
 			Symbol:        bp.Symbol,
 			Quantity:      qty,
@@ -208,8 +229,14 @@ func (b *BinanceBroker) GetBalance(ctx context.Context) (*Balance, error) {
 	}
 	for _, r := range results {
 		if r.Asset == "USDT" {
-			total, _ := strconv.ParseFloat(r.Balance, 64)
-			avail, _ := strconv.ParseFloat(r.AvailableBalance, 64)
+			total, err := safeParseFloat(r.Balance)
+			if err != nil {
+				return nil, fmt.Errorf("binance: parse balance: %w", err)
+			}
+			avail, err := safeParseFloat(r.AvailableBalance)
+			if err != nil {
+				return nil, fmt.Errorf("binance: parse available balance: %w", err)
+			}
 			return &Balance{
 				Total:     total,
 				Available: avail,
@@ -286,11 +313,23 @@ func (b *BinanceBroker) signedRequest(ctx context.Context, method, path string, 
 	return respBody, nil
 }
 
-func (b *BinanceBroker) toOrder(resp *binanceOrderResp) *Order {
-	price, _ := strconv.ParseFloat(resp.Price, 64)
-	qty, _ := strconv.ParseFloat(resp.OrigQty, 64)
-	filled, _ := strconv.ParseFloat(resp.ExecutedQty, 64)
-	avgPrice, _ := strconv.ParseFloat(resp.AvgPrice, 64)
+func (b *BinanceBroker) toOrder(resp *binanceOrderResp) (*Order, error) {
+	price, err := safeParseFloat(resp.Price)
+	if err != nil {
+		return nil, fmt.Errorf("binance: parse order price: %w", err)
+	}
+	qty, err := safeParseFloat(resp.OrigQty)
+	if err != nil {
+		return nil, fmt.Errorf("binance: parse order qty: %w", err)
+	}
+	filled, err := safeParseFloat(resp.ExecutedQty)
+	if err != nil {
+		return nil, fmt.Errorf("binance: parse order filled: %w", err)
+	}
+	avgPrice, err := safeParseFloat(resp.AvgPrice)
+	if err != nil {
+		return nil, fmt.Errorf("binance: parse order avg price: %w", err)
+	}
 
 	status := StatusPending
 	switch resp.Status {
@@ -318,5 +357,5 @@ func (b *BinanceBroker) toOrder(resp *binanceOrderResp) *Order {
 		Status:       status,
 		RejectReason: resp.RejectReason,
 		CreatedAt:    time.Now(),
-	}
+	}, nil
 }

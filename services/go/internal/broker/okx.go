@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -127,7 +128,7 @@ func (b *OKXBroker) PlaceOrder(ctx context.Context, symbol string, side OrderSid
 		return nil, fmt.Errorf("okx place order: no data returned")
 	}
 	d := resp.Data[0]
-	return b.toOrder(&d), nil
+	return b.toOrder(&d)
 }
 
 func (b *OKXBroker) CancelOrder(ctx context.Context, orderID, symbol string) error {
@@ -161,7 +162,7 @@ func (b *OKXBroker) GetOrder(ctx context.Context, orderID, symbol string) (*Orde
 	if len(resp.Data) == 0 {
 		return nil, fmt.Errorf("okx order not found: %s", orderID)
 	}
-	return b.toOrder(&resp.Data[0]), nil
+	return b.toOrder(&resp.Data[0])
 }
 
 func (b *OKXBroker) GetOpenOrders(ctx context.Context, symbol string) ([]*Order, error) {
@@ -179,7 +180,11 @@ func (b *OKXBroker) GetOpenOrders(ctx context.Context, symbol string) ([]*Order,
 	}
 	orders := make([]*Order, len(resp.Data))
 	for i := range resp.Data {
-		orders[i] = b.toOrder(&resp.Data[i])
+		o, err := b.toOrder(&resp.Data[i])
+		if err != nil {
+			return nil, err
+		}
+		orders[i] = o
 	}
 	return orders, nil
 }
@@ -198,7 +203,7 @@ func (b *OKXBroker) GetPosition(ctx context.Context, symbol string) (*Position, 
 	}
 	for _, d := range resp.Data {
 		if d.InstID == instID {
-			return b.toPosition(&d), nil
+			return b.toPosition(&d)
 		}
 	}
 	return &Position{Symbol: instID}, nil
@@ -215,11 +220,20 @@ func (b *OKXBroker) GetPositions(ctx context.Context) ([]*Position, error) {
 	}
 	positions := make([]*Position, 0, len(resp.Data))
 	for i := range resp.Data {
-		qty, _ := strconv.ParseFloat(resp.Data[i].Pos, 64)
+		qty, err := safeParseFloat(resp.Data[i].Pos)
+		if err != nil {
+			log.Printf("okx: parse Pos %q: %v", resp.Data[i].Pos, err)
+			continue
+		}
 		if qty == 0 {
 			continue
 		}
-		positions = append(positions, b.toPosition(&resp.Data[i]))
+		p, err := b.toPosition(&resp.Data[i])
+		if err != nil {
+			log.Printf("okx: parse position: %v", err)
+			continue
+		}
+		positions = append(positions, p)
 	}
 	return positions, nil
 }
@@ -236,9 +250,18 @@ func (b *OKXBroker) GetBalance(ctx context.Context) (*Balance, error) {
 	for _, d := range resp.Data {
 		for _, det := range d.Details {
 			if det.Ccy == "USDT" {
-				total, _ := strconv.ParseFloat(det.Eq, 64)
-				avail, _ := strconv.ParseFloat(det.AvailEq, 64)
-				frozen, _ := strconv.ParseFloat(det.FrozenBal, 64)
+			total, err := safeParseFloat(det.Eq)
+			if err != nil {
+				return nil, fmt.Errorf("okx: parse balance total: %w", err)
+			}
+			avail, err := safeParseFloat(det.AvailEq)
+			if err != nil {
+				return nil, fmt.Errorf("okx: parse balance available: %w", err)
+			}
+			frozen, err := safeParseFloat(det.FrozenBal)
+			if err != nil {
+				return nil, fmt.Errorf("okx: parse balance frozen: %w", err)
+			}
 				return &Balance{Total: total, Available: avail, Frozen: frozen, Currency: "USDT"}, nil
 			}
 		}
@@ -294,11 +317,23 @@ func (b *OKXBroker) signedRequest(ctx context.Context, method, path, body string
 	return respBody, nil
 }
 
-func (b *OKXBroker) toOrder(d *okxOrderData) *Order {
-	price, _ := strconv.ParseFloat(d.Px, 64)
-	qty, _ := strconv.ParseFloat(d.Sz, 64)
-	filled, _ := strconv.ParseFloat(d.AccFillSz, 64)
-	avgPrice, _ := strconv.ParseFloat(d.AvgPx, 64)
+func (b *OKXBroker) toOrder(d *okxOrderData) (*Order, error) {
+	price, err := safeParseFloat(d.Px)
+	if err != nil {
+		return nil, fmt.Errorf("okx: parse order price: %w", err)
+	}
+	qty, err := safeParseFloat(d.Sz)
+	if err != nil {
+		return nil, fmt.Errorf("okx: parse order qty: %w", err)
+	}
+	filled, err := safeParseFloat(d.AccFillSz)
+	if err != nil {
+		return nil, fmt.Errorf("okx: parse order filled: %w", err)
+	}
+	avgPrice, err := safeParseFloat(d.AvgPx)
+	if err != nil {
+		return nil, fmt.Errorf("okx: parse order avg price: %w", err)
+	}
 
 	status := StatusPending
 	switch d.State {
@@ -323,19 +358,31 @@ func (b *OKXBroker) toOrder(d *okxOrderData) *Order {
 		FilledPrice: avgPrice,
 		Status:      status,
 		CreatedAt:   time.Now(),
-	}
+	}, nil
 }
 
-func (b *OKXBroker) toPosition(d *okxPositionData) *Position {
-	qty, _ := strconv.ParseFloat(d.Pos, 64)
-	avgPrice, _ := strconv.ParseFloat(d.AvgPx, 64)
-	markPrice, _ := strconv.ParseFloat(d.MarkPx, 64)
-	upnl, _ := strconv.ParseFloat(d.Upl, 64)
+func (b *OKXBroker) toPosition(d *okxPositionData) (*Position, error) {
+	qty, err := safeParseFloat(d.Pos)
+	if err != nil {
+		return nil, fmt.Errorf("okx: parse position qty: %w", err)
+	}
+	avgPrice, err := safeParseFloat(d.AvgPx)
+	if err != nil {
+		return nil, fmt.Errorf("okx: parse position avg price: %w", err)
+	}
+	markPrice, err := safeParseFloat(d.MarkPx)
+	if err != nil {
+		return nil, fmt.Errorf("okx: parse position mark price: %w", err)
+	}
+	upnl, err := safeParseFloat(d.Upl)
+	if err != nil {
+		return nil, fmt.Errorf("okx: parse position upl: %w", err)
+	}
 	return &Position{
 		Symbol:        d.InstID,
 		Quantity:      qty,
 		AvgPrice:      avgPrice,
 		CurrentPrice:  markPrice,
 		UnrealizedPnL: upnl,
-	}
+	}, nil
 }
