@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"time"
 
@@ -14,10 +15,11 @@ import (
 
 // BrokerHandler provides broker account endpoints.
 type BrokerHandler struct {
-	binance broker.Broker
-	okx     broker.Broker
-	brokers map[string]broker.Broker
-	db      *pgxpool.Pool
+	binance          broker.Broker
+	okx              broker.Broker
+	brokers          map[string]broker.Broker
+	db               *pgxpool.Pool
+	passwordVerifier func(userID int, password string) bool
 }
 
 // NewBrokerHandler creates a handler with optional broker connections.
@@ -31,6 +33,12 @@ func NewBrokerHandler(binance, okx broker.Broker, db *pgxpool.Pool) *BrokerHandl
 		h.brokers["okx"] = okx
 	}
 	return h
+}
+
+// SetPasswordVerifier sets the function used to verify user passwords
+// when revealing full credentials.
+func (h *BrokerHandler) SetPasswordVerifier(v func(userID int, password string) bool) {
+	h.passwordVerifier = v
 }
 
 // GetAccount returns combined account info from all connected brokers.
@@ -194,7 +202,16 @@ func (h *BrokerHandler) SaveCredentials(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"status": "credentials_saved", "broker_id": req.BrokerID})
 }
 
-// GetCredentials retrieves and decrypts broker API credentials from user_settings.
+// maskString masks a sensitive string for safe display.
+// Shows first 3 and last 4 characters, replacing the middle with "****".
+func maskString(s string) string {
+	if len(s) <= 8 {
+		return "****"
+	}
+	return s[:3] + "-****" + s[len(s)-4:]
+}
+
+// GetCredentials retrieves masked broker API credentials from user_settings.
 // GET /api/v1/broker/credentials
 func (h *BrokerHandler) GetCredentials(c *gin.Context) {
 	userID := h.getUserID(c)
@@ -226,10 +243,79 @@ func (h *BrokerHandler) GetCredentials(c *gin.Context) {
 	if creds, ok := settings["broker_credentials"].(map[string]interface{}); ok {
 		for brokerID, v := range creds {
 			if cred, ok := v.(map[string]interface{}); ok {
+				// Mask API key
+				if apiKey, ok := cred["api_key"].(string); ok {
+					cred["api_key"] = maskString(apiKey)
+				}
+				// Mask API secret
+				if apiSecret, ok := cred["api_secret"].(string); ok {
+					cred["api_secret"] = maskString(apiSecret)
+				}
+				_ = brokerID
+			}
+		}
+	}
+
+	c.JSON(http.StatusOK, settings["broker_credentials"])
+}
+
+// RevealCredentials decrypts and returns full broker API credentials.
+// Requires current password re-verification.
+// POST /api/v1/broker/credentials/reveal
+func (h *BrokerHandler) RevealCredentials(c *gin.Context) {
+	userID := h.getUserID(c)
+	if userID == 0 {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	var req struct {
+		CurrentPassword string `json:"current_password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "current_password is required"})
+		return
+	}
+
+	// Verify password — requires access to AuthHandler's password verification
+	// For now, check against user settings or use auth handler reference
+	// The caller must provide a password verifier function
+	if h.passwordVerifier == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "password verification not configured"})
+		return
+	}
+
+	if !h.passwordVerifier(userID, req.CurrentPassword) {
+		c.JSON(http.StatusForbidden, gin.H{"error": "incorrect password"})
+		return
+	}
+
+	if h.db == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "database not available"})
+		return
+	}
+
+	var settingsJSON []byte
+	err := h.db.QueryRow(c.Request.Context(),
+		`SELECT settings FROM user_settings WHERE user_id = $1`, userID,
+	).Scan(&settingsJSON)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "no settings found"})
+		return
+	}
+
+	var settings map[string]interface{}
+	if err := json.Unmarshal(settingsJSON, &settings); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read settings"})
+		return
+	}
+
+	if creds, ok := settings["broker_credentials"].(map[string]interface{}); ok {
+		for brokerID, v := range creds {
+			if cred, ok := v.(map[string]interface{}); ok {
 				if encryptedSecret, ok := cred["api_secret"].(string); ok {
 					decrypted, err := crypto.Decrypt(encryptedSecret)
 					if err != nil {
-						// log and skip this broker if decryption fails
 						continue
 					}
 					cred["api_secret"] = decrypted
@@ -239,6 +325,7 @@ func (h *BrokerHandler) GetCredentials(c *gin.Context) {
 		}
 	}
 
+	log.Printf("audit: user_id=%d revealed full broker credentials", userID)
 	c.JSON(http.StatusOK, settings["broker_credentials"])
 }
 
