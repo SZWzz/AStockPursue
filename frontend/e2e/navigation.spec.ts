@@ -18,6 +18,10 @@ test.describe('Navigation', () => {
 
   test('strategy lab page loads', async ({ page }) => {
     await page.goto('/strategy-lab')
-    await expect(page.locator('body')).toBeVisible()
+    // Next.js dev mode may compile on first access; wait for page to fully load
+    await page.waitForLoadState('load')
+    // Strategy lab uses SidebarLayout which renders two <main> elements;
+    // use the sidebar layout's <main> (no id, inside the layout)
+    await expect(page.getByRole('main').last()).toBeVisible()
   })
 })
