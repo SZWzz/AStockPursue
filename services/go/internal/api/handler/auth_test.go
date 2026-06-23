@@ -119,6 +119,33 @@ func TestAdminSetup_InvalidPassword(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
 
+func TestAdminSetup_EndpointResponse(t *testing.T) {
+	os.Unsetenv("ADMIN_PASSWORD")
+	gin.SetMode(gin.TestMode)
+
+	h := NewAuthHandler(nil)
+
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest("POST", "/api/v1/admin/setup",
+		strings.NewReader(`{"password":"response-test-pass"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	h.AdminSetup(c)
+
+	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.Contains(t, w.Header().Get("Content-Type"), "application/json")
+
+	var resp map[string]string
+	err := json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.NoError(t, err)
+	assert.Equal(t, "admin_created", resp["status"])
+	// Response must NOT contain the password or any sensitive data
+	bodyStr := w.Body.String()
+	assert.NotContains(t, bodyStr, "response-test-pass")
+	assert.NotContains(t, bodyStr, "password")
+}
+
 func TestAdminSetup_MissingBody(t *testing.T) {
 	os.Unsetenv("ADMIN_PASSWORD")
 	gin.SetMode(gin.TestMode)
