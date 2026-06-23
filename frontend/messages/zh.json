@@ -442,23 +442,23 @@
   "onboarding": {
     "step1": {
       "title": "欢迎使用 AStockPursue",
-      "description": "AI 驱动的量化研究与交易平台，助您实现数据驱动的投资决策",
+      "description": "AI 驱动的量化研究与交易平台。自然语言描述策略，自动回测，一键实盘。",
       "button": "开始设置"
     },
     "step2": {
       "title": "连接券商",
       "description": "连接您的券商账户，实现实时交易与持仓管理",
-      "button": "连接券商"
+      "button": "去连接"
     },
     "step3": {
       "title": "创建策略",
       "description": "设计并回测您的量化交易策略，发现市场机会",
-      "button": "创建策略"
+      "button": "试试看"
     },
     "step4": {
       "title": "运行回测",
       "description": "用历史数据验证策略表现，优化交易参数",
-      "button": "运行回测"
+      "button": "完成"
     },
     "skip": "跳过",
     "next": "下一步",

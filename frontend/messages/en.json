@@ -442,23 +442,23 @@
   "onboarding": {
     "step1": {
       "title": "Welcome to AStockPursue",
-      "description": "AI-powered quantitative research and trading platform for data-driven investment decisions",
+      "description": "AI-powered quantitative research &amp; trading platform. Describe strategies in natural language, auto-backtest, one-click live trading.",
       "button": "Get Started"
     },
     "step2": {
       "title": "Connect Broker",
       "description": "Connect your broker account for live trading and portfolio management",
-      "button": "Connect Broker"
+      "button": "Connect"
     },
     "step3": {
       "title": "Create Strategy",
       "description": "Design and backtest your quantitative trading strategies to discover market opportunities",
-      "button": "Create Strategy"
+      "button": "Try It"
     },
     "step4": {
       "title": "Run Backtest",
       "description": "Validate strategy performance with historical data and optimize trading parameters",
-      "button": "Run Backtest"
+      "button": "Complete"
     },
     "skip": "Skip",
     "next": "Next",
