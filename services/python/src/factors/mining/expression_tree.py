@@ -25,9 +25,11 @@ Design constraints:
 from __future__ import annotations
 
 import hashlib
+import json
 import random
 import re
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any, Callable
 
 import numpy as np
@@ -487,86 +489,105 @@ class ExpressionTree:
 
         Returns a function f(panel) -> pd.DataFrame that evaluates the factor
         on the given panel data.
+
+        Delegates to the module-level cached helper so that repeated
+        compilation of the same expression structure is avoided.
         """
-        root = self.root  # capture for closure
+        tree_json = json.dumps(self.to_dict(), sort_keys=True)
+        return _make_callable_cached(tree_json)
 
-        def _evaluate(node: ExpressionNode, panel: dict[str, pd.DataFrame]) -> pd.DataFrame:
-            if node.is_leaf:
-                if node.feature_id is not None:
-                    if node.feature_id in panel:
-                        return panel[node.feature_id].astype(np.float64)
-                    # Derived features
-                    if node.feature_id == "returns_1d":
-                        close = panel.get("close")
-                        if close is None:
-                            raise KeyError("returns_1d requires 'close' in panel")
-                        return close.pct_change(1)
-                    if node.feature_id == "returns_5d":
-                        close = panel.get("close")
-                        if close is None:
-                            raise KeyError("returns_5d requires 'close' in panel")
-                        return close.pct_change(5)
-                    if node.feature_id == "returns_20d":
-                        close = panel.get("close")
-                        if close is None:
-                            raise KeyError("returns_20d requires 'close' in panel")
-                        return close.pct_change(20)
-                    if node.feature_id == "volume_ratio":
-                        vol = panel.get("volume")
-                        if vol is None:
-                            raise KeyError("volume_ratio requires 'volume' in panel")
-                        return vol / vol.rolling(window=20, min_periods=5).mean()
-                    if node.feature_id == "high_low_ratio":
-                        high = panel.get("high")
-                        low = panel.get("low")
-                        if high is None or low is None:
-                            raise KeyError("high_low_ratio requires 'high' and 'low' in panel")
-                        return (high - low) / low.replace(0, np.nan)
-                    raise KeyError(f"Unknown feature_id: {node.feature_id}")
-                # Constant leaf
-                ref_col = next(iter(panel.values())) if panel else None
-                if ref_col is not None:
-                    return pd.DataFrame(
-                        node.value or 0.0,
-                        index=ref_col.index,
-                        columns=ref_col.columns,
-                        dtype=np.float64,
-                    )
-                return pd.DataFrame(np.full((1, 1), node.value or 0.0, dtype=np.float64))
 
-            # Internal node: evaluate children, apply operator
-            op_name = node.op
-            if op_name is None:
-                raise ValueError("Internal node has no operator")
-            arity, func, _ = OPERATOR_REGISTRY[op_name]
+# ---------------------------------------------------------------------------
+# Cached callable compilation
+# ---------------------------------------------------------------------------
 
-            child_results = [_evaluate(c, panel) for c in node.children]
+@lru_cache(maxsize=4096)
+def _make_callable_cached(tree_json: str) -> Callable[[dict[str, pd.DataFrame]], pd.DataFrame]:
+    """Build a callable from a JSON-serialized expression tree, cached by tree structure.
 
-            # Pass window parameter for time-series operators
-            window = node.window if node.window else 20
-            if op_name.startswith("ts_") or op_name in ("ts_corr", "ts_cov"):
-                if arity == 1:
-                    return func(child_results[0], window)
-                elif arity == 2:
-                    return func(child_results[0], child_results[1], window)
+    Using lru_cache avoids recompiling the same expression into a closure
+    when it is evaluated repeatedly across multiple GP generations.
+    """
+    tree = ExpressionTree.from_dict(json.loads(tree_json))
+    root = tree.root  # capture for closure
 
+    def _evaluate(node: ExpressionNode, panel: dict[str, pd.DataFrame]) -> pd.DataFrame:
+        if node.is_leaf:
+            if node.feature_id is not None:
+                if node.feature_id in panel:
+                    return panel[node.feature_id].astype(np.float64)
+                # Derived features
+                if node.feature_id == "returns_1d":
+                    close = panel.get("close")
+                    if close is None:
+                        raise KeyError("returns_1d requires 'close' in panel")
+                    return close.pct_change(1)
+                if node.feature_id == "returns_5d":
+                    close = panel.get("close")
+                    if close is None:
+                        raise KeyError("returns_5d requires 'close' in panel")
+                    return close.pct_change(5)
+                if node.feature_id == "returns_20d":
+                    close = panel.get("close")
+                    if close is None:
+                        raise KeyError("returns_20d requires 'close' in panel")
+                    return close.pct_change(20)
+                if node.feature_id == "volume_ratio":
+                    vol = panel.get("volume")
+                    if vol is None:
+                        raise KeyError("volume_ratio requires 'volume' in panel")
+                    return vol / vol.rolling(window=20, min_periods=5).mean()
+                if node.feature_id == "high_low_ratio":
+                    high = panel.get("high")
+                    low = panel.get("low")
+                    if high is None or low is None:
+                        raise KeyError("high_low_ratio requires 'high' and 'low' in panel")
+                    return (high - low) / low.replace(0, np.nan)
+                raise KeyError(f"Unknown feature_id: {node.feature_id}")
+            # Constant leaf
+            ref_col = next(iter(panel.values())) if panel else None
+            if ref_col is not None:
+                return pd.DataFrame(
+                    node.value or 0.0,
+                    index=ref_col.index,
+                    columns=ref_col.columns,
+                    dtype=np.float64,
+                )
+            return pd.DataFrame(np.full((1, 1), node.value or 0.0, dtype=np.float64))
+
+        # Internal node: evaluate children, apply operator
+        op_name = node.op
+        if op_name is None:
+            raise ValueError("Internal node has no operator")
+        arity, func, _ = OPERATOR_REGISTRY[op_name]
+
+        child_results = [_evaluate(c, panel) for c in node.children]
+
+        # Pass window parameter for time-series operators
+        window = node.window if node.window else 20
+        if op_name.startswith("ts_") or op_name in ("ts_corr", "ts_cov"):
             if arity == 1:
-                return func(child_results[0])
+                return func(child_results[0], window)
             elif arity == 2:
-                return func(child_results[0], child_results[1])
-            elif arity == 3:
-                return func(child_results[0], child_results[1], child_results[2])
-            raise ValueError(f"Unknown arity {arity} for op {op_name}")
+                return func(child_results[0], child_results[1], window)
 
-        def compute(panel: dict[str, pd.DataFrame]) -> pd.DataFrame:
-            result = _evaluate(root, panel)
-            # Final cleanup
-            result = result.replace([np.inf, -np.inf], np.nan)
-            if not isinstance(result, pd.DataFrame):
-                result = pd.DataFrame(result)
-            return result
+        if arity == 1:
+            return func(child_results[0])
+        elif arity == 2:
+            return func(child_results[0], child_results[1])
+        elif arity == 3:
+            return func(child_results[0], child_results[1], child_results[2])
+        raise ValueError(f"Unknown arity {arity} for op {op_name}")
 
-        return compute
+    def compute(panel: dict[str, pd.DataFrame]) -> pd.DataFrame:
+        result = _evaluate(root, panel)
+        # Final cleanup
+        result = result.replace([np.inf, -np.inf], np.nan)
+        if not isinstance(result, pd.DataFrame):
+            result = pd.DataFrame(result)
+        return result
+
+    return compute
 
 
 # ---------------------------------------------------------------------------
