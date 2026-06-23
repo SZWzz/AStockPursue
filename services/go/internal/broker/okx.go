@@ -219,10 +219,12 @@ func (b *OKXBroker) GetPositions(ctx context.Context) ([]*Position, error) {
 		return nil, fmt.Errorf("okx parse positions: %w", err)
 	}
 	positions := make([]*Position, 0, len(resp.Data))
+	parseErrors := 0
 	for i := range resp.Data {
 		qty, err := safeParseFloat(resp.Data[i].Pos)
 		if err != nil {
 			log.Printf("okx: parse Pos %q: %v", resp.Data[i].Pos, err)
+			parseErrors++
 			continue
 		}
 		if qty == 0 {
@@ -231,9 +233,13 @@ func (b *OKXBroker) GetPositions(ctx context.Context) ([]*Position, error) {
 		p, err := b.toPosition(&resp.Data[i])
 		if err != nil {
 			log.Printf("okx: parse position: %v", err)
+			parseErrors++
 			continue
 		}
 		positions = append(positions, p)
+	}
+	if parseErrors > 0 {
+		log.Printf("okx: GetPositions skipped %d position(s) due to parse errors", parseErrors)
 	}
 	return positions, nil
 }

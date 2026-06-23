@@ -20,12 +20,19 @@ type BrokerHandler struct {
 	brokers          map[string]broker.Broker
 	db               *pgxpool.Pool
 	passwordVerifier func(userID int, password string) bool
+	revealLimiter    *RateLimiter // 3 reveal attempts per minute per IP
 }
 
 // NewBrokerHandler creates a handler with optional broker connections.
 // Pass nil for brokers that are not configured.
 func NewBrokerHandler(binance, okx broker.Broker, db *pgxpool.Pool) *BrokerHandler {
-	h := &BrokerHandler{binance: binance, okx: okx, db: db, brokers: make(map[string]broker.Broker)}
+	h := &BrokerHandler{
+		binance:       binance,
+		okx:           okx,
+		db:            db,
+		brokers:       make(map[string]broker.Broker),
+		revealLimiter: NewRateLimiter(time.Minute, 3),
+	}
 	if binance != nil {
 		h.brokers["binance"] = binance
 	}
@@ -266,6 +273,13 @@ func (h *BrokerHandler) RevealCredentials(c *gin.Context) {
 	userID := h.getUserID(c)
 	if userID == 0 {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "user not authenticated"})
+		return
+	}
+
+	// Rate limit: 3 reveal attempts per minute per IP (prevents brute-force)
+	clientIP := c.ClientIP()
+	if !h.revealLimiter.Allow(clientIP) {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many reveal attempts, try again later"})
 		return
 	}
 

@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"hash/fnv"
 	"net/http"
 	"os"
 	"strconv"
@@ -379,6 +380,15 @@ func verifyPassword(password, stored string) bool {
 	return hex.EncodeToString(actualHash) == hex.EncodeToString(expectedHash)
 }
 
+// usernameToID generates a deterministic numeric user ID from a username.
+// Uses FNV-1a hash for simplicity and speed — this is not a security-critical
+// hash, just a way to turn usernames into stable numeric IDs for DB queries.
+func usernameToID(username string) int {
+	h := fnv.New32a()
+	h.Write([]byte(username))
+	return int(h.Sum32())
+}
+
 func generateToken(username string) (string, error) {
 	if len(jwtSecret) == 0 {
 		pkgLogger.Error("JWT_SECRET environment variable is required")
@@ -386,7 +396,7 @@ func generateToken(username string) (string, error) {
 	}
 	claims := jwt.MapClaims{
 		"sub":     username,
-		"user_id": username,
+		"user_id": strconv.Itoa(usernameToID(username)),
 		"iat":     time.Now().Unix(),
 		"exp":     time.Now().Add(24 * time.Hour).Unix(),
 	}

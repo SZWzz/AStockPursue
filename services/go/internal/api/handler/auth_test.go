@@ -134,3 +134,51 @@ func TestAdminSetup_MissingBody(t *testing.T) {
 
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
+
+func TestUsernameToID_Deterministic(t *testing.T) {
+	id1 := usernameToID("admin")
+	id2 := usernameToID("admin")
+	if id1 != id2 {
+		t.Errorf("usernameToID should be deterministic: got %d and %d", id1, id2)
+	}
+}
+
+func TestUsernameToID_DifferentUsers(t *testing.T) {
+	id1 := usernameToID("admin")
+	id2 := usernameToID("user123")
+	if id1 == id2 {
+		t.Errorf("different usernames should produce different IDs: both got %d", id1)
+	}
+}
+
+func TestUsernameToID_NonZero(t *testing.T) {
+	id := usernameToID("admin")
+	if id == 0 {
+		t.Error("usernameToID should return non-zero for any username")
+	}
+}
+
+func TestGenerateToken_UserIDIsNumeric(t *testing.T) {
+	oldSecret := jwtSecret
+	jwtSecret = []byte("test-secret-key-for-unit-tests")
+	defer func() { jwtSecret = oldSecret }()
+
+	token, err := generateToken("testuser")
+	if err != nil {
+		t.Fatalf("generateToken failed: %v", err)
+	}
+	if token == "" {
+		t.Fatal("expected non-empty token")
+	}
+
+	username, userID, err := ValidateTokenWithID(token)
+	if err != nil {
+		t.Fatalf("ValidateTokenWithID failed: %v", err)
+	}
+	if username != "testuser" {
+		t.Errorf("expected username 'testuser', got %q", username)
+	}
+	if userID == 0 {
+		t.Error("expected non-zero userID from token")
+	}
+}
