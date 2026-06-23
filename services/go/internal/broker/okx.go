@@ -76,6 +76,20 @@ type okxPositionData struct {
 	Upl    string `json:"upl"`
 }
 
+type okxPlaceOrderReq struct {
+	InstID  string  `json:"instId"`
+	TdMode  string  `json:"tdMode"`
+	Side    string  `json:"side"`
+	OrdType string  `json:"ordType"`
+	Sz      string  `json:"sz"`
+	Px      *string `json:"px,omitempty"`
+}
+
+type okxCancelOrderReq struct {
+	InstID string `json:"instId"`
+	OrdID  string `json:"ordId"`
+}
+
 // NewOKXBroker creates a new OKX broker.
 func NewOKXBroker(cfg BrokerConfig) (Broker, error) {
 	baseURL := "https://www.okx.com"
@@ -106,12 +120,22 @@ func (b *OKXBroker) GetFeeRate(symbol string) FeeRate {
 
 func (b *OKXBroker) PlaceOrder(ctx context.Context, symbol string, side OrderSide, orderType OrderType, quantity, price float64) (*Order, error) {
 	instID := strings.ToUpper(symbol) + "-SWAP"
-	body := fmt.Sprintf(`{"instId":"%s","tdMode":"cross","side":"%s","ordType":"%s","sz":"%s"`,
-		instID, strings.ToLower(string(side)), strings.ToLower(string(orderType)), strconv.FormatFloat(quantity, 'f', -1, 64))
-	if orderType == Limit && price > 0 {
-		body += fmt.Sprintf(`,"px":"%s"`, strconv.FormatFloat(price, 'f', -1, 64))
+	req := okxPlaceOrderReq{
+		InstID:  instID,
+		TdMode:  "cross",
+		Side:    strings.ToLower(string(side)),
+		OrdType: strings.ToLower(string(orderType)),
+		Sz:      strconv.FormatFloat(quantity, 'f', -1, 64),
 	}
-	body += "}"
+	if orderType == Limit && price > 0 {
+		pxStr := strconv.FormatFloat(price, 'f', -1, 64)
+		req.Px = &pxStr
+	}
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return nil, fmt.Errorf("okx marshal order request: %w", err)
+	}
+	body := string(bodyBytes)
 
 	respBody, err := b.signedPostOKX(ctx, "/api/v5/trade/order", body)
 	if err != nil {
@@ -133,7 +157,15 @@ func (b *OKXBroker) PlaceOrder(ctx context.Context, symbol string, side OrderSid
 
 func (b *OKXBroker) CancelOrder(ctx context.Context, orderID, symbol string) error {
 	instID := strings.ToUpper(symbol) + "-SWAP"
-	body := fmt.Sprintf(`{"instId":"%s","ordId":"%s"}`, instID, orderID)
+	req := okxCancelOrderReq{
+		InstID: instID,
+		OrdID:  orderID,
+	}
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return fmt.Errorf("okx marshal cancel request: %w", err)
+	}
+	body := string(bodyBytes)
 	respBody, err := b.signedPostOKX(ctx, "/api/v5/trade/cancel-order", body)
 	if err != nil {
 		return err
