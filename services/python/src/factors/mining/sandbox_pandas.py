@@ -30,30 +30,12 @@ _PD_WHITELIST = frozenset({
 })
 
 
-_PD_SERIES_WHITELIST = frozenset({
-    "abs", "clip", "corr", "cov", "cummax", "cummin",
-    "cumprod", "cumsum", "diff", "dropna", "ewm",
-    "exp", "fillna", "isna", "log", "max", "mean",
-    "min", "notna", "pct_change", "rank", "replace",
-    "rolling", "shift", "sign", "sqrt", "std", "sum",
-    "where",
-    # Accessors
-    "abs", "add", "sub", "mul", "div", "truediv", "floordiv",
-    "pow", "mod",
-    # Comparison
-    "eq", "ne", "lt", "le", "gt", "ge",
-    # Indexing
-    "iloc", "loc",
-})
-
-
 _NP_WHITELIST = frozenset({
     "abs", "sqrt", "log", "exp", "sign", "clip", "where",
     "maximum", "minimum",
     "nan_to_num", "isnan", "isinf", "isfinite",
     "mean", "std", "sum", "min", "max", "median",
     "corrcoef", "percentile",
-    "sign",
 })
 
 
@@ -95,15 +77,3 @@ class SandboxNumpy:
             raise SandboxError(f"numpy.{name} is not allowed in formula sandbox")
         return getattr(self._np, name)
 
-
-def wrap_panel(panel: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
-    """Wrap panel DataFrames to restrict method access in sandbox.
-
-    Each DataFrame's __class__ is patched to intercept attribute access
-    via _PD_SERIES_WHITELIST and block I/O method calls.
-    """
-    # The simplest safe approach: panel values are read-only for formulas.
-    # We do not need to wrap individual DataFrames — the sandbox_pandas
-    # proxy restricts what operations can be initiated, and formula
-    # expressions only chain from the whitelisted functions.
-    return panel
