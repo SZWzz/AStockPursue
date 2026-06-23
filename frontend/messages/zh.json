@@ -63,7 +63,8 @@
     "pause": "暂停",
     "saving": "保存中...",
     "send": "发送",
-    "reset": "重置"
+    "reset": "重置",
+    "to": "至"
   },
   "auth": {
     "login": "登录",

@@ -63,7 +63,8 @@
     "pause": "Pause",
     "saving": "Saving...",
     "send": "Send",
-    "reset": "Reset"
+    "reset": "Reset",
+    "to": "to"
   },
   "auth": {
     "login": "Login",
