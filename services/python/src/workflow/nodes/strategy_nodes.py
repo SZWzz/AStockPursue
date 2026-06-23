@@ -119,17 +119,21 @@ class StrategyNode(BaseNode):
             template = config.get("strategy_template", "momentum_top5")
             code = BUILTIN_STRATEGIES.get(template, BUILTIN_STRATEGIES["momentum_top5"])
 
+        from security.sandbox import safe_exec_isolated
+
+        result = safe_exec_isolated(code)
+        if not result["success"]:
+            return {"signal": {"error": result["error"]}}
+        ns = result.get("result", {})
+        Engine = ns.get("SignalEngine")
+        if Engine is None:
+            return {"signal": {"error": "SignalEngine class not found"}}
+        # Try with top_n; fallback to no-arg if template doesn't accept it
         try:
-            ns: dict = {}
-            exec(compile(code, "<strategy>", "exec"), ns)
-            Engine = ns.get("SignalEngine")
-            if Engine is None:
-                return {"signal": {"error": "SignalEngine class not found"}}
-            # Try with top_n; fallback to no-arg if template doesn't accept it
-            try:
-                engine = Engine(top_n=int(config.get("top_n", 5)))
-            except TypeError:
-                engine = Engine()
+            engine = Engine(top_n=int(config.get("top_n", 5)))
+        except TypeError:
+            engine = Engine()
+        try:
             signals = engine.generate(ohlcv)
         except Exception as e:
             logger.exception("Strategy failed")

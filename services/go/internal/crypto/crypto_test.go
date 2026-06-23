@@ -5,7 +5,10 @@ import (
 )
 
 func TestEncryptDecryptRoundtrip(t *testing.T) {
-	key := GenerateKey()
+	key, err := GenerateKey()
+	if err != nil {
+		t.Fatalf("GenerateKey failed: %v", err)
+	}
 	if err := Init(key); err != nil {
 		t.Fatalf("Init failed: %v", err)
 	}

@@ -287,8 +287,18 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 			return
 		}
-		salt, _ := hex.DecodeString(user.Salt)
-		expectedHash, _ := hex.DecodeString(user.PasswordHash)
+		salt, err := hex.DecodeString(user.Salt)
+		if err != nil {
+			h.logger.Error("auth: failed to decode salt hex: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+			return
+		}
+		expectedHash, err := hex.DecodeString(user.PasswordHash)
+		if err != nil {
+			h.logger.Error("auth: failed to decode password hash hex: %v", err)
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "internal error"})
+			return
+		}
 		actualHash := pbkdf2.Key([]byte(req.Password), salt, 100000, 32, sha256.New)
 		if hex.EncodeToString(actualHash) != hex.EncodeToString(expectedHash) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
@@ -374,8 +384,14 @@ func verifyPassword(password, stored string) bool {
 	if len(parts) != 2 {
 		return false
 	}
-	salt, _ := hex.DecodeString(parts[0])
-	expectedHash, _ := hex.DecodeString(parts[1])
+	salt, err := hex.DecodeString(parts[0])
+	if err != nil {
+		return false
+	}
+	expectedHash, err := hex.DecodeString(parts[1])
+	if err != nil {
+		return false
+	}
 	actualHash := pbkdf2.Key([]byte(password), salt, 100000, 32, sha256.New)
 	return hex.EncodeToString(actualHash) == hex.EncodeToString(expectedHash)
 }

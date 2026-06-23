@@ -75,10 +75,10 @@ func Decrypt(encoded string) (string, error) {
 	return string(plaintext), nil
 }
 
-func GenerateKey() string {
+func GenerateKey() (string, error) {
 	k := make([]byte, 32)
 	if _, err := rand.Read(k); err != nil {
-		panic("crypto: failed to generate key: " + err.Error())
+		return "", fmt.Errorf("crypto: failed to generate key: %w", err)
 	}
-	return base64.StdEncoding.EncodeToString(k)
+	return base64.StdEncoding.EncodeToString(k), nil
 }
