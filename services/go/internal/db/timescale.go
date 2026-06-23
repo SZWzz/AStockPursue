@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -73,6 +74,9 @@ func (db *TimescaleDB) Close() {
 }
 
 func (db *TimescaleDB) InitSchema(ctx context.Context) error {
+	// Check if TimescaleDB extension is available
+	hasTimescaleDB := db.hasTimescaleDBExtension(ctx)
+
 	statements := []string{
 		db.buildBarsTableSQL(),
 		db.buildBacktestRunsSQL(),
@@ -88,12 +92,33 @@ func (db *TimescaleDB) InitSchema(ctx context.Context) error {
 	for _, s := range statements {
 		if _, err := db.pool.Exec(ctx, s); err != nil {
 			if strings.Contains(err.Error(), "function create_hypertable") {
-				return fmt.Errorf("schema init: TimescaleDB extension not installed")
+				log.Printf("schema init: TimescaleDB extension not installed — hypertable creation skipped")
+				continue // non-fatal: tables are created as regular PG tables
 			}
 			return fmt.Errorf("schema init: %w", err)
 		}
 	}
+
+	if hasTimescaleDB {
+		log.Printf("schema init: TimescaleDB extension detected, hypertables activated")
+	} else {
+		log.Printf("schema init: TimescaleDB not installed — running with regular PostgreSQL tables")
+	}
+
 	return nil
+}
+
+// hasTimescaleDBExtension checks if the TimescaleDB extension is installed.
+func (db *TimescaleDB) hasTimescaleDBExtension(ctx context.Context) bool {
+	var exists bool
+	err := db.pool.QueryRow(ctx,
+		"SELECT EXISTS(SELECT 1 FROM pg_extension WHERE extname = 'timescaledb')",
+	).Scan(&exists)
+	if err != nil {
+		log.Printf("schema init: cannot check TimescaleDB extension: %v", err)
+		return false
+	}
+	return exists
 }
 
 func (db *TimescaleDB) buildBarsTableSQL() string {
