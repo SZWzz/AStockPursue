@@ -101,10 +101,11 @@ func (h *WSHub) run() {
 			if subs, ok := h.channels[msg.Channel]; ok {
 				data, _ := json.Marshal(msg)
 				for client := range subs {
-					select {
-					case client.send <- data:
-					default:
-					}
+				select {
+				case client.send <- data:
+				default:
+					log.Printf("ws: broadcast channel full for %s, dropping message", msg.Channel)
+				}
 				}
 			}
 			h.mu.RUnlock()
