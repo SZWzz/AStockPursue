@@ -528,6 +528,8 @@
     "noBrokers": "No brokers configured",
     "telegram": "Telegram",
     "emailSection": "Email",
-    "webhook": "Webhook"
+    "webhook": "Webhook",
+    "general.restartGuide": "Restart Guide",
+    "general.restartGuideDesc": "Reset onboarding and show the welcome guide again on next visit."
   }
 }

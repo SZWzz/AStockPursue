@@ -528,6 +528,8 @@
     "noBrokers": "尚未配置经纪商",
     "telegram": "Telegram",
     "emailSection": "Email",
-    "webhook": "Webhook"
+    "webhook": "Webhook",
+    "general.restartGuide": "重新开始引导",
+    "general.restartGuideDesc": "重置引导状态，下次访问时将再次显示欢迎引导。"
   }
 }

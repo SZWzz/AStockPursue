@@ -2,6 +2,7 @@
 'use client'
 
 import { useTranslations } from 'next-intl'
+import Link from 'next/link'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { StatCallout } from '@/components/financial/StatCallout'
 import { KpiCard } from '@/components/financial/KpiCard'
@@ -13,6 +14,9 @@ import { usePositions, useSystemStatus } from '@/hooks'
 import { useWebSocket } from '@/hooks/useWebSocket'
 import { IndexTickerBar } from '@/components/dashboard/IndexTickerBar'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+import { OnboardingWizard } from '@/components/onboarding/OnboardingWizard'
+import { useUIStore } from '@/stores'
+import { Brain, Link as LinkIcon, ChartBar, ChevronRight } from 'lucide-react'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -28,14 +32,98 @@ export default function DashboardPage() {
   const { data: northbound } = useSWR('/api/research/northbound?symbol=SH000001')
   const { data: geopolitics } = useSWR('/api/research/geopolitics?symbol=SH000001')
   const { data: newsData } = useSWR('/api/research/news?symbol=600519')
+  const { onboardingCompleted, setOnboardingCompleted } = useUIStore()
 
+  // Show onboarding wizard if not completed
+  if (!onboardingCompleted) {
+    return (
+      <SidebarLayout>
+        <OnboardingWizard onComplete={() => setOnboardingCompleted()} />
+      </SidebarLayout>
+    )
+  }
+
+  // Show Quick Start cards when onboarding done but no data yet
   if (!portfolio && !posData) {
     return (
       <SidebarLayout>
-        <EmptyState
-          title={t('common.noData')}
-          description={t('dashboard.emptyHint')}
-        />
+        <div className="space-y-6">
+          <div>
+            <h1 className="text-[32px] font-[400] tracking-[-0.4px] text-[var(--foreground)]">
+              {t('nav.dashboard')}
+            </h1>
+            <p className="text-sm text-[var(--muted-foreground)] mt-2">
+              {t('dashboard.quickStart.title')}
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-[var(--grid-gap)]">
+            {/* Card 1: Create Strategy */}
+            <Link
+              href="/strategy-lab"
+              className="group"
+            >
+              <div className="h-full rounded-[6px] border border-[var(--border)] bg-[var(--card)] p-6 hover:border-[var(--primary)]/50 hover:shadow-sm transition-all cursor-pointer flex flex-col">
+                <div className="p-3 rounded-xl bg-[var(--primary)]/10 w-fit mb-4">
+                  <Brain className="w-6 h-6 text-[var(--primary)]" strokeWidth={1.5} />
+                </div>
+                <h3 className="text-base font-semibold text-[var(--foreground)] mb-2">
+                  {t('dashboard.quickStart.strategy.title')}
+                </h3>
+                <p className="text-sm text-[var(--muted-foreground)] flex-1 mb-4">
+                  {t('dashboard.quickStart.strategy.description')}
+                </p>
+                <div className="flex items-center gap-1 text-sm text-[var(--primary)]">
+                  <span>{t('common.create')}</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </div>
+            </Link>
+
+            {/* Card 2: Connect Broker */}
+            <Link
+              href="/broker"
+              className="group"
+            >
+              <div className="h-full rounded-[6px] border border-[var(--border)] bg-[var(--card)] p-6 hover:border-[var(--primary)]/50 hover:shadow-sm transition-all cursor-pointer flex flex-col">
+                <div className="p-3 rounded-xl bg-[var(--primary)]/10 w-fit mb-4">
+                  <LinkIcon className="w-6 h-6 text-[var(--primary)]" strokeWidth={1.5} />
+                </div>
+                <h3 className="text-base font-semibold text-[var(--foreground)] mb-2">
+                  {t('dashboard.quickStart.broker.title')}
+                </h3>
+                <p className="text-sm text-[var(--muted-foreground)] flex-1 mb-4">
+                  {t('dashboard.quickStart.broker.description')}
+                </p>
+                <div className="flex items-center gap-1 text-sm text-[var(--primary)]">
+                  <span>{t('common.create')}</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </div>
+            </Link>
+
+            {/* Card 3: Run Backtest */}
+            <Link
+              href="/backtest"
+              className="group"
+            >
+              <div className="h-full rounded-[6px] border border-[var(--border)] bg-[var(--card)] p-6 hover:border-[var(--primary)]/50 hover:shadow-sm transition-all cursor-pointer flex flex-col">
+                <div className="p-3 rounded-xl bg-[var(--primary)]/10 w-fit mb-4">
+                  <ChartBar className="w-6 h-6 text-[var(--primary)]" strokeWidth={1.5} />
+                </div>
+                <h3 className="text-base font-semibold text-[var(--foreground)] mb-2">
+                  {t('dashboard.quickStart.backtest.title')}
+                </h3>
+                <p className="text-sm text-[var(--muted-foreground)] flex-1 mb-4">
+                  {t('dashboard.quickStart.backtest.description')}
+                </p>
+                <div className="flex items-center gap-1 text-sm text-[var(--primary)]">
+                  <span>{t('common.create')}</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </div>
+            </Link>
+          </div>
+        </div>
       </SidebarLayout>
     )
   }
