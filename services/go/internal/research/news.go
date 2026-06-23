@@ -22,13 +22,13 @@ type NewsArticle struct {
 // pattern as FinancialsService and NorthboundService.
 type NewsService struct {
 	name    string
-	adapter interface{} // *NewsAdapter or nil (future real API)
+	adapter any // *NewsAdapter or nil (future real API)
 	repo    *Repo
 }
 
 // NewNewsService creates a new NewsService. The adapter parameter is reserved
 // for future real news API integration and may be nil.
-func NewNewsService(repo *Repo, adapter interface{}) *NewsService {
+func NewNewsService(repo *Repo, adapter any) *NewsService {
 	return &NewsService{
 		name:    "news",
 		repo:    repo,
@@ -54,7 +54,10 @@ func (s *NewsService) Name() string { return s.name }
 func (s *NewsService) Analyze(ctx context.Context, symbol string, params ResearchParams) (ResearchResult, error) {
 	// 1. Cache-first
 	if s.repo != nil {
-		cached, _ := s.repo.GetCategory(symbol, "news")
+		cached, err := s.repo.GetCategory(symbol, "news")
+		if err != nil {
+			log.Printf("research/news: cache read error for %s: %v", symbol, err)
+		}
 		if len(cached) > 0 {
 			return s.cachedResult(cached), nil
 		}

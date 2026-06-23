@@ -7,6 +7,7 @@ import { usePositions } from '@/hooks/usePositions'
 import { useOrders } from '@/hooks/useOrders'
 import { useMarketData } from '@/hooks/useMarketData'
 import { useKlines } from '@/hooks/useKlines'
+import { useBacktest } from '@/hooks/useBacktest'
 import type { Portfolio, Order } from '@/types'
 
 // ── MSW server ────────────────────────────────────────────────
@@ -140,6 +141,18 @@ const mockBars = [
 ]
 
 const emptyBars: typeof mockBars = []
+
+const mockBacktestResult = {
+  id: 'bt-1',
+  symbol: 'AAPL',
+  strategy: 'momentum',
+  start_date: '2024-01-01',
+  end_date: '2024-06-01',
+  total_return: 0.25,
+  max_drawdown: -0.08,
+  sharpe_ratio: 1.5,
+  trades: 42,
+}
 
 // ====================================================================
 // usePositions
@@ -459,5 +472,50 @@ describe('useKlines', () => {
     await waitFor(() => expect(result.current.data).toBeDefined())
     const data = result.current.data as typeof mockBars
     expect(data[0].symbol).toBe('AAPL')
+  })
+})
+
+// ====================================================================
+// useBacktest
+// ====================================================================
+describe('useBacktest', () => {
+  it('does not fetch when id is null', () => {
+    server.use(
+      http.get('/api/backtest/bt-1', () => HttpResponse.json(mockBacktestResult)),
+    )
+    const { result } = renderHook(() => useBacktest(null), { wrapper })
+    expect(result.current.isLoading).toBe(false)
+    expect(result.current.data).toBeUndefined()
+  })
+
+  it('returns loading state initially with valid id', async () => {
+    server.use(
+      http.get('/api/backtest/bt-1', () => HttpResponse.json(mockBacktestResult)),
+    )
+    const { result } = renderHook(() => useBacktest('bt-1'), { wrapper })
+    expect(result.current.isLoading).toBe(true)
+    await waitFor(() => expect(result.current.isLoading).toBe(false))
+  })
+
+  it('returns backtest data on success', async () => {
+    server.use(
+      http.get('/api/backtest/bt-1', () => HttpResponse.json(mockBacktestResult)),
+    )
+    const { result } = renderHook(() => useBacktest('bt-1'), { wrapper })
+    await waitFor(() => expect(result.current.data).toBeDefined())
+    expect(result.current.data?.id).toBe('bt-1')
+    expect(result.current.data?.total_return).toBe(0.25)
+    expect(result.current.data?.sharpe_ratio).toBe(1.5)
+  })
+
+  it('returns error on server failure', async () => {
+    server.use(
+      http.get('/api/backtest/bt-1', () =>
+        HttpResponse.json({ error: 'Not Found' }, { status: 404 }),
+      ),
+    )
+    const { result } = renderHook(() => useBacktest('bt-1'), { wrapper })
+    await waitFor(() => expect(result.current.error).toBeDefined())
+    expect(result.current.data).toBeUndefined()
   })
 })

@@ -69,7 +69,9 @@ func (f *BinanceFeed) Connect() error {
 	if err != nil {
 		return fmt.Errorf("binance feed connect: %w", err)
 	}
+	f.mu.Lock()
 	f.conn = conn
+	f.mu.Unlock()
 
 	if len(f.subs) > 0 {
 		symbols := make([]string, 0, len(f.subs))
@@ -122,7 +124,7 @@ func (f *BinanceFeed) subscribe(symbols []string) error {
 		params[i] = binanceStreamName(s, f.interval)
 	}
 	f.reqID++
-	return f.conn.WriteJSON(map[string]interface{}{
+	return f.conn.WriteJSON(map[string]any{
 		"method": "SUBSCRIBE",
 		"params": params,
 		"id":     f.reqID,
@@ -135,7 +137,7 @@ func (f *BinanceFeed) unsubscribe(symbols []string) error {
 		params[i] = binanceStreamName(s, f.interval)
 	}
 	f.reqID++
-	return f.conn.WriteJSON(map[string]interface{}{
+	return f.conn.WriteJSON(map[string]any{
 		"method": "UNSUBSCRIBE",
 		"params": params,
 		"id":     f.reqID,

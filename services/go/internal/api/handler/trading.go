@@ -20,7 +20,7 @@ type TradingHandler struct {
 }
 
 func NewTradingHandler(runner *engine.LiveTradingRunner) *TradingHandler {
-	return &TradingHandler{runner: runner, logger: log.New()}
+	return &TradingHandler{runner: runner, logger: log.NewDefault()}
 }
 
 // SetPromotionContext provides the context for paper→live promotion.

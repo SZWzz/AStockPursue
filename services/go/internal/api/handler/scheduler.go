@@ -59,7 +59,7 @@ func NewSchedulerHandler(ds *market.DataStore, factory *engine.EngineFactory, re
 		ds:      ds,
 		factory: factory,
 		repo:    repo,
-		logger:  log.New(),
+		logger:  log.NewDefault(),
 	}
 }
 

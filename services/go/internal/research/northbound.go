@@ -12,13 +12,13 @@ import (
 // cache-first -> mock fallback pattern as FinancialsService.
 type NorthboundService struct {
 	name    string
-	adapter interface{} // *NorthboundAdapter or nil (future real API)
+	adapter any // *NorthboundAdapter or nil (future real API)
 	repo    *Repo
 }
 
 // NewNorthboundService creates a new NorthboundService. The adapter parameter
 // is reserved for future real API integration and may be nil.
-func NewNorthboundService(repo *Repo, adapter interface{}) *NorthboundService {
+func NewNorthboundService(repo *Repo, adapter any) *NorthboundService {
 	return &NorthboundService{
 		name:    "northbound",
 		repo:    repo,
@@ -44,7 +44,10 @@ func (s *NorthboundService) Name() string { return s.name }
 func (s *NorthboundService) Analyze(ctx context.Context, symbol string, params ResearchParams) (ResearchResult, error) {
 	// 1. Cache-first
 	if s.repo != nil {
-		cached, _ := s.repo.GetCategory(symbol, "northbound")
+		cached, err := s.repo.GetCategory(symbol, "northbound")
+		if err != nil {
+			log.Printf("research/northbound: cache read error for %s: %v", symbol, err)
+		}
 		if len(cached) > 0 {
 			return s.cachedResult(cached), nil
 		}

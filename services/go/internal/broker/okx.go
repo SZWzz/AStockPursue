@@ -91,6 +91,8 @@ type okxCancelOrderReq struct {
 }
 
 // NewOKXBroker creates a new OKX broker.
+// The base URL defaults to "https://www.okx.com".
+// Set OKX_API_URL env var to override the URL via config.Load().
 func NewOKXBroker(cfg BrokerConfig) (Broker, error) {
 	baseURL := "https://www.okx.com"
 	if cfg.Testnet {

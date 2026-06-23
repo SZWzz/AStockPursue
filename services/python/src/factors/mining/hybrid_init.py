@@ -326,7 +326,8 @@ def extract_skeletons_from_zoo(
                     tree = ExpressionTree.from_dict(tree_dict)
                     if tree.complexity() <= MAX_COMPLEXITY:
                         skeletons.append(tree)
-            except Exception:
+            except Exception as e:
+                logger.warning("Hybrid init iteration failed: %s", e)
                 continue
             if len(skeletons) >= top_n:
                 break

@@ -27,6 +27,11 @@ func NewRouter(
 	mlH *handler.MLHandler,
 	notifH *handler.NotificationHandler,
 	strategyH *handler.StrategyHandler,
+	marketplaceH *handler.MarketplaceHandler,
+	signalPushH *handler.SignalPushHandler,
+	arenaH *handler.ArenaHandler,
+	agentH *handler.AgentHandler,
+	monitorH *handler.MonitorHandler,
 	wsHub *WSHub,
 ) *gin.Engine {
 	r := gin.Default()
@@ -137,6 +142,11 @@ func NewRouter(
 		sg.PUT("/:id/ack", signalH.AcknowledgeSignal)
 		sg.PUT("/:id/dismiss", signalH.DismissSignal)
 
+		// Signal push subscription routes
+		sg.GET("/subscription/status", signalPushH.GetSubscriptionStatus)
+		sg.PUT("/subscription", signalPushH.UpdateSubscription)
+		sg.POST("/subscription/test", signalPushH.TestPush)
+
 		// Research routes
 		rsch := v1.Group("/research")
 		rsch.GET("/:type", researchH.Analyze)
@@ -165,6 +175,41 @@ func NewRouter(
 		stg.GET("/:id", strategyH.Get)
 		stg.PUT("/:id", strategyH.Update)
 		stg.DELETE("/:id", strategyH.Delete)
+
+		// Marketplace routes
+		mp := v1.Group("/marketplace")
+		mp.GET("/templates", marketplaceH.ListTemplates)
+		mp.GET("/strategies", marketplaceH.ListStrategies)
+		mp.GET("/strategies/:id", marketplaceH.GetStrategy)
+		mp.POST("/strategies", marketplaceH.CreateStrategy)
+		mp.POST("/strategies/:id/rate", marketplaceH.RateStrategy)
+		mp.POST("/strategies/:id/install", marketplaceH.InstallStrategy)
+
+		// Arena routes
+		arena := v1.Group("/arena")
+		{
+			arena.POST("/submit", arenaH.Submit)
+			arena.GET("/submissions", arenaH.ListSubmissions)
+			arena.GET("/rankings", arenaH.Rankings)
+		}
+
+		// Agent chat routes
+		agent := v1.Group("/agent")
+		{
+			agent.POST("/chat", agentH.Chat)
+			agent.GET("/sessions", agentH.ListSessions)
+			agent.GET("/sessions/:id", agentH.GetSession)
+			agent.DELETE("/sessions/:id", agentH.DeleteSession)
+		}
+
+		// Monitor routes
+		monitor := v1.Group("/monitor")
+		{
+			monitor.GET("/health", monitorH.Health)
+			monitor.GET("/alerts", monitorH.AllAlerts)
+			monitor.GET("/strategies/:id/dashboard", monitorH.Dashboard)
+			monitor.GET("/strategies/:id/alerts", monitorH.Alerts)
+		}
 	}
 
 	return r

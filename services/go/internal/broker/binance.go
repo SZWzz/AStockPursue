@@ -57,6 +57,8 @@ type binancePositionResp struct {
 }
 
 // NewBinanceBroker creates a new Binance Futures broker.
+// The base URL defaults to "https://fapi.binance.com" (or testnet if cfg.Testnet).
+// Set BINANCE_API_URL env var to override the production URL via config.Load().
 func NewBinanceBroker(cfg BrokerConfig) (Broker, error) {
 	baseURL := "https://fapi.binance.com"
 	if cfg.Testnet {

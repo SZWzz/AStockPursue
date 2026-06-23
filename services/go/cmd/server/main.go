@@ -187,6 +187,17 @@ func NewServer(cfg *config.Config) (*Server, error) {
 	notifH := handler.NewNotificationHandler(notifManager)
 
 	strategyH := handler.NewStrategyHandler(dbPool)
+	marketplaceH := handler.NewMarketplaceHandler(dbPool)
+
+	arenaEngine := engine.NewArenaEngine(nil, engine.DefaultArenaConfig())
+	arenaH := handler.NewArenaHandler(dbPool, arenaEngine)
+
+	monitorEng := engine.NewMonitorEngine()
+	monitorH := handler.NewMonitorHandler(dbPool, monitorEng)
+
+	agentH := handler.NewAgentHandler()
+
+	signalPushH := handler.NewSignalPushHandler(dbPool, notifManager)
 
 	s.db = dbPool
 
@@ -195,7 +206,7 @@ func NewServer(cfg *config.Config) (*Server, error) {
 
 	healthH := handler.NewHealthHandler(dbPool, s.grpcConn, nil)
 	s.wsHub = api.NewWSHub()
-	s.router = api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH, factorH, workflowH, signalH, researchH, mlH, notifH, strategyH, s.wsHub)
+	s.router = api.NewRouter(healthH, btHandler, trHandler, marketH, brokerH, portfolioH, authH, paperTradeH, settingsH, systemH, analysisH, schedulerH, screenerH, factorH, workflowH, signalH, researchH, mlH, notifH, strategyH, marketplaceH, signalPushH, arenaH, agentH, monitorH, s.wsHub)
 
 	// Preload seed data in background
 	go func() {

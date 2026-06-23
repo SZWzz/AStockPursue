@@ -287,7 +287,8 @@ def _load_metrics(artifacts: dict[str, str], run_dir: Path) -> dict[str, float]:
                 df = pd.read_csv(path)
                 if not df.empty:
                     return _coerce_numeric(df.iloc[-1].to_dict())
-        except Exception:
+        except Exception as e:
+            logger.warning("Backtest item failed: %s", e)
             continue
     return {}
 

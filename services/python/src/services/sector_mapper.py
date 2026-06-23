@@ -422,8 +422,8 @@ def _get_tushare_token() -> str | None:
                     val = str(row[0]).strip()
                     if val and val not in ("your-tushare-token", ""):
                         return val
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Sector mapping failed: %s", e)
 
     return None
 

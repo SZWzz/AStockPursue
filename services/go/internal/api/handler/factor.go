@@ -55,11 +55,11 @@ func (h *FactorHandler) ListFactors(c *gin.Context) {
 			`SELECT DISTINCT factor_name FROM factor_results ORDER BY factor_name`)
 		if err == nil {
 			defer rows.Close()
-			factors := make([]map[string]interface{}, 0)
+			factors := make([]map[string]any, 0)
 			for rows.Next() {
 				var name string
 				if err := rows.Scan(&name); err == nil {
-					factors = append(factors, map[string]interface{}{
+					factors = append(factors, map[string]any{
 						"name": name, "status": "production",
 					})
 				}
@@ -72,7 +72,7 @@ func (h *FactorHandler) ListFactors(c *gin.Context) {
 	}
 
 	// Fallback to hardcoded list
-	factors := []map[string]interface{}{
+	factors := []map[string]any{
 		{"name": "momentum_20", "formula": "close / close_20 - 1", "ic": 0.035, "sharpe": 1.2, "status": "production"},
 		{"name": "volatility_20", "formula": "std(returns, 20)", "ic": 0.028, "sharpe": 0.9, "status": "production"},
 	}

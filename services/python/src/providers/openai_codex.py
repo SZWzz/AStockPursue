@@ -11,8 +11,11 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import logging
 import os
 from dataclasses import dataclass, field
+
+logger = logging.getLogger(__name__)
 from typing import Any, Callable, Iterable, Optional
 from urllib.parse import urlparse
 
@@ -76,8 +79,8 @@ def login_openai_codex(
     token = None
     try:
         token = get_token()
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Codex token fetch failed: %s", e)
     if token and getattr(token, "access", None):
         return token
     return login_oauth_interactive(print_fn=print_fn or print, prompt_fn=prompt_fn or input)

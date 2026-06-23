@@ -24,7 +24,7 @@ import (
 // JWT secret key — reads from JWT_SECRET env, with dev fallback.
 // If unset and not in dev mode, the first handler call will fatal.
 var jwtSecret []byte
-var pkgLogger = log.New()
+var pkgLogger = log.NewDefault()
 
 func init() {
 	if s := os.Getenv("JWT_SECRET"); s != "" {
@@ -143,7 +143,7 @@ func NewAuthHandler(userRepo UserRepository) *AuthHandler {
 	h := &AuthHandler{
 		users:        make(map[string]*userRecord),
 		userRepo:     userRepo,
-		logger:       log.New(),
+		logger:       log.NewDefault(),
 		regLimiter:   NewRateLimiter(time.Minute, 5),
 		loginLimiter: NewRateLimiter(time.Minute, 5),
 	}

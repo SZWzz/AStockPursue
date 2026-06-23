@@ -9,9 +9,12 @@ Excel (.xlsx/.xls) always opens as utf-8 internally via openpyxl/xlrd.
 
 from __future__ import annotations
 
+import logging
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 import pandas as pd
 
@@ -351,8 +354,8 @@ def parse_file(path: str | Path) -> tuple[FormatName, list[TradeRecord]]:
             records = parse_generic(df)
             if records and records[0].symbol:
                 return "generic", records
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Trade journal parse failed: %s", e)
         raise ValueError(f"Unrecognized trade journal format. Columns: {list(df.columns)}")
     return fmt, _PARSERS[fmt](df)
 

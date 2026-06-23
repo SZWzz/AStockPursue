@@ -60,7 +60,10 @@ func (s *NewsRealService) IsAvailable() bool {
 func (s *NewsRealService) Analyze(ctx context.Context, symbol string, params ResearchParams) (ResearchResult, error) {
 	// 1. Check cache
 	if s.repo != nil {
-		cached, _ := s.repo.GetCategory(symbol, "news")
+		cached, err := s.repo.GetCategory(symbol, "news")
+		if err != nil {
+			log.Printf("research: cache read error for %s/news: %v", symbol, err)
+		}
 		if len(cached) > 0 {
 			return cachedNewsResult(cached), nil
 		}

@@ -6,8 +6,11 @@ import { useTranslations } from 'next-intl'
 import useSWR from 'swr'
 import { SidebarLayout } from '@/components/layout/SidebarLayout'
 import { CodeMirror } from '@/components/financial/CodeMirror'
-import { Card } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import { Plus, MessageSquare, Trash2 } from 'lucide-react'
 
 interface Message {
   id: string
@@ -22,7 +25,6 @@ interface Thread {
   updated_at?: string
 }
 
-
 const AVAILABLE_SKILLS = [
   'factor_analysis',
   'strategy_backtest',
@@ -31,8 +33,108 @@ const AVAILABLE_SKILLS = [
   'portfolio_optimization',
 ]
 
+// ——— Message content renderer ———
+
+function hasQuestion(content: string): boolean {
+  return content.includes('?') || content.includes('？')
+}
+
+function hasBulletPoints(content: string): boolean {
+  return content.includes('•') || content.includes('※') || /^[ \t]*[-*]\s/m.test(content)
+}
+
+function hasBacktestResults(content: string): boolean {
+  return content.includes('夏普') || content.includes('回测')
+}
+
+function extractBacktestMetrics(content: string) {
+  const metrics: Record<string, string> = {}
+  const patterns: Record<string, RegExp> = {
+    '夏普比率': /夏普[比率]*[：:]\s*([\d.]+)/,
+    '年化收益': /年化[收益]*[率]*[：:]\s*([\d.]+%?)/,
+    '最大回撤': /(最大)?回撤[：:]\s*([\d.]+%?)/,
+    '胜率': /胜率[：:]\s*([\d.]+%?)/,
+    '总交易': /(总)?交易[次数]*[：:]\s*(\d+)/,
+  }
+  for (const [key, re] of Object.entries(patterns)) {
+    const m = content.match(re)
+    if (m) {
+      metrics[key] = m[1] || m[2]
+    }
+  }
+  return Object.keys(metrics).length > 0 ? metrics : null
+}
+
+function extractBulletItems(content: string): string[] {
+  const items: string[] = []
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim()
+    if (trimmed.startsWith('•') || trimmed.startsWith('※') || (/^[-*]\s/.test(trimmed) && trimmed.length > 2)) {
+      items.push(trimmed.replace(/^[•※\-\*]\s*/, ''))
+    }
+  }
+  return items
+}
+
+function MessageContent({ msg }: { msg: Message }) {
+  const content = msg.content
+
+  // Question highlight — add colored left border
+  const showQuestionBorder = msg.role === 'assistant' && hasQuestion(content)
+
+  // Strategy params card
+  const bulletItems = msg.role === 'assistant' && hasBulletPoints(content) ? extractBulletItems(content) : []
+
+  // Backtest mini card
+  const backtestMetrics = msg.role === 'assistant' && hasBacktestResults(content) ? extractBacktestMetrics(content) : null
+
+  return (
+    <div
+      className={cn(
+        showQuestionBorder && 'border-l-2 border-[var(--primary)] pl-3'
+      )}
+    >
+      {/* Main text content */}
+      <div className="whitespace-pre-wrap break-words">{content}</div>
+
+      {/* Bullet points info card */}
+      {bulletItems.length > 0 && (
+        <div className="mt-2 bg-[var(--primary)]/5 border border-[var(--primary)]/15 rounded-[var(--radius-sm)] p-3">
+          <div className="text-[11px] font-semibold text-[var(--primary)] mb-1.5">策略参数</div>
+          <ul className="space-y-1">
+            {bulletItems.map((item, i) => (
+              <li key={i} className="text-[12px] text-[var(--foreground-secondary)] flex gap-1.5">
+                <span className="text-[var(--primary)] shrink-0 mt-0.5">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Backtest results mini card */}
+      {backtestMetrics && (
+        <div className="mt-2 bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--radius-sm)] p-3">
+          <div className="text-[11px] font-semibold text-[var(--foreground)] mb-2">回测结果摘要</div>
+          <div className="grid grid-cols-3 gap-2">
+            {Object.entries(backtestMetrics).map(([label, value]) => (
+              <div key={label} className="text-center bg-[var(--surface-1)] rounded-[4px] py-1.5 px-2">
+                <div className="text-[10px] text-[var(--foreground-muted)]">{label}</div>
+                <div className="text-[13px] font-mono font-semibold text-[var(--foreground)]">{value}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ——— Main Agent page ———
+
 export default function AgentPage() {
   const t = useTranslations()
+  const [sessionId, setSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome',
@@ -46,13 +148,26 @@ export default function AgentPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // AC2: Fetch conversation threads
+  // AC2: Fetch conversation threads / sessions
   const {
     data: threadsData,
     isLoading: threadsLoading,
+    mutate: mutateThreads,
   } = useSWR('/api/agent/threads')
 
+  // Fetch sessions from /api/v1/agent/sessions
+  const { data: sessionsData } = useSWR('/api/v1/agent/sessions')
+
   const threads: Thread[] = threadsData?.threads || threadsData?.data || threadsData || []
+  const sessions: Thread[] = sessionsData?.sessions || sessionsData?.data || sessionsData || []
+
+  // Merge threads and sessions
+  const allSessions = [
+    ...(Array.isArray(threads) ? threads : []),
+    ...(Array.isArray(sessions)
+      ? sessions.filter((s: Thread) => !(Array.isArray(threads) && threads.some((t: Thread) => t.id === s.id)))
+      : []),
+  ]
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -64,6 +179,39 @@ export default function AgentPage() {
     setActiveSkills((prev) =>
       prev.includes(skill) ? prev.filter((s) => s !== skill) : [...prev, skill]
     )
+  }
+
+  // Start new chat
+  const handleNewChat = () => {
+    setSessionId(null)
+    setMessages([
+      {
+        id: 'welcome',
+        role: 'assistant',
+        content: t('agent.welcome'),
+      },
+    ])
+    setInput('')
+  }
+
+  // Load session messages
+  const handleSelectThread = async (threadId: string) => {
+    try {
+      const res = await fetch(`/api/v1/agent/sessions/${threadId}`)
+      const data = await res.json()
+      const sessionMessages = data?.messages || data?.data?.messages || []
+      if (sessionMessages.length > 0) {
+        setSessionId(threadId)
+        setMessages(sessionMessages.map((m: { role: string; content: string }, i: number) => ({
+          id: `session-${threadId}-${i}`,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        })))
+        setSidebarOpen(false)
+      }
+    } catch {
+      toast.error('加载会话失败')
+    }
   }
 
   const handleSend = async () => {
@@ -81,10 +229,12 @@ export default function AgentPage() {
     setIsSending(true)
 
     try {
-      const res = await fetch('/api/agent/chat', {
+      const res = await fetch('/api/v1/agent/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          message: content,
+          session_id: sessionId,
           messages: [
             ...messages.map((m) => ({ role: m.role, content: m.content })),
             { role: 'user', content },
@@ -94,6 +244,13 @@ export default function AgentPage() {
       })
 
       const data = await res.json()
+
+      // Save session ID from response
+      if (data.session_id && !sessionId) {
+        setSessionId(data.session_id)
+        mutateThreads()
+      }
+
       const reply = data?.data?.content || data?.reply || data?.content || 'No response received.'
 
       const assistantMsg: Message = {
@@ -122,36 +279,48 @@ export default function AgentPage() {
     }
   }
 
-  const handleSelectThread = (_threadId: string) => {
-    // Placeholder: in a full implementation, load thread messages
-    setSidebarOpen(false)
-  }
-
   return (
     <SidebarLayout>
       <div className="flex gap-3" style={{ height: 'calc(100vh - var(--header-height) - var(--page-padding) * 2)' }}>
         {/* AC2: Conversation threads sidebar */}
         <div
           className={cn(
-            'shrink-0 bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--radius-sm)] overflow-hidden transition-all',
+            'shrink-0 bg-[var(--surface-2)] border border-[var(--border-default)] rounded-[var(--radius-sm)] overflow-hidden transition-all flex flex-col',
             sidebarOpen ? 'w-[220px]' : 'w-0 border-0'
           )}
         >
-          <div className="p-3">
-            <h3 className="text-[12px] font-semibold text-[var(--foreground)] mb-2">
-              {t('agent.threads')}
-            </h3>
+          <div className="p-3 flex-1 overflow-y-auto">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-[12px] font-semibold text-[var(--foreground)]">
+                {t('agent.threads')}
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0"
+                onClick={handleNewChat}
+                title="新建对话"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </Button>
+            </div>
             {threadsLoading ? (
               <div className="text-[12px] text-[var(--foreground-muted)]">{t('common.loading')}</div>
-            ) : threads.length > 0 ? (
+            ) : allSessions.length > 0 ? (
               <div className="space-y-1">
-                {threads.map((thread) => (
+                {allSessions.map((session) => (
                   <button
-                    key={thread.id}
-                    onClick={() => handleSelectThread(thread.id)}
-                    className="w-full text-left text-[12px] text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--surface-3)] rounded-[4px] px-2 py-1 truncate transition-colors"
+                    key={session.id}
+                    onClick={() => handleSelectThread(session.id)}
+                    className={cn(
+                      'w-full text-left text-[12px] rounded-[4px] px-2 py-1.5 truncate transition-colors flex items-center gap-1.5',
+                      session.id === sessionId
+                        ? 'bg-[var(--primary)]/10 text-[var(--primary)]'
+                        : 'text-[var(--foreground-secondary)] hover:text-[var(--foreground)] hover:bg-[var(--surface-3)]'
+                    )}
                   >
-                    {thread.title || thread.id}
+                    <MessageSquare className="w-3 h-3 shrink-0 opacity-60" />
+                    {session.title || session.id}
                   </button>
                 ))}
               </div>
@@ -175,6 +344,22 @@ export default function AgentPage() {
               >
                 {sidebarOpen ? '✕' : t('agent.threads')}
               </button>
+            </div>
+            <div className="flex items-center gap-2">
+              {sessionId && (
+                <span className="text-[11px] text-[var(--foreground-muted)] truncate max-w-[200px]">
+                  #{sessionId}
+                </span>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-[11px] text-[var(--foreground-muted)] hover:text-[var(--foreground)]"
+                onClick={handleNewChat}
+              >
+                <Plus className="w-3.5 h-3.5 mr-1" />
+                新对话
+              </Button>
             </div>
           </div>
 
@@ -218,7 +403,7 @@ export default function AgentPage() {
                         : 'bg-[var(--surface-1)] text-[var(--foreground-secondary)] border border-[var(--border-subtle)]'
                     )}
                   >
-                    <div className="whitespace-pre-wrap break-words">{msg.content}</div>
+                    <MessageContent msg={msg} />
                   </div>
                 </div>
               ))}

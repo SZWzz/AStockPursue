@@ -176,8 +176,8 @@ class FactorValidator:
                     try:
                         result = registry.compute(aid, self._panel)
                         existing_factors[aid] = result
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.warning("Factor validation compute failed: %s", e, exc_info=True)
             except Exception:
                 existing_factors = {}
 
@@ -209,8 +209,8 @@ class FactorValidator:
                     if abs_corr > max_corr:
                         max_corr = abs_corr
                     details.append({"factor_id": aid, "correlation": round(corr, 4)})
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Factor correlation computation failed: %s", e, exc_info=True)
 
         details.sort(key=lambda x: abs(x["correlation"]), reverse=True)
         return {

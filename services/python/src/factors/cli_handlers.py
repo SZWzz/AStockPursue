@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import sys
 import time
 import traceback
@@ -24,6 +25,8 @@ import warnings
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+
+logger = logging.getLogger(__name__)
 
 # Silence the noisy ConstantInputWarning that scipy emits from spearmanr when
 # the IC slice has zero variance (very common in alpha bench loops).
@@ -38,8 +41,8 @@ except Exception:  # pragma: no cover — older scipy / unexpected layout
         )
 
         warnings.filterwarnings("ignore", category=ConstantInputWarning)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("CLI handler failed: %s", e)
 
 try:
     from rich.console import Console

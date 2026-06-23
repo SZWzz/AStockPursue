@@ -9,9 +9,12 @@ Note: OKX API base URL is hardcoded here for example self-containment.
       Production code should import from backend.src.skills._constants.OKX_API_BASE.
 """
 
+import logging
 from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -379,8 +382,8 @@ class SignalEngine:
                 return _detect_patterns_pyharmonics(
                     df, is_stock=self.is_stock
                 )
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Example signal failed: %s", e)
         return _detect_patterns_fallback(
             df, swing_window=self.swing_window, tol=self.tol
         )

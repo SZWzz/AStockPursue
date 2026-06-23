@@ -5,7 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
+	slog "github.com/astockpursue/go-core/internal/log"
 	"net"
 	"strconv"
 	"sync"
@@ -24,10 +24,13 @@ type FutuBroker struct {
 	mu             sync.Mutex
 	reader         *bufio.Reader
 	reconnAttempts int
+	reconnecting   bool
 }
 
 // NewFutuBroker creates a new Futu broker instance.
 // Connection is established lazily on first operation.
+// Host/port default to "localhost:11111"; set FUTU_HOST and FUTU_PORT env vars
+// via config.Load() to override.
 func NewFutuBroker(cfg BrokerConfig) (Broker, error) {
 	if cfg.Host == "" {
 		cfg.Host = "localhost"
@@ -55,7 +58,7 @@ func (b *FutuBroker) PlaceOrder(ctx context.Context, symbol string, side OrderSi
 	if err := b.ensureConnected(); err != nil {
 		return nil, err
 	}
-	req := map[string]interface{}{
+	req := map[string]any{
 		"cmd":      "place_order",
 		"symbol":   symbol,
 		"side":     string(side),
@@ -84,7 +87,7 @@ func (b *FutuBroker) CancelOrder(ctx context.Context, orderID, symbol string) er
 	if err := b.ensureConnected(); err != nil {
 		return err
 	}
-	_, err := b.send(map[string]interface{}{"cmd": "cancel_order", "order_id": orderID})
+	_, err := b.send(map[string]any{"cmd": "cancel_order", "order_id": orderID})
 	return err
 }
 
@@ -92,7 +95,7 @@ func (b *FutuBroker) GetOrder(ctx context.Context, orderID, symbol string) (*Ord
 	if err := b.ensureConnected(); err != nil {
 		return nil, err
 	}
-	resp, err := b.send(map[string]interface{}{"cmd": "get_order", "order_id": orderID})
+	resp, err := b.send(map[string]any{"cmd": "get_order", "order_id": orderID})
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +106,7 @@ func (b *FutuBroker) GetOpenOrders(ctx context.Context, symbol string) ([]*Order
 	if err := b.ensureConnected(); err != nil {
 		return nil, err
 	}
-	req := map[string]interface{}{"cmd": "get_open_orders"}
+	req := map[string]any{"cmd": "get_open_orders"}
 	if symbol != "" {
 		req["symbol"] = symbol
 	}
@@ -112,9 +115,9 @@ func (b *FutuBroker) GetOpenOrders(ctx context.Context, symbol string) ([]*Order
 		return nil, err
 	}
 	orders := make([]*Order, 0)
-	if list, ok := resp["orders"].([]interface{}); ok {
+	if list, ok := resp["orders"].([]any); ok {
 		for _, item := range list {
-			if m, ok := item.(map[string]interface{}); ok {
+			if m, ok := item.(map[string]any); ok {
 				orders = append(orders, parseOrder(m))
 			}
 		}
@@ -141,29 +144,29 @@ func (b *FutuBroker) GetPositions(ctx context.Context) ([]*Position, error) {
 	if err := b.ensureConnected(); err != nil {
 		return nil, err
 	}
-	resp, err := b.send(map[string]interface{}{"cmd": "get_positions"})
+	resp, err := b.send(map[string]any{"cmd": "get_positions"})
 	if err != nil {
 		return nil, err
 	}
 	positions := make([]*Position, 0)
-	if list, ok := resp["positions"].([]interface{}); ok {
+	if list, ok := resp["positions"].([]any); ok {
 		for _, item := range list {
-			if m, ok := item.(map[string]interface{}); ok {
+			if m, ok := item.(map[string]any); ok {
 				qty, err := getFloat(m, "quantity")
 				if err != nil {
-					log.Printf("futu: GetPositions quantity: %v", err)
+					slog.Errorf("futu: GetPositions quantity: %v", err)
 				}
 				avgPx, err := getFloat(m, "avg_price")
 				if err != nil {
-					log.Printf("futu: GetPositions avg_price: %v", err)
+					slog.Errorf("futu: GetPositions avg_price: %v", err)
 				}
 				curPx, err := getFloat(m, "current_price")
 				if err != nil {
-					log.Printf("futu: GetPositions current_price: %v", err)
+					slog.Errorf("futu: GetPositions current_price: %v", err)
 				}
 				upnl, err := getFloat(m, "unrealized_pnl")
 				if err != nil {
-					log.Printf("futu: GetPositions unrealized_pnl: %v", err)
+					slog.Errorf("futu: GetPositions unrealized_pnl: %v", err)
 				}
 				sym, _ := m["symbol"].(string)
 				positions = append(positions, &Position{
@@ -183,21 +186,21 @@ func (b *FutuBroker) GetBalance(ctx context.Context) (*Balance, error) {
 	if err := b.ensureConnected(); err != nil {
 		return nil, err
 	}
-	resp, err := b.send(map[string]interface{}{"cmd": "get_balance"})
+	resp, err := b.send(map[string]any{"cmd": "get_balance"})
 	if err != nil {
 		return nil, err
 	}
 	total, err := getFloat(resp, "total")
 	if err != nil {
-		log.Printf("futu: GetBalance total: %v", err)
+		slog.Errorf("futu: GetBalance total: %v", err)
 	}
 	avail, err := getFloat(resp, "available")
 	if err != nil {
-		log.Printf("futu: GetBalance available: %v", err)
+		slog.Errorf("futu: GetBalance available: %v", err)
 	}
 	frozen, err := getFloat(resp, "frozen")
 	if err != nil {
-		log.Printf("futu: GetBalance frozen: %v", err)
+		slog.Errorf("futu: GetBalance frozen: %v", err)
 	}
 	ccy, _ := resp["currency"].(string)
 	return &Balance{
@@ -227,8 +230,14 @@ func (b *FutuBroker) ensureConnected() error {
 		b.mu.Unlock()
 		return nil
 	}
-	// conn is nil — hold lock through reconnection to prevent races
+	if b.reconnecting {
+		b.mu.Unlock()
+		time.Sleep(10 * time.Millisecond)
+		return b.ensureConnected()
+	}
+	b.reconnecting = true
 	err := b.reconnectLocked()
+	b.reconnecting = false
 	b.mu.Unlock()
 	return err
 }
@@ -247,7 +256,7 @@ func (b *FutuBroker) reconnectLocked() error {
 			b.reconnAttempts = 0
 			return nil
 		}
-		log.Printf("futu: reconnect attempt %d failed: %v", i+1, err)
+		slog.Errorf("futu: reconnect attempt %d failed: %v", i+1, err)
 		if i < len(delays)-1 {
 			b.mu.Unlock()
 			time.Sleep(d)
@@ -265,7 +274,7 @@ func (b *FutuBroker) reconnect() error {
 	return b.reconnectLocked()
 }
 
-func (b *FutuBroker) send(req map[string]interface{}) (map[string]interface{}, error) {
+func (b *FutuBroker) send(req map[string]any) (map[string]any, error) {
 	data, err := json.Marshal(req)
 	if err != nil {
 		return nil, err
@@ -287,7 +296,7 @@ func (b *FutuBroker) send(req map[string]interface{}) (map[string]interface{}, e
 		b.conn = nil
 		return nil, ErrNotConnected
 	}
-	var resp map[string]interface{}
+	var resp map[string]any
 	if err := json.Unmarshal([]byte(line), &resp); err != nil {
 		return nil, fmt.Errorf("futu: parse error: %w", err)
 	}
@@ -301,26 +310,26 @@ func (b *FutuBroker) send(req map[string]interface{}) (map[string]interface{}, e
 
 // ── Helpers ───────────────────────────────────────────────────────
 
-func parseOrder(m map[string]interface{}) *Order {
+func parseOrder(m map[string]any) *Order {
 	oid, _ := m["order_id"].(string)
 	sym, _ := m["symbol"].(string)
 	sd, _ := m["side"].(string)
 	ot, _ := m["type"].(string)
 	price, err := getFloat(m, "price")
 	if err != nil {
-		log.Printf("futu: parseOrder price: %v", err)
+		slog.Errorf("futu: parseOrder price: %v", err)
 	}
 	qty, err := getFloat(m, "quantity")
 	if err != nil {
-		log.Printf("futu: parseOrder quantity: %v", err)
+		slog.Errorf("futu: parseOrder quantity: %v", err)
 	}
 	filledQty, err := getFloat(m, "filled_qty")
 	if err != nil {
-		log.Printf("futu: parseOrder filled_qty: %v", err)
+		slog.Errorf("futu: parseOrder filled_qty: %v", err)
 	}
 	filledPrice, err := getFloat(m, "filled_price")
 	if err != nil {
-		log.Printf("futu: parseOrder filled_price: %v", err)
+		slog.Errorf("futu: parseOrder filled_price: %v", err)
 	}
 	status, _ := m["status"].(string)
 
@@ -339,7 +348,7 @@ func parseOrder(m map[string]interface{}) *Order {
 }
 
 // getFloat safely extracts a float64 value from a map.
-func getFloat(m map[string]interface{}, key string) (float64, error) {
+func getFloat(m map[string]any, key string) (float64, error) {
 	v, ok := m[key]
 	if !ok {
 		return 0, fmt.Errorf("futu: key %q not found in response", key)

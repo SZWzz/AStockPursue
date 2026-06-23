@@ -94,8 +94,8 @@ class RememberAnalysisTool(BaseTool):
                 df = store.get_ohlcv(symbol, today, today, interval="1D")
                 if df is not None and not df.empty:
                     price = float(df["close"].iloc[-1])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Remember analysis price fetch failed: %s", e, exc_info=True)
 
             import asyncio
             now_str = __import__("datetime").datetime.now().isoformat()

@@ -338,8 +338,8 @@ class LLMFactorMiner:
             if json_schema is not None:
                 try:
                     self._call_llm(prompt, system=system, json_schema=None)
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.warning("LLM mining fallback call failed: %s", e, exc_info=True)
             return ""
 
     def _parse_json_response(self, text: str) -> list[dict[str, Any]]:
@@ -395,8 +395,8 @@ class LLMFactorMiner:
                     f"volatility: {v_level} ({vol_20d:.1f}% daily). "
                     f"Prefer {'defensive/quality' if regime == 'bearish' else 'momentum/trend' if regime == 'bullish' else 'reversal/mean-reversion'} factors."
                 )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("LLM mining market context extraction failed: %s", e, exc_info=True)
         return "Market context unavailable — design factors suitable for general market conditions."
 
     # ── Sandbox pre-execution ───────────────────────────────────────

@@ -47,7 +47,7 @@ func NewEngine(ds *market.DataStore, factory *engine.EngineFactory, db *pgxpool.
 		factory: factory,
 		repo:    repo,
 		db:      db,
-		logger:  log.New(),
+		logger:  log.NewDefault(),
 	}
 }
 

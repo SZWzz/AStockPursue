@@ -96,12 +96,12 @@ var predefinedTopics = []GeopoliticsTopic{
 // real GDELT API integration is deferred to P6.
 type GeopoliticsService struct {
 	name    string
-	adapter interface{} // *GDELTAdapter or nil (P6)
+	adapter any // *GDELTAdapter or nil (P6)
 	repo    *Repo
 }
 // NewGeopoliticsService creates a new GeopoliticsService. The adapter parameter
 // is reserved for future GDELT API integration and may be nil.
-func NewGeopoliticsService(repo *Repo, adapter interface{}) *GeopoliticsService {
+func NewGeopoliticsService(repo *Repo, adapter any) *GeopoliticsService {
 	return &GeopoliticsService{
 		name:    "geopolitics",
 		repo:    repo,
@@ -124,7 +124,10 @@ func (s *GeopoliticsService) Name() string { return s.name }
 func (s *GeopoliticsService) Analyze(ctx context.Context, symbol string, params ResearchParams) (ResearchResult, error) {
 	// 1. Cache-first: try loading cached assessments
 	if s.repo != nil {
-		cached, _ := s.repo.GetCategory("", "geopolitics")
+		cached, err := s.repo.GetCategory("", "geopolitics")
+		if err != nil {
+			log.Printf("research/geopolitics: cache read error: %v", err)
+		}
 		if len(cached) > 0 {
 			return s.cachedResult(cached), nil
 		}

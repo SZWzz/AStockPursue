@@ -239,8 +239,8 @@ def _isolated_worker(code: str, input_data: dict[str, Any] | None, max_memory_mb
                 import resource
                 mem = max_memory_mb * 1024 * 1024
                 resource.setrlimit(resource.RLIMIT_AS, (mem, mem))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Sandbox resource limit failed: %s", e)
 
         import numpy as np
         import pandas as pd
@@ -264,8 +264,8 @@ def _isolated_worker(code: str, input_data: dict[str, Any] | None, max_memory_mb
             try:
                 _pickle.dumps(v)
                 output[k] = v
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Sandbox pickle serialization failed: %s", e)
 
         result_pipe.send({"success": True, "error": None, "result": output})
     except Exception as e:

@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"os"
 	"runtime"
@@ -10,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	slog "github.com/astockpursue/go-core/internal/log"
 	"github.com/gorilla/websocket"
 )
 
@@ -104,7 +104,7 @@ func (h *WSHub) run() {
 				select {
 				case client.send <- data:
 				default:
-					log.Printf("ws: broadcast channel full for %s, dropping message", msg.Channel)
+						slog.Warnf("ws: broadcast channel full for %s, dropping message", msg.Channel)
 				}
 				}
 			}
@@ -120,7 +120,7 @@ func (h *WSHub) heartbeat() {
 	for range ticker.C {
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m)
-		h.Broadcast("system", map[string]interface{}{
+		h.Broadcast("system", map[string]any{
 			"goroutines": runtime.NumGoroutine(),
 			"heap_mb":    m.HeapAlloc / 1024 / 1024,
 			"time":       time.Now().Unix(),
@@ -137,7 +137,7 @@ func (h *WSHub) Broadcast(channel string, data any) {
 func (h *WSHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("ws upgrade error: %v", err)
+		slog.Errorf("ws upgrade error: %v", err)
 		return
 	}
 
@@ -199,7 +199,7 @@ func (h *WSHub) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 // TickerFeed pushes simulated market data to the ticker channel.
 // Call this from outside to feed periodic price updates.
 func (h *WSHub) TickerFeed(symbol string, price float64, change float64) {
-	h.Broadcast("ticker", map[string]interface{}{
+	h.Broadcast("ticker", map[string]any{
 		"symbol": symbol,
 		"price":  price,
 		"change": change,

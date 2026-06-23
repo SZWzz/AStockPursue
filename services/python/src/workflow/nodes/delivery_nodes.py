@@ -267,8 +267,8 @@ class PDFReportNode(BaseNode):
         try:
             doc = WeasyHTML(string=html).render()
             page_count = len(doc.pages)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("PDF page count extraction failed: %s", e, exc_info=True)
 
         pdf_size = pdf_path.stat().st_size if pdf_path.exists() else 0
         pdf_url = f"/reports/{filename}"

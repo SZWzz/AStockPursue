@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
+	slog "github.com/astockpursue/go-core/internal/log"
 	"github.com/google/uuid"
 )
 
@@ -52,7 +52,7 @@ func (m *Manager) Send(msg *Message) {
 	select {
 	case m.eventCh <- msg:
 	default:
-		log.Printf("[notify] event channel full, dropping message: %s", msg.Title)
+		slog.Warnf("[notify] event channel full, dropping message: %s", msg.Title)
 	}
 }
 
@@ -84,7 +84,7 @@ func (m *Manager) dispatch(msg *Message) {
 			go func(nn Notifier) {
 				defer wg.Done()
 				if err := nn.Send(msg); err != nil {
-					log.Printf("[notify] %s send failed: %v", nn.Name(), err)
+					slog.Errorf("[notify] %s send failed: %v", nn.Name(), err)
 				}
 			}(n)
 		}
@@ -113,7 +113,7 @@ func (m *Manager) persist(msg *Message) {
 		id, string(msg.Level), msg.Title, msg.Body, metaJSON, false, now,
 	)
 	if err != nil {
-		log.Printf("[notify] persist failed: %v", err)
+		slog.Errorf("[notify] persist failed: %v", err)
 	}
 }
 
@@ -200,6 +200,6 @@ func (m *Manager) initDB() {
 		)
 	`)
 	if err != nil {
-		log.Printf("[notify] initDB failed: %v", err)
+		slog.Errorf("[notify] initDB failed: %v", err)
 	}
 }

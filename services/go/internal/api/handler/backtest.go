@@ -78,7 +78,7 @@ func NewBacktestHandler(repo BacktestRepository, loader engine.BarLoader, factor
 		loader:        loader,
 		factory:       factory,
 		signalAdapter: signalAdapter,
-		logger:        log.New(),
+		logger:        log.NewDefault(),
 	}
 }
 

@@ -115,9 +115,9 @@ def emit_progress(
             message=message,
         )
         emit(event)
-    except Exception:
+    except Exception as e:
         # Progress emission must never break a tool.
-        pass
+        logger.warning("Progress hook failed: %s", e, exc_info=True)
 
 
 class HeartbeatTimer:
@@ -179,6 +179,6 @@ class HeartbeatTimer:
             elapsed = time.perf_counter() - self._t0
             try:
                 self._emit({"tool": self._tool_name, "elapsed_s": round(elapsed, 2)})
-            except Exception:
+            except Exception as e:
                 # A failing callback must not crash the heartbeat thread.
-                pass
+                logger.warning("Heartbeat emission failed: %s", e, exc_info=True)

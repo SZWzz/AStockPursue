@@ -154,11 +154,11 @@ func (h *AnalysisHandler) Attribution(c *gin.Context) {
 		pf := h.tradingRunner.Portfolio()
 		totalPnL := pf.Equity - pf.InitialEquity
 		unrealizedPnL := 0.0
-		symbols := make([]map[string]interface{}, 0, len(pf.Positions))
+		symbols := make([]map[string]any, 0, len(pf.Positions))
 		for sym, pos := range pf.Positions {
 			pnl := pos.Size * (pos.CurrentPrice - pos.EntryPrice)
 			unrealizedPnL += pnl
-			symbols = append(symbols, map[string]interface{}{
+			symbols = append(symbols, map[string]any{
 				"symbol":        sym,
 				"size":          pos.Size,
 				"entry_price":   pos.EntryPrice,
@@ -237,13 +237,13 @@ func (h *AnalysisHandler) StressTest(c *gin.Context) {
 	// Use portfolio positions when available
 	if h.tradingRunner != nil {
 		pf := h.tradingRunner.Portfolio()
-		results := make([]map[string]interface{}, 0)
+		results := make([]map[string]any, 0)
 		for sym, pos := range pf.Positions {
 			if len(req.Symbols) > 0 && !containsStr(req.Symbols, sym) {
 				continue
 			}
 			impact := pos.Size * pos.CurrentPrice * req.Scenario / 100.0
-			results = append(results, map[string]interface{}{
+			results = append(results, map[string]any{
 				"symbol":         sym,
 				"position_size":  pos.Size,
 				"current_price":  pos.CurrentPrice,

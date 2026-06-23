@@ -60,7 +60,7 @@ func (h *BrokerHandler) SetPasswordVerifier(v func(userID int, password string) 
 // GetAccount returns combined account info from all connected brokers.
 // GET /api/v1/broker/account
 func (h *BrokerHandler) GetAccount(c *gin.Context) {
-	result := make(map[string]interface{})
+	result := make(map[string]any)
 
 	if h.binance != nil {
 		if bal, err := h.binance.GetBalance(c.Request.Context()); err == nil {
@@ -92,7 +92,7 @@ func (h *BrokerHandler) GetAccount(c *gin.Context) {
 // GetPositions returns open positions from all connected brokers.
 // GET /api/v1/broker/positions
 func (h *BrokerHandler) GetPositions(c *gin.Context) {
-	allPositions := make(map[string]interface{})
+	allPositions := make(map[string]any)
 
 	if h.binance != nil {
 		if pos, err := h.binance.GetPositions(c.Request.Context()); err == nil {

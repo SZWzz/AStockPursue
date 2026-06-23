@@ -15,14 +15,27 @@ type Config struct {
 	DevMode       bool
 	SeedSymbols   []string
 	EncryptionKey string
+	// WebSocket and API endpoint URLs for exchange connectivity.
+	BinanceWSURL  string
+	OKXWSURL      string
+	BinanceAPIURL string
+	OKXAPIURL     string
+	FutuHost      string
+	FutuPort      string
 }
 
 const (
-	defaultDB    = "postgres://postgres:postgres@localhost:5432/astockpursue?sslmode=disable"
-	defaultRedis = "redis://localhost:6379/0"
-	defaultPort  = "8899"
-	defaultGRPC  = "8901"
-	defaultDir   = "./data"
+	defaultDB          = "postgres://postgres:postgres@localhost:5432/astockpursue?sslmode=disable"
+	defaultRedis       = "redis://localhost:6379/0"
+	defaultPort        = "8899"
+	defaultGRPC        = "8901"
+	defaultDir         = "./data"
+	defaultBinanceWS   = "wss://fstream.binance.com/ws"
+	defaultOKXWS       = "wss://ws.okx.com:8443/ws/v5/public"
+	defaultBinanceAPI  = "https://fapi.binance.com"
+	defaultOKXAPI      = "https://www.okx.com"
+	defaultFutuHost    = "localhost"
+	defaultFutuPort    = "11111"
 )
 
 func Load() (*Config, error) {
@@ -63,7 +76,36 @@ func Load() (*Config, error) {
 		DevMode:       getEnv("GO_ENV", "") == "development",
 		SeedSymbols:   seedSymbols,
 		EncryptionKey: getEnv("ENCRYPTION_KEY", ""),
+		BinanceWSURL:  getEnv("BINANCE_WS_URL", defaultBinanceWS),
+		OKXWSURL:      getEnv("OKX_WS_URL", defaultOKXWS),
+		BinanceAPIURL: getEnv("BINANCE_API_URL", defaultBinanceAPI),
+		OKXAPIURL:     getEnv("OKX_API_URL", defaultOKXAPI),
+		FutuHost:      getEnv("FUTU_HOST", defaultFutuHost),
+		FutuPort:      getEnv("FUTU_PORT", defaultFutuPort),
 	}, nil
+}
+
+// Validate checks that required URL fields are non-empty.
+func (c *Config) Validate() error {
+	if c.BinanceWSURL == "" {
+		return errors.New("BINANCE_WS_URL must not be empty")
+	}
+	if c.OKXWSURL == "" {
+		return errors.New("OKX_WS_URL must not be empty")
+	}
+	if c.BinanceAPIURL == "" {
+		return errors.New("BINANCE_API_URL must not be empty")
+	}
+	if c.OKXAPIURL == "" {
+		return errors.New("OKX_API_URL must not be empty")
+	}
+	if c.FutuHost == "" {
+		return errors.New("FUTU_HOST must not be empty")
+	}
+	if c.FutuPort == "" {
+		return errors.New("FUTU_PORT must not be empty")
+	}
+	return nil
 }
 
 func getEnv(key, fallback string) string {

@@ -62,7 +62,7 @@ class AlphaZooNode(BaseNode):
                 fwd = price_panel.pct_change(1).shift(-1)
                 ic = compute_ic_series(factor_df, fwd)
                 ic_stats = {"IC_mean": round(float(ic.mean()), 4), "IC_std": round(float(ic.std()), 4), "IR": round(float(ic.mean() / (ic.std() + 1e-9)), 4)}
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Factor computation IC stats failed for %s: %s", alpha_id, e, exc_info=True)
 
         return {"factor": factor_df, "factor_result": {"alpha_id": alpha_id, "zoo": zoo, "shape": list(factor_df.shape), "ic_stats": ic_stats}}

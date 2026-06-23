@@ -23,6 +23,7 @@ TaskType = Literal[
     "signal_report",
     "factor_mining",
     "screener_run",
+    "signal_push",
 ]
 
 
@@ -138,9 +139,12 @@ class SchedulerEngine:
             execution.output_log = "Screener run completed"
         elif task.task_type == "signal_report":
             execution.output_log = "Signal report generated"
+        elif task.task_type == "signal_push":
+            self._execute_signal_push(task, execution)
         elif task.task_type == "workflow_run":
             self._execute_workflow(task, execution)
-        execution.result = {"status": "ok"}
+        if not execution.result:
+            execution.result = {"status": "ok"}
 
     def _execute_workflow(self, task: ScheduledTask, execution: TaskExecution) -> None:
         """Trigger a scheduled workflow run."""
@@ -174,6 +178,34 @@ class SchedulerEngine:
             except Exception:
                 logger.debug("Failed to unlock workflow %s during error cleanup", wf_id)
                 pass
+
+    def _execute_signal_push(self, task: ScheduledTask, execution: TaskExecution) -> None:
+        """Execute the daily signal push job."""
+        from src.services.signal_push_job import run_signal_push
+
+        target_date_str = task.config.get("target_date")
+        target_date = None
+        if target_date_str:
+            from datetime import date as _date
+            try:
+                target_date = _date.fromisoformat(target_date_str)
+            except ValueError:
+                pass
+
+        result = run_signal_push(target_date=target_date)
+        execution.result = result
+
+        if result.get("errors"):
+            execution.output_log = (
+                f"Signal push completed with {len(result['errors'])} errors: "
+                + "; ".join(result["errors"][:3])
+            )
+        else:
+            execution.output_log = (
+                f"Signal push completed: {result['users_notified']} users notified, "
+                f"{result['factors_count']} factors, "
+                f"channels: {', '.join(result['channels_used']) or 'none'}"
+            )
 
     # ---- Persistence ----
 

@@ -99,7 +99,9 @@ func (f *OKXFeed) Connect() error {
 	if err != nil {
 		return fmt.Errorf("okx feed connect: %w", err)
 	}
+	f.mu.Lock()
 	f.conn = conn
+	f.mu.Unlock()
 
 	// Subscribe to already-registered symbols
 	if len(f.subs) > 0 {

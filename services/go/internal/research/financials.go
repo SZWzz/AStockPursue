@@ -8,11 +8,11 @@ import (
 
 type FinancialsService struct {
 	name    string
-	adapter interface{} // FinancialsAdapter or nil
+	adapter any // FinancialsAdapter or nil
 	repo    *Repo
 }
 
-func NewFinancialsService(repo *Repo, adapter interface{}) *FinancialsService {
+func NewFinancialsService(repo *Repo, adapter any) *FinancialsService {
 	return &FinancialsService{name: "financials", repo: repo, adapter: adapter}
 }
 
@@ -21,7 +21,10 @@ func (s *FinancialsService) Name() string { return s.name }
 func (s *FinancialsService) Analyze(ctx context.Context, symbol string, params ResearchParams) (ResearchResult, error) {
 	// 1. Check cache
 	if s.repo != nil {
-		cached, _ := s.repo.GetCategory(symbol, "financials")
+		cached, err := s.repo.GetCategory(symbol, "financials")
+		if err != nil {
+			log.Printf("research/financials: cache read error for %s: %v", symbol, err)
+		}
 		if len(cached) > 0 {
 			result := make(ResearchResult)
 			for _, dp := range cached {
